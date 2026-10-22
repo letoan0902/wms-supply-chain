@@ -1,0 +1,21 @@
+/*
+ * Thứ tự layer: antd nằm giữa base (preflight của Tailwind) và components/utilities.
+ * Nhờ vậy Tailwind không ghi đè style của Ant Design, còn utility class vẫn ghi đè được antd.
+ * Cặp với <StyleProvider layer> trong src/app/App.tsx.
+ */
+@layer theme, base, antd, components, utilities;
+@import "tailwindcss";
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: #f5f7fa;
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans',
+    sans-serif;
+}

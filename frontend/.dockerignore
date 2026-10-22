@@ -1,0 +1,22 @@
+# Không đưa các file sau vào build context của Docker
+node_modules
+dist
+dist-ssr
+coverage
+
+.git
+.gitignore
+.vscode
+.idea
+
+.env
+.env.*
+!.env.example
+
+npm-debug.log*
+*.log
+*.local
+
+Dockerfile
+.dockerignore
+README.md

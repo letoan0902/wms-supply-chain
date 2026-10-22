@@ -1,0 +1,128 @@
+# CI cho WMS Supply Chain: build backend (Gradle), lint và build frontend (npm),
+# sau đó kiểm tra Dockerfile bằng cách build thử image (không push).
+name: CI
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+# Chỉ cấp quyền đọc mã nguồn cho GITHUB_TOKEN
+permissions:
+  contents: read
+
+# Khi có commit mới trên cùng nhánh/PR, hủy lần chạy cũ đang dở để tiết kiệm thời gian
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # --------------------------------------------------------------------------
+  # Backend: build toàn bộ multi-project Gradle và chạy unit test
+  # --------------------------------------------------------------------------
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - name: Lấy mã nguồn
+        uses: actions/checkout@v7
+
+      - name: Cài đặt JDK 17 (Temurin) và cache Gradle
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: gradle
+
+      # Git trên Windows không lưu quyền thực thi của gradlew nên phải cấp lại
+      - name: Cấp quyền thực thi cho gradlew
+        run: chmod +x gradlew
+
+      - name: Build và chạy test
+        run: ./gradlew build --no-daemon
+
+      # Luôn tải báo cáo test lên (kể cả khi build lỗi) để xem nguyên nhân; bỏ qua nếu không có file
+      - name: Tải báo cáo test lên
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: backend-test-reports
+          path: |
+            backend/**/build/reports/tests/
+            backend/**/build/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # --------------------------------------------------------------------------
+  # Frontend: cài dependency, kiểm tra ESLint và build production
+  # --------------------------------------------------------------------------
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Lấy mã nguồn
+        uses: actions/checkout@v7
+
+      - name: Cài đặt Node.js 20 và cache npm
+        uses: actions/setup-node@v7
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Cài dependency
+        run: npm ci
+
+      - name: Kiểm tra ESLint
+        run: npm run lint
+
+      - name: Build production
+        run: npm run build
+
+  # --------------------------------------------------------------------------
+  # Docker: build thử image để phát hiện sớm lỗi Dockerfile (không push lên registry).
+  # Chỉ chạy khi push, và chỉ sau khi backend và frontend đã xanh.
+  # --------------------------------------------------------------------------
+  docker:
+    name: Docker (${{ matrix.service }})
+    needs: [backend, frontend]
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: api-gateway
+            context: backend
+            dockerfile: backend/api-gateway/Dockerfile
+          - service: inventory-service
+            context: backend
+            dockerfile: backend/inventory-service/Dockerfile
+          - service: frontend
+            context: frontend
+            dockerfile: frontend/Dockerfile
+    steps:
+      - name: Lấy mã nguồn
+        uses: actions/checkout@v7
+
+      - name: Thiết lập Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build image ${{ matrix.service }} (không push)
+        uses: docker/build-push-action@v7
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: false
+          tags: wms/${{ matrix.service }}:ci
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}

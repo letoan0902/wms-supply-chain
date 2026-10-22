@@ -1,0 +1,24 @@
+# CODEOWNERS: chỉ định người review bắt buộc theo thư mục.
+# Cú pháp:  <đường dẫn>  <@tài-khoản-github>
+# Dòng đứng sau có độ ưu tiên cao hơn khi nhiều dòng cùng khớp.
+
+# Lê Phú Toàn (TechLead): Core Inventory và Warehouse
+backend/inventory-service/  @letoan0902
+
+# TODO: thay @github-username bằng tài khoản GitHub thật của từng thành viên rồi bỏ dấu # ở đầu dòng.
+#
+# Phạm Phương Anh (DevOps, nền tảng microservice, bảo mật):
+# backend/api-gateway/        @github-username
+# backend/config-server/      @github-username
+# backend/discovery-server/   @github-username
+# docker/                     @github-username
+# docker-compose.yml          @github-username
+# .github/                    @github-username
+#
+# Lê Phương Linh (Master Data, PO/GRN, SO/GDN, barcode):
+# backend/product-service/    @github-username
+# backend/order-service/      @github-username
+#
+# Trần Đăng Việt (Auth và RBAC, Báo cáo và Dashboard, Notification):
+# backend/auth-service/          @github-username
+# backend/notification-service/  @github-username

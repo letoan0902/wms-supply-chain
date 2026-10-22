@@ -1,0 +1,280 @@
+# ============================================================================
+# Docker Compose cho toàn bộ stack WMS Supply Chain.
+#
+# Chuẩn bị:   cp .env.example .env     (sau đó đổi mật khẩu và JWT_SECRET)
+# Chạy hết:   docker compose up -d --build
+# Chỉ hạ tầng (khi dev từng service trên máy):
+#             docker compose up -d mysql redis rabbitmq
+# Dừng:       docker compose down        (thêm -v để xóa cả dữ liệu)
+#
+# Cổng publish: hạ tầng (MySQL, Redis, RabbitMQ) và các service nội bộ chỉ mở trên 127.0.0.1 của máy host
+# để không lộ ra mạng LAN; chỉ frontend (80) và api-gateway (8080) mở ra bên ngoài.
+#
+# Thứ tự khởi động (depends_on kèm healthcheck):
+#   mysql / redis / rabbitmq -> config-server -> discovery-server
+#   -> auth / product / inventory / order / notification, api-gateway -> frontend
+# ============================================================================
+
+name: wms-supply-chain
+
+# --- Các khối cấu hình dùng chung (YAML anchor) ---------------------------
+
+x-common: &common
+  restart: unless-stopped
+  networks:
+    - wms-network
+
+# Biến môi trường chung của các service nghiệp vụ và api-gateway
+x-backend-env: &backend-env
+  TZ: Asia/Ho_Chi_Minh
+  CONFIG_SERVER_URL: http://config-server:8888
+  EUREKA_URL: http://discovery-server:8761/eureka
+  REDIS_HOST: redis
+  RABBITMQ_HOST: rabbitmq
+  JWT_SECRET: ${JWT_SECRET:?Thiếu JWT_SECRET trong file .env}
+
+# Thông tin kết nối CSDL (mỗi service chỉ dùng schema của riêng mình, xem DB_URL)
+x-db-credentials: &db-credentials
+  DB_USERNAME: ${DB_USERNAME:-wms}
+  DB_PASSWORD: ${DB_PASSWORD:?Thiếu DB_PASSWORD trong file .env}
+
+# Thời gian chờ cho healthcheck của các ứng dụng Spring Boot (khởi động khá lâu)
+x-spring-healthcheck: &spring-healthcheck
+  interval: 15s
+  timeout: 5s
+  retries: 10
+  start_period: 60s
+
+# Các service nghiệp vụ chỉ khởi động khi hạ tầng và cấu hình đã sẵn sàng
+x-depends-on-core: &depends-on-core
+  mysql:
+    condition: service_healthy
+  redis:
+    condition: service_healthy
+  rabbitmq:
+    condition: service_healthy
+  config-server:
+    condition: service_healthy
+  discovery-server:
+    condition: service_healthy
+
+services:
+  # ==========================================================================
+  # Hạ tầng
+  # ==========================================================================
+  mysql:
+    <<: *common
+    image: mysql:8.0
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    environment:
+      TZ: Asia/Ho_Chi_Minh
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Thiếu MYSQL_ROOT_PASSWORD trong file .env}
+      # Image tự tạo user này trước khi chạy init.sql; init.sql cấp quyền trên 5 schema
+      MYSQL_USER: ${DB_USERNAME:-wms}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?Thiếu DB_PASSWORD trong file .env}
+    ports:
+      - "127.0.0.1:${MYSQL_PORT:-3306}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./docker/mysql/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+
+  redis:
+    <<: *common
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # Tài khoản mặc định guest/guest (chỉ dùng cho môi trường dev)
+  rabbitmq:
+    <<: *common
+    image: rabbitmq:3-management-alpine
+    ports:
+      - "127.0.0.1:${RABBITMQ_PORT:-5672}:5672"
+      - "127.0.0.1:${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+
+  # ==========================================================================
+  # Nền tảng Spring Cloud
+  # ==========================================================================
+  config-server:
+    <<: *common
+    build:
+      context: ./backend
+      dockerfile: config-server/Dockerfile
+    environment:
+      TZ: Asia/Ho_Chi_Minh
+    ports:
+      - "127.0.0.1:8888:8888"
+    healthcheck:
+      <<: *spring-healthcheck
+      test: ["CMD-SHELL", "curl -fsS -o /dev/null http://127.0.0.1:8888/actuator/health || wget -q -O /dev/null http://127.0.0.1:8888/actuator/health || exit 1"]
+
+  discovery-server:
+    <<: *common
+    build:
+      context: ./backend
+      dockerfile: discovery-server/Dockerfile
+    environment:
+      TZ: Asia/Ho_Chi_Minh
+      CONFIG_SERVER_URL: http://config-server:8888
+    depends_on:
+      config-server:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8761:8761"
+    healthcheck:
+      <<: *spring-healthcheck
+      test: ["CMD-SHELL", "curl -fsS -o /dev/null http://127.0.0.1:8761/actuator/health || wget -q -O /dev/null http://127.0.0.1:8761/actuator/health || exit 1"]
+
+  api-gateway:
+    <<: *common
+    build:
+      context: ./backend
+      dockerfile: api-gateway/Dockerfile
+    environment:
+      <<: *backend-env
+    depends_on:
+      redis:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+      discovery-server:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    healthcheck:
+      <<: *spring-healthcheck
+      test: ["CMD-SHELL", "curl -fsS -o /dev/null http://127.0.0.1:8080/actuator/health || wget -q -O /dev/null http://127.0.0.1:8080/actuator/health || exit 1"]
+
+  # ==========================================================================
+  # Các service nghiệp vụ
+  # ==========================================================================
+  auth-service:
+    <<: *common
+    build:
+      context: ./backend
+      dockerfile: auth-service/Dockerfile
+    environment:
+      <<: [*backend-env, *db-credentials]
+      DB_URL: jdbc:mysql://mysql:3306/auth_db
+    depends_on: *depends-on-core
+    ports:
+      - "127.0.0.1:8081:8081"
+    healthcheck:
+      <<: *spring-healthcheck
+      test: ["CMD-SHELL", "curl -fsS -o /dev/null http://127.0.0.1:8081/actuator/health || wget -q -O /dev/null http://127.0.0.1:8081/actuator/health || exit 1"]
+
+  product-service:
+    <<: *common
+    build:
+      context: ./backend
+      dockerfile: product-service/Dockerfile
+    environment:
+      <<: [*backend-env, *db-credentials]
+      DB_URL: jdbc:mysql://mysql:3306/product_db
+    depends_on: *depends-on-core
+    ports:
+      - "127.0.0.1:8082:8082"
+    healthcheck:
+      <<: *spring-healthcheck
+      test: ["CMD-SHELL", "curl -fsS -o /dev/null http://127.0.0.1:8082/actuator/health || wget -q -O /dev/null http://127.0.0.1:8082/actuator/health || exit 1"]
+
+  inventory-service:
+    <<: *common
+    build:
+      context: ./backend
+      dockerfile: inventory-service/Dockerfile
+    environment:
+      <<: [*backend-env, *db-credentials]
+      DB_URL: jdbc:mysql://mysql:3306/inventory_db
+    depends_on: *depends-on-core
+    ports:
+      - "127.0.0.1:8083:8083"
+    healthcheck:
+      <<: *spring-healthcheck
+      test: ["CMD-SHELL", "curl -fsS -o /dev/null http://127.0.0.1:8083/actuator/health || wget -q -O /dev/null http://127.0.0.1:8083/actuator/health || exit 1"]
+
+  order-service:
+    <<: *common
+    build:
+      context: ./backend
+      dockerfile: order-service/Dockerfile
+    environment:
+      <<: [*backend-env, *db-credentials]
+      DB_URL: jdbc:mysql://mysql:3306/order_db
+    depends_on: *depends-on-core
+    ports:
+      - "127.0.0.1:8084:8084"
+    healthcheck:
+      <<: *spring-healthcheck
+      test: ["CMD-SHELL", "curl -fsS -o /dev/null http://127.0.0.1:8084/actuator/health || wget -q -O /dev/null http://127.0.0.1:8084/actuator/health || exit 1"]
+
+  notification-service:
+    <<: *common
+    build:
+      context: ./backend
+      dockerfile: notification-service/Dockerfile
+    environment:
+      <<: [*backend-env, *db-credentials]
+      DB_URL: jdbc:mysql://mysql:3306/notification_db
+      MAIL_HOST: ${MAIL_HOST:-smtp.gmail.com}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+    depends_on: *depends-on-core
+    ports:
+      - "127.0.0.1:8085:8085"
+    healthcheck:
+      <<: *spring-healthcheck
+      test: ["CMD-SHELL", "curl -fsS -o /dev/null http://127.0.0.1:8085/actuator/health || wget -q -O /dev/null http://127.0.0.1:8085/actuator/health || exit 1"]
+
+  # ==========================================================================
+  # Giao diện web (Nginx phục vụ SPA và proxy /api/ tới api-gateway)
+  # ==========================================================================
+  frontend:
+    <<: *common
+    build:
+      context: ./frontend
+    depends_on:
+      api-gateway:
+        condition: service_healthy
+    ports:
+      - "${FRONTEND_PORT:-80}:80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+networks:
+  wms-network:
+    driver: bridge
+
+volumes:
+  mysql_data:
+  redis_data:
+  rabbitmq_data:

@@ -1,0 +1,10 @@
+# Thống nhất xuống dòng LF để script và Dockerfile chạy được trên Linux (kể cả khi clone trên Windows).
+* text=auto eol=lf
+gradlew text eol=lf
+*.sh text eol=lf
+Dockerfile text eol=lf
+# Script batch của Windows cần CRLF
+*.bat text eol=crlf
+# File nhị phân
+*.jar binary
+*.png binary

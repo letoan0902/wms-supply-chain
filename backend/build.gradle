@@ -1,0 +1,79 @@
+// Cấu hình chung cho toàn bộ monorepo backend.
+//  - Khai báo phiên bản plugin Spring Boot và Dependency Management MỘT LẦN (apply false),
+//    các module con chỉ cần ghi `id 'org.springframework.boot'` không kèm phiên bản.
+//  - Import BOM Spring Boot + Spring Cloud cho mọi module => khai báo dependency không cần ghi phiên bản.
+//  - Java toolchain 17, mã hóa UTF-8, Lombok và JUnit Platform cho mọi module.
+
+plugins {
+    id 'org.springframework.boot' version '3.3.13' apply false
+    id 'io.spring.dependency-management' version '1.1.7' apply false
+}
+
+subprojects {
+    apply plugin: 'java'
+    apply plugin: 'io.spring.dependency-management'
+
+    group = rootProject.group
+    version = rootProject.version
+
+    repositories {
+        mavenCentral()
+    }
+
+    java {
+        toolchain {
+            languageVersion = JavaLanguageVersion.of(17)
+        }
+    }
+
+    // BOM quản lý phiên bản: Spring Boot (khớp với phiên bản plugin ở trên) và Spring Cloud.
+    dependencyManagement {
+        imports {
+            mavenBom org.springframework.boot.gradle.plugin.SpringBootPlugin.BOM_COORDINATES
+            mavenBom "org.springframework.cloud:spring-cloud-dependencies:${springCloudVersion}"
+        }
+    }
+
+    // Lombok (tùy chọn): phải khai báo cả compileOnly lẫn annotationProcessor, cho cả main và test.
+    dependencies {
+        compileOnly 'org.projectlombok:lombok'
+        annotationProcessor 'org.projectlombok:lombok'
+        testCompileOnly 'org.projectlombok:lombok'
+        testAnnotationProcessor 'org.projectlombok:lombok'
+
+        // Bộ chạy JUnit Platform khai báo tường minh (Gradle 9 sẽ không tự nạp nữa).
+        testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+    }
+
+    tasks.withType(JavaCompile).configureEach {
+        options.encoding = 'UTF-8'
+        // Giữ tên tham số để Spring MVC / Spring Data map @RequestParam, @PathVariable không cần ghi tên.
+        options.compilerArgs.add('-parameters')
+    }
+
+    tasks.withType(Test).configureEach {
+        useJUnitPlatform()
+        testLogging {
+            events 'passed', 'skipped', 'failed'
+            exceptionFormat 'full'
+        }
+    }
+
+    // Các module ứng dụng (có plugin org.springframework.boot):
+    //  - đặt tên jar cố định <tên-module>.jar để Dockerfile copy không phụ thuộc phiên bản,
+    //  - tắt jar "plain" để thư mục build/libs chỉ có đúng một file,
+    //  - sinh build-info để /actuator/info hiển thị phiên bản (bỏ thời gian build cho build tái lập được).
+    plugins.withId('org.springframework.boot') {
+        tasks.named('bootJar') {
+            archiveFileName = "${project.name}.jar"
+        }
+        tasks.named('jar') {
+            enabled = false
+        }
+        springBoot {
+            buildInfo {
+                excludes = ['time']
+            }
+        }
+    }
+}

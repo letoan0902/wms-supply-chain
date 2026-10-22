@@ -1,0 +1,23 @@
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+.classpath
+.project
+.settings/
+out/
+
+# Biến môi trường và bí mật (không commit)
+.env
+.env.*
+!.env.example
+
+# Log
+*.log

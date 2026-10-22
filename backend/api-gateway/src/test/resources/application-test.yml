@@ -1,0 +1,12 @@
+# Cấu hình cho test: không gọi Config Server, không đăng ký/kéo registry Eureka.
+# Import Config Server bị bỏ qua ở profile test (xem application.yml); đặt thêm spring.cloud.config.enabled=false
+# để Spring Cloud không đòi spring.config.import.
+spring:
+  cloud:
+    config:
+      enabled: false
+    discovery:
+      enabled: false
+eureka:
+  client:
+    enabled: false

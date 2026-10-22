@@ -1,0 +1,24 @@
+// Gradle multi-project cho hệ thống WMS Supply Chain (kiến trúc microservice Spring Cloud).
+// Mỗi module bên dưới là một dự án Gradle; build tất cả bằng một lệnh: ./gradlew build
+
+plugins {
+    // Tự tải JDK 17 khi máy chưa có (java toolchain), tránh lỗi "No matching toolchains found".
+    id 'org.gradle.toolchains.foojay-resolver-convention' version '0.9.0'
+}
+
+rootProject.name = 'wms-backend'
+
+// Thư viện dùng chung (ApiResponse, ApiException, GlobalExceptionHandler, ...)
+include 'common'
+
+// Hạ tầng Spring Cloud
+include 'config-server'      // cổng 8888
+include 'discovery-server'   // cổng 8761 (Eureka)
+include 'api-gateway'        // cổng 8080
+
+// Dịch vụ nghiệp vụ
+include 'auth-service'          // cổng 8081
+include 'product-service'       // cổng 8082
+include 'inventory-service'     // cổng 8083
+include 'order-service'         // cổng 8084
+include 'notification-service'  // cổng 8085

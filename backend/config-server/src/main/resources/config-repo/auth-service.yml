@@ -1,0 +1,5 @@
+# Cấu hình riêng của auth-service: bổ sung/ghi đè application.yml dùng chung.
+# Ví dụ bên dưới cho phép chỉnh mức log của service mà không cần build lại image.
+logging:
+  level:
+    vn.wms.auth: ${LOG_LEVEL:INFO}

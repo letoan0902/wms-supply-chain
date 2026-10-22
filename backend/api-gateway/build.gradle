@@ -1,0 +1,21 @@
+// API Gateway chạy trên WebFlux (reactive) nên KHÔNG phụ thuộc module :common (vốn dành cho servlet / Spring MVC).
+plugins {
+    id 'org.springframework.boot'
+}
+
+dependencies {
+    implementation 'org.springframework.cloud:spring-cloud-starter-gateway'
+    implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
+    implementation 'org.springframework.cloud:spring-cloud-starter-config'
+    implementation 'org.springframework.cloud:spring-cloud-starter-loadbalancer'
+    // Bộ nhớ đệm cho Spring Cloud LoadBalancer (không có sẽ in cảnh báo khi khởi động)
+    implementation 'com.github.ben-manes.caffeine:caffeine'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+
+    // JWT: gateway chỉ cần kiểm tra chữ ký/hạn của token do auth-service phát hành
+    implementation "io.jsonwebtoken:jjwt-api:${jjwtVersion}"
+    runtimeOnly "io.jsonwebtoken:jjwt-impl:${jjwtVersion}"
+    runtimeOnly "io.jsonwebtoken:jjwt-jackson:${jjwtVersion}"
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+}

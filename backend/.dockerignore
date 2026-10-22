@@ -1,0 +1,20 @@
+# Build context của mọi Dockerfile là thư mục backend/ => loại bỏ file không cần để build nhanh và cache ổn định.
+.gradle
+**/.gradle
+**/build
+**/out
+**/.idea
+**/*.iml
+**/.vscode
+**/*.log
+
+# Bí mật và cấu hình cục bộ
+**/.env
+**/.env.*
+
+# Git và tài liệu
+.git
+.gitignore
+.gitattributes
+README.md
+BUILD_RESULTS.md

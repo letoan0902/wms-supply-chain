@@ -1,0 +1,22 @@
+# Biến môi trường và bí mật (chỉ commit file .env.example)
+.env
+.env.*
+!.env.example
+
+# Node / frontend
+node_modules/
+dist/
+
+# Gradle / Java
+build/
+.gradle/
+*.class
+
+# Log
+*.log
+
+# IDE và hệ điều hành
+.idea/
+.vscode/
+*.iml
+.DS_Store

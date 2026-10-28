@@ -11,6 +11,7 @@ import vn.wms.common.exception.ApiException;
 import vn.wms.inventory.dto.CreateWarehouseRequest;
 import vn.wms.inventory.dto.UpdateWarehouseRequest;
 import vn.wms.inventory.dto.WarehouseResponse;
+import vn.wms.inventory.dto.WarehouseSummaryResponse;
 import vn.wms.inventory.entity.Warehouse;
 import vn.wms.inventory.repository.BinLocationRepository;
 import vn.wms.inventory.repository.StockItemRepository;

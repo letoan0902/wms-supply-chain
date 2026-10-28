@@ -19,6 +19,7 @@ import vn.wms.common.api.ApiResponse;
 import vn.wms.inventory.dto.CreateWarehouseRequest;
 import vn.wms.inventory.dto.UpdateWarehouseRequest;
 import vn.wms.inventory.dto.WarehouseResponse;
+import vn.wms.inventory.dto.WarehouseSummaryResponse;
 import vn.wms.inventory.service.WarehouseService;
 
 import java.util.List;
@@ -45,6 +46,12 @@ public class WarehouseController {
             @RequestParam(required = false) Boolean active
     ) {
         return ApiResponse.ok(warehouseService.listWarehouses(keyword, active));
+    }
+
+    @GetMapping("/summary")
+    @Operation(summary = "Thẻ tóm tắt nhanh tình trạng toàn bộ hệ thống kho (WMS-05.2)")
+    public ApiResponse<WarehouseSummaryResponse> getSummaryMetrics() {
+        return ApiResponse.ok(warehouseService.getSummaryMetrics());
     }
 
     @GetMapping("/{id}")

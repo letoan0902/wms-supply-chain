@@ -6,6 +6,7 @@ import vn.wms.common.exception.ApiException;
 import vn.wms.inventory.dto.CreateWarehouseRequest;
 import vn.wms.inventory.dto.UpdateWarehouseRequest;
 import vn.wms.inventory.dto.WarehouseResponse;
+import vn.wms.inventory.dto.WarehouseSummaryResponse;
 import vn.wms.inventory.entity.Warehouse;
 import vn.wms.inventory.repository.BinLocationRepository;
 import vn.wms.inventory.repository.StockItemRepository;
@@ -64,6 +65,46 @@ public class WarehouseService {
         Warehouse warehouse = warehouseRepository.findById(id)
                 .orElseThrow(() -> ApiException.notFound("Không tìm thấy kho có ID: " + id));
         return toResponseWithStats(warehouse);
+    }
+
+    /**
+     * Thống kê tổng quan năng lực toàn bộ hệ thống kho (WMS-05.2).
+     */
+    @Transactional(readOnly = true)
+    public WarehouseSummaryResponse getSummaryMetrics() {
+        List<Warehouse> allWarehouses = warehouseRepository.findAll();
+        long totalWarehouses = allWarehouses.size();
+        long activeWarehouses = allWarehouses.stream().filter(Warehouse::isActive).count();
+
+        long totalCapacity = allWarehouses.stream()
+                .mapToLong(w -> w.getCapacity() != null ? w.getCapacity() : 0)
+                .sum();
+
+        long totalLocations = binLocationRepository.count();
+        long occupiedLocations = stockItemRepository.countTotalOccupiedLocations();
+        long availableLocations = Math.max(0, totalLocations - occupiedLocations);
+
+        double overallUtilizationRate = 0.0;
+        if (totalCapacity > 0) {
+            overallUtilizationRate = Math.round(((double) occupiedLocations / totalCapacity) * 1000.0) / 10.0;
+        } else if (totalLocations > 0) {
+            overallUtilizationRate = Math.round(((double) occupiedLocations / totalLocations) * 1000.0) / 10.0;
+        }
+
+        long totalProducts = stockItemRepository.countDistinctActiveProducts();
+        BigDecimal totalStockQuantity = stockItemRepository.sumTotalQuantity();
+
+        return new WarehouseSummaryResponse(
+                totalWarehouses,
+                activeWarehouses,
+                totalCapacity,
+                totalLocations,
+                occupiedLocations,
+                availableLocations,
+                overallUtilizationRate,
+                totalProducts,
+                totalStockQuantity
+        );
     }
 
     /**

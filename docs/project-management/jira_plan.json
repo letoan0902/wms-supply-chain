@@ -1,0 +1,5785 @@
+{
+ "source": "C:/Users/gigabyte/Downloads/Template-Technical1.xlsx",
+ "generated": "2026-10-28T11:04:09",
+ "project_key": "TASK",
+ "members": [
+  "Lê Phú Toàn",
+  "Lê Phương Linh",
+  "Trần Đăng Việt",
+  "Phạm Phương Anh"
+ ],
+ "counts": {
+  "epic": 9,
+  "task": 21,
+  "subtask": 86
+ },
+ "period": {
+  "start": "2026-10-27",
+  "end": "2026-11-23"
+ },
+ "issues": [
+  {
+   "row": 9,
+   "wms": "I",
+   "title_raw": "EPIC 1: HẠ TẦNG MICROSERVICES, DEVOPS & CI/CD",
+   "summary_raw": "[Chuẩn bị & Sprint 1–3] Thiết lập Git flow, Docker-Compose skeleton, Config, Eureka, API-Gateway (JWT filter), RabbitMQ (order.created) và WebSocket Hub (Low-stock).",
+   "assignee": "Lê Phú Toàn",
+   "collab": "Cả nhóm",
+   "progress": 0.0,
+   "start": "2026-10-27",
+   "due": "2026-11-06",
+   "days": 11,
+   "level": "epic",
+   "parent": null,
+   "summary": "EPIC 1: HẠ TẦNG MICROSERVICES, DEVOPS & CI/CD",
+   "labels": [
+    "Chuan-bi",
+    "Sprint-1",
+    "Sprint-2",
+    "Sprint-3"
+   ],
+   "phase": "Chuẩn bị & Sprint 1–3",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "I"
+    ],
+    [
+     "Nội dung",
+     "[Chuẩn bị & Sprint 1–3] Thiết lập Git flow, Docker-Compose skeleton, Config, Eureka, API-Gateway (JWT filter), RabbitMQ (order.created) và WebSocket Hub (Low-stock)."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Phối hợp",
+     "Cả nhóm"
+    ],
+    [
+     "Kế hoạch",
+     "27/10/2026 - 06/11/2026 (11 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Chuẩn bị & Sprint 1–3"
+    ]
+   ]
+  },
+  {
+   "row": 10,
+   "wms": "WMS-01",
+   "title_raw": "Task WMS-01: Khởi tạo Kiến trúc Microservices, Git Flow & Docker Compose",
+   "summary_raw": "[Chuẩn bị & Sprint 1] Thiết lập Git flow (main/dev/feature), Docker-Compose skeleton, Config, Eureka, API-Gateway (JWT filter) & CI/CD GitHub Actions (NFR07, NFR08).",
+   "assignee": "Lê Phú Toàn",
+   "collab": "Cả nhóm",
+   "progress": 0.0,
+   "start": "2026-10-27",
+   "due": "2026-10-30",
+   "days": 4,
+   "level": "task",
+   "parent": "I",
+   "summary": "WMS-01: Khởi tạo Kiến trúc Microservices, Git Flow & Docker Compose",
+   "labels": [
+    "Chuan-bi",
+    "Sprint-1"
+   ],
+   "phase": "Chuẩn bị & Sprint 1",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-01"
+    ],
+    [
+     "Nội dung",
+     "[Chuẩn bị & Sprint 1] Thiết lập Git flow (main/dev/feature), Docker-Compose skeleton, Config, Eureka, API-Gateway (JWT filter) & CI/CD GitHub Actions (NFR07, NFR08)."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Phối hợp",
+     "Cả nhóm"
+    ],
+    [
+     "Kế hoạch",
+     "27/10/2026 - 30/10/2026 (4 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Chuẩn bị & Sprint 1"
+    ],
+    [
+     "Thuộc",
+     "I"
+    ]
+   ]
+  },
+  {
+   "row": 11,
+   "wms": "WMS-01.1",
+   "title_raw": "+ [DevOps] Thiết lập Git Flow & Viết Dockerfile Multi-stage cho FE/BE",
+   "summary_raw": "Khởi tạo Git flow (main/dev/feature); tạo Dockerfile multi-stage: FE dùng node:20-alpine → nginx-alpine; BE dùng gradle:jdk17 → eclipse-temurin:17-jre-alpine (NFR07).",
+   "assignee": "Lê Phú Toàn",
+   "collab": "Cả nhóm",
+   "progress": 0.0,
+   "start": "2026-10-27",
+   "due": "2026-10-28",
+   "days": 2,
+   "level": "subtask",
+   "parent": "WMS-01",
+   "summary": "WMS-01.1 [DevOps] Thiết lập Git Flow & Viết Dockerfile Multi-stage cho FE/BE",
+   "labels": [
+    "Chuan-bi",
+    "Sprint-1",
+    "DevOps"
+   ],
+   "phase": "Chuẩn bị & Sprint 1",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-01.1"
+    ],
+    [
+     "Nội dung",
+     "Khởi tạo Git flow (main/dev/feature); tạo Dockerfile multi-stage: FE dùng node:20-alpine → nginx-alpine; BE dùng gradle:jdk17 → eclipse-temurin:17-jre-alpine (NFR07)."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Phối hợp",
+     "Cả nhóm"
+    ],
+    [
+     "Kế hoạch",
+     "27/10/2026 - 28/10/2026 (2 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Chuẩn bị & Sprint 1"
+    ],
+    [
+     "Thuộc",
+     "WMS-01"
+    ]
+   ]
+  },
+  {
+   "row": 12,
+   "wms": "WMS-01.2",
+   "title_raw": "+ [DevOps] Cấu hình Docker-Compose Skeleton & Flyway / Actuator",
+   "summary_raw": "Viết docker-compose.yml (MySQL 8.0 InnoDB, Redis 7.x, RabbitMQ, wms-network, healthcheck, .env.example); cấu hình Flyway migration & Spring Boot Actuator/Micrometer (NFR07).",
+   "assignee": "Lê Phú Toàn",
+   "collab": "Cả nhóm",
+   "progress": 0.0,
+   "start": "2026-10-28",
+   "due": "2026-10-29",
+   "days": 2,
+   "level": "subtask",
+   "parent": "WMS-01",
+   "summary": "WMS-01.2 [DevOps] Cấu hình Docker-Compose Skeleton & Flyway / Actuator",
+   "labels": [
+    "Chuan-bi",
+    "Sprint-1",
+    "DevOps"
+   ],
+   "phase": "Chuẩn bị & Sprint 1",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-01.2"
+    ],
+    [
+     "Nội dung",
+     "Viết docker-compose.yml (MySQL 8.0 InnoDB, Redis 7.x, RabbitMQ, wms-network, healthcheck, .env.example); cấu hình Flyway migration & Spring Boot Actuator/Micrometer (NFR07)."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Phối hợp",
+     "Cả nhóm"
+    ],
+    [
+     "Kế hoạch",
+     "28/10/2026 - 29/10/2026 (2 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Chuẩn bị & Sprint 1"
+    ],
+    [
+     "Thuộc",
+     "WMS-01"
+    ]
+   ]
+  },
+  {
+   "row": 13,
+   "wms": "WMS-01.3",
+   "title_raw": "+ [Backend] Khởi tạo Config, Eureka Discovery & API-Gateway (JWT Filter)",
+   "summary_raw": "Xây dựng Config Service, Eureka Server, AI-chatbot scaffold; cấu hình Spring Cloud API-Gateway định tuyến /api/v1/*, kiểm tra JWT filter tập trung, Rate Limiting & CORS (NFR05, NFR06).",
+   "assignee": "Lê Phú Toàn",
+   "collab": "Phạm Phương Anh",
+   "progress": 0.0,
+   "start": "2026-10-29",
+   "due": "2026-10-30",
+   "days": 2,
+   "level": "subtask",
+   "parent": "WMS-01",
+   "summary": "WMS-01.3 [Backend] Khởi tạo Config, Eureka Discovery & API-Gateway (JWT Filter)",
+   "labels": [
+    "Chuan-bi",
+    "Sprint-1",
+    "Backend"
+   ],
+   "phase": "Chuẩn bị & Sprint 1",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-01.3"
+    ],
+    [
+     "Nội dung",
+     "Xây dựng Config Service, Eureka Server, AI-chatbot scaffold; cấu hình Spring Cloud API-Gateway định tuyến /api/v1/*, kiểm tra JWT filter tập trung, Rate Limiting & CORS (NFR05, NFR06)."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Phối hợp",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Kế hoạch",
+     "29/10/2026 - 30/10/2026 (2 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Chuẩn bị & Sprint 1"
+    ],
+    [
+     "Thuộc",
+     "WMS-01"
+    ]
+   ]
+  },
+  {
+   "row": 14,
+   "wms": "WMS-01.4",
+   "title_raw": "+ [DevOps] Thiết lập Đường ống CI/CD với GitHub Actions",
+   "summary_raw": "Tạo workflow .github/workflows/ci.yml: Tự động lint (SpotBugs/Checkstyle) → test (JUnit 5) → build (Gradle & Vite) → push Docker image khi tạo PR/merge vào dev và main (NFR08).",
+   "assignee": "Lê Phú Toàn",
+   "collab": "Cả nhóm",
+   "progress": 0.0,
+   "start": "2026-10-30",
+   "due": "2026-10-30",
+   "days": 1,
+   "level": "subtask",
+   "parent": "WMS-01",
+   "summary": "WMS-01.4 [DevOps] Thiết lập Đường ống CI/CD với GitHub Actions",
+   "labels": [
+    "Chuan-bi",
+    "Sprint-1",
+    "DevOps"
+   ],
+   "phase": "Chuẩn bị & Sprint 1",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-01.4"
+    ],
+    [
+     "Nội dung",
+     "Tạo workflow .github/workflows/ci.yml: Tự động lint (SpotBugs/Checkstyle) → test (JUnit 5) → build (Gradle & Vite) → push Docker image khi tạo PR/merge vào dev và main (NFR08)."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Phối hợp",
+     "Cả nhóm"
+    ],
+    [
+     "Kế hoạch",
+     "30/10/2026 - 30/10/2026 (1 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Chuẩn bị & Sprint 1"
+    ],
+    [
+     "Thuộc",
+     "WMS-01"
+    ]
+   ]
+  },
+  {
+   "row": 15,
+   "wms": "WMS-02",
+   "title_raw": "Task WMS-02: Hạ tầng Trao đổi Sự kiện RabbitMQ & Realtime WebSocket Hub",
+   "summary_raw": "[Sprint 2 & Sprint 3] Cấu hình RabbitMQ topic (order.created / order.dispatched) giao tiếp bất đồng bộ và WebSocket push 'Low-stock' / KPI thời gian thực.",
+   "assignee": "Lê Phú Toàn",
+   "collab": "Lê Phương Linh, Phạm Phương Anh",
+   "progress": 0.0,
+   "start": "2026-11-03",
+   "due": "2026-11-06",
+   "days": 4,
+   "level": "task",
+   "parent": "I",
+   "summary": "WMS-02: Hạ tầng Trao đổi Sự kiện RabbitMQ & Realtime WebSocket Hub",
+   "labels": [
+    "Sprint-2",
+    "Sprint-3"
+   ],
+   "phase": "Sprint 2 & Sprint 3",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-02"
+    ],
+    [
+     "Nội dung",
+     "[Sprint 2 & Sprint 3] Cấu hình RabbitMQ topic (order.created / order.dispatched) giao tiếp bất đồng bộ và WebSocket push 'Low-stock' / KPI thời gian thực."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phương Linh, Phạm Phương Anh"
+    ],
+    [
+     "Kế hoạch",
+     "03/11/2026 - 06/11/2026 (4 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 2 & Sprint 3"
+    ],
+    [
+     "Thuộc",
+     "I"
+    ]
+   ]
+  },
+  {
+   "row": 16,
+   "wms": "WMS-02.1",
+   "title_raw": "+ [DevOps] Cấu hình RabbitMQ Server & Topic (order.created, order.dispatched)",
+   "summary_raw": "Khởi tạo RabbitMQ container; cấu hình Exchange và các topic chuẩn <domain>.<action> (order.created, order.dispatched, inventory.updated) kèm Dead-Letter Queue.",
+   "assignee": "Lê Phú Toàn",
+   "collab": "Lê Phương Linh",
+   "progress": 0.0,
+   "start": "2026-11-03",
+   "due": "2026-11-04",
+   "days": 2,
+   "level": "subtask",
+   "parent": "WMS-02",
+   "summary": "WMS-02.1 [DevOps] Cấu hình RabbitMQ Server & Topic (order.created, order.dispatched)",
+   "labels": [
+    "Sprint-2",
+    "Sprint-3",
+    "DevOps"
+   ],
+   "phase": "Sprint 2 & Sprint 3",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-02.1"
+    ],
+    [
+     "Nội dung",
+     "Khởi tạo RabbitMQ container; cấu hình Exchange và các topic chuẩn <domain>.<action> (order.created, order.dispatched, inventory.updated) kèm Dead-Letter Queue."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phương Linh"
+    ],
+    [
+     "Kế hoạch",
+     "03/11/2026 - 04/11/2026 (2 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 2 & Sprint 3"
+    ],
+    [
+     "Thuộc",
+     "WMS-02"
+    ]
+   ]
+  },
+  {
+   "row": 17,
+   "wms": "WMS-02.2",
+   "title_raw": "+ [Backend] Cấu hình RabbitMQ Producer/Consumer & Giao tiếp OpenFeign",
+   "summary_raw": "Viết cấu hình Message Converter (JSON) và OpenFeign REST client để Order Service bắn sự kiện sang Warehouse Service (cập nhật tồn) và Notification Service.",
+   "assignee": "Lê Phú Toàn",
+   "collab": "Trần Đăng Việt",
+   "progress": 0.0,
+   "start": "2026-11-04",
+   "due": "2026-11-05",
+   "days": 2,
+   "level": "subtask",
+   "parent": "WMS-02",
+   "summary": "WMS-02.2 [Backend] Cấu hình RabbitMQ Producer/Consumer & Giao tiếp OpenFeign",
+   "labels": [
+    "Sprint-2",
+    "Sprint-3",
+    "Backend"
+   ],
+   "phase": "Sprint 2 & Sprint 3",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-02.2"
+    ],
+    [
+     "Nội dung",
+     "Viết cấu hình Message Converter (JSON) và OpenFeign REST client để Order Service bắn sự kiện sang Warehouse Service (cập nhật tồn) và Notification Service."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Phối hợp",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Kế hoạch",
+     "04/11/2026 - 05/11/2026 (2 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 2 & Sprint 3"
+    ],
+    [
+     "Thuộc",
+     "WMS-02"
+    ]
+   ]
+  },
+  {
+   "row": 18,
+   "wms": "WMS-02.3",
+   "title_raw": "+ [Backend] Xây dựng WebSocket Hub đẩy cảnh báo 'Low-stock' & KPI",
+   "summary_raw": "Cấu hình Spring WebSocket STOMP endpoint (/ws-wms) để push thông báo thời gian thực: cảnh báo chạm ngưỡng tồn thấp ('Low-stock'), đơn hàng mới và biến động KPI.",
+   "assignee": "Lê Phú Toàn",
+   "collab": "Phạm Phương Anh",
+   "progress": 0.0,
+   "start": "2026-11-05",
+   "due": "2026-11-06",
+   "days": 2,
+   "level": "subtask",
+   "parent": "WMS-02",
+   "summary": "WMS-02.3 [Backend] Xây dựng WebSocket Hub đẩy cảnh báo 'Low-stock' & KPI",
+   "labels": [
+    "Sprint-2",
+    "Sprint-3",
+    "Backend"
+   ],
+   "phase": "Sprint 2 & Sprint 3",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-02.3"
+    ],
+    [
+     "Nội dung",
+     "Cấu hình Spring WebSocket STOMP endpoint (/ws-wms) để push thông báo thời gian thực: cảnh báo chạm ngưỡng tồn thấp ('Low-stock'), đơn hàng mới và biến động KPI."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Phối hợp",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Kế hoạch",
+     "05/11/2026 - 06/11/2026 (2 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 2 & Sprint 3"
+    ],
+    [
+     "Thuộc",
+     "WMS-02"
+    ]
+   ]
+  },
+  {
+   "row": 19,
+   "wms": "WMS-02.4",
+   "title_raw": "+ [Frontend] Tích hợp WebSocket Client & Zustand State trên React UI",
+   "summary_raw": "Cài đặt SockJS + StompJS kết hợp Zustand quản lý state trên React 18; tạo custom hook useWebSocket nhận cảnh báo 'Low-stock' và hiển thị toast notification tức thì.",
+   "assignee": "Lê Phú Toàn",
+   "collab": "Phạm Phương Anh",
+   "progress": 0.0,
+   "start": "2026-11-06",
+   "due": "2026-11-06",
+   "days": 1,
+   "level": "subtask",
+   "parent": "WMS-02",
+   "summary": "WMS-02.4 [Frontend] Tích hợp WebSocket Client & Zustand State trên React UI",
+   "labels": [
+    "Sprint-2",
+    "Sprint-3",
+    "Frontend"
+   ],
+   "phase": "Sprint 2 & Sprint 3",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-02.4"
+    ],
+    [
+     "Nội dung",
+     "Cài đặt SockJS + StompJS kết hợp Zustand quản lý state trên React 18; tạo custom hook useWebSocket nhận cảnh báo 'Low-stock' và hiển thị toast notification tức thì."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Phối hợp",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Kế hoạch",
+     "06/11/2026 - 06/11/2026 (1 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 2 & Sprint 3"
+    ],
+    [
+     "Thuộc",
+     "WMS-02"
+    ]
+   ]
+  },
+  {
+   "row": 20,
+   "wms": "II",
+   "title_raw": "EPIC 2: XÁC THỰC NGƯỜI DÙNG & PHÂN QUYỀN KHO (AUTH & RBAC)",
+   "summary_raw": "[Sprint 1 – Nền tảng & Auth] Xây dựng Auth Service (register, login, BCrypt, JWT Access/Refresh Token, RBAC 6 vai trò, phân quyền theo kho) và màn hình Login/Quản lý User (FR01, FR02).",
+   "assignee": "Phạm Phương Anh",
+   "collab": "Lê Phú Toàn",
+   "progress": 0.0,
+   "start": "2026-10-27",
+   "due": "2026-11-02",
+   "days": 7,
+   "level": "epic",
+   "parent": null,
+   "summary": "EPIC 2: XÁC THỰC NGƯỜI DÙNG & PHÂN QUYỀN KHO (AUTH & RBAC)",
+   "labels": [
+    "Sprint-1"
+   ],
+   "phase": "Sprint 1 – Nền tảng & Auth",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "II"
+    ],
+    [
+     "Nội dung",
+     "[Sprint 1 – Nền tảng & Auth] Xây dựng Auth Service (register, login, BCrypt, JWT Access/Refresh Token, RBAC 6 vai trò, phân quyền theo kho) và màn hình Login/Quản lý User (FR01, FR02)."
+    ],
+    [
+     "Phụ trách",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Kế hoạch",
+     "27/10/2026 - 02/11/2026 (7 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 1 – Nền tảng & Auth"
+    ]
+   ]
+  },
+  {
+   "row": 21,
+   "wms": "WMS-03",
+   "title_raw": "Task WMS-03: Hệ thống Xác thực Tập trung (Auth Service) & Cơ chế Bảo mật JWT",
+   "summary_raw": "[Sprint 1] Xây dựng Auth Service: Đăng ký/Đăng nhập Email & mật khẩu (BCrypt), cấp JWT Access/Refresh Token (HttpOnly Cookie), chống brute-force và UI Login (FR01, NFR04, NFR05).",
+   "assignee": "Phạm Phương Anh",
+   "collab": "Lê Phú Toàn",
+   "progress": 0.0,
+   "start": "2026-10-27",
+   "due": "2026-10-30",
+   "days": 4,
+   "level": "task",
+   "parent": "II",
+   "summary": "WMS-03: Hệ thống Xác thực Tập trung (Auth Service) & Cơ chế Bảo mật JWT",
+   "labels": [
+    "Sprint-1"
+   ],
+   "phase": "Sprint 1",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-03"
+    ],
+    [
+     "Nội dung",
+     "[Sprint 1] Xây dựng Auth Service: Đăng ký/Đăng nhập Email & mật khẩu (BCrypt), cấp JWT Access/Refresh Token (HttpOnly Cookie), chống brute-force và UI Login (FR01, NFR04, NFR05)."
+    ],
+    [
+     "Phụ trách",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Kế hoạch",
+     "27/10/2026 - 30/10/2026 (4 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 1"
+    ],
+    [
+     "Thuộc",
+     "II"
+    ]
+   ]
+  },
+  {
+   "row": 22,
+   "wms": "WMS-03.1",
+   "title_raw": "+ [Backend] Thiết kế CSDL User, Enum UserRole & Mã hóa BCrypt",
+   "summary_raw": "Tạo schema User, enum UserRole (ADMIN, WAREHOUSE_MANAGER, WAREHOUSE_STAFF, PURCHASING, SALES, ACCOUNTANT); băm mật khẩu bằng BCrypt trước khi lưu DB (FR01, FR02, NFR04).",
+   "assignee": "Phạm Phương Anh",
+   "collab": "Lê Phú Toàn",
+   "progress": 0.0,
+   "start": "2026-10-27",
+   "due": "2026-10-28",
+   "days": 2,
+   "level": "subtask",
+   "parent": "WMS-03",
+   "summary": "WMS-03.1 [Backend] Thiết kế CSDL User, Enum UserRole & Mã hóa BCrypt",
+   "labels": [
+    "Sprint-1",
+    "Backend"
+   ],
+   "phase": "Sprint 1",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-03.1"
+    ],
+    [
+     "Nội dung",
+     "Tạo schema User, enum UserRole (ADMIN, WAREHOUSE_MANAGER, WAREHOUSE_STAFF, PURCHASING, SALES, ACCOUNTANT); băm mật khẩu bằng BCrypt trước khi lưu DB (FR01, FR02, NFR04)."
+    ],
+    [
+     "Phụ trách",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Kế hoạch",
+     "27/10/2026 - 28/10/2026 (2 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 1"
+    ],
+    [
+     "Thuộc",
+     "WMS-03"
+    ]
+   ]
+  },
+  {
+   "row": 23,
+   "wms": "WMS-03.2",
+   "title_raw": "+ [Backend] Xây dựng API Register/Login, Cấp JWT & Refresh Token",
+   "summary_raw": "Xây dựng endpoint /api/v1/auth/login & register; cấp JWT Access Token (15 phút) + Refresh Token (7 ngày) trong HttpOnly Cookie; lưu blacklist token trên Redis khi Logout (FR01, NFR05).",
+   "assignee": "Phạm Phương Anh",
+   "collab": "Lê Phú Toàn",
+   "progress": 0.0,
+   "start": "2026-10-28",
+   "due": "2026-10-29",
+   "days": 2,
+   "level": "subtask",
+   "parent": "WMS-03",
+   "summary": "WMS-03.2 [Backend] Xây dựng API Register/Login, Cấp JWT & Refresh Token",
+   "labels": [
+    "Sprint-1",
+    "Backend"
+   ],
+   "phase": "Sprint 1",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-03.2"
+    ],
+    [
+     "Nội dung",
+     "Xây dựng endpoint /api/v1/auth/login & register; cấp JWT Access Token (15 phút) + Refresh Token (7 ngày) trong HttpOnly Cookie; lưu blacklist token trên Redis khi Logout (FR01, NFR05)."
+    ],
+    [
+     "Phụ trách",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Kế hoạch",
+     "28/10/2026 - 29/10/2026 (2 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 1"
+    ],
+    [
+     "Thuộc",
+     "WMS-03"
+    ]
+   ]
+  },
+  {
+   "row": 24,
+   "wms": "WMS-03.3",
+   "title_raw": "+ [Backend] Hiện thực cơ chế Chống dò mật khẩu (Brute-Force Protection)",
+   "summary_raw": "Theo dõi số lần đăng nhập sai liên tiếp; tự động khóa tài khoản tạm thời 30 phút khi nhập sai > 5 lần; trả thông báo trạng thái khóa rõ ràng (FR01).",
+   "assignee": "Phạm Phương Anh",
+   "collab": "Lê Phú Toàn",
+   "progress": 0.0,
+   "start": "2026-10-29",
+   "due": "2026-10-29",
+   "days": 1,
+   "level": "subtask",
+   "parent": "WMS-03",
+   "summary": "WMS-03.3 [Backend] Hiện thực cơ chế Chống dò mật khẩu (Brute-Force Protection)",
+   "labels": [
+    "Sprint-1",
+    "Backend"
+   ],
+   "phase": "Sprint 1",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-03.3"
+    ],
+    [
+     "Nội dung",
+     "Theo dõi số lần đăng nhập sai liên tiếp; tự động khóa tài khoản tạm thời 30 phút khi nhập sai > 5 lần; trả thông báo trạng thái khóa rõ ràng (FR01)."
+    ],
+    [
+     "Phụ trách",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Kế hoạch",
+     "29/10/2026 - 29/10/2026 (1 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 1"
+    ],
+    [
+     "Thuộc",
+     "WMS-03"
+    ]
+   ]
+  },
+  {
+   "row": 25,
+   "wms": "WMS-03.4",
+   "title_raw": "+ [Frontend] Xây dựng Màn hình Đăng nhập & Quên mật khẩu",
+   "summary_raw": "Xây dựng giao diện Login & Quên mật khẩu bằng React 18 + Tailwind CSS + Ant Design chuẩn responsive; xử lý validate form và thông báo lỗi xác thực (FR01, NFR10).",
+   "assignee": "Phạm Phương Anh",
+   "collab": "Lê Phương Linh",
+   "progress": 0.0,
+   "start": "2026-10-29",
+   "due": "2026-10-30",
+   "days": 2,
+   "level": "subtask",
+   "parent": "WMS-03",
+   "summary": "WMS-03.4 [Frontend] Xây dựng Màn hình Đăng nhập & Quên mật khẩu",
+   "labels": [
+    "Sprint-1",
+    "Frontend"
+   ],
+   "phase": "Sprint 1",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-03.4"
+    ],
+    [
+     "Nội dung",
+     "Xây dựng giao diện Login & Quên mật khẩu bằng React 18 + Tailwind CSS + Ant Design chuẩn responsive; xử lý validate form và thông báo lỗi xác thực (FR01, NFR10)."
+    ],
+    [
+     "Phụ trách",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phương Linh"
+    ],
+    [
+     "Kế hoạch",
+     "29/10/2026 - 30/10/2026 (2 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 1"
+    ],
+    [
+     "Thuộc",
+     "WMS-03"
+    ]
+   ]
+  },
+  {
+   "row": 26,
+   "wms": "WMS-03.5",
+   "title_raw": "+ [Frontend] Cấu hình Axios Interceptor JWT & Tự động Refresh Token",
+   "summary_raw": "Cấu hình Axios interceptor tự động đính kèm JWT token và bắt lỗi 401 để gọi API refresh token tự động, giữ phiên làm việc mượt mà (FR01).",
+   "assignee": "Phạm Phương Anh",
+   "collab": "Lê Phú Toàn",
+   "progress": 0.0,
+   "start": "2026-10-30",
+   "due": "2026-10-30",
+   "days": 1,
+   "level": "subtask",
+   "parent": "WMS-03",
+   "summary": "WMS-03.5 [Frontend] Cấu hình Axios Interceptor JWT & Tự động Refresh Token",
+   "labels": [
+    "Sprint-1",
+    "Frontend"
+   ],
+   "phase": "Sprint 1",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-03.5"
+    ],
+    [
+     "Nội dung",
+     "Cấu hình Axios interceptor tự động đính kèm JWT token và bắt lỗi 401 để gọi API refresh token tự động, giữ phiên làm việc mượt mà (FR01)."
+    ],
+    [
+     "Phụ trách",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Kế hoạch",
+     "30/10/2026 - 30/10/2026 (1 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 1"
+    ],
+    [
+     "Thuộc",
+     "WMS-03"
+    ]
+   ]
+  },
+  {
+   "row": 27,
+   "wms": "WMS-04",
+   "title_raw": "Task WMS-04: Phân quyền Vai trò (RBAC) & Quản lý Tài khoản Nhân viên theo Kho",
+   "summary_raw": "[Sprint 1] Quản lý tài khoản nhân viên, phân quyền RBAC 6 vai trò, gán quyền thao tác theo kho được chỉ định và cập nhật hồ sơ cá nhân (FR02, NFR05).",
+   "assignee": "Phạm Phương Anh",
+   "collab": "Lê Phương Linh",
+   "progress": 0.0,
+   "start": "2026-10-31",
+   "due": "2026-11-02",
+   "days": 3,
+   "level": "task",
+   "parent": "II",
+   "summary": "WMS-04: Phân quyền Vai trò (RBAC) & Quản lý Tài khoản Nhân viên theo Kho",
+   "labels": [
+    "Sprint-1"
+   ],
+   "phase": "Sprint 1",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-04"
+    ],
+    [
+     "Nội dung",
+     "[Sprint 1] Quản lý tài khoản nhân viên, phân quyền RBAC 6 vai trò, gán quyền thao tác theo kho được chỉ định và cập nhật hồ sơ cá nhân (FR02, NFR05)."
+    ],
+    [
+     "Phụ trách",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phương Linh"
+    ],
+    [
+     "Kế hoạch",
+     "31/10/2026 - 02/11/2026 (3 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 1"
+    ],
+    [
+     "Thuộc",
+     "II"
+    ]
+   ]
+  },
+  {
+   "row": 28,
+   "wms": "WMS-04.1",
+   "title_raw": "+ [Backend] API Quản lý Tài khoản Nhân viên & Gán quyền theo Kho",
+   "summary_raw": "Phát triển API CRUD nhân viên, bảng liên kết user_warehouses; phân quyền mỗi người dùng chỉ xem/thao tác trên các kho được chỉ định; API cập nhật hồ sơ & đổi mật khẩu (FR02).",
+   "assignee": "Phạm Phương Anh",
+   "collab": "Lê Phương Linh",
+   "progress": 0.0,
+   "start": "2026-10-31",
+   "due": "2026-11-01",
+   "days": 2,
+   "level": "subtask",
+   "parent": "WMS-04",
+   "summary": "WMS-04.1 [Backend] API Quản lý Tài khoản Nhân viên & Gán quyền theo Kho",
+   "labels": [
+    "Sprint-1",
+    "Backend"
+   ],
+   "phase": "Sprint 1",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-04.1"
+    ],
+    [
+     "Nội dung",
+     "Phát triển API CRUD nhân viên, bảng liên kết user_warehouses; phân quyền mỗi người dùng chỉ xem/thao tác trên các kho được chỉ định; API cập nhật hồ sơ & đổi mật khẩu (FR02)."
+    ],
+    [
+     "Phụ trách",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phương Linh"
+    ],
+    [
+     "Kế hoạch",
+     "31/10/2026 - 01/11/2026 (2 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 1"
+    ],
+    [
+     "Thuộc",
+     "WMS-04"
+    ]
+   ]
+  },
+  {
+   "row": 29,
+   "wms": "WMS-04.2",
+   "title_raw": "+ [Backend] Bộ lọc Dữ liệu theo Kho được cấp quyền (Warehouse Scope Filter)",
+   "summary_raw": "Viết cơ chế kiểm soát truy cập dữ liệu theo kho và vai trò RBAC (nhân viên kho tạo phiếu, quản lý kho duyệt điều chỉnh, kế toán xem báo cáo công nợ) (FR02, NFR05).",
+   "assignee": "Phạm Phương Anh",
+   "collab": "Lê Phương Linh",
+   "progress": 0.0,
+   "start": "2026-11-01",
+   "due": "2026-11-01",
+   "days": 1,
+   "level": "subtask",
+   "parent": "WMS-04",
+   "summary": "WMS-04.2 [Backend] Bộ lọc Dữ liệu theo Kho được cấp quyền (Warehouse Scope Filter)",
+   "labels": [
+    "Sprint-1",
+    "Backend"
+   ],
+   "phase": "Sprint 1",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-04.2"
+    ],
+    [
+     "Nội dung",
+     "Viết cơ chế kiểm soát truy cập dữ liệu theo kho và vai trò RBAC (nhân viên kho tạo phiếu, quản lý kho duyệt điều chỉnh, kế toán xem báo cáo công nợ) (FR02, NFR05)."
+    ],
+    [
+     "Phụ trách",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phương Linh"
+    ],
+    [
+     "Kế hoạch",
+     "01/11/2026 - 01/11/2026 (1 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 1"
+    ],
+    [
+     "Thuộc",
+     "WMS-04"
+    ]
+   ]
+  },
+  {
+   "row": 30,
+   "wms": "WMS-04.3",
+   "title_raw": "+ [Frontend] Trang Quản lý User & Cấp quyền Vai trò / Kho",
+   "summary_raw": "Xây dựng Trang Quản lý User (bảng dữ liệu phân trang, lọc, tìm kiếm); Modal gán Role (ADMIN, WAREHOUSE_MANAGER, STAFF, PURCHASING, SALES, ACCOUNTANT) và chọn Kho phụ trách (FR02).",
+   "assignee": "Phạm Phương Anh",
+   "collab": "Trần Đăng Việt",
+   "progress": 0.0,
+   "start": "2026-11-01",
+   "due": "2026-11-02",
+   "days": 2,
+   "level": "subtask",
+   "parent": "WMS-04",
+   "summary": "WMS-04.3 [Frontend] Trang Quản lý User & Cấp quyền Vai trò / Kho",
+   "labels": [
+    "Sprint-1",
+    "Frontend"
+   ],
+   "phase": "Sprint 1",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-04.3"
+    ],
+    [
+     "Nội dung",
+     "Xây dựng Trang Quản lý User (bảng dữ liệu phân trang, lọc, tìm kiếm); Modal gán Role (ADMIN, WAREHOUSE_MANAGER, STAFF, PURCHASING, SALES, ACCOUNTANT) và chọn Kho phụ trách (FR02)."
+    ],
+    [
+     "Phụ trách",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Phối hợp",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Kế hoạch",
+     "01/11/2026 - 02/11/2026 (2 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 1"
+    ],
+    [
+     "Thuộc",
+     "WMS-04"
+    ]
+   ]
+  },
+  {
+   "row": 31,
+   "wms": "WMS-04.4",
+   "title_raw": "+ [Frontend] Màn hình Cập nhật Hồ sơ Cá nhân & Đổi mật khẩu an toàn",
+   "summary_raw": "Xây dựng giao diện xem/cập nhật hồ sơ cá nhân (họ tên, SĐT, ảnh đại diện) và form đổi mật khẩu an toàn yêu cầu xác nhận mật khẩu hiện tại (FR02).",
+   "assignee": "Phạm Phương Anh",
+   "collab": "Trần Đăng Việt",
+   "progress": 0.0,
+   "start": "2026-11-02",
+   "due": "2026-11-02",
+   "days": 1,
+   "level": "subtask",
+   "parent": "WMS-04",
+   "summary": "WMS-04.4 [Frontend] Màn hình Cập nhật Hồ sơ Cá nhân & Đổi mật khẩu an toàn",
+   "labels": [
+    "Sprint-1",
+    "Frontend"
+   ],
+   "phase": "Sprint 1",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-04.4"
+    ],
+    [
+     "Nội dung",
+     "Xây dựng giao diện xem/cập nhật hồ sơ cá nhân (họ tên, SĐT, ảnh đại diện) và form đổi mật khẩu an toàn yêu cầu xác nhận mật khẩu hiện tại (FR02)."
+    ],
+    [
+     "Phụ trách",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Phối hợp",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Kế hoạch",
+     "02/11/2026 - 02/11/2026 (1 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 1"
+    ],
+    [
+     "Thuộc",
+     "WMS-04"
+    ]
+   ]
+  },
+  {
+   "row": 32,
+   "wms": "III",
+   "title_raw": "EPIC 3: QUẢN LÝ ĐA KHO & SƠ ĐỒ VỊ TRÍ Ô/KỆ (WAREHOUSE & BIN LOCATION)",
+   "summary_raw": "[Sprint 1 – Nền tảng & Auth] Phát triển Warehouse Service (CRUD đa kho & vị trí ô/kệ Kho → Zone → Rack → Bin, in mã vạch vị trí kệ) và giao diện Sơ đồ kho (FR03, FR04).",
+   "assignee": "Lê Phương Linh",
+   "collab": "Trần Đăng Việt",
+   "progress": 0.0,
+   "start": "2026-10-27",
+   "due": "2026-11-02",
+   "days": 7,
+   "level": "epic",
+   "parent": null,
+   "summary": "EPIC 3: QUẢN LÝ ĐA KHO & SƠ ĐỒ VỊ TRÍ Ô/KỆ (WAREHOUSE & BIN LOCATION)",
+   "labels": [
+    "Sprint-1"
+   ],
+   "phase": "Sprint 1 – Nền tảng & Auth",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "III"
+    ],
+    [
+     "Nội dung",
+     "[Sprint 1 – Nền tảng & Auth] Phát triển Warehouse Service (CRUD đa kho & vị trí ô/kệ Kho → Zone → Rack → Bin, in mã vạch vị trí kệ) và giao diện Sơ đồ kho (FR03, FR04)."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phương Linh"
+    ],
+    [
+     "Phối hợp",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Kế hoạch",
+     "27/10/2026 - 02/11/2026 (7 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 1 – Nền tảng & Auth"
+    ]
+   ]
+  },
+  {
+   "row": 33,
+   "wms": "WMS-05",
+   "title_raw": "Task WMS-05: Quản lý Danh mục Đa Kho & Giám sát Sức chứa (Warehouse Service)",
+   "summary_raw": "[Sprint 1] Thiết kế CSDL & phát triển REST API CRUD đa kho độc lập, hiển thị thẻ tóm tắt nhanh và chặn xóa kho khi còn tồn thực tế > 0 (FR03).",
+   "assignee": "Lê Phương Linh",
+   "collab": "Phạm Phương Anh",
+   "progress": 0.0,
+   "start": "2026-10-27",
+   "due": "2026-10-29",
+   "days": 3,
+   "level": "task",
+   "parent": "III",
+   "summary": "WMS-05: Quản lý Danh mục Đa Kho & Giám sát Sức chứa (Warehouse Service)",
+   "labels": [
+    "Sprint-1"
+   ],
+   "phase": "Sprint 1",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-05"
+    ],
+    [
+     "Nội dung",
+     "[Sprint 1] Thiết kế CSDL & phát triển REST API CRUD đa kho độc lập, hiển thị thẻ tóm tắt nhanh và chặn xóa kho khi còn tồn thực tế > 0 (FR03)."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phương Linh"
+    ],
+    [
+     "Phối hợp",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Kế hoạch",
+     "27/10/2026 - 29/10/2026 (3 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 1"
+    ],
+    [
+     "Thuộc",
+     "III"
+    ]
+   ]
+  },
+  {
+   "row": 34,
+   "wms": "WMS-05.1",
+   "title_raw": "+ [Backend] Thiết kế CSDL & REST API CRUD Đa Kho (Multi-warehouse)",
+   "summary_raw": "Bảng warehouses (Mã kho, Tên, Địa chỉ, Thủ kho, Sức chứa m³/tấn); API Thêm/Sửa/Xóa & giám sát đa kho; ràng buộc không cho phép xóa kho khi tồn thực tế > 0 (FR03).",
+   "assignee": "Lê Phương Linh",
+   "collab": "Phạm Phương Anh",
+   "progress": 0.0,
+   "start": "2026-10-27",
+   "due": "2026-10-28",
+   "days": 2,
+   "level": "subtask",
+   "parent": "WMS-05",
+   "summary": "WMS-05.1 [Backend] Thiết kế CSDL & REST API CRUD Đa Kho (Multi-warehouse)",
+   "labels": [
+    "Sprint-1",
+    "Backend"
+   ],
+   "phase": "Sprint 1",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-05.1"
+    ],
+    [
+     "Nội dung",
+     "Bảng warehouses (Mã kho, Tên, Địa chỉ, Thủ kho, Sức chứa m³/tấn); API Thêm/Sửa/Xóa & giám sát đa kho; ràng buộc không cho phép xóa kho khi tồn thực tế > 0 (FR03)."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phương Linh"
+    ],
+    [
+     "Phối hợp",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Kế hoạch",
+     "27/10/2026 - 28/10/2026 (2 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 1"
+    ],
+    [
+     "Thuộc",
+     "WMS-05"
+    ]
+   ]
+  },
+  {
+   "row": 35,
+   "wms": "WMS-05.2",
+   "title_raw": "+ [Backend] API Thẻ tóm tắt nhanh tình trạng Kho (Warehouse Summary Cards)",
+   "summary_raw": "Endpoint trả về thẻ tóm tắt nhanh từng kho: Tên kho, Trạng thái, Số mặt hàng (SKU), Tổng tồn thực tế, Số vị trí đang dùng/còn trống và tỷ lệ lấp đầy (FR03, FR24).",
+   "assignee": "Lê Phương Linh",
+   "collab": "Phạm Phương Anh",
+   "progress": 0.0,
+   "start": "2026-10-28",
+   "due": "2026-10-28",
+   "days": 1,
+   "level": "subtask",
+   "parent": "WMS-05",
+   "summary": "WMS-05.2 [Backend] API Thẻ tóm tắt nhanh tình trạng Kho (Warehouse Summary Cards)",
+   "labels": [
+    "Sprint-1",
+    "Backend"
+   ],
+   "phase": "Sprint 1",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-05.2"
+    ],
+    [
+     "Nội dung",
+     "Endpoint trả về thẻ tóm tắt nhanh từng kho: Tên kho, Trạng thái, Số mặt hàng (SKU), Tổng tồn thực tế, Số vị trí đang dùng/còn trống và tỷ lệ lấp đầy (FR03, FR24)."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phương Linh"
+    ],
+    [
+     "Phối hợp",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Kế hoạch",
+     "28/10/2026 - 28/10/2026 (1 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 1"
+    ],
+    [
+     "Thuộc",
+     "WMS-05"
+    ]
+   ]
+  },
+  {
+   "row": 36,
+   "wms": "WMS-05.3",
+   "title_raw": "+ [Frontend] Giao diện Danh sách Kho & Thẻ tóm tắt Sức chứa",
+   "summary_raw": "Xây dựng giao diện Danh sách Kho kèm các thẻ tóm tắt trực quan (Trạng thái, Số mặt hàng, Tổng tồn, Vị trí đang dùng) và Modal Thêm/Sửa thông tin kho (FR03).",
+   "assignee": "Lê Phương Linh",
+   "collab": "Phạm Phương Anh",
+   "progress": 0.0,
+   "start": "2026-10-28",
+   "due": "2026-10-29",
+   "days": 2,
+   "level": "subtask",
+   "parent": "WMS-05",
+   "summary": "WMS-05.3 [Frontend] Giao diện Danh sách Kho & Thẻ tóm tắt Sức chứa",
+   "labels": [
+    "Sprint-1",
+    "Frontend"
+   ],
+   "phase": "Sprint 1",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-05.3"
+    ],
+    [
+     "Nội dung",
+     "Xây dựng giao diện Danh sách Kho kèm các thẻ tóm tắt trực quan (Trạng thái, Số mặt hàng, Tổng tồn, Vị trí đang dùng) và Modal Thêm/Sửa thông tin kho (FR03)."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phương Linh"
+    ],
+    [
+     "Phối hợp",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Kế hoạch",
+     "28/10/2026 - 29/10/2026 (2 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 1"
+    ],
+    [
+     "Thuộc",
+     "WMS-05"
+    ]
+   ]
+  },
+  {
+   "row": 37,
+   "wms": "WMS-06",
+   "title_raw": "Task WMS-06: Quản lý Vị trí Ô/Kệ (Bin Location) & In Tem Mã Vạch Giá Kệ",
+   "summary_raw": "[Sprint 1] Quản lý vị trí ô/kệ theo cấu trúc Kho → Zone → Rack → Bin, theo dõi trạng thái Empty/Occupied/Full và in tem mã vạch dán kệ (FR04).",
+   "assignee": "Lê Phương Linh",
+   "collab": "Trần Đăng Việt",
+   "progress": 0.0,
+   "start": "2026-10-30",
+   "due": "2026-11-02",
+   "days": 4,
+   "level": "task",
+   "parent": "III",
+   "summary": "WMS-06: Quản lý Vị trí Ô/Kệ (Bin Location) & In Tem Mã Vạch Giá Kệ",
+   "labels": [
+    "Sprint-1"
+   ],
+   "phase": "Sprint 1",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-06"
+    ],
+    [
+     "Nội dung",
+     "[Sprint 1] Quản lý vị trí ô/kệ theo cấu trúc Kho → Zone → Rack → Bin, theo dõi trạng thái Empty/Occupied/Full và in tem mã vạch dán kệ (FR04)."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phương Linh"
+    ],
+    [
+     "Phối hợp",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Kế hoạch",
+     "30/10/2026 - 02/11/2026 (4 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 1"
+    ],
+    [
+     "Thuộc",
+     "III"
+    ]
+   ]
+  },
+  {
+   "row": 38,
+   "wms": "WMS-06.1",
+   "title_raw": "+ [Backend] Thiết kế CSDL & REST API Vị trí Ô/Kệ 4 cấp (Bin Location)",
+   "summary_raw": "Mô hình hóa cấu trúc Kho → Zone → Rack → Bin; tự động sinh mã vị trí chuẩn duy nhất (VD: WH1-ZA-R01-B02); theo dõi sức chứa tối đa & trạng thái Empty/Occupied/Full (FR04).",
+   "assignee": "Lê Phương Linh",
+   "collab": "Trần Đăng Việt",
+   "progress": 0.0,
+   "start": "2026-10-30",
+   "due": "2026-10-31",
+   "days": 2,
+   "level": "subtask",
+   "parent": "WMS-06",
+   "summary": "WMS-06.1 [Backend] Thiết kế CSDL & REST API Vị trí Ô/Kệ 4 cấp (Bin Location)",
+   "labels": [
+    "Sprint-1",
+    "Backend"
+   ],
+   "phase": "Sprint 1",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-06.1"
+    ],
+    [
+     "Nội dung",
+     "Mô hình hóa cấu trúc Kho → Zone → Rack → Bin; tự động sinh mã vị trí chuẩn duy nhất (VD: WH1-ZA-R01-B02); theo dõi sức chứa tối đa & trạng thái Empty/Occupied/Full (FR04)."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phương Linh"
+    ],
+    [
+     "Phối hợp",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Kế hoạch",
+     "30/10/2026 - 31/10/2026 (2 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 1"
+    ],
+    [
+     "Thuộc",
+     "WMS-06"
+    ]
+   ]
+  },
+  {
+   "row": 39,
+   "wms": "WMS-06.2",
+   "title_raw": "+ [Backend] API Sinh mã vạch Vị trí Ô/Kệ để in tem dán kệ",
+   "summary_raw": "Phát triển endpoint sinh mã Barcode/QR cho từng mã vị trí Bin Location theo dãy kệ (Rack/Zone) hỗ trợ in tem nhãn dán lên giá kệ kho (FR04).",
+   "assignee": "Lê Phương Linh",
+   "collab": "Trần Đăng Việt",
+   "progress": 0.0,
+   "start": "2026-10-31",
+   "due": "2026-10-31",
+   "days": 1,
+   "level": "subtask",
+   "parent": "WMS-06",
+   "summary": "WMS-06.2 [Backend] API Sinh mã vạch Vị trí Ô/Kệ để in tem dán kệ",
+   "labels": [
+    "Sprint-1",
+    "Backend"
+   ],
+   "phase": "Sprint 1",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-06.2"
+    ],
+    [
+     "Nội dung",
+     "Phát triển endpoint sinh mã Barcode/QR cho từng mã vị trí Bin Location theo dãy kệ (Rack/Zone) hỗ trợ in tem nhãn dán lên giá kệ kho (FR04)."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phương Linh"
+    ],
+    [
+     "Phối hợp",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Kế hoạch",
+     "31/10/2026 - 31/10/2026 (1 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 1"
+    ],
+    [
+     "Thuộc",
+     "WMS-06"
+    ]
+   ]
+  },
+  {
+   "row": 40,
+   "wms": "WMS-06.3",
+   "title_raw": "+ [Frontend] Xây dựng Giao diện Sơ đồ Vị trí Ô/Kệ (Bin Management)",
+   "summary_raw": "Xây dựng sơ đồ trực quan Vị trí Ô/Kệ theo từng Zone/Rack; hiển thị màu sắc theo trạng thái ô (Empty - Trống, Occupied - Đang chứa, Full - Đầy) và tra cứu nhanh hàng trong ô (FR04).",
+   "assignee": "Lê Phương Linh",
+   "collab": "Trần Đăng Việt",
+   "progress": 0.0,
+   "start": "2026-11-01",
+   "due": "2026-11-02",
+   "days": 2,
+   "level": "subtask",
+   "parent": "WMS-06",
+   "summary": "WMS-06.3 [Frontend] Xây dựng Giao diện Sơ đồ Vị trí Ô/Kệ (Bin Management)",
+   "labels": [
+    "Sprint-1",
+    "Frontend"
+   ],
+   "phase": "Sprint 1",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-06.3"
+    ],
+    [
+     "Nội dung",
+     "Xây dựng sơ đồ trực quan Vị trí Ô/Kệ theo từng Zone/Rack; hiển thị màu sắc theo trạng thái ô (Empty - Trống, Occupied - Đang chứa, Full - Đầy) và tra cứu nhanh hàng trong ô (FR04)."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phương Linh"
+    ],
+    [
+     "Phối hợp",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Kế hoạch",
+     "01/11/2026 - 02/11/2026 (2 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 1"
+    ],
+    [
+     "Thuộc",
+     "WMS-06"
+    ]
+   ]
+  },
+  {
+   "row": 41,
+   "wms": "WMS-06.4",
+   "title_raw": "+ [Frontend] Chức năng Xem trước & In Tem Mã Vạch Vị trí Giá Kệ",
+   "summary_raw": "Giao diện chọn danh sách vị trí ô/kệ và xuất bản in tem mã vạch vị trí để nhân viên kho dán trực tiếp lên giá kệ phục vụ quét putaway/picking (FR04).",
+   "assignee": "Lê Phương Linh",
+   "collab": "Trần Đăng Việt",
+   "progress": 0.0,
+   "start": "2026-11-02",
+   "due": "2026-11-02",
+   "days": 1,
+   "level": "subtask",
+   "parent": "WMS-06",
+   "summary": "WMS-06.4 [Frontend] Chức năng Xem trước & In Tem Mã Vạch Vị trí Giá Kệ",
+   "labels": [
+    "Sprint-1",
+    "Frontend"
+   ],
+   "phase": "Sprint 1",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-06.4"
+    ],
+    [
+     "Nội dung",
+     "Giao diện chọn danh sách vị trí ô/kệ và xuất bản in tem mã vạch vị trí để nhân viên kho dán trực tiếp lên giá kệ phục vụ quét putaway/picking (FR04)."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phương Linh"
+    ],
+    [
+     "Phối hợp",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Kế hoạch",
+     "02/11/2026 - 02/11/2026 (1 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 1"
+    ],
+    [
+     "Thuộc",
+     "WMS-06"
+    ]
+   ]
+  },
+  {
+   "row": 42,
+   "wms": "IV",
+   "title_raw": "EPIC 4: DANH MỤC HÀNG HÓA, MÃ VẠCH & ĐỐI TÁC (PRODUCT SERVICE & PARTNERS)",
+   "summary_raw": "[Sprint 1 – Nền tảng & Master Data] Phát triển Product Service (CRUD SKU, quy đổi đơn vị tính, tích hợp thư viện sinh Barcode) và quản lý Suppliers, Customers (FR05–FR07, FR09, FR14).",
+   "assignee": "Trần Đăng Việt",
+   "collab": "Lê Phương Linh",
+   "progress": 0.0,
+   "start": "2026-10-27",
+   "due": "2026-11-02",
+   "days": 7,
+   "level": "epic",
+   "parent": null,
+   "summary": "EPIC 4: DANH MỤC HÀNG HÓA, MÃ VẠCH & ĐỐI TÁC (PRODUCT SERVICE & PARTNERS)",
+   "labels": [
+    "Sprint-1"
+   ],
+   "phase": "Sprint 1 – Nền tảng & Master Data",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "IV"
+    ],
+    [
+     "Nội dung",
+     "[Sprint 1 – Nền tảng & Master Data] Phát triển Product Service (CRUD SKU, quy đổi đơn vị tính, tích hợp thư viện sinh Barcode) và quản lý Suppliers, Customers (FR05–FR07, FR09, FR14)."
+    ],
+    [
+     "Phụ trách",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phương Linh"
+    ],
+    [
+     "Kế hoạch",
+     "27/10/2026 - 02/11/2026 (7 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 1 – Nền tảng & Master Data"
+    ]
+   ]
+  },
+  {
+   "row": 43,
+   "wms": "WMS-07",
+   "title_raw": "Task WMS-07: Quản lý Danh mục SKU, Đơn vị Quy đổi & Tích hợp Barcode (Product Service)",
+   "summary_raw": "[Sprint 1] Thiết kế CSDL & phát triển REST API cho SKU, đơn vị tính quy đổi đa cấp, tích hợp thư viện ZXing sinh mã Barcode/QR và màn hình quản lý SKU/in tem (FR05, FR06, FR07).",
+   "assignee": "Trần Đăng Việt",
+   "collab": "Lê Phương Linh",
+   "progress": 0.0,
+   "start": "2026-10-27",
+   "due": "2026-10-30",
+   "days": 4,
+   "level": "task",
+   "parent": "IV",
+   "summary": "WMS-07: Quản lý Danh mục SKU, Đơn vị Quy đổi & Tích hợp Barcode (Product Service)",
+   "labels": [
+    "Sprint-1"
+   ],
+   "phase": "Sprint 1",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-07"
+    ],
+    [
+     "Nội dung",
+     "[Sprint 1] Thiết kế CSDL & phát triển REST API cho SKU, đơn vị tính quy đổi đa cấp, tích hợp thư viện ZXing sinh mã Barcode/QR và màn hình quản lý SKU/in tem (FR05, FR06, FR07)."
+    ],
+    [
+     "Phụ trách",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phương Linh"
+    ],
+    [
+     "Kế hoạch",
+     "27/10/2026 - 30/10/2026 (4 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 1"
+    ],
+    [
+     "Thuộc",
+     "IV"
+    ]
+   ]
+  },
+  {
+   "row": 44,
+   "wms": "WMS-07.1",
+   "title_raw": "+ [Backend] Thiết kế CSDL & REST API Danh mục Sản phẩm (SKU)",
+   "summary_raw": "Bảng products (mã SKU, tên, nhóm hàng, giá nhập/bán, VAT, ảnh, cờ quản lý Batch/Lot & Exp Date, Safety Stock, Max Stock, Reorder Point); Import/Export qua file Excel mẫu (FR05).",
+   "assignee": "Trần Đăng Việt",
+   "collab": "Lê Phương Linh",
+   "progress": 0.0,
+   "start": "2026-10-27",
+   "due": "2026-10-28",
+   "days": 2,
+   "level": "subtask",
+   "parent": "WMS-07",
+   "summary": "WMS-07.1 [Backend] Thiết kế CSDL & REST API Danh mục Sản phẩm (SKU)",
+   "labels": [
+    "Sprint-1",
+    "Backend"
+   ],
+   "phase": "Sprint 1",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-07.1"
+    ],
+    [
+     "Nội dung",
+     "Bảng products (mã SKU, tên, nhóm hàng, giá nhập/bán, VAT, ảnh, cờ quản lý Batch/Lot & Exp Date, Safety Stock, Max Stock, Reorder Point); Import/Export qua file Excel mẫu (FR05)."
+    ],
+    [
+     "Phụ trách",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phương Linh"
+    ],
+    [
+     "Kế hoạch",
+     "27/10/2026 - 28/10/2026 (2 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 1"
+    ],
+    [
+     "Thuộc",
+     "WMS-07"
+    ]
+   ]
+  },
+  {
+   "row": 45,
+   "wms": "WMS-07.2",
+   "title_raw": "+ [Backend] Phát triển API Đơn vị tính & Quy đổi đa cấp (UOM Conversion)",
+   "summary_raw": "Quản lý đơn vị cơ sở (Cái, Chai, Gói) và đơn vị đóng gói (Thùng, Lốc, Pallet); tự động quy đổi tỷ lệ (VD: 1 Thùng = 4 Lốc = 24 Chai) về đơn vị cơ sở khi tính tồn kho (FR06).",
+   "assignee": "Trần Đăng Việt",
+   "collab": "Lê Phương Linh",
+   "progress": 0.0,
+   "start": "2026-10-28",
+   "due": "2026-10-29",
+   "days": 2,
+   "level": "subtask",
+   "parent": "WMS-07",
+   "summary": "WMS-07.2 [Backend] Phát triển API Đơn vị tính & Quy đổi đa cấp (UOM Conversion)",
+   "labels": [
+    "Sprint-1",
+    "Backend"
+   ],
+   "phase": "Sprint 1",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-07.2"
+    ],
+    [
+     "Nội dung",
+     "Quản lý đơn vị cơ sở (Cái, Chai, Gói) và đơn vị đóng gói (Thùng, Lốc, Pallet); tự động quy đổi tỷ lệ (VD: 1 Thùng = 4 Lốc = 24 Chai) về đơn vị cơ sở khi tính tồn kho (FR06)."
+    ],
+    [
+     "Phụ trách",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phương Linh"
+    ],
+    [
+     "Kế hoạch",
+     "28/10/2026 - 29/10/2026 (2 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 1"
+    ],
+    [
+     "Thuộc",
+     "WMS-07"
+    ]
+   ]
+  },
+  {
+   "row": 46,
+   "wms": "WMS-07.3",
+   "title_raw": "+ [Backend] Tích hợp Thư viện ZXing tự động sinh ảnh Barcode / QR Code",
+   "summary_raw": "Tích hợp thư viện ZXing tạo mã vạch chuẩn EAN-13, Code 128 hoặc QR Code chứa thông tin SKU/Batch cho sản phẩm và phiếu kho (FR07).",
+   "assignee": "Trần Đăng Việt",
+   "collab": "Lê Phú Toàn",
+   "progress": 0.0,
+   "start": "2026-10-29",
+   "due": "2026-10-29",
+   "days": 1,
+   "level": "subtask",
+   "parent": "WMS-07",
+   "summary": "WMS-07.3 [Backend] Tích hợp Thư viện ZXing tự động sinh ảnh Barcode / QR Code",
+   "labels": [
+    "Sprint-1",
+    "Backend"
+   ],
+   "phase": "Sprint 1",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-07.3"
+    ],
+    [
+     "Nội dung",
+     "Tích hợp thư viện ZXing tạo mã vạch chuẩn EAN-13, Code 128 hoặc QR Code chứa thông tin SKU/Batch cho sản phẩm và phiếu kho (FR07)."
+    ],
+    [
+     "Phụ trách",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Kế hoạch",
+     "29/10/2026 - 29/10/2026 (1 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 1"
+    ],
+    [
+     "Thuộc",
+     "WMS-07"
+    ]
+   ]
+  },
+  {
+   "row": 47,
+   "wms": "WMS-07.4",
+   "title_raw": "+ [Frontend] Xây dựng Màn hình Quản lý Danh mục SKU & Đơn vị quy đổi",
+   "summary_raw": "Xây dựng màn hình Quản lý danh mục SKU (DataTable lọc, tìm kiếm, import/export Excel) và form cấu hình đơn vị tính quy đổi đa cấp (FR05, FR06).",
+   "assignee": "Trần Đăng Việt",
+   "collab": "Lê Phương Linh",
+   "progress": 0.0,
+   "start": "2026-10-29",
+   "due": "2026-10-30",
+   "days": 2,
+   "level": "subtask",
+   "parent": "WMS-07",
+   "summary": "WMS-07.4 [Frontend] Xây dựng Màn hình Quản lý Danh mục SKU & Đơn vị quy đổi",
+   "labels": [
+    "Sprint-1",
+    "Frontend"
+   ],
+   "phase": "Sprint 1",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-07.4"
+    ],
+    [
+     "Nội dung",
+     "Xây dựng màn hình Quản lý danh mục SKU (DataTable lọc, tìm kiếm, import/export Excel) và form cấu hình đơn vị tính quy đổi đa cấp (FR05, FR06)."
+    ],
+    [
+     "Phụ trách",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phương Linh"
+    ],
+    [
+     "Kế hoạch",
+     "29/10/2026 - 30/10/2026 (2 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 1"
+    ],
+    [
+     "Thuộc",
+     "WMS-07"
+    ]
+   ]
+  },
+  {
+   "row": 48,
+   "wms": "WMS-07.5",
+   "title_raw": "+ [Frontend] Chức năng Tạo & In Tem Nhãn Sản phẩm Barcode ra máy in nhiệt",
+   "summary_raw": "Xây dựng giao diện xem trước và in tem nhãn Barcode sản phẩm theo kích thước chuẩn 35×22mm hoặc 50×30mm ra máy in nhiệt (FR07).",
+   "assignee": "Trần Đăng Việt",
+   "collab": "Lê Phương Linh",
+   "progress": 0.0,
+   "start": "2026-10-30",
+   "due": "2026-10-30",
+   "days": 1,
+   "level": "subtask",
+   "parent": "WMS-07",
+   "summary": "WMS-07.5 [Frontend] Chức năng Tạo & In Tem Nhãn Sản phẩm Barcode ra máy in nhiệt",
+   "labels": [
+    "Sprint-1",
+    "Frontend"
+   ],
+   "phase": "Sprint 1",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-07.5"
+    ],
+    [
+     "Nội dung",
+     "Xây dựng giao diện xem trước và in tem nhãn Barcode sản phẩm theo kích thước chuẩn 35×22mm hoặc 50×30mm ra máy in nhiệt (FR07)."
+    ],
+    [
+     "Phụ trách",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phương Linh"
+    ],
+    [
+     "Kế hoạch",
+     "30/10/2026 - 30/10/2026 (1 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 1"
+    ],
+    [
+     "Thuộc",
+     "WMS-07"
+    ]
+   ]
+  },
+  {
+   "row": 49,
+   "wms": "WMS-08",
+   "title_raw": "Task WMS-08: Quản lý Hồ sơ Nhà Cung Cấp (Suppliers) & Khách Hàng (Customers)",
+   "summary_raw": "[Sprint 1 & Sprint 2] Thiết kế CSDL & phát triển REST API quản lý Nhà cung cấp, Khách hàng/Đại lý (Sỉ/Lẻ), điều khoản thanh toán và hạn mức công nợ (FR09, FR14).",
+   "assignee": "Trần Đăng Việt",
+   "collab": "Phạm Phương Anh",
+   "progress": 0.0,
+   "start": "2026-10-31",
+   "due": "2026-11-02",
+   "days": 3,
+   "level": "task",
+   "parent": "IV",
+   "summary": "WMS-08: Quản lý Hồ sơ Nhà Cung Cấp (Suppliers) & Khách Hàng (Customers)",
+   "labels": [
+    "Sprint-1",
+    "Sprint-2"
+   ],
+   "phase": "Sprint 1 & Sprint 2",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-08"
+    ],
+    [
+     "Nội dung",
+     "[Sprint 1 & Sprint 2] Thiết kế CSDL & phát triển REST API quản lý Nhà cung cấp, Khách hàng/Đại lý (Sỉ/Lẻ), điều khoản thanh toán và hạn mức công nợ (FR09, FR14)."
+    ],
+    [
+     "Phụ trách",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Phối hợp",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Kế hoạch",
+     "31/10/2026 - 02/11/2026 (3 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 1 & Sprint 2"
+    ],
+    [
+     "Thuộc",
+     "IV"
+    ]
+   ]
+  },
+  {
+   "row": 50,
+   "wms": "WMS-08.1",
+   "title_raw": "+ [Backend] Thiết kế CSDL & REST API Quản lý Nhà cung cấp (Suppliers)",
+   "summary_raw": "Lưu hồ sơ Nhà cung cấp (Tên công ty, MST, Liên hệ, Email, Địa chỉ, Tài khoản ngân hàng); theo dõi điều khoản thanh toán, hạn mức nợ & lịch sử giao dịch (FR09).",
+   "assignee": "Trần Đăng Việt",
+   "collab": "Phạm Phương Anh",
+   "progress": 0.0,
+   "start": "2026-10-31",
+   "due": "2026-11-01",
+   "days": 2,
+   "level": "subtask",
+   "parent": "WMS-08",
+   "summary": "WMS-08.1 [Backend] Thiết kế CSDL & REST API Quản lý Nhà cung cấp (Suppliers)",
+   "labels": [
+    "Sprint-1",
+    "Sprint-2",
+    "Backend"
+   ],
+   "phase": "Sprint 1 & Sprint 2",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-08.1"
+    ],
+    [
+     "Nội dung",
+     "Lưu hồ sơ Nhà cung cấp (Tên công ty, MST, Liên hệ, Email, Địa chỉ, Tài khoản ngân hàng); theo dõi điều khoản thanh toán, hạn mức nợ & lịch sử giao dịch (FR09)."
+    ],
+    [
+     "Phụ trách",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Phối hợp",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Kế hoạch",
+     "31/10/2026 - 01/11/2026 (2 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 1 & Sprint 2"
+    ],
+    [
+     "Thuộc",
+     "WMS-08"
+    ]
+   ]
+  },
+  {
+   "row": 51,
+   "wms": "WMS-08.2",
+   "title_raw": "+ [Backend] Thiết kế CSDL & REST API Quản lý Khách hàng / Đại lý (Customers)",
+   "summary_raw": "Lưu hồ sơ Khách hàng Sỉ/Lẻ (Mã, Tên, SĐT, Email, Địa chỉ, MST); cấu hình Credit Limit & Payment Term; cảnh báo/khóa khi vượt hạn mức hoặc nợ quá hạn (FR14).",
+   "assignee": "Trần Đăng Việt",
+   "collab": "Phạm Phương Anh",
+   "progress": 0.0,
+   "start": "2026-11-01",
+   "due": "2026-11-01",
+   "days": 1,
+   "level": "subtask",
+   "parent": "WMS-08",
+   "summary": "WMS-08.2 [Backend] Thiết kế CSDL & REST API Quản lý Khách hàng / Đại lý (Customers)",
+   "labels": [
+    "Sprint-1",
+    "Sprint-2",
+    "Backend"
+   ],
+   "phase": "Sprint 1 & Sprint 2",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-08.2"
+    ],
+    [
+     "Nội dung",
+     "Lưu hồ sơ Khách hàng Sỉ/Lẻ (Mã, Tên, SĐT, Email, Địa chỉ, MST); cấu hình Credit Limit & Payment Term; cảnh báo/khóa khi vượt hạn mức hoặc nợ quá hạn (FR14)."
+    ],
+    [
+     "Phụ trách",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Phối hợp",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Kế hoạch",
+     "01/11/2026 - 01/11/2026 (1 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 1 & Sprint 2"
+    ],
+    [
+     "Thuộc",
+     "WMS-08"
+    ]
+   ]
+  },
+  {
+   "row": 52,
+   "wms": "WMS-08.3",
+   "title_raw": "+ [Frontend] Xây dựng Màn hình Quản lý Danh sách Nhà cung cấp & Công nợ",
+   "summary_raw": "Xây dựng giao diện quản lý đối tác Nhà cung cấp, thêm/sửa thông tin liên hệ và tra cứu công nợ phải trả, lịch sử nhập hàng theo từng NCC (FR09).",
+   "assignee": "Trần Đăng Việt",
+   "collab": "Phạm Phương Anh",
+   "progress": 0.0,
+   "start": "2026-11-01",
+   "due": "2026-11-02",
+   "days": 2,
+   "level": "subtask",
+   "parent": "WMS-08",
+   "summary": "WMS-08.3 [Frontend] Xây dựng Màn hình Quản lý Danh sách Nhà cung cấp & Công nợ",
+   "labels": [
+    "Sprint-1",
+    "Sprint-2",
+    "Frontend"
+   ],
+   "phase": "Sprint 1 & Sprint 2",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-08.3"
+    ],
+    [
+     "Nội dung",
+     "Xây dựng giao diện quản lý đối tác Nhà cung cấp, thêm/sửa thông tin liên hệ và tra cứu công nợ phải trả, lịch sử nhập hàng theo từng NCC (FR09)."
+    ],
+    [
+     "Phụ trách",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Phối hợp",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Kế hoạch",
+     "01/11/2026 - 02/11/2026 (2 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 1 & Sprint 2"
+    ],
+    [
+     "Thuộc",
+     "WMS-08"
+    ]
+   ]
+  },
+  {
+   "row": 53,
+   "wms": "WMS-08.4",
+   "title_raw": "+ [Frontend] Xây dựng Màn hình Quản lý Danh sách Khách hàng / Đại lý",
+   "summary_raw": "Xây dựng giao diện quản lý Khách hàng/Đại lý, cấu hình hạn mức nợ và hiển thị cảnh báo trực quan khi khách vượt hạn mức tín dụng (FR14).",
+   "assignee": "Trần Đăng Việt",
+   "collab": "Phạm Phương Anh",
+   "progress": 0.0,
+   "start": "2026-11-02",
+   "due": "2026-11-02",
+   "days": 1,
+   "level": "subtask",
+   "parent": "WMS-08",
+   "summary": "WMS-08.4 [Frontend] Xây dựng Màn hình Quản lý Danh sách Khách hàng / Đại lý",
+   "labels": [
+    "Sprint-1",
+    "Sprint-2",
+    "Frontend"
+   ],
+   "phase": "Sprint 1 & Sprint 2",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-08.4"
+    ],
+    [
+     "Nội dung",
+     "Xây dựng giao diện quản lý Khách hàng/Đại lý, cấu hình hạn mức nợ và hiển thị cảnh báo trực quan khi khách vượt hạn mức tín dụng (FR14)."
+    ],
+    [
+     "Phụ trách",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Phối hợp",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Kế hoạch",
+     "02/11/2026 - 02/11/2026 (1 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 1 & Sprint 2"
+    ],
+    [
+     "Thuộc",
+     "WMS-08"
+    ]
+   ]
+  },
+  {
+   "row": 54,
+   "wms": "V",
+   "title_raw": "EPIC 5: CHUỖI CUNG ỨNG MUA HÀNG & NHẬP KHO (INBOUND LOGISTICS: PO → GRN)",
+   "summary_raw": "[Sprint 2 – Mua-Nhập (Inbound)] Phát triển Order Service luồng Đơn mua (PO) → cập nhật 'Incoming Stock' → Phiếu nhập kho (GRN), quét barcode và quản lý Lô/Hạn dùng (FR10–FR13).",
+   "assignee": "Trần Đăng Việt",
+   "collab": "Lê Phương Linh",
+   "progress": 0.0,
+   "start": "2026-11-03",
+   "due": "2026-11-09",
+   "days": 7,
+   "level": "epic",
+   "parent": null,
+   "summary": "EPIC 5: CHUỖI CUNG ỨNG MUA HÀNG & NHẬP KHO (INBOUND LOGISTICS: PO → GRN)",
+   "labels": [
+    "Sprint-2"
+   ],
+   "phase": "Sprint 2 – Mua-Nhập (Inbound)",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "V"
+    ],
+    [
+     "Nội dung",
+     "[Sprint 2 – Mua-Nhập (Inbound)] Phát triển Order Service luồng Đơn mua (PO) → cập nhật 'Incoming Stock' → Phiếu nhập kho (GRN), quét barcode và quản lý Lô/Hạn dùng (FR10–FR13)."
+    ],
+    [
+     "Phụ trách",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phương Linh"
+    ],
+    [
+     "Kế hoạch",
+     "03/11/2026 - 09/11/2026 (7 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 2 – Mua-Nhập (Inbound)"
+    ]
+   ]
+  },
+  {
+   "row": 55,
+   "wms": "WMS-09",
+   "title_raw": "Task WMS-09: Quy trình Đơn Mua Hàng (PO), Phê Duyệt & Cập Nhật 'Incoming Stock'",
+   "summary_raw": "[Sprint 2] Tạo, duyệt và theo dõi Đơn mua (PO); khi PO được duyệt bắn sự kiện cập nhật chỉ tiêu 'Incoming Stock' tại Warehouse Service; xây dựng UI Form PO (FR10).",
+   "assignee": "Trần Đăng Việt",
+   "collab": "Lê Phương Linh",
+   "progress": 0.0,
+   "start": "2026-11-03",
+   "due": "2026-11-05",
+   "days": 3,
+   "level": "task",
+   "parent": "V",
+   "summary": "WMS-09: Quy trình Đơn Mua Hàng (PO), Phê Duyệt & Cập Nhật 'Incoming Stock'",
+   "labels": [
+    "Sprint-2"
+   ],
+   "phase": "Sprint 2",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-09"
+    ],
+    [
+     "Nội dung",
+     "[Sprint 2] Tạo, duyệt và theo dõi Đơn mua (PO); khi PO được duyệt bắn sự kiện cập nhật chỉ tiêu 'Incoming Stock' tại Warehouse Service; xây dựng UI Form PO (FR10)."
+    ],
+    [
+     "Phụ trách",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phương Linh"
+    ],
+    [
+     "Kế hoạch",
+     "03/11/2026 - 05/11/2026 (3 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 2"
+    ],
+    [
+     "Thuộc",
+     "V"
+    ]
+   ]
+  },
+  {
+   "row": 56,
+   "wms": "WMS-09.1",
+   "title_raw": "+ [Backend] Thiết kế CSDL & API Đơn mua hàng (Purchase Order - PO)",
+   "summary_raw": "Tạo PO tự sinh mã, chọn NCC, kho nhận, ngày, SKU, số lượng, đơn giá, chiết khấu, VAT; tự động tính thành tiền dòng, thuế, Grand Total; quy trình Pending → APPROVED / REJECTED (FR10).",
+   "assignee": "Trần Đăng Việt",
+   "collab": "Phạm Phương Anh",
+   "progress": 0.0,
+   "start": "2026-11-03",
+   "due": "2026-11-04",
+   "days": 2,
+   "level": "subtask",
+   "parent": "WMS-09",
+   "summary": "WMS-09.1 [Backend] Thiết kế CSDL & API Đơn mua hàng (Purchase Order - PO)",
+   "labels": [
+    "Sprint-2",
+    "Backend"
+   ],
+   "phase": "Sprint 2",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-09.1"
+    ],
+    [
+     "Nội dung",
+     "Tạo PO tự sinh mã, chọn NCC, kho nhận, ngày, SKU, số lượng, đơn giá, chiết khấu, VAT; tự động tính thành tiền dòng, thuế, Grand Total; quy trình Pending → APPROVED / REJECTED (FR10)."
+    ],
+    [
+     "Phụ trách",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Phối hợp",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Kế hoạch",
+     "03/11/2026 - 04/11/2026 (2 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 2"
+    ],
+    [
+     "Thuộc",
+     "WMS-09"
+    ]
+   ]
+  },
+  {
+   "row": 57,
+   "wms": "WMS-09.2",
+   "title_raw": "+ [Backend] Xử lý Cập nhật chỉ tiêu 'Incoming Stock' khi duyệt PO (Warehouse Service)",
+   "summary_raw": "Theo phân công Sprint 2 (Member 2): Khi PO được duyệt (event order.created), Warehouse Service tự động tăng 'Incoming Stock' (hàng đang trên đường về kho) (FR10).",
+   "assignee": "Lê Phương Linh",
+   "collab": "Trần Đăng Việt, Lê Phú Toàn",
+   "progress": 0.0,
+   "start": "2026-11-04",
+   "due": "2026-11-04",
+   "days": 1,
+   "level": "subtask",
+   "parent": "WMS-09",
+   "summary": "WMS-09.2 [Backend] Xử lý Cập nhật chỉ tiêu 'Incoming Stock' khi duyệt PO (Warehouse Service)",
+   "labels": [
+    "Sprint-2",
+    "Backend"
+   ],
+   "phase": "Sprint 2",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-09.2"
+    ],
+    [
+     "Nội dung",
+     "Theo phân công Sprint 2 (Member 2): Khi PO được duyệt (event order.created), Warehouse Service tự động tăng 'Incoming Stock' (hàng đang trên đường về kho) (FR10)."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phương Linh"
+    ],
+    [
+     "Phối hợp",
+     "Trần Đăng Việt, Lê Phú Toàn"
+    ],
+    [
+     "Kế hoạch",
+     "04/11/2026 - 04/11/2026 (1 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 2"
+    ],
+    [
+     "Thuộc",
+     "WMS-09"
+    ]
+   ]
+  },
+  {
+   "row": 58,
+   "wms": "WMS-09.3",
+   "title_raw": "+ [Frontend] Xây dựng Giao diện Form Lập Đơn Mua Hàng (Form PO)",
+   "summary_raw": "Xây dựng UI Form PO: Chọn Nhà cung cấp, kho nhận, thêm dòng sản phẩm SKU, tự động tính chiết khấu, thuế VAT và tổng tiền đơn mua (FR10).",
+   "assignee": "Trần Đăng Việt",
+   "collab": "Lê Phương Linh",
+   "progress": 0.0,
+   "start": "2026-11-04",
+   "due": "2026-11-05",
+   "days": 2,
+   "level": "subtask",
+   "parent": "WMS-09",
+   "summary": "WMS-09.3 [Frontend] Xây dựng Giao diện Form Lập Đơn Mua Hàng (Form PO)",
+   "labels": [
+    "Sprint-2",
+    "Frontend"
+   ],
+   "phase": "Sprint 2",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-09.3"
+    ],
+    [
+     "Nội dung",
+     "Xây dựng UI Form PO: Chọn Nhà cung cấp, kho nhận, thêm dòng sản phẩm SKU, tự động tính chiết khấu, thuế VAT và tổng tiền đơn mua (FR10)."
+    ],
+    [
+     "Phụ trách",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phương Linh"
+    ],
+    [
+     "Kế hoạch",
+     "04/11/2026 - 05/11/2026 (2 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 2"
+    ],
+    [
+     "Thuộc",
+     "WMS-09"
+    ]
+   ]
+  },
+  {
+   "row": 59,
+   "wms": "WMS-09.4",
+   "title_raw": "+ [Frontend] Màn hình Danh sách PO Chờ Duyệt & Theo dõi Đơn Mua",
+   "summary_raw": "Xây dựng màn hình quản lý danh sách đơn PO, lọc đơn PO chờ duyệt và chức năng Phê duyệt / Từ chối đơn đặt mua hàng (FR10).",
+   "assignee": "Trần Đăng Việt",
+   "collab": "Phạm Phương Anh",
+   "progress": 0.0,
+   "start": "2026-11-05",
+   "due": "2026-11-05",
+   "days": 1,
+   "level": "subtask",
+   "parent": "WMS-09",
+   "summary": "WMS-09.4 [Frontend] Màn hình Danh sách PO Chờ Duyệt & Theo dõi Đơn Mua",
+   "labels": [
+    "Sprint-2",
+    "Frontend"
+   ],
+   "phase": "Sprint 2",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-09.4"
+    ],
+    [
+     "Nội dung",
+     "Xây dựng màn hình quản lý danh sách đơn PO, lọc đơn PO chờ duyệt và chức năng Phê duyệt / Từ chối đơn đặt mua hàng (FR10)."
+    ],
+    [
+     "Phụ trách",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Phối hợp",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Kế hoạch",
+     "05/11/2026 - 05/11/2026 (1 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 2"
+    ],
+    [
+     "Thuộc",
+     "WMS-09"
+    ]
+   ]
+  },
+  {
+   "row": 60,
+   "wms": "WMS-10",
+   "title_raw": "Task WMS-10: Phiếu Nhập Kho (GRN), Quét Mã Vạch & Quản Lý Lô / Hạn Dùng",
+   "summary_raw": "[Sprint 2] Tạo Phiếu nhập kho (GRN) dựa trên PO (nhập đủ hoặc Partial Receipt), quét barcode ghi nhận thực nhận/từ chối, lưu Số lô & Hạn dùng (FIFO/FEFO) (FR11, FR12, FR13).",
+   "assignee": "Trần Đăng Việt",
+   "collab": "Lê Phương Linh",
+   "progress": 0.0,
+   "start": "2026-11-06",
+   "due": "2026-11-09",
+   "days": 4,
+   "level": "task",
+   "parent": "V",
+   "summary": "WMS-10: Phiếu Nhập Kho (GRN), Quét Mã Vạch & Quản Lý Lô / Hạn Dùng",
+   "labels": [
+    "Sprint-2"
+   ],
+   "phase": "Sprint 2",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-10"
+    ],
+    [
+     "Nội dung",
+     "[Sprint 2] Tạo Phiếu nhập kho (GRN) dựa trên PO (nhập đủ hoặc Partial Receipt), quét barcode ghi nhận thực nhận/từ chối, lưu Số lô & Hạn dùng (FIFO/FEFO) (FR11, FR12, FR13)."
+    ],
+    [
+     "Phụ trách",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phương Linh"
+    ],
+    [
+     "Kế hoạch",
+     "06/11/2026 - 09/11/2026 (4 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 2"
+    ],
+    [
+     "Thuộc",
+     "V"
+    ]
+   ]
+  },
+  {
+   "row": 61,
+   "wms": "WMS-10.1",
+   "title_raw": "+ [Backend] Phát triển API Phiếu nhập kho (PO → GRN, hỗ trợ Partial Receipt)",
+   "summary_raw": "Tạo GRN dựa trên PO đã duyệt (hỗ trợ nhập toàn bộ hoặc từng phần - Partial Receipt); ghi nhận số lượng thực nhận (Accepted) và số lượng bị từ chối/phế phẩm (Rejected) (FR11).",
+   "assignee": "Trần Đăng Việt",
+   "collab": "Lê Phương Linh",
+   "progress": 0.0,
+   "start": "2026-11-06",
+   "due": "2026-11-07",
+   "days": 2,
+   "level": "subtask",
+   "parent": "WMS-10",
+   "summary": "WMS-10.1 [Backend] Phát triển API Phiếu nhập kho (PO → GRN, hỗ trợ Partial Receipt)",
+   "labels": [
+    "Sprint-2",
+    "Backend"
+   ],
+   "phase": "Sprint 2",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-10.1"
+    ],
+    [
+     "Nội dung",
+     "Tạo GRN dựa trên PO đã duyệt (hỗ trợ nhập toàn bộ hoặc từng phần - Partial Receipt); ghi nhận số lượng thực nhận (Accepted) và số lượng bị từ chối/phế phẩm (Rejected) (FR11)."
+    ],
+    [
+     "Phụ trách",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phương Linh"
+    ],
+    [
+     "Kế hoạch",
+     "06/11/2026 - 07/11/2026 (2 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 2"
+    ],
+    [
+     "Thuộc",
+     "WMS-10"
+    ]
+   ]
+  },
+  {
+   "row": 62,
+   "wms": "WMS-10.2",
+   "title_raw": "+ [Backend] Quản lý Lô (Batch/Lot), Hạn sử dụng (Exp Date) & Khóa lô hết hạn",
+   "summary_raw": "Ghi nhận Số lô (Batch), Ngày sản xuất (Mfg Date), Hạn dùng (Exp Date) theo vị trí ô/kệ để phục vụ xuất FIFO/FEFO; tự động khóa lô hết hạn (Exp ≤ hôm nay) không cho xuất (FR12).",
+   "assignee": "Trần Đăng Việt",
+   "collab": "Lê Phương Linh",
+   "progress": 0.0,
+   "start": "2026-11-07",
+   "due": "2026-11-07",
+   "days": 1,
+   "level": "subtask",
+   "parent": "WMS-10",
+   "summary": "WMS-10.2 [Backend] Quản lý Lô (Batch/Lot), Hạn sử dụng (Exp Date) & Khóa lô hết hạn",
+   "labels": [
+    "Sprint-2",
+    "Backend"
+   ],
+   "phase": "Sprint 2",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-10.2"
+    ],
+    [
+     "Nội dung",
+     "Ghi nhận Số lô (Batch), Ngày sản xuất (Mfg Date), Hạn dùng (Exp Date) theo vị trí ô/kệ để phục vụ xuất FIFO/FEFO; tự động khóa lô hết hạn (Exp ≤ hôm nay) không cho xuất (FR12)."
+    ],
+    [
+     "Phụ trách",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phương Linh"
+    ],
+    [
+     "Kế hoạch",
+     "07/11/2026 - 07/11/2026 (1 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 2"
+    ],
+    [
+     "Thuộc",
+     "WMS-10"
+    ]
+   ]
+  },
+  {
+   "row": 63,
+   "wms": "WMS-10.3",
+   "title_raw": "+ [Backend] Cập nhật OnHand Stock, Giảm Incoming Stock & Hóa đơn mua (Purchase Bill)",
+   "summary_raw": "Khi xác nhận GRN: tăng OnHand Stock, giảm Incoming Stock, chuyển PO sang Completed; tạo Purchase Bill liên kết GRN và cập nhật công nợ NCC (Payment Payables) (FR11, FR13).",
+   "assignee": "Trần Đăng Việt",
+   "collab": "Phạm Phương Anh",
+   "progress": 0.0,
+   "start": "2026-11-08",
+   "due": "2026-11-08",
+   "days": 1,
+   "level": "subtask",
+   "parent": "WMS-10",
+   "summary": "WMS-10.3 [Backend] Cập nhật OnHand Stock, Giảm Incoming Stock & Hóa đơn mua (Purchase Bill)",
+   "labels": [
+    "Sprint-2",
+    "Backend"
+   ],
+   "phase": "Sprint 2",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-10.3"
+    ],
+    [
+     "Nội dung",
+     "Khi xác nhận GRN: tăng OnHand Stock, giảm Incoming Stock, chuyển PO sang Completed; tạo Purchase Bill liên kết GRN và cập nhật công nợ NCC (Payment Payables) (FR11, FR13)."
+    ],
+    [
+     "Phụ trách",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Phối hợp",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Kế hoạch",
+     "08/11/2026 - 08/11/2026 (1 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 2"
+    ],
+    [
+     "Thuộc",
+     "WMS-10"
+    ]
+   ]
+  },
+  {
+   "row": 64,
+   "wms": "WMS-10.4",
+   "title_raw": "+ [Frontend] Form Lập Phiếu Nhập Kho Thông Minh (Quét mã vạch cộng dồn SL)",
+   "summary_raw": "Xây dựng Form lập phiếu Nhập kho nâng cao (html5-qrcode / súng bắn mã): Tự động focus ô quét mã để quét liên tục (< 100ms) tự động tích cộng dồn số lượng sản phẩm (FR07, FR11).",
+   "assignee": "Trần Đăng Việt",
+   "collab": "Lê Phương Linh",
+   "progress": 0.0,
+   "start": "2026-11-08",
+   "due": "2026-11-09",
+   "days": 2,
+   "level": "subtask",
+   "parent": "WMS-10",
+   "summary": "WMS-10.4 [Frontend] Form Lập Phiếu Nhập Kho Thông Minh (Quét mã vạch cộng dồn SL)",
+   "labels": [
+    "Sprint-2",
+    "Frontend"
+   ],
+   "phase": "Sprint 2",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-10.4"
+    ],
+    [
+     "Nội dung",
+     "Xây dựng Form lập phiếu Nhập kho nâng cao (html5-qrcode / súng bắn mã): Tự động focus ô quét mã để quét liên tục (< 100ms) tự động tích cộng dồn số lượng sản phẩm (FR07, FR11)."
+    ],
+    [
+     "Phụ trách",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phương Linh"
+    ],
+    [
+     "Kế hoạch",
+     "08/11/2026 - 09/11/2026 (2 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 2"
+    ],
+    [
+     "Thuộc",
+     "WMS-10"
+    ]
+   ]
+  },
+  {
+   "row": 65,
+   "wms": "WMS-10.5",
+   "title_raw": "+ [Frontend] Giao diện Nhập Số Lô, Hạn Sử Dụng & Theo dõi Hóa đơn mua",
+   "summary_raw": "Modal nhập thông tin Batch/Lot, Mfg Date, Exp Date, chọn vị trí ô xếp hàng (Putaway Bin) và quản lý trạng thái thanh toán hóa đơn mua hàng (PAID/UNPAID) (FR12, FR13).",
+   "assignee": "Trần Đăng Việt",
+   "collab": "Lê Phương Linh",
+   "progress": 0.0,
+   "start": "2026-11-09",
+   "due": "2026-11-09",
+   "days": 1,
+   "level": "subtask",
+   "parent": "WMS-10",
+   "summary": "WMS-10.5 [Frontend] Giao diện Nhập Số Lô, Hạn Sử Dụng & Theo dõi Hóa đơn mua",
+   "labels": [
+    "Sprint-2",
+    "Frontend"
+   ],
+   "phase": "Sprint 2",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-10.5"
+    ],
+    [
+     "Nội dung",
+     "Modal nhập thông tin Batch/Lot, Mfg Date, Exp Date, chọn vị trí ô xếp hàng (Putaway Bin) và quản lý trạng thái thanh toán hóa đơn mua hàng (PAID/UNPAID) (FR12, FR13)."
+    ],
+    [
+     "Phụ trách",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phương Linh"
+    ],
+    [
+     "Kế hoạch",
+     "09/11/2026 - 09/11/2026 (1 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 2"
+    ],
+    [
+     "Thuộc",
+     "WMS-10"
+    ]
+   ]
+  },
+  {
+   "row": 66,
+   "wms": "VI",
+   "title_raw": "EPIC 6: CHUỖI CUNG ỨNG BÁN HÀNG & XUẤT KHO (OUTBOUND: SO → GDN, FIFO/FEFO)",
+   "summary_raw": "[Sprint 3 – Bán-Xuất (Outbound)] Phát triển Order Service luồng Đơn bán (SO) → kiểm tra ATP & giữ hàng → Phiếu xuất (GDN) theo FIFO/FEFO và Pessimistic Lock chống âm kho (FR15–FR18).",
+   "assignee": "Trần Đăng Việt",
+   "collab": "Lê Phương Linh",
+   "progress": 0.0,
+   "start": "2026-11-03",
+   "due": "2026-11-09",
+   "days": 7,
+   "level": "epic",
+   "parent": null,
+   "summary": "EPIC 6: CHUỖI CUNG ỨNG BÁN HÀNG & XUẤT KHO (OUTBOUND: SO → GDN, FIFO/FEFO)",
+   "labels": [
+    "Sprint-3"
+   ],
+   "phase": "Sprint 3 – Bán-Xuất (Outbound)",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "VI"
+    ],
+    [
+     "Nội dung",
+     "[Sprint 3 – Bán-Xuất (Outbound)] Phát triển Order Service luồng Đơn bán (SO) → kiểm tra ATP & giữ hàng → Phiếu xuất (GDN) theo FIFO/FEFO và Pessimistic Lock chống âm kho (FR15–FR18)."
+    ],
+    [
+     "Phụ trách",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phương Linh"
+    ],
+    [
+     "Kế hoạch",
+     "03/11/2026 - 09/11/2026 (7 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 3 – Bán-Xuất (Outbound)"
+    ]
+   ]
+  },
+  {
+   "row": 67,
+   "wms": "WMS-11",
+   "title_raw": "Task WMS-11: Đơn Bán Hàng (SO), Kiểm Tra Tồn Khả Dụng (ATP) & Giữ Hàng Ảo",
+   "summary_raw": "[Sprint 3] Tạo Đơn bán (SO), tự động kiểm tra tồn kho khả dụng (ATP = OnHand – Reserved), thực hiện Soft Reservation khi duyệt SO và quản lý công nợ phải thu (FR15, FR16, FR18).",
+   "assignee": "Trần Đăng Việt",
+   "collab": "Lê Phương Linh",
+   "progress": 0.0,
+   "start": "2026-11-03",
+   "due": "2026-11-05",
+   "days": 3,
+   "level": "task",
+   "parent": "VI",
+   "summary": "WMS-11: Đơn Bán Hàng (SO), Kiểm Tra Tồn Khả Dụng (ATP) & Giữ Hàng Ảo",
+   "labels": [
+    "Sprint-3"
+   ],
+   "phase": "Sprint 3",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-11"
+    ],
+    [
+     "Nội dung",
+     "[Sprint 3] Tạo Đơn bán (SO), tự động kiểm tra tồn kho khả dụng (ATP = OnHand – Reserved), thực hiện Soft Reservation khi duyệt SO và quản lý công nợ phải thu (FR15, FR16, FR18)."
+    ],
+    [
+     "Phụ trách",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phương Linh"
+    ],
+    [
+     "Kế hoạch",
+     "03/11/2026 - 05/11/2026 (3 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 3"
+    ],
+    [
+     "Thuộc",
+     "VI"
+    ]
+   ]
+  },
+  {
+   "row": 68,
+   "wms": "WMS-11.1",
+   "title_raw": "+ [Backend] Phát triển API Đơn bán hàng (SO) & Kiểm tra Tồn khả dụng (ATP)",
+   "summary_raw": "Tạo Sales Order (SO); kiểm tra tồn khả dụng ATP = OnHand – Reserved; nếu qty ≤ ATP cho phép xác nhận, ngược lại báo thiếu / Backorder; tự động tính thuế VAT, chiết khấu, Grand Total (FR15).",
+   "assignee": "Trần Đăng Việt",
+   "collab": "Lê Phương Linh",
+   "progress": 0.0,
+   "start": "2026-11-03",
+   "due": "2026-11-04",
+   "days": 2,
+   "level": "subtask",
+   "parent": "WMS-11",
+   "summary": "WMS-11.1 [Backend] Phát triển API Đơn bán hàng (SO) & Kiểm tra Tồn khả dụng (ATP)",
+   "labels": [
+    "Sprint-3",
+    "Backend"
+   ],
+   "phase": "Sprint 3",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-11.1"
+    ],
+    [
+     "Nội dung",
+     "Tạo Sales Order (SO); kiểm tra tồn khả dụng ATP = OnHand – Reserved; nếu qty ≤ ATP cho phép xác nhận, ngược lại báo thiếu / Backorder; tự động tính thuế VAT, chiết khấu, Grand Total (FR15)."
+    ],
+    [
+     "Phụ trách",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phương Linh"
+    ],
+    [
+     "Kế hoạch",
+     "03/11/2026 - 04/11/2026 (2 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 3"
+    ],
+    [
+     "Thuộc",
+     "WMS-11"
+    ]
+   ]
+  },
+  {
+   "row": 69,
+   "wms": "WMS-11.2",
+   "title_raw": "+ [Backend] Cơ chế Giữ hàng ảo (Soft Reservation) khi xác nhận Đơn bán SO",
+   "summary_raw": "Khi xác nhận SO: tự động tăng Reserved Stock, giảm ATP, chuyển trạng thái SO sang CONFIRMED và cập nhật chỉ số 'Pending Sale Orders' (FR16).",
+   "assignee": "Trần Đăng Việt",
+   "collab": "Lê Phương Linh",
+   "progress": 0.0,
+   "start": "2026-11-04",
+   "due": "2026-11-04",
+   "days": 1,
+   "level": "subtask",
+   "parent": "WMS-11",
+   "summary": "WMS-11.2 [Backend] Cơ chế Giữ hàng ảo (Soft Reservation) khi xác nhận Đơn bán SO",
+   "labels": [
+    "Sprint-3",
+    "Backend"
+   ],
+   "phase": "Sprint 3",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-11.2"
+    ],
+    [
+     "Nội dung",
+     "Khi xác nhận SO: tự động tăng Reserved Stock, giảm ATP, chuyển trạng thái SO sang CONFIRMED và cập nhật chỉ số 'Pending Sale Orders' (FR16)."
+    ],
+    [
+     "Phụ trách",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phương Linh"
+    ],
+    [
+     "Kế hoạch",
+     "04/11/2026 - 04/11/2026 (1 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 3"
+    ],
+    [
+     "Thuộc",
+     "WMS-11"
+    ]
+   ]
+  },
+  {
+   "row": 70,
+   "wms": "WMS-11.3",
+   "title_raw": "+ [Frontend] Xây dựng Giao diện Form Lập Đơn Bán Hàng (Form SO)",
+   "summary_raw": "Xây dựng UI Form SO: Chọn Khách hàng/Đại lý (kiểm tra Credit Limit), hiển thị trực tiếp số lượng tồn khả dụng (ATP) của từng SKU và tính tổng tiền đơn hàng (FR14, FR15).",
+   "assignee": "Trần Đăng Việt",
+   "collab": "Phạm Phương Anh",
+   "progress": 0.0,
+   "start": "2026-11-04",
+   "due": "2026-11-05",
+   "days": 2,
+   "level": "subtask",
+   "parent": "WMS-11",
+   "summary": "WMS-11.3 [Frontend] Xây dựng Giao diện Form Lập Đơn Bán Hàng (Form SO)",
+   "labels": [
+    "Sprint-3",
+    "Frontend"
+   ],
+   "phase": "Sprint 3",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-11.3"
+    ],
+    [
+     "Nội dung",
+     "Xây dựng UI Form SO: Chọn Khách hàng/Đại lý (kiểm tra Credit Limit), hiển thị trực tiếp số lượng tồn khả dụng (ATP) của từng SKU và tính tổng tiền đơn hàng (FR14, FR15)."
+    ],
+    [
+     "Phụ trách",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Phối hợp",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Kế hoạch",
+     "04/11/2026 - 05/11/2026 (2 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 3"
+    ],
+    [
+     "Thuộc",
+     "WMS-11"
+    ]
+   ]
+  },
+  {
+   "row": 71,
+   "wms": "WMS-11.4",
+   "title_raw": "+ [Frontend] Màn hình Quản lý Đơn Bán SO, Hóa đơn bán & Công nợ phải thu",
+   "summary_raw": "Xây dựng danh sách quản lý đơn SO, tạo Sale Invoice (hiển thị trong Recent Invoices) và theo dõi công nợ phải thu khách hàng (Payment Receivables - PAID/UNPAID) (FR18).",
+   "assignee": "Trần Đăng Việt",
+   "collab": "Phạm Phương Anh",
+   "progress": 0.0,
+   "start": "2026-11-05",
+   "due": "2026-11-05",
+   "days": 1,
+   "level": "subtask",
+   "parent": "WMS-11",
+   "summary": "WMS-11.4 [Frontend] Màn hình Quản lý Đơn Bán SO, Hóa đơn bán & Công nợ phải thu",
+   "labels": [
+    "Sprint-3",
+    "Frontend"
+   ],
+   "phase": "Sprint 3",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-11.4"
+    ],
+    [
+     "Nội dung",
+     "Xây dựng danh sách quản lý đơn SO, tạo Sale Invoice (hiển thị trong Recent Invoices) và theo dõi công nợ phải thu khách hàng (Payment Receivables - PAID/UNPAID) (FR18)."
+    ],
+    [
+     "Phụ trách",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Phối hợp",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Kế hoạch",
+     "05/11/2026 - 05/11/2026 (1 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 3"
+    ],
+    [
+     "Thuộc",
+     "WMS-11"
+    ]
+   ]
+  },
+  {
+   "row": 72,
+   "wms": "WMS-12",
+   "title_raw": "Task WMS-12: Quy trình Xuất Kho (SO → GDN, FIFO/FEFO) & Khóa Bi Quan Chống Âm Kho",
+   "summary_raw": "[Sprint 3] Xây dựng luồng SO → GDN, thuật toán xuất kho theo lô FIFO/FEFO (Member 3), kết hợp Khóa bi quan PESSIMISTIC_WRITE chống âm kho đồng thời (Member 2) (FR12, FR17, NFR03).",
+   "assignee": "Trần Đăng Việt",
+   "collab": "Lê Phương Linh",
+   "progress": 0.0,
+   "start": "2026-11-06",
+   "due": "2026-11-09",
+   "days": 4,
+   "level": "task",
+   "parent": "VI",
+   "summary": "WMS-12: Quy trình Xuất Kho (SO → GDN, FIFO/FEFO) & Khóa Bi Quan Chống Âm Kho",
+   "labels": [
+    "Sprint-3"
+   ],
+   "phase": "Sprint 3",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-12"
+    ],
+    [
+     "Nội dung",
+     "[Sprint 3] Xây dựng luồng SO → GDN, thuật toán xuất kho theo lô FIFO/FEFO (Member 3), kết hợp Khóa bi quan PESSIMISTIC_WRITE chống âm kho đồng thời (Member 2) (FR12, FR17, NFR03)."
+    ],
+    [
+     "Phụ trách",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phương Linh"
+    ],
+    [
+     "Kế hoạch",
+     "06/11/2026 - 09/11/2026 (4 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 3"
+    ],
+    [
+     "Thuộc",
+     "VI"
+    ]
+   ]
+  },
+  {
+   "row": 73,
+   "wms": "WMS-12.1",
+   "title_raw": "+ [Backend] API Xuất kho (SO → GDN), Sinh Picking List & Thuật toán FIFO/FEFO",
+   "summary_raw": "Theo phân công Sprint 3 (Member 3): Phát triển luồng SO → Phiếu xuất GDN; thuật toán tự động gợi ý lô và vị trí lấy hàng theo nguyên tắc FEFO (hạn gần) / FIFO (nhập sớm) & lộ trình ngắn nhất (Zone → Rack → Bin) (FR12, FR17).",
+   "assignee": "Trần Đăng Việt",
+   "collab": "Lê Phương Linh",
+   "progress": 0.0,
+   "start": "2026-11-06",
+   "due": "2026-11-07",
+   "days": 2,
+   "level": "subtask",
+   "parent": "WMS-12",
+   "summary": "WMS-12.1 [Backend] API Xuất kho (SO → GDN), Sinh Picking List & Thuật toán FIFO/FEFO",
+   "labels": [
+    "Sprint-3",
+    "Backend"
+   ],
+   "phase": "Sprint 3",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-12.1"
+    ],
+    [
+     "Nội dung",
+     "Theo phân công Sprint 3 (Member 3): Phát triển luồng SO → Phiếu xuất GDN; thuật toán tự động gợi ý lô và vị trí lấy hàng theo nguyên tắc FEFO (hạn gần) / FIFO (nhập sớm) & lộ trình ngắn nhất (Zone → Rack → Bin) (FR12, FR17)."
+    ],
+    [
+     "Phụ trách",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phương Linh"
+    ],
+    [
+     "Kế hoạch",
+     "06/11/2026 - 07/11/2026 (2 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 3"
+    ],
+    [
+     "Thuộc",
+     "WMS-12"
+    ]
+   ]
+  },
+  {
+   "row": 74,
+   "wms": "WMS-12.2",
+   "title_raw": "+ [Backend] Xử lý Trừ tồn kho với Khóa bi quan (PESSIMISTIC_WRITE) chống âm kho",
+   "summary_raw": "Theo phân công Sprint 3 (Member 2): Áp dụng @Lock(LockModeType.PESSIMISTIC_WRITE) tại Warehouse Service khi xác nhận xuất kho đồng thời; giảm OnHand, giải phóng Reserved, chống âm kho tuyệt đối (FR17, NFR03).",
+   "assignee": "Lê Phương Linh",
+   "collab": "Trần Đăng Việt, Lê Phú Toàn",
+   "progress": 0.0,
+   "start": "2026-11-07",
+   "due": "2026-11-08",
+   "days": 2,
+   "level": "subtask",
+   "parent": "WMS-12",
+   "summary": "WMS-12.2 [Backend] Xử lý Trừ tồn kho với Khóa bi quan (PESSIMISTIC_WRITE) chống âm kho",
+   "labels": [
+    "Sprint-3",
+    "Backend"
+   ],
+   "phase": "Sprint 3",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-12.2"
+    ],
+    [
+     "Nội dung",
+     "Theo phân công Sprint 3 (Member 2): Áp dụng @Lock(LockModeType.PESSIMISTIC_WRITE) tại Warehouse Service khi xác nhận xuất kho đồng thời; giảm OnHand, giải phóng Reserved, chống âm kho tuyệt đối (FR17, NFR03)."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phương Linh"
+    ],
+    [
+     "Phối hợp",
+     "Trần Đăng Việt, Lê Phú Toàn"
+    ],
+    [
+     "Kế hoạch",
+     "07/11/2026 - 08/11/2026 (2 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 3"
+    ],
+    [
+     "Thuộc",
+     "WMS-12"
+    ]
+   ]
+  },
+  {
+   "row": 75,
+   "wms": "WMS-12.3",
+   "title_raw": "+ [Frontend] Giao diện Bảng Xuất Thời Gian Thực & Danh sách Lấy hàng (Picking List)",
+   "summary_raw": "Hiển thị bảng xuất kho thời gian thực và lộ trình lấy hàng (Picking List) theo vị trí Zone → Rack → Bin giúp nhân viên kho tìm hàng nhanh chóng (FR17).",
+   "assignee": "Trần Đăng Việt",
+   "collab": "Lê Phương Linh",
+   "progress": 0.0,
+   "start": "2026-11-08",
+   "due": "2026-11-08",
+   "days": 1,
+   "level": "subtask",
+   "parent": "WMS-12",
+   "summary": "WMS-12.3 [Frontend] Giao diện Bảng Xuất Thời Gian Thực & Danh sách Lấy hàng (Picking List)",
+   "labels": [
+    "Sprint-3",
+    "Frontend"
+   ],
+   "phase": "Sprint 3",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-12.3"
+    ],
+    [
+     "Nội dung",
+     "Hiển thị bảng xuất kho thời gian thực và lộ trình lấy hàng (Picking List) theo vị trí Zone → Rack → Bin giúp nhân viên kho tìm hàng nhanh chóng (FR17)."
+    ],
+    [
+     "Phụ trách",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phương Linh"
+    ],
+    [
+     "Kế hoạch",
+     "08/11/2026 - 08/11/2026 (1 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 3"
+    ],
+    [
+     "Thuộc",
+     "WMS-12"
+    ]
+   ]
+  },
+  {
+   "row": 76,
+   "wms": "WMS-12.4",
+   "title_raw": "+ [Frontend] Form Lập Phiếu Xuất Kho (GDN) Quét Mã Vạch & In Phiếu Giao Hàng",
+   "summary_raw": "Form lập phiếu xuất GDN nâng cao: Hỗ trợ quét mã vạch để tăng/kiểm số lượng nhanh, xác nhận xuất xưởng trừ tồn tự động và in Phiếu giao hàng (Delivery Note) (FR07, FR17).",
+   "assignee": "Trần Đăng Việt",
+   "collab": "Lê Phương Linh",
+   "progress": 0.0,
+   "start": "2026-11-08",
+   "due": "2026-11-09",
+   "days": 2,
+   "level": "subtask",
+   "parent": "WMS-12",
+   "summary": "WMS-12.4 [Frontend] Form Lập Phiếu Xuất Kho (GDN) Quét Mã Vạch & In Phiếu Giao Hàng",
+   "labels": [
+    "Sprint-3",
+    "Frontend"
+   ],
+   "phase": "Sprint 3",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-12.4"
+    ],
+    [
+     "Nội dung",
+     "Form lập phiếu xuất GDN nâng cao: Hỗ trợ quét mã vạch để tăng/kiểm số lượng nhanh, xác nhận xuất xưởng trừ tồn tự động và in Phiếu giao hàng (Delivery Note) (FR07, FR17)."
+    ],
+    [
+     "Phụ trách",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phương Linh"
+    ],
+    [
+     "Kế hoạch",
+     "08/11/2026 - 09/11/2026 (2 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 3"
+    ],
+    [
+     "Thuộc",
+     "WMS-12"
+    ]
+   ]
+  },
+  {
+   "row": 77,
+   "wms": "VII",
+   "title_raw": "EPIC 7: ĐIỀU CHUYỂN NỘI BỘ, KIỂM KÊ KHO & CẢNH BÁO TỰ ĐỘNG",
+   "summary_raw": "[Sprint 3 & Sprint 4] Phát triển API & UI Điều chuyển hàng hóa nội bộ (Stock Transfer), Kiểm kê định kỳ (Stocktake & Adjustment) và Cảnh báo tồn thấp/cận date qua Email & UI (FR08, FR19–FR22).",
+   "assignee": "Lê Phương Linh",
+   "collab": "Phạm Phương Anh",
+   "progress": 0.0,
+   "start": "2026-11-10",
+   "due": "2026-11-16",
+   "days": 7,
+   "level": "epic",
+   "parent": null,
+   "summary": "EPIC 7: ĐIỀU CHUYỂN NỘI BỘ, KIỂM KÊ KHO & CẢNH BÁO TỰ ĐỘNG",
+   "labels": [
+    "Sprint-3",
+    "Sprint-4"
+   ],
+   "phase": "Sprint 3 & Sprint 4",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "VII"
+    ],
+    [
+     "Nội dung",
+     "[Sprint 3 & Sprint 4] Phát triển API & UI Điều chuyển hàng hóa nội bộ (Stock Transfer), Kiểm kê định kỳ (Stocktake & Adjustment) và Cảnh báo tồn thấp/cận date qua Email & UI (FR08, FR19–FR22)."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phương Linh"
+    ],
+    [
+     "Phối hợp",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Kế hoạch",
+     "10/11/2026 - 16/11/2026 (7 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 3 & Sprint 4"
+    ]
+   ]
+  },
+  {
+   "row": 78,
+   "wms": "WMS-13",
+   "title_raw": "Task WMS-13: Quy trình Điều Chuyển Hàng Hóa Nội Bộ Giữa Các Kho (Stock Transfer)",
+   "summary_raw": "[Sprint 3] Phát triển REST API và màn hình Lập lệnh điều chuyển hàng hóa liên kho (DRAFT → IN_TRANSIT → COMPLETED / PARTIAL_RECEIVED) kèm biên bản thiếu/hỏng (FR08).",
+   "assignee": "Lê Phương Linh",
+   "collab": "Trần Đăng Việt",
+   "progress": 0.0,
+   "start": "2026-11-10",
+   "due": "2026-11-12",
+   "days": 3,
+   "level": "task",
+   "parent": "VII",
+   "summary": "WMS-13: Quy trình Điều Chuyển Hàng Hóa Nội Bộ Giữa Các Kho (Stock Transfer)",
+   "labels": [
+    "Sprint-3"
+   ],
+   "phase": "Sprint 3",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-13"
+    ],
+    [
+     "Nội dung",
+     "[Sprint 3] Phát triển REST API và màn hình Lập lệnh điều chuyển hàng hóa liên kho (DRAFT → IN_TRANSIT → COMPLETED / PARTIAL_RECEIVED) kèm biên bản thiếu/hỏng (FR08)."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phương Linh"
+    ],
+    [
+     "Phối hợp",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Kế hoạch",
+     "10/11/2026 - 12/11/2026 (3 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 3"
+    ],
+    [
+     "Thuộc",
+     "VII"
+    ]
+   ]
+  },
+  {
+   "row": 79,
+   "wms": "WMS-13.1",
+   "title_raw": "+ [Backend] Thiết kế CSDL & REST API Điều chuyển hàng hóa nội bộ (Stock Transfer)",
+   "summary_raw": "Quản lý lệnh chuyển hàng giữa 2 kho (DRAFT → IN_TRANSIT → COMPLETED / PARTIAL_RECEIVED); khi duyệt xuất: giảm tồn kho nguồn và ghi nhận 'Hàng đang đi đường' (FR08).",
+   "assignee": "Lê Phương Linh",
+   "collab": "Trần Đăng Việt",
+   "progress": 0.0,
+   "start": "2026-11-10",
+   "due": "2026-11-11",
+   "days": 2,
+   "level": "subtask",
+   "parent": "WMS-13",
+   "summary": "WMS-13.1 [Backend] Thiết kế CSDL & REST API Điều chuyển hàng hóa nội bộ (Stock Transfer)",
+   "labels": [
+    "Sprint-3",
+    "Backend"
+   ],
+   "phase": "Sprint 3",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-13.1"
+    ],
+    [
+     "Nội dung",
+     "Quản lý lệnh chuyển hàng giữa 2 kho (DRAFT → IN_TRANSIT → COMPLETED / PARTIAL_RECEIVED); khi duyệt xuất: giảm tồn kho nguồn và ghi nhận 'Hàng đang đi đường' (FR08)."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phương Linh"
+    ],
+    [
+     "Phối hợp",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Kế hoạch",
+     "10/11/2026 - 11/11/2026 (2 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 3"
+    ],
+    [
+     "Thuộc",
+     "WMS-13"
+    ]
+   ]
+  },
+  {
+   "row": 80,
+   "wms": "WMS-13.2",
+   "title_raw": "+ [Backend] API Nhận hàng tại Kho đích & Xử lý Biên bản Tổn thất (Partial Received)",
+   "summary_raw": "Khi nhận hàng tại kho đích: cho phép quét mã nhập thực tế, tự động hoàn thành (COMPLETED) hoặc tạo trạng thái PARTIAL_RECEIVED kèm biên bản thiếu/hỏng (FR08).",
+   "assignee": "Lê Phương Linh",
+   "collab": "Trần Đăng Việt",
+   "progress": 0.0,
+   "start": "2026-11-11",
+   "due": "2026-11-11",
+   "days": 1,
+   "level": "subtask",
+   "parent": "WMS-13",
+   "summary": "WMS-13.2 [Backend] API Nhận hàng tại Kho đích & Xử lý Biên bản Tổn thất (Partial Received)",
+   "labels": [
+    "Sprint-3",
+    "Backend"
+   ],
+   "phase": "Sprint 3",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-13.2"
+    ],
+    [
+     "Nội dung",
+     "Khi nhận hàng tại kho đích: cho phép quét mã nhập thực tế, tự động hoàn thành (COMPLETED) hoặc tạo trạng thái PARTIAL_RECEIVED kèm biên bản thiếu/hỏng (FR08)."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phương Linh"
+    ],
+    [
+     "Phối hợp",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Kế hoạch",
+     "11/11/2026 - 11/11/2026 (1 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 3"
+    ],
+    [
+     "Thuộc",
+     "WMS-13"
+    ]
+   ]
+  },
+  {
+   "row": 81,
+   "wms": "WMS-13.3",
+   "title_raw": "+ [Frontend] Xây dựng Màn hình Lập Lệnh Điều Chuyển Hàng Hóa Nội Bộ",
+   "summary_raw": "Giao diện tạo và theo dõi lệnh điều chuyển giữa các kho (Chờ duyệt → Đang vận chuyển → Đã nhận đủ); chọn kho nguồn, kho đích, danh sách SKU và lô hàng (FR08).",
+   "assignee": "Lê Phương Linh",
+   "collab": "Trần Đăng Việt",
+   "progress": 0.0,
+   "start": "2026-11-11",
+   "due": "2026-11-12",
+   "days": 2,
+   "level": "subtask",
+   "parent": "WMS-13",
+   "summary": "WMS-13.3 [Frontend] Xây dựng Màn hình Lập Lệnh Điều Chuyển Hàng Hóa Nội Bộ",
+   "labels": [
+    "Sprint-3",
+    "Frontend"
+   ],
+   "phase": "Sprint 3",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-13.3"
+    ],
+    [
+     "Nội dung",
+     "Giao diện tạo và theo dõi lệnh điều chuyển giữa các kho (Chờ duyệt → Đang vận chuyển → Đã nhận đủ); chọn kho nguồn, kho đích, danh sách SKU và lô hàng (FR08)."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phương Linh"
+    ],
+    [
+     "Phối hợp",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Kế hoạch",
+     "11/11/2026 - 12/11/2026 (2 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 3"
+    ],
+    [
+     "Thuộc",
+     "WMS-13"
+    ]
+   ]
+  },
+  {
+   "row": 82,
+   "wms": "WMS-13.4",
+   "title_raw": "+ [Frontend] Giao diện Xác nhận Nhận hàng Điều chuyển & Lập biên bản thiếu/hỏng",
+   "summary_raw": "Màn hình kiểm đếm nhận hàng tại kho đích bằng máy quét barcode; hỗ trợ xác nhận nhận đủ hoặc ghi nhận số lượng thiếu/hỏng vào biên bản tổn thất (FR08).",
+   "assignee": "Lê Phương Linh",
+   "collab": "Trần Đăng Việt",
+   "progress": 0.0,
+   "start": "2026-11-12",
+   "due": "2026-11-12",
+   "days": 1,
+   "level": "subtask",
+   "parent": "WMS-13",
+   "summary": "WMS-13.4 [Frontend] Giao diện Xác nhận Nhận hàng Điều chuyển & Lập biên bản thiếu/hỏng",
+   "labels": [
+    "Sprint-3",
+    "Frontend"
+   ],
+   "phase": "Sprint 3",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-13.4"
+    ],
+    [
+     "Nội dung",
+     "Màn hình kiểm đếm nhận hàng tại kho đích bằng máy quét barcode; hỗ trợ xác nhận nhận đủ hoặc ghi nhận số lượng thiếu/hỏng vào biên bản tổn thất (FR08)."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phương Linh"
+    ],
+    [
+     "Phối hợp",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Kế hoạch",
+     "12/11/2026 - 12/11/2026 (1 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 3"
+    ],
+    [
+     "Thuộc",
+     "WMS-13"
+    ]
+   ]
+  },
+  {
+   "row": 83,
+   "wms": "WMS-14",
+   "title_raw": "Task WMS-14: Kiểm Kê Kho Định Kỳ (Stocktake) & Phiếu Điều Chỉnh Cân Đối (Adjustment)",
+   "summary_raw": "[Sprint 3] Phát triển Stocktake API (Freeze vị trí kiểm kê, chụp Snapshot, tính chênh lệch), duyệt phiếu điều chỉnh kho (Adjustment) và màn hình Kiểm kê thực tế (FR19, FR20).",
+   "assignee": "Lê Phương Linh",
+   "collab": "Phạm Phương Anh",
+   "progress": 0.0,
+   "start": "2026-11-13",
+   "due": "2026-11-15",
+   "days": 3,
+   "level": "task",
+   "parent": "VII",
+   "summary": "WMS-14: Kiểm Kê Kho Định Kỳ (Stocktake) & Phiếu Điều Chỉnh Cân Đối (Adjustment)",
+   "labels": [
+    "Sprint-3"
+   ],
+   "phase": "Sprint 3",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-14"
+    ],
+    [
+     "Nội dung",
+     "[Sprint 3] Phát triển Stocktake API (Freeze vị trí kiểm kê, chụp Snapshot, tính chênh lệch), duyệt phiếu điều chỉnh kho (Adjustment) và màn hình Kiểm kê thực tế (FR19, FR20)."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phương Linh"
+    ],
+    [
+     "Phối hợp",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Kế hoạch",
+     "13/11/2026 - 15/11/2026 (3 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 3"
+    ],
+    [
+     "Thuộc",
+     "VII"
+    ]
+   ]
+  },
+  {
+   "row": 84,
+   "wms": "WMS-14.1",
+   "title_raw": "+ [Backend] Phát triển REST API Kế hoạch Kiểm kê & Đóng băng vị trí (Freeze Snapshot)",
+   "summary_raw": "Tạo phiếu kiểm kê định kỳ theo kho/khu vực (Zone)/nhóm hàng; tạm khóa (Freeze) các vị trí đang kiểm kê và chụp Snapshot tồn kho sổ sách tại thời điểm kiểm (FR19).",
+   "assignee": "Lê Phương Linh",
+   "collab": "Phạm Phương Anh",
+   "progress": 0.0,
+   "start": "2026-11-13",
+   "due": "2026-11-13",
+   "days": 1,
+   "level": "subtask",
+   "parent": "WMS-14",
+   "summary": "WMS-14.1 [Backend] Phát triển REST API Kế hoạch Kiểm kê & Đóng băng vị trí (Freeze Snapshot)",
+   "labels": [
+    "Sprint-3",
+    "Backend"
+   ],
+   "phase": "Sprint 3",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-14.1"
+    ],
+    [
+     "Nội dung",
+     "Tạo phiếu kiểm kê định kỳ theo kho/khu vực (Zone)/nhóm hàng; tạm khóa (Freeze) các vị trí đang kiểm kê và chụp Snapshot tồn kho sổ sách tại thời điểm kiểm (FR19)."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phương Linh"
+    ],
+    [
+     "Phối hợp",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Kế hoạch",
+     "13/11/2026 - 13/11/2026 (1 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 3"
+    ],
+    [
+     "Thuộc",
+     "WMS-14"
+    ]
+   ]
+  },
+  {
+   "row": 85,
+   "wms": "WMS-14.2",
+   "title_raw": "+ [Backend] API Tính chênh lệch Kiểm kê & Phê duyệt Phiếu Điều chỉnh (Adjustment)",
+   "summary_raw": "So sánh số đếm thực tế với hệ thống, tự động tính chênh lệch (+/-) & giá trị; sinh phiếu điều chỉnh (Adjustment In/Out) có cấp duyệt (Quản lý kho & Kế toán), lưu Audit Log (FR19, FR20, NFR09).",
+   "assignee": "Lê Phương Linh",
+   "collab": "Phạm Phương Anh",
+   "progress": 0.0,
+   "start": "2026-11-13",
+   "due": "2026-11-14",
+   "days": 2,
+   "level": "subtask",
+   "parent": "WMS-14",
+   "summary": "WMS-14.2 [Backend] API Tính chênh lệch Kiểm kê & Phê duyệt Phiếu Điều chỉnh (Adjustment)",
+   "labels": [
+    "Sprint-3",
+    "Backend"
+   ],
+   "phase": "Sprint 3",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-14.2"
+    ],
+    [
+     "Nội dung",
+     "So sánh số đếm thực tế với hệ thống, tự động tính chênh lệch (+/-) & giá trị; sinh phiếu điều chỉnh (Adjustment In/Out) có cấp duyệt (Quản lý kho & Kế toán), lưu Audit Log (FR19, FR20, NFR09)."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phương Linh"
+    ],
+    [
+     "Phối hợp",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Kế hoạch",
+     "13/11/2026 - 14/11/2026 (2 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 3"
+    ],
+    [
+     "Thuộc",
+     "WMS-14"
+    ]
+   ]
+  },
+  {
+   "row": 86,
+   "wms": "WMS-14.3",
+   "title_raw": "+ [Frontend] Xây dựng Giao diện Kiểm đếm thực tế khi Kiểm kê (Blind Count Scanner)",
+   "summary_raw": "Màn hình kiểm kê hỗ trợ nhân viên kho đếm mù (Blind Count) qua máy quét mã vạch tại từng vị trí ô/kệ mà không hiển thị trước số tồn sổ sách (FR19).",
+   "assignee": "Lê Phương Linh",
+   "collab": "Trần Đăng Việt",
+   "progress": 0.0,
+   "start": "2026-11-14",
+   "due": "2026-11-14",
+   "days": 1,
+   "level": "subtask",
+   "parent": "WMS-14",
+   "summary": "WMS-14.3 [Frontend] Xây dựng Giao diện Kiểm đếm thực tế khi Kiểm kê (Blind Count Scanner)",
+   "labels": [
+    "Sprint-3",
+    "Frontend"
+   ],
+   "phase": "Sprint 3",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-14.3"
+    ],
+    [
+     "Nội dung",
+     "Màn hình kiểm kê hỗ trợ nhân viên kho đếm mù (Blind Count) qua máy quét mã vạch tại từng vị trí ô/kệ mà không hiển thị trước số tồn sổ sách (FR19)."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phương Linh"
+    ],
+    [
+     "Phối hợp",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Kế hoạch",
+     "14/11/2026 - 14/11/2026 (1 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 3"
+    ],
+    [
+     "Thuộc",
+     "WMS-14"
+    ]
+   ]
+  },
+  {
+   "row": 87,
+   "wms": "WMS-14.4",
+   "title_raw": "+ [Frontend] Màn hình Báo cáo Chênh lệch Kiểm kê & Phê duyệt Phiếu Adjustment",
+   "summary_raw": "Giao diện bảng đối soát chênh lệch sau kiểm kê, hiển thị phân loại thừa/thiếu (+/-) kèm giá trị và nút phê duyệt phiếu điều chỉnh cân đối kho (FR20).",
+   "assignee": "Lê Phương Linh",
+   "collab": "Phạm Phương Anh",
+   "progress": 0.0,
+   "start": "2026-11-14",
+   "due": "2026-11-15",
+   "days": 2,
+   "level": "subtask",
+   "parent": "WMS-14",
+   "summary": "WMS-14.4 [Frontend] Màn hình Báo cáo Chênh lệch Kiểm kê & Phê duyệt Phiếu Adjustment",
+   "labels": [
+    "Sprint-3",
+    "Frontend"
+   ],
+   "phase": "Sprint 3",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-14.4"
+    ],
+    [
+     "Nội dung",
+     "Giao diện bảng đối soát chênh lệch sau kiểm kê, hiển thị phân loại thừa/thiếu (+/-) kèm giá trị và nút phê duyệt phiếu điều chỉnh cân đối kho (FR20)."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phương Linh"
+    ],
+    [
+     "Phối hợp",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Kế hoạch",
+     "14/11/2026 - 15/11/2026 (2 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 3"
+    ],
+    [
+     "Thuộc",
+     "WMS-14"
+    ]
+   ]
+  },
+  {
+   "row": 88,
+   "wms": "WMS-15",
+   "title_raw": "Task WMS-15: Cảnh Báo Tồn An Toàn, Cảnh Báo Cận Date & Tích Hợp Spring Mail",
+   "summary_raw": "[Sprint 3 & Sprint 4] Xây dựng Bảng tồn kho gắn tag màu cảnh báo (Member 2), kết hợp Cron Job hàng ngày & tích hợp Spring Mail gửi cảnh báo tự động (Member 4) (FR21, FR22).",
+   "assignee": "Phạm Phương Anh",
+   "collab": "Lê Phương Linh, Lê Phú Toàn",
+   "progress": 0.0,
+   "start": "2026-11-13",
+   "due": "2026-11-16",
+   "days": 4,
+   "level": "task",
+   "parent": "VII",
+   "summary": "WMS-15: Cảnh Báo Tồn An Toàn, Cảnh Báo Cận Date & Tích Hợp Spring Mail",
+   "labels": [
+    "Sprint-3",
+    "Sprint-4"
+   ],
+   "phase": "Sprint 3 & Sprint 4",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-15"
+    ],
+    [
+     "Nội dung",
+     "[Sprint 3 & Sprint 4] Xây dựng Bảng tồn kho gắn tag màu cảnh báo (Member 2), kết hợp Cron Job hàng ngày & tích hợp Spring Mail gửi cảnh báo tự động (Member 4) (FR21, FR22)."
+    ],
+    [
+     "Phụ trách",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phương Linh, Lê Phú Toàn"
+    ],
+    [
+     "Kế hoạch",
+     "13/11/2026 - 16/11/2026 (4 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 3 & Sprint 4"
+    ],
+    [
+     "Thuộc",
+     "VII"
+    ]
+   ]
+  },
+  {
+   "row": 89,
+   "wms": "WMS-15.1",
+   "title_raw": "+ [Backend] Automation Cron Job (00:00) kiểm tra Hàng Cận Date & Dead Stock",
+   "summary_raw": "Chạy job tự động hàng ngày 00:00: phát hiện lô gần hết hạn Exp ≤ 30 ngày (gắn nhãn 'CẬN DATE', ưu tiên FEFO) và SKU không xuất > 90 ngày (Dead Stock, đề xuất thanh lý) (FR22).",
+   "assignee": "Phạm Phương Anh",
+   "collab": "Lê Phương Linh",
+   "progress": 0.0,
+   "start": "2026-11-13",
+   "due": "2026-11-14",
+   "days": 2,
+   "level": "subtask",
+   "parent": "WMS-15",
+   "summary": "WMS-15.1 [Backend] Automation Cron Job (00:00) kiểm tra Hàng Cận Date & Dead Stock",
+   "labels": [
+    "Sprint-3",
+    "Sprint-4",
+    "Backend"
+   ],
+   "phase": "Sprint 3 & Sprint 4",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-15.1"
+    ],
+    [
+     "Nội dung",
+     "Chạy job tự động hàng ngày 00:00: phát hiện lô gần hết hạn Exp ≤ 30 ngày (gắn nhãn 'CẬN DATE', ưu tiên FEFO) và SKU không xuất > 90 ngày (Dead Stock, đề xuất thanh lý) (FR22)."
+    ],
+    [
+     "Phụ trách",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phương Linh"
+    ],
+    [
+     "Kế hoạch",
+     "13/11/2026 - 14/11/2026 (2 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 3 & Sprint 4"
+    ],
+    [
+     "Thuộc",
+     "WMS-15"
+    ]
+   ]
+  },
+  {
+   "row": 90,
+   "wms": "WMS-15.2",
+   "title_raw": "+ [Backend] Tích hợp Spring Mail gửi Email Cảnh báo Tồn thấp & Cận hạn sử dụng",
+   "summary_raw": "Tích hợp Spring Boot Starter Mail (Gmail SMTP): Tự động gửi email cảnh báo tới Thủ kho/Quản lý khi SKU chạm ngưỡng Reorder Point / Safety Stock hoặc cận date, gợi ý PO nháp (FR21).",
+   "assignee": "Phạm Phương Anh",
+   "collab": "Lê Phú Toàn",
+   "progress": 0.0,
+   "start": "2026-11-14",
+   "due": "2026-11-15",
+   "days": 2,
+   "level": "subtask",
+   "parent": "WMS-15",
+   "summary": "WMS-15.2 [Backend] Tích hợp Spring Mail gửi Email Cảnh báo Tồn thấp & Cận hạn sử dụng",
+   "labels": [
+    "Sprint-3",
+    "Sprint-4",
+    "Backend"
+   ],
+   "phase": "Sprint 3 & Sprint 4",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-15.2"
+    ],
+    [
+     "Nội dung",
+     "Tích hợp Spring Boot Starter Mail (Gmail SMTP): Tự động gửi email cảnh báo tới Thủ kho/Quản lý khi SKU chạm ngưỡng Reorder Point / Safety Stock hoặc cận date, gợi ý PO nháp (FR21)."
+    ],
+    [
+     "Phụ trách",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Kế hoạch",
+     "14/11/2026 - 15/11/2026 (2 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 3 & Sprint 4"
+    ],
+    [
+     "Thuộc",
+     "WMS-15"
+    ]
+   ]
+  },
+  {
+   "row": 91,
+   "wms": "WMS-15.3",
+   "title_raw": "+ [Frontend] Xây dựng Bảng Tồn Kho Thời Gian Thực kèm Bộ lọc & Tag Màu Cảnh Báo",
+   "summary_raw": "Theo phân công Member 2: Xây dựng Bảng tồn kho thời gian thực với bộ lọc đa điều kiện; gắn badge/tag màu vàng (≤ Reorder Point), đỏ (≤ Safety Stock) và nhãn CẬN DATE (FR21, FR22).",
+   "assignee": "Lê Phương Linh",
+   "collab": "Phạm Phương Anh",
+   "progress": 0.0,
+   "start": "2026-11-15",
+   "due": "2026-11-15",
+   "days": 1,
+   "level": "subtask",
+   "parent": "WMS-15",
+   "summary": "WMS-15.3 [Frontend] Xây dựng Bảng Tồn Kho Thời Gian Thực kèm Bộ lọc & Tag Màu Cảnh Báo",
+   "labels": [
+    "Sprint-3",
+    "Sprint-4",
+    "Frontend"
+   ],
+   "phase": "Sprint 3 & Sprint 4",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-15.3"
+    ],
+    [
+     "Nội dung",
+     "Theo phân công Member 2: Xây dựng Bảng tồn kho thời gian thực với bộ lọc đa điều kiện; gắn badge/tag màu vàng (≤ Reorder Point), đỏ (≤ Safety Stock) và nhãn CẬN DATE (FR21, FR22)."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phương Linh"
+    ],
+    [
+     "Phối hợp",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Kế hoạch",
+     "15/11/2026 - 15/11/2026 (1 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 3 & Sprint 4"
+    ],
+    [
+     "Thuộc",
+     "WMS-15"
+    ]
+   ]
+  },
+  {
+   "row": 92,
+   "wms": "WMS-15.4",
+   "title_raw": "+ [Frontend] Cụm Chuông Thông báo Cảnh báo (Notification Popover) trên Header",
+   "summary_raw": "Hiển thị danh sách thông báo đẩy realtime (Low Stock, Near Expiry) trên thanh Header và hỗ trợ thao tác nhanh tạo đơn mua hàng PO nháp từ cảnh báo (FR21, FR22).",
+   "assignee": "Phạm Phương Anh",
+   "collab": "Lê Phú Toàn",
+   "progress": 0.0,
+   "start": "2026-11-15",
+   "due": "2026-11-16",
+   "days": 2,
+   "level": "subtask",
+   "parent": "WMS-15",
+   "summary": "WMS-15.4 [Frontend] Cụm Chuông Thông báo Cảnh báo (Notification Popover) trên Header",
+   "labels": [
+    "Sprint-3",
+    "Sprint-4",
+    "Frontend"
+   ],
+   "phase": "Sprint 3 & Sprint 4",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-15.4"
+    ],
+    [
+     "Nội dung",
+     "Hiển thị danh sách thông báo đẩy realtime (Low Stock, Near Expiry) trên thanh Header và hỗ trợ thao tác nhanh tạo đơn mua hàng PO nháp từ cảnh báo (FR21, FR22)."
+    ],
+    [
+     "Phụ trách",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Kế hoạch",
+     "15/11/2026 - 16/11/2026 (2 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 3 & Sprint 4"
+    ],
+    [
+     "Thuộc",
+     "WMS-15"
+    ]
+   ]
+  },
+  {
+   "row": 93,
+   "wms": "VIII",
+   "title_raw": "EPIC 8: BÁO CÁO THỐNG KÊ, EXECUTIVE DASHBOARD, EXPORT EXCEL & AI ASSISTANT",
+   "summary_raw": "[Sprint 4 – Dashboard, AI & Hoàn thiện] Xây dựng Admin/Executive Dashboard (Member 4), Báo cáo X-N-T & Truy vết lô (Member 4), Export Excel POI (Member 3) và Spring AI Chatbot (Member 1) (FR23–FR25).",
+   "assignee": "Phạm Phương Anh",
+   "collab": "Lê Phú Toàn, Trần Đăng Việt",
+   "progress": 0.0,
+   "start": "2026-11-10",
+   "due": "2026-11-16",
+   "days": 7,
+   "level": "epic",
+   "parent": null,
+   "summary": "EPIC 8: BÁO CÁO THỐNG KÊ, EXECUTIVE DASHBOARD, EXPORT EXCEL & AI ASSISTANT",
+   "labels": [
+    "Sprint-4"
+   ],
+   "phase": "Sprint 4 – Dashboard, AI & Hoàn thiện",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "VIII"
+    ],
+    [
+     "Nội dung",
+     "[Sprint 4 – Dashboard, AI & Hoàn thiện] Xây dựng Admin/Executive Dashboard (Member 4), Báo cáo X-N-T & Truy vết lô (Member 4), Export Excel POI (Member 3) và Spring AI Chatbot (Member 1) (FR23–FR25)."
+    ],
+    [
+     "Phụ trách",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phú Toàn, Trần Đăng Việt"
+    ],
+    [
+     "Kế hoạch",
+     "10/11/2026 - 16/11/2026 (7 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 4 – Dashboard, AI & Hoàn thiện"
+    ]
+   ]
+  },
+  {
+   "row": 94,
+   "wms": "WMS-16",
+   "title_raw": "Task WMS-16: Xây dựng Admin / Executive Dashboard Tổng Quan (KPI Cards & Biểu Đồ Recharts)",
+   "summary_raw": "[Sprint 4] Phát triển REST API và giao diện Executive Dashboard chuẩn mẫu TrackMotion: Hàng thẻ KPI, Biểu đồ cột Nhập & Xuất, Biểu đồ tròn Top sản phẩm bán chạy (FR23, FR24).",
+   "assignee": "Phạm Phương Anh",
+   "collab": "Lê Phú Toàn",
+   "progress": 0.0,
+   "start": "2026-11-10",
+   "due": "2026-11-13",
+   "days": 4,
+   "level": "task",
+   "parent": "VIII",
+   "summary": "WMS-16: Xây dựng Admin / Executive Dashboard Tổng Quan (KPI Cards & Biểu Đồ Recharts)",
+   "labels": [
+    "Sprint-4"
+   ],
+   "phase": "Sprint 4",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-16"
+    ],
+    [
+     "Nội dung",
+     "[Sprint 4] Phát triển REST API và giao diện Executive Dashboard chuẩn mẫu TrackMotion: Hàng thẻ KPI, Biểu đồ cột Nhập & Xuất, Biểu đồ tròn Top sản phẩm bán chạy (FR23, FR24)."
+    ],
+    [
+     "Phụ trách",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Kế hoạch",
+     "10/11/2026 - 13/11/2026 (4 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 4"
+    ],
+    [
+     "Thuộc",
+     "VIII"
+    ]
+   ]
+  },
+  {
+   "row": 95,
+   "wms": "WMS-16.1",
+   "title_raw": "+ [Backend] Phát triển REST API Tổng hợp Dữ liệu Thẻ KPI nhanh (KPI Cards)",
+   "summary_raw": "API tổng hợp nhanh (≤ 2s): Đơn bán chờ xử lý, Đơn mua chờ duyệt, Tổng công nợ phải thu, Tổng công nợ phải trả, Doanh thu/Chi phí, Cảnh báo tồn thấp (FR23, NFR01).",
+   "assignee": "Phạm Phương Anh",
+   "collab": "Trần Đăng Việt",
+   "progress": 0.0,
+   "start": "2026-11-10",
+   "due": "2026-11-11",
+   "days": 2,
+   "level": "subtask",
+   "parent": "WMS-16",
+   "summary": "WMS-16.1 [Backend] Phát triển REST API Tổng hợp Dữ liệu Thẻ KPI nhanh (KPI Cards)",
+   "labels": [
+    "Sprint-4",
+    "Backend"
+   ],
+   "phase": "Sprint 4",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-16.1"
+    ],
+    [
+     "Nội dung",
+     "API tổng hợp nhanh (≤ 2s): Đơn bán chờ xử lý, Đơn mua chờ duyệt, Tổng công nợ phải thu, Tổng công nợ phải trả, Doanh thu/Chi phí, Cảnh báo tồn thấp (FR23, NFR01)."
+    ],
+    [
+     "Phụ trách",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Phối hợp",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Kế hoạch",
+     "10/11/2026 - 11/11/2026 (2 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 4"
+    ],
+    [
+     "Thuộc",
+     "WMS-16"
+    ]
+   ]
+  },
+  {
+   "row": 96,
+   "wms": "WMS-16.2",
+   "title_raw": "+ [Backend] Phát triển REST API Thống kê Biểu đồ Mua vs Bán & Tỷ trọng Tồn kho",
+   "summary_raw": "API dữ liệu biểu đồ: So sánh Mua vào vs Bán ra (Purchase vs Sale) theo tuần/tháng, Top sản phẩm bán chạy (Trending Items) và tổng quan All Warehouses (FR24).",
+   "assignee": "Phạm Phương Anh",
+   "collab": "Lê Phương Linh",
+   "progress": 0.0,
+   "start": "2026-11-11",
+   "due": "2026-11-11",
+   "days": 1,
+   "level": "subtask",
+   "parent": "WMS-16",
+   "summary": "WMS-16.2 [Backend] Phát triển REST API Thống kê Biểu đồ Mua vs Bán & Tỷ trọng Tồn kho",
+   "labels": [
+    "Sprint-4",
+    "Backend"
+   ],
+   "phase": "Sprint 4",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-16.2"
+    ],
+    [
+     "Nội dung",
+     "API dữ liệu biểu đồ: So sánh Mua vào vs Bán ra (Purchase vs Sale) theo tuần/tháng, Top sản phẩm bán chạy (Trending Items) và tổng quan All Warehouses (FR24)."
+    ],
+    [
+     "Phụ trách",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phương Linh"
+    ],
+    [
+     "Kế hoạch",
+     "11/11/2026 - 11/11/2026 (1 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 4"
+    ],
+    [
+     "Thuộc",
+     "WMS-16"
+    ]
+   ]
+  },
+  {
+   "row": 97,
+   "wms": "WMS-16.3",
+   "title_raw": "+ [Frontend] Xây dựng Hàng Thẻ KPI Tương tác trên Admin / Executive Dashboard",
+   "summary_raw": "Thiết kế cụm thẻ KPI chuẩn mẫu TrackMotion (tối ưu FCP ≤ 2s); hỗ trợ click trực tiếp vào từng thẻ KPI để mở danh sách đơn hàng/công nợ chi tiết (FR23, NFR02).",
+   "assignee": "Phạm Phương Anh",
+   "collab": "Lê Phú Toàn",
+   "progress": 0.0,
+   "start": "2026-11-11",
+   "due": "2026-11-12",
+   "days": 2,
+   "level": "subtask",
+   "parent": "WMS-16",
+   "summary": "WMS-16.3 [Frontend] Xây dựng Hàng Thẻ KPI Tương tác trên Admin / Executive Dashboard",
+   "labels": [
+    "Sprint-4",
+    "Frontend"
+   ],
+   "phase": "Sprint 4",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-16.3"
+    ],
+    [
+     "Nội dung",
+     "Thiết kế cụm thẻ KPI chuẩn mẫu TrackMotion (tối ưu FCP ≤ 2s); hỗ trợ click trực tiếp vào từng thẻ KPI để mở danh sách đơn hàng/công nợ chi tiết (FR23, NFR02)."
+    ],
+    [
+     "Phụ trách",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Kế hoạch",
+     "11/11/2026 - 12/11/2026 (2 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 4"
+    ],
+    [
+     "Thuộc",
+     "WMS-16"
+    ]
+   ]
+  },
+  {
+   "row": 98,
+   "wms": "WMS-16.4",
+   "title_raw": "+ [Frontend] Xây dựng Biểu đồ Cột Nhập & Xuất, Biểu đồ Tròn/Donut (Recharts) & Giao dịch gần nhất",
+   "summary_raw": "Dùng Recharts vẽ Biểu đồ cột đôi Mua vs Bán, Biểu đồ tròn/Doughnut Top sản phẩm bán chạy & tỷ lệ nhóm hàng; Bảng liệt kê các giao dịch/hóa đơn gần nhất (FR24, FR25).",
+   "assignee": "Phạm Phương Anh",
+   "collab": "Lê Phú Toàn",
+   "progress": 0.0,
+   "start": "2026-11-12",
+   "due": "2026-11-13",
+   "days": 2,
+   "level": "subtask",
+   "parent": "WMS-16",
+   "summary": "WMS-16.4 [Frontend] Xây dựng Biểu đồ Cột Nhập & Xuất, Biểu đồ Tròn/Donut (Recharts) & Giao dịch gần nhất",
+   "labels": [
+    "Sprint-4",
+    "Frontend"
+   ],
+   "phase": "Sprint 4",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-16.4"
+    ],
+    [
+     "Nội dung",
+     "Dùng Recharts vẽ Biểu đồ cột đôi Mua vs Bán, Biểu đồ tròn/Doughnut Top sản phẩm bán chạy & tỷ lệ nhóm hàng; Bảng liệt kê các giao dịch/hóa đơn gần nhất (FR24, FR25)."
+    ],
+    [
+     "Phụ trách",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Kế hoạch",
+     "12/11/2026 - 13/11/2026 (2 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 4"
+    ],
+    [
+     "Thuộc",
+     "WMS-16"
+    ]
+   ]
+  },
+  {
+   "row": 99,
+   "wms": "WMS-17",
+   "title_raw": "Task WMS-17: Báo Cáo Xuất-Nhập-Tồn, Thẻ Kho, Truy Vết Lô & Xuất File Excel (Apache POI)",
+   "summary_raw": "[Sprint 4] Phát triển API Báo cáo Xuất-Nhập-Tồn, Thẻ kho, Traceability (Member 4) và tích hợp thư viện Apache POI xuất file Excel báo cáo chi tiết (Member 3) (FR25).",
+   "assignee": "Phạm Phương Anh",
+   "collab": "Trần Đăng Việt",
+   "progress": 0.0,
+   "start": "2026-11-13",
+   "due": "2026-11-16",
+   "days": 4,
+   "level": "task",
+   "parent": "VIII",
+   "summary": "WMS-17: Báo Cáo Xuất-Nhập-Tồn, Thẻ Kho, Truy Vết Lô & Xuất File Excel (Apache POI)",
+   "labels": [
+    "Sprint-4"
+   ],
+   "phase": "Sprint 4",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-17"
+    ],
+    [
+     "Nội dung",
+     "[Sprint 4] Phát triển API Báo cáo Xuất-Nhập-Tồn, Thẻ kho, Traceability (Member 4) và tích hợp thư viện Apache POI xuất file Excel báo cáo chi tiết (Member 3) (FR25)."
+    ],
+    [
+     "Phụ trách",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Phối hợp",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Kế hoạch",
+     "13/11/2026 - 16/11/2026 (4 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 4"
+    ],
+    [
+     "Thuộc",
+     "VIII"
+    ]
+   ]
+  },
+  {
+   "row": 100,
+   "wms": "WMS-17.1",
+   "title_raw": "+ [Backend] Phát triển REST API Báo cáo Xuất-Nhập-Tồn & Sổ Thẻ Kho chi tiết",
+   "summary_raw": "API Báo cáo Nhập-Xuất-Tồn (FIFO hoặc WAA) áp dụng pagination; API Thẻ kho chi tiết từng SKU ghi nhận lịch sử biến động, số lô và nhân viên thao tác (FR25, NFR01, NFR09).",
+   "assignee": "Phạm Phương Anh",
+   "collab": "Lê Phương Linh",
+   "progress": 0.0,
+   "start": "2026-11-13",
+   "due": "2026-11-14",
+   "days": 2,
+   "level": "subtask",
+   "parent": "WMS-17",
+   "summary": "WMS-17.1 [Backend] Phát triển REST API Báo cáo Xuất-Nhập-Tồn & Sổ Thẻ Kho chi tiết",
+   "labels": [
+    "Sprint-4",
+    "Backend"
+   ],
+   "phase": "Sprint 4",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-17.1"
+    ],
+    [
+     "Nội dung",
+     "API Báo cáo Nhập-Xuất-Tồn (FIFO hoặc WAA) áp dụng pagination; API Thẻ kho chi tiết từng SKU ghi nhận lịch sử biến động, số lô và nhân viên thao tác (FR25, NFR01, NFR09)."
+    ],
+    [
+     "Phụ trách",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phương Linh"
+    ],
+    [
+     "Kế hoạch",
+     "13/11/2026 - 14/11/2026 (2 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 4"
+    ],
+    [
+     "Thuộc",
+     "WMS-17"
+    ]
+   ]
+  },
+  {
+   "row": 101,
+   "wms": "WMS-17.2",
+   "title_raw": "+ [Backend] Phát triển REST API Truy vết Nguồn gốc Hàng hóa theo Số Lô (Traceability)",
+   "summary_raw": "Nhập mã Lô (Batch/Lot) → truy xuất đầy đủ nguồn gốc: Đơn mua PO, Nhà cung cấp, vị trí ô/kệ lưu trữ, nhân viên phụ trách và các phiếu xuất/đơn bán liên quan (FR25).",
+   "assignee": "Phạm Phương Anh",
+   "collab": "Trần Đăng Việt",
+   "progress": 0.0,
+   "start": "2026-11-14",
+   "due": "2026-11-14",
+   "days": 1,
+   "level": "subtask",
+   "parent": "WMS-17",
+   "summary": "WMS-17.2 [Backend] Phát triển REST API Truy vết Nguồn gốc Hàng hóa theo Số Lô (Traceability)",
+   "labels": [
+    "Sprint-4",
+    "Backend"
+   ],
+   "phase": "Sprint 4",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-17.2"
+    ],
+    [
+     "Nội dung",
+     "Nhập mã Lô (Batch/Lot) → truy xuất đầy đủ nguồn gốc: Đơn mua PO, Nhà cung cấp, vị trí ô/kệ lưu trữ, nhân viên phụ trách và các phiếu xuất/đơn bán liên quan (FR25)."
+    ],
+    [
+     "Phụ trách",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Phối hợp",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Kế hoạch",
+     "14/11/2026 - 14/11/2026 (1 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 4"
+    ],
+    [
+     "Thuộc",
+     "WMS-17"
+    ]
+   ]
+  },
+  {
+   "row": 102,
+   "wms": "WMS-17.3",
+   "title_raw": "+ [Backend] Tích hợp Thư viện Apache POI Xuất File Excel Báo cáo chi tiết",
+   "summary_raw": "Theo phân công Sprint 4 (Member 3 phối hợp Member 4): Dùng Apache POI xuất file Excel (.xlsx) cho Báo cáo Xuất-Nhập-Tồn, Doanh thu, Công nợ và Thẻ kho (FR25).",
+   "assignee": "Trần Đăng Việt",
+   "collab": "Phạm Phương Anh",
+   "progress": 0.0,
+   "start": "2026-11-14",
+   "due": "2026-11-15",
+   "days": 2,
+   "level": "subtask",
+   "parent": "WMS-17",
+   "summary": "WMS-17.3 [Backend] Tích hợp Thư viện Apache POI Xuất File Excel Báo cáo chi tiết",
+   "labels": [
+    "Sprint-4",
+    "Backend"
+   ],
+   "phase": "Sprint 4",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-17.3"
+    ],
+    [
+     "Nội dung",
+     "Theo phân công Sprint 4 (Member 3 phối hợp Member 4): Dùng Apache POI xuất file Excel (.xlsx) cho Báo cáo Xuất-Nhập-Tồn, Doanh thu, Công nợ và Thẻ kho (FR25)."
+    ],
+    [
+     "Phụ trách",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Phối hợp",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Kế hoạch",
+     "14/11/2026 - 15/11/2026 (2 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 4"
+    ],
+    [
+     "Thuộc",
+     "WMS-17"
+    ]
+   ]
+  },
+  {
+   "row": 103,
+   "wms": "WMS-17.4",
+   "title_raw": "+ [Frontend] Xây dựng Màn hình Báo cáo Xuất-Nhập-Tồn, Thẻ Kho & Nút Xuất Excel",
+   "summary_raw": "Giao diện tra cứu Báo cáo X-N-T, Sổ thẻ kho chi tiết theo kỳ/kho bãi và nút tải trực tiếp file báo cáo Excel về máy (FR25).",
+   "assignee": "Phạm Phương Anh",
+   "collab": "Trần Đăng Việt",
+   "progress": 0.0,
+   "start": "2026-11-15",
+   "due": "2026-11-15",
+   "days": 1,
+   "level": "subtask",
+   "parent": "WMS-17",
+   "summary": "WMS-17.4 [Frontend] Xây dựng Màn hình Báo cáo Xuất-Nhập-Tồn, Thẻ Kho & Nút Xuất Excel",
+   "labels": [
+    "Sprint-4",
+    "Frontend"
+   ],
+   "phase": "Sprint 4",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-17.4"
+    ],
+    [
+     "Nội dung",
+     "Giao diện tra cứu Báo cáo X-N-T, Sổ thẻ kho chi tiết theo kỳ/kho bãi và nút tải trực tiếp file báo cáo Excel về máy (FR25)."
+    ],
+    [
+     "Phụ trách",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Phối hợp",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Kế hoạch",
+     "15/11/2026 - 15/11/2026 (1 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 4"
+    ],
+    [
+     "Thuộc",
+     "WMS-17"
+    ]
+   ]
+  },
+  {
+   "row": 104,
+   "wms": "WMS-17.5",
+   "title_raw": "+ [Frontend] Xây dựng Giao diện Truy vết Nguồn gốc Lô hàng (Traceability View)",
+   "summary_raw": "Giao diện tìm kiếm theo mã Lô/Batch và trực quan hóa chuỗi hành trình hàng hóa từ Nhà cung cấp → Nhập kho → Vị trí Ô/Kệ → Xuất bán (FR25).",
+   "assignee": "Phạm Phương Anh",
+   "collab": "Trần Đăng Việt",
+   "progress": 0.0,
+   "start": "2026-11-15",
+   "due": "2026-11-16",
+   "days": 2,
+   "level": "subtask",
+   "parent": "WMS-17",
+   "summary": "WMS-17.5 [Frontend] Xây dựng Giao diện Truy vết Nguồn gốc Lô hàng (Traceability View)",
+   "labels": [
+    "Sprint-4",
+    "Frontend"
+   ],
+   "phase": "Sprint 4",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-17.5"
+    ],
+    [
+     "Nội dung",
+     "Giao diện tìm kiếm theo mã Lô/Batch và trực quan hóa chuỗi hành trình hàng hóa từ Nhà cung cấp → Nhập kho → Vị trí Ô/Kệ → Xuất bán (FR25)."
+    ],
+    [
+     "Phụ trách",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Phối hợp",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Kế hoạch",
+     "15/11/2026 - 16/11/2026 (2 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 4"
+    ],
+    [
+     "Thuộc",
+     "WMS-17"
+    ]
+   ]
+  },
+  {
+   "row": 105,
+   "wms": "WMS-18",
+   "title_raw": "Task WMS-18: Tích Hợp Trí Tuệ Nhân Tạo – Spring AI Summary & Chatbot Hỗ Trợ",
+   "summary_raw": "[Sprint 4] Theo phân công Member 1: Dùng Spring AI (Gemini/OpenAI API) để tóm tắt báo cáo tuần/tháng dưới dạng văn bản (AI Summary) và xây dựng Chatbot API + UI Popup.",
+   "assignee": "Lê Phú Toàn",
+   "collab": "Phạm Phương Anh",
+   "progress": 0.0,
+   "start": "2026-11-13",
+   "due": "2026-11-16",
+   "days": 4,
+   "level": "task",
+   "parent": "VIII",
+   "summary": "WMS-18: Tích Hợp Trí Tuệ Nhân Tạo – Spring AI Summary & Chatbot Hỗ Trợ",
+   "labels": [
+    "Sprint-4"
+   ],
+   "phase": "Sprint 4",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-18"
+    ],
+    [
+     "Nội dung",
+     "[Sprint 4] Theo phân công Member 1: Dùng Spring AI (Gemini/OpenAI API) để tóm tắt báo cáo tuần/tháng dưới dạng văn bản (AI Summary) và xây dựng Chatbot API + UI Popup."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Phối hợp",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Kế hoạch",
+     "13/11/2026 - 16/11/2026 (4 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 4"
+    ],
+    [
+     "Thuộc",
+     "VIII"
+    ]
+   ]
+  },
+  {
+   "row": 106,
+   "wms": "WMS-18.1",
+   "title_raw": "+ [Backend] Tích hợp Spring AI (Gemini/OpenAI) sinh Báo cáo Tóm tắt (AI Summary)",
+   "summary_raw": "Đưa dữ liệu số liệu tồn kho tuần/tháng vào Spring AI (Gemini/OpenAI API) để tự động viết bản báo cáo tóm tắt tình hình kho (Executive Summary) và gợi ý mặt hàng cần nhập thêm.",
+   "assignee": "Lê Phú Toàn",
+   "collab": "Phạm Phương Anh",
+   "progress": 0.0,
+   "start": "2026-11-13",
+   "due": "2026-11-14",
+   "days": 2,
+   "level": "subtask",
+   "parent": "WMS-18",
+   "summary": "WMS-18.1 [Backend] Tích hợp Spring AI (Gemini/OpenAI) sinh Báo cáo Tóm tắt (AI Summary)",
+   "labels": [
+    "Sprint-4",
+    "Backend"
+   ],
+   "phase": "Sprint 4",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-18.1"
+    ],
+    [
+     "Nội dung",
+     "Đưa dữ liệu số liệu tồn kho tuần/tháng vào Spring AI (Gemini/OpenAI API) để tự động viết bản báo cáo tóm tắt tình hình kho (Executive Summary) và gợi ý mặt hàng cần nhập thêm."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Phối hợp",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Kế hoạch",
+     "13/11/2026 - 14/11/2026 (2 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 4"
+    ],
+    [
+     "Thuộc",
+     "WMS-18"
+    ]
+   ]
+  },
+  {
+   "row": 107,
+   "wms": "WMS-18.2",
+   "title_raw": "+ [Backend] Phát triển Chatbot API Hỗ trợ Tra cứu Tồn kho & Đơn hàng",
+   "summary_raw": "Xây dựng REST API Chatbot thông minh giúp thủ kho/quản lý tra cứu nhanh số lượng tồn, vị trí ô/kệ của sản phẩm và trạng thái đơn hàng bằng ngôn ngữ tự nhiên.",
+   "assignee": "Lê Phú Toàn",
+   "collab": "Lê Phương Linh",
+   "progress": 0.0,
+   "start": "2026-11-14",
+   "due": "2026-11-15",
+   "days": 2,
+   "level": "subtask",
+   "parent": "WMS-18",
+   "summary": "WMS-18.2 [Backend] Phát triển Chatbot API Hỗ trợ Tra cứu Tồn kho & Đơn hàng",
+   "labels": [
+    "Sprint-4",
+    "Backend"
+   ],
+   "phase": "Sprint 4",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-18.2"
+    ],
+    [
+     "Nội dung",
+     "Xây dựng REST API Chatbot thông minh giúp thủ kho/quản lý tra cứu nhanh số lượng tồn, vị trí ô/kệ của sản phẩm và trạng thái đơn hàng bằng ngôn ngữ tự nhiên."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phương Linh"
+    ],
+    [
+     "Kế hoạch",
+     "14/11/2026 - 15/11/2026 (2 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 4"
+    ],
+    [
+     "Thuộc",
+     "WMS-18"
+    ]
+   ]
+  },
+  {
+   "row": 108,
+   "wms": "WMS-18.3",
+   "title_raw": "+ [Frontend] Xây dựng Khối Hiển thị AI Summary trên Executive Dashboard",
+   "summary_raw": "Tích hợp widget hiển thị văn bản tóm tắt báo cáo tuần/tháng của AI và gợi ý đặt hàng ngay trên màn hình Executive Dashboard.",
+   "assignee": "Lê Phú Toàn",
+   "collab": "Phạm Phương Anh",
+   "progress": 0.0,
+   "start": "2026-11-15",
+   "due": "2026-11-15",
+   "days": 1,
+   "level": "subtask",
+   "parent": "WMS-18",
+   "summary": "WMS-18.3 [Frontend] Xây dựng Khối Hiển thị AI Summary trên Executive Dashboard",
+   "labels": [
+    "Sprint-4",
+    "Frontend"
+   ],
+   "phase": "Sprint 4",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-18.3"
+    ],
+    [
+     "Nội dung",
+     "Tích hợp widget hiển thị văn bản tóm tắt báo cáo tuần/tháng của AI và gợi ý đặt hàng ngay trên màn hình Executive Dashboard."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Phối hợp",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Kế hoạch",
+     "15/11/2026 - 15/11/2026 (1 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 4"
+    ],
+    [
+     "Thuộc",
+     "WMS-18"
+    ]
+   ]
+  },
+  {
+   "row": 109,
+   "wms": "WMS-18.4",
+   "title_raw": "+ [Frontend] Xây dựng Giao diện UI Popup Chatbot Trợ lý Ảo AI",
+   "summary_raw": "Thiết kế cửa sổ UI Popup Chatbot nổi trên góc màn hình ứng dụng, hỗ trợ hội thoại trực tiếp với AI Assistant và chọn nhanh các câu hỏi gợi ý.",
+   "assignee": "Lê Phú Toàn",
+   "collab": "Phạm Phương Anh",
+   "progress": 0.0,
+   "start": "2026-11-15",
+   "due": "2026-11-16",
+   "days": 2,
+   "level": "subtask",
+   "parent": "WMS-18",
+   "summary": "WMS-18.4 [Frontend] Xây dựng Giao diện UI Popup Chatbot Trợ lý Ảo AI",
+   "labels": [
+    "Sprint-4",
+    "Frontend"
+   ],
+   "phase": "Sprint 4",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-18.4"
+    ],
+    [
+     "Nội dung",
+     "Thiết kế cửa sổ UI Popup Chatbot nổi trên góc màn hình ứng dụng, hỗ trợ hội thoại trực tiếp với AI Assistant và chọn nhanh các câu hỏi gợi ý."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Phối hợp",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Kế hoạch",
+     "15/11/2026 - 16/11/2026 (2 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 4"
+    ],
+    [
+     "Thuộc",
+     "WMS-18"
+    ]
+   ]
+  },
+  {
+   "row": 110,
+   "wms": "IX",
+   "title_raw": "EPIC 9: REDIS CACHE, KIỂM THỬ E2E/TẢI, UAT & DEPLOY PRODUCTION (GHCR)",
+   "summary_raw": "[Sprint 4 & UAT/Deploy] Cấu hình Redis Cache cho tổng tồn kho (Member 2), kiểm thử E2E/tải đồng thời/bảo mật, tạo báo cáo test, deploy Production bằng docker compose up -d (GHCR) & bàn giao.",
+   "assignee": "Lê Phú Toàn",
+   "collab": "Cả 4 thành viên",
+   "progress": 0.0,
+   "start": "2026-11-17",
+   "due": "2026-11-23",
+   "days": 7,
+   "level": "epic",
+   "parent": null,
+   "summary": "EPIC 9: REDIS CACHE, KIỂM THỬ E2E/TẢI, UAT & DEPLOY PRODUCTION (GHCR)",
+   "labels": [
+    "Sprint-4",
+    "UAT-Deploy"
+   ],
+   "phase": "Sprint 4 & UAT/Deploy",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "IX"
+    ],
+    [
+     "Nội dung",
+     "[Sprint 4 & UAT/Deploy] Cấu hình Redis Cache cho tổng tồn kho (Member 2), kiểm thử E2E/tải đồng thời/bảo mật, tạo báo cáo test, deploy Production bằng docker compose up -d (GHCR) & bàn giao."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Phối hợp",
+     "Cả 4 thành viên"
+    ],
+    [
+     "Kế hoạch",
+     "17/11/2026 - 23/11/2026 (7 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 4 & UAT/Deploy"
+    ]
+   ]
+  },
+  {
+   "row": 111,
+   "wms": "WMS-19",
+   "title_raw": "Task WMS-19: Cấu Hình Redis Cache Tồn Kho, Tối Ưu Hiệu Năng & Kiểm Thử Tải",
+   "summary_raw": "[Sprint 4 & UAT] Cấu hình Redis cache hỗ trợ tối ưu tốc độ call dữ liệu tồn kho (Member 2) và kiểm thử tải đồng thời 30–50 req/s chống deadlock (Member 1) (NFR01–NFR03).",
+   "assignee": "Lê Phương Linh",
+   "collab": "Lê Phú Toàn",
+   "progress": 0.0,
+   "start": "2026-11-17",
+   "due": "2026-11-19",
+   "days": 3,
+   "level": "task",
+   "parent": "IX",
+   "summary": "WMS-19: Cấu Hình Redis Cache Tồn Kho, Tối Ưu Hiệu Năng & Kiểm Thử Tải",
+   "labels": [
+    "Sprint-4",
+    "UAT-Deploy"
+   ],
+   "phase": "Sprint 4 & UAT",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-19"
+    ],
+    [
+     "Nội dung",
+     "[Sprint 4 & UAT] Cấu hình Redis cache hỗ trợ tối ưu tốc độ call dữ liệu tồn kho (Member 2) và kiểm thử tải đồng thời 30–50 req/s chống deadlock (Member 1) (NFR01–NFR03)."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phương Linh"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Kế hoạch",
+     "17/11/2026 - 19/11/2026 (3 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 4 & UAT"
+    ],
+    [
+     "Thuộc",
+     "IX"
+    ]
+   ]
+  },
+  {
+   "row": 112,
+   "wms": "WMS-19.1",
+   "title_raw": "+ [Backend] Cấu hình Redis Cache cho Tổng Tồn Kho & Tồn Khả Dụng (ATP)",
+   "summary_raw": "Theo phân công Sprint 4 (Member 2): Cấu hình Redis cache v7.x lưu dữ liệu tổng tồn kho và danh mục thường truy vấn; tự động làm mới cache khi phát sinh nhập/xuất (NFR01).",
+   "assignee": "Lê Phương Linh",
+   "collab": "Lê Phú Toàn",
+   "progress": 0.0,
+   "start": "2026-11-17",
+   "due": "2026-11-18",
+   "days": 2,
+   "level": "subtask",
+   "parent": "WMS-19",
+   "summary": "WMS-19.1 [Backend] Cấu hình Redis Cache cho Tổng Tồn Kho & Tồn Khả Dụng (ATP)",
+   "labels": [
+    "Sprint-4",
+    "UAT-Deploy",
+    "Backend"
+   ],
+   "phase": "Sprint 4 & UAT",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-19.1"
+    ],
+    [
+     "Nội dung",
+     "Theo phân công Sprint 4 (Member 2): Cấu hình Redis cache v7.x lưu dữ liệu tổng tồn kho và danh mục thường truy vấn; tự động làm mới cache khi phát sinh nhập/xuất (NFR01)."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phương Linh"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Kế hoạch",
+     "17/11/2026 - 18/11/2026 (2 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 4 & UAT"
+    ],
+    [
+     "Thuộc",
+     "WMS-19"
+    ]
+   ]
+  },
+  {
+   "row": 113,
+   "wms": "WMS-19.2",
+   "title_raw": "+ [QA] Kiểm thử Tải Đồng thời (30–50 req/s) & Chống Deadlock (JMeter)",
+   "summary_raw": "Theo phân công Member 1: Kiểm thử tải đồng thời khi nhiều nhân viên cùng thao tác tạo phiếu nhập/xuất/kiểm kê; đảm bảo Pessimistic Lock chống âm kho và không bị deadlock (NFR03).",
+   "assignee": "Lê Phú Toàn",
+   "collab": "Lê Phương Linh",
+   "progress": 0.0,
+   "start": "2026-11-18",
+   "due": "2026-11-19",
+   "days": 2,
+   "level": "subtask",
+   "parent": "WMS-19",
+   "summary": "WMS-19.2 [QA] Kiểm thử Tải Đồng thời (30–50 req/s) & Chống Deadlock (JMeter)",
+   "labels": [
+    "Sprint-4",
+    "UAT-Deploy",
+    "QA"
+   ],
+   "phase": "Sprint 4 & UAT",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-19.2"
+    ],
+    [
+     "Nội dung",
+     "Theo phân công Member 1: Kiểm thử tải đồng thời khi nhiều nhân viên cùng thao tác tạo phiếu nhập/xuất/kiểm kê; đảm bảo Pessimistic Lock chống âm kho và không bị deadlock (NFR03)."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phương Linh"
+    ],
+    [
+     "Kế hoạch",
+     "18/11/2026 - 19/11/2026 (2 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 4 & UAT"
+    ],
+    [
+     "Thuộc",
+     "WMS-19"
+    ]
+   ]
+  },
+  {
+   "row": 114,
+   "wms": "WMS-19.3",
+   "title_raw": "+ [Backend] Tối ưu hóa MySQL Partitioning / Indexing & Phản hồi API ≤ 500ms",
+   "summary_raw": "Tối ưu hóa truy vấn và đánh chỉ mục cho các bảng giao dịch lớn; đảm bảo thời gian phản hồi API nghiệp vụ ≤ 500ms và API Dashboard ≤ 2 giây (NFR01, NFR02).",
+   "assignee": "Lê Phương Linh",
+   "collab": "Phạm Phương Anh",
+   "progress": 0.0,
+   "start": "2026-11-18",
+   "due": "2026-11-19",
+   "days": 2,
+   "level": "subtask",
+   "parent": "WMS-19",
+   "summary": "WMS-19.3 [Backend] Tối ưu hóa MySQL Partitioning / Indexing & Phản hồi API ≤ 500ms",
+   "labels": [
+    "Sprint-4",
+    "UAT-Deploy",
+    "Backend"
+   ],
+   "phase": "Sprint 4 & UAT",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-19.3"
+    ],
+    [
+     "Nội dung",
+     "Tối ưu hóa truy vấn và đánh chỉ mục cho các bảng giao dịch lớn; đảm bảo thời gian phản hồi API nghiệp vụ ≤ 500ms và API Dashboard ≤ 2 giây (NFR01, NFR02)."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phương Linh"
+    ],
+    [
+     "Phối hợp",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Kế hoạch",
+     "18/11/2026 - 19/11/2026 (2 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "Sprint 4 & UAT"
+    ],
+    [
+     "Thuộc",
+     "WMS-19"
+    ]
+   ]
+  },
+  {
+   "row": 115,
+   "wms": "WMS-20",
+   "title_raw": "Task WMS-20: Kiểm Thử End-to-End (E2E), Kiểm Thử Bảo Mật & Tạo Báo Cáo Test (UAT)",
+   "summary_raw": "[UAT & Deploy] Kiểm thử End-to-End (Cypress/Playwright), Integration Test (Postman/Newman), Unit Test ≥ 80% coverage, kiểm thử bảo mật và lập báo cáo test.",
+   "assignee": "Lê Phú Toàn",
+   "collab": "Cả 4 thành viên",
+   "progress": 0.0,
+   "start": "2026-11-19",
+   "due": "2026-11-21",
+   "days": 3,
+   "level": "task",
+   "parent": "IX",
+   "summary": "WMS-20: Kiểm Thử End-to-End (E2E), Kiểm Thử Bảo Mật & Tạo Báo Cáo Test (UAT)",
+   "labels": [
+    "UAT-Deploy"
+   ],
+   "phase": "UAT & Deploy",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-20"
+    ],
+    [
+     "Nội dung",
+     "[UAT & Deploy] Kiểm thử End-to-End (Cypress/Playwright), Integration Test (Postman/Newman), Unit Test ≥ 80% coverage, kiểm thử bảo mật và lập báo cáo test."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Phối hợp",
+     "Cả 4 thành viên"
+    ],
+    [
+     "Kế hoạch",
+     "19/11/2026 - 21/11/2026 (3 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "UAT & Deploy"
+    ],
+    [
+     "Thuộc",
+     "IX"
+    ]
+   ]
+  },
+  {
+   "row": 116,
+   "wms": "WMS-20.1",
+   "title_raw": "+ [QA] Kiểm thử E2E & Integration Luồng Mua-Nhập (Inbound: PO → GRN, Lô)",
+   "summary_raw": "Kiểm thử toàn diện luồng Inbound: Nhà cung cấp → Tạo & Duyệt PO → Cập nhật Incoming Stock → Quét mã nhập GRN → Quản lý Lô FIFO/FEFO & Công nợ mua (FR09–FR13).",
+   "assignee": "Trần Đăng Việt",
+   "collab": "Lê Phương Linh",
+   "progress": 0.0,
+   "start": "2026-11-19",
+   "due": "2026-11-20",
+   "days": 2,
+   "level": "subtask",
+   "parent": "WMS-20",
+   "summary": "WMS-20.1 [QA] Kiểm thử E2E & Integration Luồng Mua-Nhập (Inbound: PO → GRN, Lô)",
+   "labels": [
+    "UAT-Deploy",
+    "QA"
+   ],
+   "phase": "UAT & Deploy",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-20.1"
+    ],
+    [
+     "Nội dung",
+     "Kiểm thử toàn diện luồng Inbound: Nhà cung cấp → Tạo & Duyệt PO → Cập nhật Incoming Stock → Quét mã nhập GRN → Quản lý Lô FIFO/FEFO & Công nợ mua (FR09–FR13)."
+    ],
+    [
+     "Phụ trách",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phương Linh"
+    ],
+    [
+     "Kế hoạch",
+     "19/11/2026 - 20/11/2026 (2 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "UAT & Deploy"
+    ],
+    [
+     "Thuộc",
+     "WMS-20"
+    ]
+   ]
+  },
+  {
+   "row": 117,
+   "wms": "WMS-20.2",
+   "title_raw": "+ [QA] Kiểm thử E2E & Integration Luồng Bán-Xuất, Điều chuyển & Kiểm kê",
+   "summary_raw": "Kiểm thử toàn diện luồng Outbound & Kho: Tạo SO (ATP) → Xuất GDN (FIFO/FEFO, Pessimistic Lock) → Điều chuyển nội bộ → Kiểm kê kho & Duyệt phiếu Adjustment (FR08, FR14–FR20).",
+   "assignee": "Lê Phương Linh",
+   "collab": "Trần Đăng Việt",
+   "progress": 0.0,
+   "start": "2026-11-19",
+   "due": "2026-11-20",
+   "days": 2,
+   "level": "subtask",
+   "parent": "WMS-20",
+   "summary": "WMS-20.2 [QA] Kiểm thử E2E & Integration Luồng Bán-Xuất, Điều chuyển & Kiểm kê",
+   "labels": [
+    "UAT-Deploy",
+    "QA"
+   ],
+   "phase": "UAT & Deploy",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-20.2"
+    ],
+    [
+     "Nội dung",
+     "Kiểm thử toàn diện luồng Outbound & Kho: Tạo SO (ATP) → Xuất GDN (FIFO/FEFO, Pessimistic Lock) → Điều chuyển nội bộ → Kiểm kê kho & Duyệt phiếu Adjustment (FR08, FR14–FR20)."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phương Linh"
+    ],
+    [
+     "Phối hợp",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Kế hoạch",
+     "19/11/2026 - 20/11/2026 (2 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "UAT & Deploy"
+    ],
+    [
+     "Thuộc",
+     "WMS-20"
+    ]
+   ]
+  },
+  {
+   "row": 118,
+   "wms": "WMS-20.3",
+   "title_raw": "+ [QA] Kiểm thử Bảo mật (JWT, RBAC, Brute-force, CORS) & UI Responsive",
+   "summary_raw": "Kiểm thử bảo mật: khóa tài khoản khi sai mật khẩu > 5 lần, phân quyền RBAC theo kho, cấu hình CORS; kiểm tra giao diện responsive trên Mobile/Tablet/Desktop & đa trình duyệt (NFR04–NFR11).",
+   "assignee": "Phạm Phương Anh",
+   "collab": "Lê Phú Toàn",
+   "progress": 0.0,
+   "start": "2026-11-20",
+   "due": "2026-11-21",
+   "days": 2,
+   "level": "subtask",
+   "parent": "WMS-20",
+   "summary": "WMS-20.3 [QA] Kiểm thử Bảo mật (JWT, RBAC, Brute-force, CORS) & UI Responsive",
+   "labels": [
+    "UAT-Deploy",
+    "QA"
+   ],
+   "phase": "UAT & Deploy",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-20.3"
+    ],
+    [
+     "Nội dung",
+     "Kiểm thử bảo mật: khóa tài khoản khi sai mật khẩu > 5 lần, phân quyền RBAC theo kho, cấu hình CORS; kiểm tra giao diện responsive trên Mobile/Tablet/Desktop & đa trình duyệt (NFR04–NFR11)."
+    ],
+    [
+     "Phụ trách",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Kế hoạch",
+     "20/11/2026 - 21/11/2026 (2 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "UAT & Deploy"
+    ],
+    [
+     "Thuộc",
+     "WMS-20"
+    ]
+   ]
+  },
+  {
+   "row": 119,
+   "wms": "WMS-20.4",
+   "title_raw": "+ [Fullstack] Khắc phục lỗi (Bugfix), Đảm bảo Unit Test ≥ 80% & Tạo Báo cáo Test",
+   "summary_raw": "Toàn nhóm rà soát sửa lỗi phát sinh sau UAT, hoàn thiện bộ Unit Test (JUnit 5 ≥ 80% coverage) và tổng hợp Báo cáo kết quả kiểm thử (Test Report).",
+   "assignee": "Cả 4 thành viên",
+   "collab": "Lê Phú Toàn",
+   "progress": 0.0,
+   "start": "2026-11-20",
+   "due": "2026-11-21",
+   "days": 2,
+   "level": "subtask",
+   "parent": "WMS-20",
+   "summary": "WMS-20.4 [Fullstack] Khắc phục lỗi (Bugfix), Đảm bảo Unit Test ≥ 80% & Tạo Báo cáo Test",
+   "labels": [
+    "UAT-Deploy",
+    "Fullstack"
+   ],
+   "phase": "UAT & Deploy",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-20.4"
+    ],
+    [
+     "Nội dung",
+     "Toàn nhóm rà soát sửa lỗi phát sinh sau UAT, hoàn thiện bộ Unit Test (JUnit 5 ≥ 80% coverage) và tổng hợp Báo cáo kết quả kiểm thử (Test Report)."
+    ],
+    [
+     "Phụ trách",
+     "Cả 4 thành viên"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Kế hoạch",
+     "20/11/2026 - 21/11/2026 (2 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "UAT & Deploy"
+    ],
+    [
+     "Thuộc",
+     "WMS-20"
+    ]
+   ]
+  },
+  {
+   "row": 120,
+   "wms": "WMS-21",
+   "title_raw": "Task WMS-21: Deploy Production (GHCR Images) & Bàn Giao Tài Liệu Hướng Dẫn Vận Hành",
+   "summary_raw": "[UAT & Deploy] Xuất bản tài liệu OpenAPI/Swagger, đóng gói & đẩy Docker Images lên GHCR, deploy Production bằng docker compose up -d và bàn giao tài liệu vận hành (NFR07–NFR09).",
+   "assignee": "Lê Phú Toàn",
+   "collab": "Cả 4 thành viên",
+   "progress": 0.0,
+   "start": "2026-11-22",
+   "due": "2026-11-23",
+   "days": 2,
+   "level": "task",
+   "parent": "IX",
+   "summary": "WMS-21: Deploy Production (GHCR Images) & Bàn Giao Tài Liệu Hướng Dẫn Vận Hành",
+   "labels": [
+    "UAT-Deploy"
+   ],
+   "phase": "UAT & Deploy",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-21"
+    ],
+    [
+     "Nội dung",
+     "[UAT & Deploy] Xuất bản tài liệu OpenAPI/Swagger, đóng gói & đẩy Docker Images lên GHCR, deploy Production bằng docker compose up -d và bàn giao tài liệu vận hành (NFR07–NFR09)."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Phối hợp",
+     "Cả 4 thành viên"
+    ],
+    [
+     "Kế hoạch",
+     "22/11/2026 - 23/11/2026 (2 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "UAT & Deploy"
+    ],
+    [
+     "Thuộc",
+     "IX"
+    ]
+   ]
+  },
+  {
+   "row": 121,
+   "wms": "WMS-21.1",
+   "title_raw": "+ [Backend] Xuất bản Tài liệu OpenAPI / Swagger Tự động cho toàn bộ Microservices",
+   "summary_raw": "Cấu hình springdoc-openapi tự động sinh tài liệu API từ các Controller và tích hợp trang tra cứu Swagger UI tập trung qua cổng API Gateway.",
+   "assignee": "Lê Phú Toàn",
+   "collab": "Cả nhóm",
+   "progress": 0.0,
+   "start": "2026-11-22",
+   "due": "2026-11-22",
+   "days": 1,
+   "level": "subtask",
+   "parent": "WMS-21",
+   "summary": "WMS-21.1 [Backend] Xuất bản Tài liệu OpenAPI / Swagger Tự động cho toàn bộ Microservices",
+   "labels": [
+    "UAT-Deploy",
+    "Backend"
+   ],
+   "phase": "UAT & Deploy",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-21.1"
+    ],
+    [
+     "Nội dung",
+     "Cấu hình springdoc-openapi tự động sinh tài liệu API từ các Controller và tích hợp trang tra cứu Swagger UI tập trung qua cổng API Gateway."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Phối hợp",
+     "Cả nhóm"
+    ],
+    [
+     "Kế hoạch",
+     "22/11/2026 - 22/11/2026 (1 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "UAT & Deploy"
+    ],
+    [
+     "Thuộc",
+     "WMS-21"
+    ]
+   ]
+  },
+  {
+   "row": 122,
+   "wms": "WMS-21.2",
+   "title_raw": "+ [DevOps] Bàn giao Tài liệu Hướng dẫn Triển khai, Vận hành & Backup/Restore DB",
+   "summary_raw": "Hoàn thiện README cho từng service và thư mục docs/ (cấu hình .env.example, quy trình tách biệt Audit Log / Error Log, kịch bản Backup & Restore MySQL định kỳ) (NFR09).",
+   "assignee": "Lê Phú Toàn",
+   "collab": "Phạm Phương Anh",
+   "progress": 0.0,
+   "start": "2026-11-22",
+   "due": "2026-11-23",
+   "days": 2,
+   "level": "subtask",
+   "parent": "WMS-21",
+   "summary": "WMS-21.2 [DevOps] Bàn giao Tài liệu Hướng dẫn Triển khai, Vận hành & Backup/Restore DB",
+   "labels": [
+    "UAT-Deploy",
+    "DevOps"
+   ],
+   "phase": "UAT & Deploy",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-21.2"
+    ],
+    [
+     "Nội dung",
+     "Hoàn thiện README cho từng service và thư mục docs/ (cấu hình .env.example, quy trình tách biệt Audit Log / Error Log, kịch bản Backup & Restore MySQL định kỳ) (NFR09)."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Phối hợp",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Kế hoạch",
+     "22/11/2026 - 23/11/2026 (2 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "UAT & Deploy"
+    ],
+    [
+     "Thuộc",
+     "WMS-21"
+    ]
+   ]
+  },
+  {
+   "row": 123,
+   "wms": "WMS-21.3",
+   "title_raw": "+ [DevOps] Deploy Production bằng docker compose up -d (GHCR Images)",
+   "summary_raw": "Gắn tag phiên bản v1.0.0 & latest, đẩy bộ Docker Images lên GitHub Container Registry (GHCR) và triển khai môi trường Production bằng lệnh docker compose up -d (NFR07, NFR08).",
+   "assignee": "Lê Phú Toàn",
+   "collab": "Cả nhóm",
+   "progress": 0.0,
+   "start": "2026-11-23",
+   "due": "2026-11-23",
+   "days": 1,
+   "level": "subtask",
+   "parent": "WMS-21",
+   "summary": "WMS-21.3 [DevOps] Deploy Production bằng docker compose up -d (GHCR Images)",
+   "labels": [
+    "UAT-Deploy",
+    "DevOps"
+   ],
+   "phase": "UAT & Deploy",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-21.3"
+    ],
+    [
+     "Nội dung",
+     "Gắn tag phiên bản v1.0.0 & latest, đẩy bộ Docker Images lên GitHub Container Registry (GHCR) và triển khai môi trường Production bằng lệnh docker compose up -d (NFR07, NFR08)."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Phối hợp",
+     "Cả nhóm"
+    ],
+    [
+     "Kế hoạch",
+     "23/11/2026 - 23/11/2026 (1 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "UAT & Deploy"
+    ],
+    [
+     "Thuộc",
+     "WMS-21"
+    ]
+   ]
+  },
+  {
+   "row": 124,
+   "wms": "WMS-21.4",
+   "title_raw": "+ [Scrum] Họp Tổng kết Sprint Retrospective, Nghiệm thu & Đóng Dự án",
+   "summary_raw": "Tổ chức họp Sprint Review & Retrospective cuối dự án; kiểm tra toàn bộ tiêu chí Definition of Done (DoD) và bàn giao sản phẩm hoàn chỉnh.",
+   "assignee": "Cả 4 thành viên",
+   "collab": "Lê Phú Toàn",
+   "progress": 0.0,
+   "start": "2026-11-23",
+   "due": "2026-11-23",
+   "days": 1,
+   "level": "subtask",
+   "parent": "WMS-21",
+   "summary": "WMS-21.4 [Scrum] Họp Tổng kết Sprint Retrospective, Nghiệm thu & Đóng Dự án",
+   "labels": [
+    "UAT-Deploy",
+    "Scrum"
+   ],
+   "phase": "UAT & Deploy",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-21.4"
+    ],
+    [
+     "Nội dung",
+     "Tổ chức họp Sprint Review & Retrospective cuối dự án; kiểm tra toàn bộ tiêu chí Definition of Done (DoD) và bàn giao sản phẩm hoàn chỉnh."
+    ],
+    [
+     "Phụ trách",
+     "Cả 4 thành viên"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Kế hoạch",
+     "23/11/2026 - 23/11/2026 (1 ngày)"
+    ],
+    [
+     "Giai đoạn",
+     "UAT & Deploy"
+    ],
+    [
+     "Thuộc",
+     "WMS-21"
+    ]
+   ]
+  }
+ ]
+}

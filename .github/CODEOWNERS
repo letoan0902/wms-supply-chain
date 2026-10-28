@@ -1,24 +1,29 @@
-# CODEOWNERS: chỉ định người review bắt buộc theo thư mục.
-# Cú pháp:  <đường dẫn>  <@tài-khoản-github>
-# Dòng đứng sau có độ ưu tiên cao hơn khi nhiều dòng cùng khớp.
+# CODEOWNERS: người review bắt buộc theo thư mục, theo Báo cáo đề cương và Master Plan (27/10/2026).
+# Cú pháp:  <đường dẫn>  <@tài-khoản-github>. Dòng đứng sau có độ ưu tiên cao hơn khi nhiều dòng cùng khớp.
 
-# Lê Phú Toàn (TechLead): Core Inventory và Warehouse
-backend/inventory-service/  @letoan0902
+# Mặc định: TechLead review mọi thay đổi chưa thuộc phân hệ nào
+*                               @letoan0902
 
-# TODO: thay @github-username bằng tài khoản GitHub thật của từng thành viên rồi bỏ dấu # ở đầu dòng.
-#
-# Phạm Phương Anh (DevOps, nền tảng microservice, bảo mật):
-# backend/api-gateway/        @github-username
-# backend/config-server/      @github-username
-# backend/discovery-server/   @github-username
-# docker/                     @github-username
-# docker-compose.yml          @github-username
-# .github/                    @github-username
-#
-# Lê Phương Linh (Master Data, PO/GRN, SO/GDN, barcode):
-# backend/product-service/    @github-username
-# backend/order-service/      @github-username
-#
-# Trần Đăng Việt (Auth và RBAC, Báo cáo và Dashboard, Notification):
-# backend/auth-service/          @github-username
-# backend/notification-service/  @github-username
+# Lê Phú Toàn (TechLead, DevOps, hạ tầng microservice, CI/CD, AI, QA)
+backend/common/                 @letoan0902
+backend/api-gateway/            @letoan0902
+backend/config-server/          @letoan0902
+backend/discovery-server/       @letoan0902
+docker/                         @letoan0902
+docker-compose.yml              @letoan0902
+.github/                        @letoan0902
+docs/                           @letoan0902
+
+# Lê Phương Linh (Core Inventory và Warehouse: đa kho, ô/kệ, điều chuyển, kiểm kê, Redis cache)
+backend/inventory-service/      @phuonglinhle268
+
+# Trần Đăng Việt (Core Supply Chain và Barcode: SKU, đối tác, PO/GRN, SO/GDN, xuất Excel)
+backend/product-service/        @Viet2k6
+backend/order-service/          @Viet2k6
+
+# Phạm Phương Anh (Auth và RBAC, cảnh báo và email, báo cáo và dashboard)
+backend/auth-service/           @Pham-anh-Hub
+backend/notification-service/   @Pham-anh-Hub
+
+# Frontend: review chéo theo phân hệ, TechLead là người review mặc định
+frontend/                       @letoan0902 @phuonglinhle268 @Viet2k6 @Pham-anh-Hub

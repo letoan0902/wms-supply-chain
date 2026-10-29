@@ -15,5 +15,7 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 public record JwtProperties(
         @DefaultValue("change_me_dev_only_jwt_secret_key_min_32_bytes") String secret,
         @DefaultValue("15") long expirationMinutes,
+        @DefaultValue("15") long accessTokenMinutes,
+        @DefaultValue("10080") long refreshTokenMinutes,
         @DefaultValue("wms-auth-service") String issuer) {
 }

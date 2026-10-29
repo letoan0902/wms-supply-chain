@@ -1,0 +1,90 @@
+# API Gateway (cổng 8080): điểm vào duy nhất cho frontend, route /api/** tới các service qua Eureka.
+server:
+  port: ${SERVER_PORT:8080}
+  shutdown: graceful
+
+spring:
+  application:
+    name: api-gateway
+  cloud:
+    loadbalancer:
+      cache:
+        # Dev: làm mới danh sách instance mỗi 5 giây (mặc định 35 giây), khớp với eureka.client.registry-fetch-interval-seconds bên dưới.
+        ttl: 5s
+    gateway:
+      # CORS cho frontend (Vite dev server). Nhiều origin: CORS_ALLOWED_ORIGINS=http://a.com,http://b.com
+      globalcors:
+        cors-configurations:
+          "[/**]":
+            allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
+            allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
+            allowed-headers: "*"
+            allow-credentials: true
+            max-age: 3600
+      # Tránh trùng header CORS nếu service phía sau cũng trả CORS
+      default-filters:
+        - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
+      # Giữ nguyên đường dẫn /api/... khi chuyển tiếp (các service khai báo đường dẫn đầy đủ).
+      routes:
+        - id: auth-service
+          uri: lb://auth-service
+          predicates:
+            - Path=/api/auth/**
+        - id: product-service
+          uri: lb://product-service
+          predicates:
+            - Path=/api/products/**
+        - id: inventory-service
+          uri: lb://inventory-service
+          predicates:
+            - Path=/api/inventory/**
+        - id: order-service
+          uri: lb://order-service
+          predicates:
+            - Path=/api/orders/**
+        - id: notification-service
+          uri: lb://notification-service
+          predicates:
+            - Path=/api/notifications/**
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+    # Dev: kéo danh sách service từ Eureka mỗi 5 giây (mặc định 30 giây) để service mới khởi động được route nhanh.
+    registry-fetch-interval-seconds: 5
+  instance:
+    prefer-ip-address: true
+
+# Kiểm tra JWT tại gateway (xem JwtAuthenticationGlobalFilter).
+gateway:
+  jwt:
+    # TODO: bật (GATEWAY_JWT_ENABLED=true) khi auth-service/RBAC hoàn thiện. Hiện TẮT để nhóm phát triển không bị chặn.
+    enabled: ${GATEWAY_JWT_ENABLED:false}
+    # PHẢI trùng JWT_SECRET của auth-service. Chỉ là giá trị dev, đổi ở môi trường thật.
+    secret: ${JWT_SECRET:change_me_dev_only_jwt_secret_key_min_32_bytes}
+    public-paths:
+      - /api/auth/login
+      - /actuator/**
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      # Chỉ dùng cho dev; production đặt HEALTH_SHOW_DETAILS=never
+      show-details: ${HEALTH_SHOW_DETAILS:always}
+
+---
+# Nạp cấu hình tập trung từ Config Server. Tiền tố optional nghĩa là Config Server chưa chạy thì service vẫn
+# khởi động bằng cấu hình cục bộ ở trên. Tài liệu này bị bỏ qua khi chạy test (profile test) để test không gọi mạng;
+# lý do: đặt spring.cloud.config.enabled=false cùng với import configserver làm Spring Boot báo lỗi vị trí không được hỗ trợ.
+spring:
+  config:
+    activate:
+      on-profile: "!test"
+    import: "optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}"

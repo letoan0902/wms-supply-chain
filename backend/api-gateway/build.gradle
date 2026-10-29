@@ -11,6 +11,8 @@ dependencies {
     // Bộ nhớ đệm cho Spring Cloud LoadBalancer (không có sẽ in cảnh báo khi khởi động)
     implementation 'com.github.ben-manes.caffeine:caffeine'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    // Redis (reactive) cho bộ lọc RequestRateLimiter: đếm token bucket giới hạn tốc độ theo người dùng/IP
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis-reactive'
 
     // JWT: gateway chỉ cần kiểm tra chữ ký/hạn của token do auth-service phát hành
     implementation "io.jsonwebtoken:jjwt-api:${jjwtVersion}"

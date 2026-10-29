@@ -25,6 +25,8 @@ export const router = createBrowserRouter([
         children: [
           // Dashboard chứa Recharts (nặng) nên tải theo yêu cầu để giảm kích thước bundle ban đầu
           { index: true, Component: lazy(() => import('../pages/DashboardPage')) },
+          // Quản lý đa kho & sơ đồ vị trí ô/kệ (WMS-05, WMS-06 - Sprint 1)
+          { path: 'warehouses', Component: lazy(() => import('../features/warehouses/WarehousesPage')) },
           ...placeholderRoutes,
           { path: '*', element: <NotFoundPage /> },
         ],

@@ -254,15 +254,25 @@ class ProductServiceApplicationTest {
         product.setSku("SKU-DEL");
         product.setName("Sản phẩm xóa");
         product.setUom(defaultUom);
+        product.setActive(true);
         Product saved = productRepository.save(product);
 
         mockMvc.perform(delete("/api/products/" + saved.getId()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true));
 
+        Product updated = productRepository.findById(saved.getId()).orElseThrow();
+        assertThat(updated.isActive()).isFalse();
+
+        // Xóa mềm: GET chi tiết vẫn trả về thông tin nhưng active = false để không mất tham chiếu SKU ở inventory-service
         mockMvc.perform(get("/api/products/" + saved.getId()))
-                .andExpect(status().isNotFound())
-                .andExpect(jsonPath("$.code").value("NOT_FOUND"));
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.active").value(false));
+
+        // Khi tìm kiếm sản phẩm đang hoạt động (active = true), sản phẩm đã xóa mềm sẽ không xuất hiện
+        mockMvc.perform(get("/api/products").param("active", "true"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[?(@.sku == 'SKU-DEL')]").doesNotExist());
     }
 
     @Test

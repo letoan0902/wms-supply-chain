@@ -38,7 +38,7 @@ CREATE TABLE user_roles (
     CONSTRAINT fk_user_roles_role FOREIGN KEY (role_id) REFERENCES roles (id)
 ) ENGINE = InnoDB;
 
--- Sáu vai trò của hệ thống (khớp vn.wms.common.constant.Roles)
+-- Sáu vai trò của hệ thống
 INSERT INTO roles (name, description, created_by, updated_by) VALUES
     ('ADMIN', 'System administrator', 'system', 'system'),
     ('WAREHOUSE_MANAGER', 'Warehouse manager', 'system', 'system'),
@@ -46,19 +46,3 @@ INSERT INTO roles (name, description, created_by, updated_by) VALUES
     ('PURCHASING', 'Purchasing staff', 'system', 'system'),
     ('SALES', 'Sales staff', 'system', 'system'),
     ('ACCOUNTANT', 'Accountant', 'system', 'system');
-
-INSERT INTO users (username, email, password_hash, full_name, enabled, created_by, updated_by) VALUES (
-                                                                                                          'demo',
-                                                                                                          'demo@example.com',
-                                                                                                          '$2a$10$7rENUfc.LEGiRRDKjtL9aOJ56rQnYAhAE1aTie4BKyMRvZ0dBwMX2',
-                                                                                                          'Demo User',
-                                                                                                          TRUE,
-                                                                                                          'system',
-                                                                                                          'system'
-                                                                                                      );
-
-INSERT INTO user_roles (user_id, role_id)
-SELECT u.id, r.id FROM users u, roles r WHERE u.username = 'demo' AND r.name = 'WAREHOUSE_STAFF';
-
-INSERT INTO user_roles (user_id, role_id)
-SELECT u.id, r.id FROM users u, roles r WHERE u.username = 'demo' AND r.name = 'ADMIN';

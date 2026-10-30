@@ -68,7 +68,7 @@ public class AuthService {
     }
 
     private static final int MAX_FAILED_ATTEMPTS = 5;
-    private static final Duration LOCK_TIME = Duration.ofMinutes(15);
+    private static final Duration LOCK_TIME = Duration.ofMinutes(30);
     private static final Duration ATTEMPTS_TTL = Duration.ofMinutes(15);
 
     private static final String LOGIN_ATTEMPTS_IP_PREFIX = "login:attempts:ip:";

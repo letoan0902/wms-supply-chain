@@ -1,6 +1,7 @@
 package vn.wms.auth.security;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.boot.context.properties.bind.ConstructorBinding;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 
 /**
@@ -15,5 +16,15 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 public record JwtProperties(
         @DefaultValue("change_me_dev_only_jwt_secret_key_min_32_bytes") String secret,
         @DefaultValue("15") long expirationMinutes,
+        @DefaultValue("15") long accessTokenMinutes,
+        @DefaultValue("10080") long refreshTokenMinutes,
         @DefaultValue("wms-auth-service") String issuer) {
+
+    @ConstructorBinding
+    public JwtProperties {
+    }
+
+    public JwtProperties(String secret, long expirationMinutes, String issuer) {
+        this(secret, expirationMinutes, expirationMinutes, 10080L, issuer);
+    }
 }

@@ -21,3 +21,8 @@ out/
 
 # Log
 *.log
+
+
+**/bin/
+**/build/
+.gradle/

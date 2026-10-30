@@ -79,7 +79,7 @@ public class ProductController {
     }
 
     @DeleteMapping("/{id}")
-    @Operation(summary = "Xóa sản phẩm theo ID")
+    @Operation(summary = "Xóa mềm sản phẩm theo ID (chuyển trạng thái sang ngưng hoạt động)")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         productService.delete(id);
         return ApiResponse.ok();

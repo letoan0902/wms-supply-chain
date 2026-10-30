@@ -1,6 +1,5 @@
 package vn.wms.product.service;
 
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -154,17 +153,13 @@ public class ProductService {
         return ProductResponse.from(productRepository.save(product));
     }
 
-    /** Xóa sản phẩm theo ID. */
+    /** Xóa mềm sản phẩm theo ID (chuyển active = false để không mất tham chiếu SKU ở inventory-service). */
     @Transactional
     public void delete(Long id) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> ApiException.notFound("Không tìm thấy sản phẩm với id: " + id));
-        try {
-            productRepository.delete(product);
-            productRepository.flush();
-        } catch (DataIntegrityViolationException ex) {
-            throw ApiException.conflict("Không thể xóa sản phẩm do đã có dữ liệu liên quan trong hệ thống. Vui lòng chuyển trạng thái sang ngưng hoạt động.");
-        }
+        product.setActive(false);
+        productRepository.save(product);
     }
 
     private String normalizeBarcode(String barcode) {

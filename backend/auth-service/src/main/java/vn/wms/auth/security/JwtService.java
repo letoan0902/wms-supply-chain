@@ -76,20 +76,30 @@ public class JwtService {
     }
 
     /**
-     * Kiểm tra chữ ký, issuer và hạn dùng rồi trả về claims.
-     *
-     * @throws JwtException nếu token sai định dạng, sai chữ ký, sai issuer hoặc đã
-     *                      hết hạn
+     * Tạo token đơn giản cho username và roles (tương thích ngược cho test và service khác).
      */
+    public String generateToken(String username, Collection<String> roles) {
+        return generateAccessToken(null, username, roles);
+    }
+
+    /**
+     * Kiểm tra chữ ký, issuer và hạn dùng rồi trả về claims (không kiểm tra blacklist).
+     */
+    public Claims parse(String token) {
+        return parse(token, null);
+    }
+
     /**
      * Kiểm tra token có bị blacklist (đăng xuất) không và trả về Claims.
      * Nếu token nằm trong blacklist, ném JwtException.
      */
     public Claims parse(String token, org.springframework.data.redis.core.RedisTemplate<String, String> redisTemplate) {
-        // Kiểm tra blacklist
-        Boolean blacklisted = redisTemplate.hasKey("blacklist:" + token);
-        if (Boolean.TRUE.equals(blacklisted)) {
-            throw new JwtException("Token đã bị blacklist (đăng xuất)");
+        // Kiểm tra blacklist nếu redisTemplate được cung cấp
+        if (redisTemplate != null) {
+            Boolean blacklisted = redisTemplate.hasKey("blacklist:" + token);
+            if (Boolean.TRUE.equals(blacklisted)) {
+                throw new JwtException("Token đã bị blacklist (đăng xuất)");
+            }
         }
         return Jwts.parser()
                 .verifyWith(signingKey)

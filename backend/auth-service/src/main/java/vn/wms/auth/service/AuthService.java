@@ -69,7 +69,7 @@ public class AuthService {
 
     private static final int MAX_FAILED_ATTEMPTS = 5;
     private static final Duration LOCK_TIME = Duration.ofMinutes(30);
-    private static final Duration ATTEMPTS_TTL = Duration.ofMinutes(15);
+    private static final Duration ATTEMPTS_TTL = Duration.ofMinutes(30);
 
     private static final String LOGIN_ATTEMPTS_IP_PREFIX = "login:attempts:ip:";
     private static final String LOGIN_LOCK_IP_PREFIX = "login:lock:ip:";
@@ -131,7 +131,7 @@ public class AuthService {
         String lockIpKey = LOGIN_LOCK_IP_PREFIX + clientIp;
         if (Boolean.TRUE.equals(redisTemplate.hasKey(lockIpKey))) {
             Long expireSeconds = redisTemplate.getExpire(lockIpKey);
-            long remainingMinutes = (expireSeconds != null && expireSeconds > 0) ? (expireSeconds / 60 + 1) : 15;
+            long remainingMinutes = (expireSeconds != null && expireSeconds > 0) ? (expireSeconds / 60 + 1) : LOCK_TIME.toMinutes();
             throw ApiException.badRequest("Địa chỉ IP của bạn tạm thời bị khóa do đăng nhập sai quá 5 lần. Vui lòng thử lại sau khoảng " + remainingMinutes + " phút");
         }
 
@@ -139,7 +139,7 @@ public class AuthService {
         String lockUserKey = LOGIN_LOCK_USER_PREFIX + username;
         if (Boolean.TRUE.equals(redisTemplate.hasKey(lockUserKey))) {
             Long expireSeconds = redisTemplate.getExpire(lockUserKey);
-            long remainingMinutes = (expireSeconds != null && expireSeconds > 0) ? (expireSeconds / 60 + 1) : 15;
+            long remainingMinutes = (expireSeconds != null && expireSeconds > 0) ? (expireSeconds / 60 + 1) : LOCK_TIME.toMinutes();
             throw ApiException.badRequest("Tài khoản '" + username + "' tạm thời bị khóa do đăng nhập sai quá 5 lần. Vui lòng thử lại sau khoảng " + remainingMinutes + " phút");
         }
     }
@@ -167,7 +167,7 @@ public class AuthService {
         if (attemptsIp != null && attemptsIp >= MAX_FAILED_ATTEMPTS) {
             redisTemplate.opsForValue().set(lockIpKey, "LOCKED", LOCK_TIME);
             redisTemplate.delete(attemptsIpKey);
-            throw ApiException.badRequest("Bạn đã đăng nhập thất bại 5 lần liên tiếp. Vui lòng thử lại sau 15 phút!");
+            throw ApiException.badRequest("Bạn đã đăng nhập thất bại 5 lần liên tiếp. Vui lòng thử lại sau " + LOCK_TIME.toMinutes() + " phút!");
         }
 
         // 4. Kiểm tra khóa Tài khoản nếu chạm mốc 5 lần
@@ -176,7 +176,7 @@ public class AuthService {
             String attemptsUserKey = LOGIN_ATTEMPTS_USER_PREFIX + username;
             redisTemplate.opsForValue().set(lockUserKey, "LOCKED", LOCK_TIME);
             redisTemplate.delete(attemptsUserKey);
-            throw ApiException.badRequest("Tài khoản '" + username + "' đã đăng nhập thất bại 5 lần liên tiếp và bị tạm khóa 15 phút!");
+            throw ApiException.badRequest("Tài khoản '" + username + "' đã đăng nhập thất bại 5 lần liên tiếp và bị tạm khóa " + LOCK_TIME.toMinutes() + " phút!");
         }
 
         // 5. Tính số lượt thử còn lại theo mức nghiêm ngặt nhất (MIN giữa IP và Tài khoản)

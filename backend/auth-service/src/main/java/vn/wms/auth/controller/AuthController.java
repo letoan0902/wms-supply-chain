@@ -54,7 +54,7 @@ public class AuthController {
         return ApiResponse.ok(authService.currentUser(authentication));
     }
 
-    @GetMapping("/logout")
+    @PostMapping("/logout")
     @Operation(summary = "Đăng xuất tài khoản người dùng hiện tại - vô hiệu hóa AccessToken - Xoá refreshToken khỏi cache")
     public ApiResponse<String> logout(@RequestHeader("Authorization") String currentAuthHeader){
         authService.logout(currentAuthHeader);

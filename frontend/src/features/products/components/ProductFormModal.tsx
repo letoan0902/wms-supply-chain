@@ -1,4 +1,7 @@
+import { SwapOutlined } from '@ant-design/icons'
 import {
+  Alert,
+  Button,
   Col,
   Divider,
   Form,
@@ -40,6 +43,7 @@ interface ProductFormModalProps {
   submitting: boolean
   onCancel: () => void
   onSubmit: (payload: CreateProductPayload | UpdateProductPayload) => Promise<void>
+  onOpenConversions?: (product: Product) => void
 }
 
 const { Text } = Typography
@@ -52,6 +56,7 @@ export default function ProductFormModal({
   submitting,
   onCancel,
   onSubmit,
+  onOpenConversions,
 }: ProductFormModalProps) {
   const [form] = Form.useForm<FormProductValues>()
 
@@ -152,6 +157,31 @@ export default function ProductFormModal({
           active: true,
         }}
       >
+        {editingProduct && onOpenConversions && (
+          <Alert
+            type="info"
+            showIcon
+            className="mb-4"
+            message="Cấu hình Quy đổi Đơn vị tính (FR06)"
+            description={
+              <div className="flex items-center justify-between mt-1">
+                <span className="text-xs text-slate-600">
+                  Thiết lập tỷ lệ đóng gói đa cấp (1 Thùng = 4 Lốc = 24 Chai) và tỷ lệ quy đổi tồn kho cho sản phẩm này.
+                </span>
+                <Button
+                  size="small"
+                  type="primary"
+                  ghost
+                  icon={<SwapOutlined />}
+                  onClick={() => onOpenConversions(editingProduct)}
+                >
+                  Bảng quy đổi
+                </Button>
+              </div>
+            }
+          />
+        )}
+
         <Divider orientation="left" plain className="!text-blue-600 !font-medium !text-sm">
           1. Thông tin cơ bản & Định danh
         </Divider>

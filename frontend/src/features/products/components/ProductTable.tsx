@@ -269,14 +269,14 @@ export default function ProductTable({
           </Tooltip>
 
           <Popconfirm
-            title="Xác nhận xóa SKU này?"
-            description="Lưu ý: Không thể xóa nếu đã có phát sinh giao dịch tồn kho hoặc đơn hàng."
-            okText="Xóa"
+            title="Xác nhận ngưng hoạt động sản phẩm này?"
+            description="Sản phẩm sẽ chuyển sang trạng thái ngưng hoạt động (xóa mềm) để bảo toàn tham chiếu tồn kho."
+            okText="Ngưng hoạt động"
             cancelText="Hủy"
             okButtonProps={{ danger: true }}
             onConfirm={() => onDelete(record.id)}
           >
-            <Tooltip title="Xóa">
+            <Tooltip title="Ngưng hoạt động (Xóa mềm)">
               <Button type="text" danger icon={<DeleteOutlined />} size="small" />
             </Tooltip>
           </Popconfirm>

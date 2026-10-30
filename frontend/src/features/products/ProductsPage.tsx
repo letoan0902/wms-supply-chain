@@ -156,14 +156,14 @@ export default function ProductsPage() {
     }
   }
 
-  // Xóa sản phẩm
+  // Xóa sản phẩm (Xóa mềm - ngưng hoạt động)
   const handleDeleteProduct = async (id: number) => {
     try {
       await productApi.deleteProduct(id)
-      message.success('Đã xóa sản phẩm thành công')
+      message.success('Đã chuyển sản phẩm sang trạng thái ngưng hoạt động (xóa mềm)')
       loadProducts()
     } catch (err) {
-      message.error(getApiErrorMessage(err, 'Không thể xóa sản phẩm này'))
+      message.error(getApiErrorMessage(err, 'Không thể cập nhật trạng thái sản phẩm'))
     }
   }
 
@@ -308,6 +308,12 @@ export default function ProductsPage() {
           setEditingProduct(null)
         }}
         onSubmit={handleFormSubmit}
+        onOpenConversions={(prod) => {
+          setIsFormModalOpen(false)
+          setEditingProduct(null)
+          setSelectedProductForConversion(prod)
+          setIsConversionModalOpen(true)
+        }}
       />
 
       {/* Modal cấu hình quy đổi đơn vị */}

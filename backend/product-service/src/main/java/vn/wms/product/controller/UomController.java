@@ -19,7 +19,7 @@ import java.net.URI;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/uoms")
+@RequestMapping({"/api/products/uoms", "/api/uoms"})
 @Tag(name = "UOMs", description = "Quản lý danh mục Đơn vị tính cơ sở & đóng gói (Cái, Chai, Thùng, Lốc, Pallet...)")
 public class UomController {
 

@@ -7,3 +7,8 @@ export async function login(payload: LoginRequest): Promise<LoginResult> {
   const response = await api.post<ApiResponse<LoginResult>>('/auth/login', payload)
   return response.data.data
 }
+
+/** Gọi POST /api/auth/logout để vô hiệu hóa token và xóa session phía server. */
+export async function logout(): Promise<void> {
+  await api.post<ApiResponse<string>>('/auth/logout')
+}

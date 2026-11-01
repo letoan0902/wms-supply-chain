@@ -15,6 +15,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
 import vn.wms.auth.dto.LoginRequest;
 import vn.wms.auth.dto.LoginResponse;
+import vn.wms.auth.dto.RefreshTokenRequest;
+import vn.wms.auth.dto.RefreshTokenResponse;
 import vn.wms.auth.dto.RegisterRequest;
 import vn.wms.auth.dto.RegisterResponse;
 import vn.wms.auth.dto.UserInfoResponse;
@@ -120,6 +122,7 @@ public class AuthService {
 
         return new LoginResponse(
                 accessToken,
+                refreshToken,
                 TOKEN_TYPE,
                 jwtService.getAccessTokenMinutes() * 60L, // expiresIn (giây)
                 userLogin.getUsername(),
@@ -219,6 +222,65 @@ public class AuthService {
 
         // clean context
         SecurityContextHolder.clearContext();
+    }
+
+    /**
+     * Làm mới Access Token bằng Refresh Token (hỗ trợ xoay vòng Refresh Token - RTR).
+     */
+    @Transactional(readOnly = true)
+    public RefreshTokenResponse refreshToken(RefreshTokenRequest request) {
+        String token = request.refreshToken();
+        Claims claims;
+        try {
+            claims = jwtService.parse(token, redisTemplate);
+        } catch (Exception e) {
+            throw ApiException.unauthorized("Refresh token không hợp lệ hoặc đã hết hạn");
+        }
+
+        // 1. Kiểm tra loại token phải là REFRESH
+        String type = claims.get("type", String.class);
+        if (!"REFRESH".equals(type)) {
+            throw ApiException.unauthorized("Token cung cấp không phải là Refresh Token");
+        }
+
+        String username = claims.getSubject();
+        if (username == null || username.isBlank()) {
+            throw ApiException.unauthorized("Refresh token không hợp lệ");
+        }
+
+        // 2. Đối chiếu với Refresh Token đang lưu trong Redis
+        String refreshKey = "refresh:" + username;
+        String storedRefreshToken = redisTemplate.opsForValue().get(refreshKey);
+        if (storedRefreshToken == null || !storedRefreshToken.equals(token)) {
+            throw ApiException.unauthorized("Phiên đăng nhập đã hết hạn hoặc đã được làm mới");
+        }
+
+        // 3. Tìm người dùng trong DB và kiểm tra trạng thái kích hoạt
+        User user = userRepository.findByUsername(username)
+                .orElseThrow(() -> ApiException.unauthorized("Người dùng không tồn tại"));
+
+        if (!user.isEnabled()) {
+            throw ApiException.unauthorized("Tài khoản đã bị khóa hoặc ngừng kích hoạt");
+        }
+
+        List<String> roles = user.getRoles().stream()
+                .map(Role::getName)
+                .toList();
+
+        // 4. Phát hành Access Token mới
+        String newAccessToken = jwtService.generateAccessToken(user.getId(), user.getUsername(), roles);
+
+        // 5. Xoay vòng Refresh Token (Refresh Token Rotation - RTR) để nâng cao bảo mật
+        String newRefreshToken = jwtService.generateRefreshToken(user.getUsername());
+        redisTemplate.opsForValue().set(refreshKey, newRefreshToken,
+                Duration.ofMinutes(jwtService.getRefreshTokenMinutes()));
+
+        return new RefreshTokenResponse(
+                newAccessToken,
+                TOKEN_TYPE,
+                jwtService.getAccessTokenMinutes() * 60L,
+                newRefreshToken
+        );
     }
 
     /**

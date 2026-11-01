@@ -13,6 +13,7 @@ import java.time.Instant;
 import java.util.Collection;
 import java.util.Date;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Tạo và kiểm tra JWT bằng jjwt (HS256). Secret đọc từ cấu hình (biến môi
@@ -66,6 +67,7 @@ public class JwtService {
     public String generateRefreshToken(String username) {
         Instant now = Instant.now();
         return Jwts.builder()
+                .id(UUID.randomUUID().toString())
                 .issuer(properties.issuer())
                 .subject(username)
                 .claim("type", "REFRESH")

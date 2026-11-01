@@ -9,6 +9,7 @@ Mục lục tài liệu của dự án. Hướng dẫn chạy dự án và thôn
 | [ARCHITECTURE.md](ARCHITECTURE.md) | Kiến trúc microservice, bảng service và trách nhiệm, luồng dữ liệu PO, GRN, tồn kho, SO, GDN | Trước khi bắt đầu làm một phân hệ hoặc thêm service |
 | [SPRINT_PLAN.md](SPRINT_PLAN.md) | Kế hoạch bốn sprint, mục tiêu từng sprint theo phân hệ và người phụ trách | Khi lập kế hoạch và theo dõi tiến độ |
 | [CONVENTIONS.md](CONVENTIONS.md) | Quy ước đặt tên API, mã lỗi, định dạng response, chuẩn code Java và TypeScript | Trước khi viết code và khi review |
+| [CI_CD.md](CI_CD.md) | Các job GitHub Actions, kiểm tra bắt buộc trước khi merge, tên và thẻ image trên GHCR, cách kéo image | Khi sửa workflow CI, khi cần image để triển khai |
 | [../CONTRIBUTING.md](../CONTRIBUTING.md) | Git flow, Conventional Commits, Pull Request, quy trình board, Definition of Done | Trước khi tạo nhánh và mở Pull Request |
 
 ## Tài liệu sẽ bổ sung theo tiến độ sprint

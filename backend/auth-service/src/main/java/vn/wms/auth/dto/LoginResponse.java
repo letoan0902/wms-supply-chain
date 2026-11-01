@@ -14,14 +14,13 @@ import java.util.List;
  */
 public record LoginResponse(
         String accessToken,
-        String refreahToken,
+        String refreshToken,
         String tokenType,
         long expiresIn,
         String username,
-        List<String> roles,
-        String refreshToken) {
-
-    public LoginResponse(String accessToken, String refreshToken, String tokenType, long expiresIn, String username, List<String> roles) {
-        this(accessToken, refreshToken, tokenType, expiresIn, username, roles, null);
+        List<String> roles) {
+    // Overload cho code cũ nếu chỉ truyền 5 tham số không có refreshToken
+    public LoginResponse(String accessToken, String tokenType, long expiresIn, String username, List<String> roles) {
+        this(accessToken, null, tokenType, expiresIn, username, roles);
     }
 }

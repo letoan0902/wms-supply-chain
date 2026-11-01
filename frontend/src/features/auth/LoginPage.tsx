@@ -59,7 +59,7 @@ export default function LoginPage() {
     setSubmitting(true)
     try {
       const result = await login(values)
-      saveAuth(result.accessToken, { username: result.username, roles: result.roles })
+      saveAuth(result.accessToken, { username: result.username, roles: result.roles }, result.refreshToken)
       message.success('Đăng nhập thành công')
       navigate(redirectTo, { replace: true })
     } catch (error) {

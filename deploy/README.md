@@ -256,6 +256,12 @@ Từ một máy khác, thử mở `http://<IP-VPS>:8080` và kết nối tới c
 
 Mở `https://wms.toanmarket.me` trong trình duyệt và đăng nhập bằng tài khoản ở mục 7.
 
+Kiểm tra tự động bằng script `deploy/smoke-test.sh` (đăng nhập, gọi API có token, kiểm tra chặn request không token): xem hướng dẫn chi tiết tại [SMOKE_TEST.md](SMOKE_TEST.md).
+
+```bash
+SMOKE_PASSWORD='<mật khẩu tài khoản admin>' bash deploy/smoke-test.sh https://wms.toanmarket.me
+```
+
 ## 7. Tài khoản đăng nhập mẫu
 
 Lần đầu auth-service khởi động, Flyway chạy `V2__seed_default_accounts.sql` (`backend/auth-service/src/main/resources/db/migration/`) và tạo các tài khoản sau,

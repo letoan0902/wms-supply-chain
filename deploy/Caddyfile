@@ -1,0 +1,52 @@
+# ============================================================================
+# Caddyfile cho WMS Supply Chain (production).
+#
+# Caddy nhận mọi request từ Internet, tự xin và gia hạn chứng chỉ TLS của Let's Encrypt cho tên miền trong biến DOMAIN,
+# rồi chuyển request vào mạng nội bộ của Docker Compose. Hai biến lấy từ file .env (do deploy/docker-compose.prod.yml
+# truyền vào container):
+#   DOMAIN       tên miền, ví dụ wms.toanmarket.me (bản ghi DNS A phải trỏ về IP máy chủ, không bật proxy Cloudflare)
+#   ACME_EMAIL   email đăng ký tài khoản Let's Encrypt (bắt buộc)
+#
+# Caddy thay các biến này vào Caddyfile trước khi phân tích cú pháp, nên giá trị rỗng sẽ làm cấu hình sai cú pháp.
+# File được mount vào container dạng tệp đơn lẻ: sau khi sửa phải chạy "docker compose restart caddy"
+# (deploy.sh tự làm việc này khi phát hiện Caddyfile thay đổi).
+# ============================================================================
+
+{
+	# Email dùng để tạo tài khoản ACME (Let's Encrypt)
+	email {$ACME_EMAIL}
+
+	# Khi thử nghiệm nhiều lần, bỏ dấu # ở dòng dưới để dùng môi trường staging của Let's Encrypt, tránh chạm giới hạn
+	# số lần xin chứng chỉ. Chứng chỉ staging không được trình duyệt tin cậy. Khi chuyển lại sang CA thật mà Caddy
+	# vẫn dùng chứng chỉ staging, xóa volume caddy_data để Caddy xin chứng chỉ mới.
+	# acme_ca https://acme-staging-v02.api.letsencrypt.org/directory
+}
+
+# Địa chỉ site là tên miền nên Caddy tự bật HTTPS và tự chuyển hướng HTTP (cổng 80) sang HTTPS,
+# không cần khai báo thêm block :80.
+{$DOMAIN} {
+	# Nén phản hồi bằng zstd hoặc gzip, tùy Accept-Encoding của trình duyệt
+	encode zstd gzip
+
+	# Header bảo mật cơ bản. "defer" để giá trị của Caddy thay thế các header cùng tên do nginx của frontend
+	# gửi về, tránh một header xuất hiện hai lần trong phản hồi.
+	header {
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		X-Frame-Options "SAMEORIGIN"
+		# Bật HSTS khi đã chắc chắn HTTPS chạy ổn định (trình duyệt sẽ ghi nhớ quy tắc này trong một năm):
+		# Strict-Transport-Security "max-age=31536000"
+		defer
+	}
+
+	# Log truy cập ra stdout dạng JSON, xem bằng: docker compose logs -f caddy
+	log {
+		output stdout
+		format json
+	}
+
+	# Mọi lưu lượng đi vào nginx của frontend. Nginx phục vụ giao diện (SPA) và đã tự chuyển /api/ tới
+	# api-gateway:8080 trong mạng Docker, nên Caddy chỉ cần proxy tới một đích duy nhất.
+	# Caddy tự gửi X-Forwarded-For (IP thật của client) và X-Forwarded-Proto, đồng thời giữ nguyên header Host.
+	reverse_proxy frontend:80
+}

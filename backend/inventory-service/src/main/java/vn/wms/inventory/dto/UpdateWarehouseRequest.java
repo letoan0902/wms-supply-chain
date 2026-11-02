@@ -26,3 +26,4 @@ public record UpdateWarehouseRequest(
 
         Boolean active
 ) {}
+

@@ -3,6 +3,7 @@ package vn.wms.inventory.service;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.wms.common.exception.ApiException;
+import vn.wms.inventory.dto.BinBarcodeResponse;
 import vn.wms.inventory.dto.BinLocationResponse;
 import vn.wms.inventory.dto.BulkCreateBinLocationsRequest;
 import vn.wms.inventory.dto.CreateBinLocationRequest;
@@ -12,6 +13,7 @@ import vn.wms.inventory.entity.Warehouse;
 import vn.wms.inventory.repository.BinLocationRepository;
 import vn.wms.inventory.repository.StockItemRepository;
 import vn.wms.inventory.repository.WarehouseRepository;
+import vn.wms.inventory.util.BarcodeGenerator;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -248,3 +250,4 @@ public class BinLocationService {
 
     private record StockStat(long itemCount, BigDecimal totalQuantity) {}
 }
+

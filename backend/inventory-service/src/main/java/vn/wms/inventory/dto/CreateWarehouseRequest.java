@@ -32,3 +32,4 @@ public record CreateWarehouseRequest(
 
         Boolean active
 ) {}
+

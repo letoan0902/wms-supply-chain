@@ -10,3 +10,4 @@ public record UpdateBinLocationRequest(
         String status,
         Boolean active
 ) {}
+

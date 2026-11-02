@@ -16,3 +16,4 @@ public record WarehouseSummaryResponse(
         long totalProducts,
         BigDecimal totalStockQuantity
 ) {}
+

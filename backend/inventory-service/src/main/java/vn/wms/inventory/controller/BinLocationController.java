@@ -3,7 +3,10 @@ package vn.wms.inventory.controller;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -15,6 +18,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import vn.wms.common.api.ApiResponse;
+import vn.wms.inventory.dto.BinBarcodeResponse;
 import vn.wms.inventory.dto.BinLocationResponse;
 import vn.wms.inventory.dto.BulkCreateBinLocationsRequest;
 import vn.wms.inventory.dto.CreateBinLocationRequest;
@@ -93,4 +97,20 @@ public class BinLocationController {
         binLocationService.deleteLocation(id);
     }
 
+    @GetMapping("/{id}/barcode/preview")
+    @Operation(summary = "Xem trước thông tin tem vị trí kèm mã vạch Base64 (WMS-06.2)")
+    public ApiResponse<BinBarcodeResponse> getBarcodePreview(@PathVariable Long id) {
+        return ApiResponse.ok(binLocationService.generateBarcode(id));
+    }
+
+    @GetMapping(value = "/{id}/barcode", produces = MediaType.IMAGE_PNG_VALUE)
+    @Operation(summary = "Tải trực tiếp ảnh mã vạch Code 128 dạng PNG (WMS-06.2)")
+    public ResponseEntity<byte[]> getBarcodePng(@PathVariable Long id) {
+        byte[] imageBytes = binLocationService.generateBarcodePng(id);
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"bin-" + id + "-barcode.png\"")
+                .contentType(MediaType.IMAGE_PNG)
+                .body(imageBytes);
+    }
 }
+

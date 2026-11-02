@@ -31,3 +31,4 @@ public record CreateBinLocationRequest(
 
         Boolean active
 ) {}
+

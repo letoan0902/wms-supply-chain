@@ -11,3 +11,4 @@ ALTER TABLE bin_locations
 
 CREATE INDEX idx_bin_locations_warehouse_status ON bin_locations (warehouse_id, status);
 CREATE INDEX idx_bin_locations_zone_rack ON bin_locations (warehouse_id, zone, rack);
+

@@ -8,6 +8,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import vn.wms.common.exception.ApiException;
+import vn.wms.inventory.dto.BinBarcodeResponse;
 import vn.wms.inventory.dto.BinLocationResponse;
 import vn.wms.inventory.dto.BulkCreateBinLocationsRequest;
 import vn.wms.inventory.dto.CreateBinLocationRequest;
@@ -163,3 +164,4 @@ class BinLocationServiceTest {
         assertThat(pngBytes[3]).isEqualTo((byte) 'G');
     }
 }
+

@@ -159,3 +159,4 @@ class WarehouseServiceTest {
         assertThat(summary.totalStockQuantity()).isEqualTo(new BigDecimal("1500.000"));
     }
 }
+

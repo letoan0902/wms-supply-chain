@@ -69,6 +69,18 @@ services:
       start_period: 10s
 
   # --------------------------------------------------------------------------
+  # rabbitmq: lệnh rabbitmq-diagnostics ping có lúc mất hơn 10 giây trên máy chủ, nới thời gian chờ của healthcheck
+  # để container không bị đánh dấu unhealthy dù broker vẫn hoạt động bình thường.
+  # --------------------------------------------------------------------------
+  rabbitmq:
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 30s
+      timeout: 30s
+      retries: 5
+      start_period: 60s
+
+  # --------------------------------------------------------------------------
   # config-server: không publish cổng 8888 ra máy host (file gốc publish 127.0.0.1:8888 để debug). Trên VPS cổng này
   # có thể đã bị tiến trình khác chiếm (ví dụ một phiên SSH forward), và các service gọi config-server qua mạng nội bộ.
   # --------------------------------------------------------------------------

@@ -13,6 +13,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
+import vn.wms.auth.entity.User;
 import vn.wms.common.constant.Roles;
 
 import java.io.IOException;
@@ -32,9 +33,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private static final String BEARER_PREFIX = "Bearer ";
 
     private final JwtService jwtService;
+    private final org.springframework.data.redis.core.RedisTemplate<String, String> redisTemplate;
 
-    public JwtAuthenticationFilter(JwtService jwtService) {
+    public JwtAuthenticationFilter(JwtService jwtService, org.springframework.data.redis.core.RedisTemplate<String, String> redisTemplate) {
         this.jwtService = jwtService;
+        this.redisTemplate = redisTemplate;
     }
 
     @Override
@@ -43,12 +46,22 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String header = request.getHeader(HttpHeaders.AUTHORIZATION);
         if (header != null && header.startsWith(BEARER_PREFIX)) {
             try {
-                Claims claims = jwtService.parse(header.substring(BEARER_PREFIX.length()));
+                Claims claims = jwtService.parse(header.substring(BEARER_PREFIX.length()), redisTemplate);
+                Long userId = claims.get("userId", Long.class);
+                String username = claims.getSubject();
                 List<SimpleGrantedAuthority> authorities = jwtService.rolesOf(claims).stream()
                         .map(role -> new SimpleGrantedAuthority(Roles.toAuthority(role)))
                         .toList();
-                SecurityContextHolder.getContext().setAuthentication(
-                        new UsernamePasswordAuthenticationToken(claims.getSubject(), null, authorities));
+                // Khởi tạo/Dựng UserPrinciple trực tiếp mà k cần query lại DB
+                // Định danh chủ thể - người dùng đang thực hiện request
+                UserPrincipal userPrincipal = new UserPrincipal(userId, username, authorities);
+
+                // Đại diện cho danh tính và quyền hạn của 1 người dùng trong hệ thống
+                // credentials - bằng chứng xác thực (thường là mật khẩu/token, ở đây truyển null vì đã xác thực token hoanf tất)
+                // Collection<? extends GrantedAuthority> authorities — "Người dùng có quyền làm gì?"
+                UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(userPrincipal, null, authorities);
+                SecurityContextHolder.getContext().setAuthentication(authenticationToken);
+
             } catch (JwtException | IllegalArgumentException ex) {
                 log.debug("Bỏ qua token không hợp lệ: {}", ex.getMessage());
             }

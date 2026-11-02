@@ -28,6 +28,10 @@ dependencies {
     // Tài liệu API: /swagger-ui.html
     implementation "org.springdoc:springdoc-openapi-starter-webmvc-ui:${springdocVersion}"
 
+    // ZXing: sinh mã vạch Barcode (Code 128, EAN-13) và QR Code (WMS-07.3)
+    implementation 'com.google.zxing:core:3.5.3'
+    implementation 'com.google.zxing:javase:3.5.3'
+
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testRuntimeOnly 'com.h2database:h2'
 }

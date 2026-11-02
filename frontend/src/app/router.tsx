@@ -27,6 +27,8 @@ export const router = createBrowserRouter([
           { index: true, Component: lazy(() => import('../pages/DashboardPage')) },
           // Quản lý đa kho & sơ đồ vị trí ô/kệ (WMS-05, WMS-06 - Sprint 1)
           { path: 'warehouses', Component: lazy(() => import('../features/warehouses/WarehousesPage')) },
+          // Quản lý danh mục hàng hóa, SKU & quy đổi đơn vị (WMS-07 - Sprint 1)
+          { path: 'products', Component: lazy(() => import('../features/products/ProductsPage')) },
           ...placeholderRoutes,
           { path: '*', element: <NotFoundPage /> },
         ],

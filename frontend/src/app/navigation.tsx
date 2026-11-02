@@ -28,7 +28,7 @@ export interface NavigationItem {
  */
 export const navigationItems: NavigationItem[] = [
   { path: '/', label: 'Dashboard', icon: <DashboardOutlined /> },
-  { path: '/products', label: 'Danh mục hàng hóa', icon: <AppstoreOutlined />, sprint: 2 },
+  { path: '/products', label: 'Danh mục hàng hóa', icon: <AppstoreOutlined /> },
   { path: '/warehouses', label: 'Kho và vị trí', icon: <ContainerOutlined /> },
   { path: '/inventory', label: 'Tồn kho', icon: <DatabaseOutlined />, sprint: 3 },
   { path: '/transfers', label: 'Điều chuyển', icon: <SwapOutlined />, sprint: 3 },

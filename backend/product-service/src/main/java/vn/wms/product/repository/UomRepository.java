@@ -8,4 +8,6 @@ import java.util.Optional;
 public interface UomRepository extends JpaRepository<Uom, Long> {
 
     Optional<Uom> findByCode(String code);
+
+    boolean existsByCode(String code);
 }

@@ -6,6 +6,11 @@ server:
 spring:
   application:
     name: api-gateway
+  data:
+    redis:
+      # Redis dùng cho RequestRateLimiter (cùng REDIS_HOST với các service, xem docker-compose.yml)
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
   cloud:
     loadbalancer:
       cache:
@@ -24,6 +29,17 @@ spring:
       # Tránh trùng header CORS nếu service phía sau cũng trả CORS
       default-filters:
         - DedupeResponseHeader=Access-Control-Allow-Credentials Access-Control-Allow-Origin
+        # Giới hạn tốc độ (NFR05, WMS-01.3): token bucket trên Redis theo người dùng đã đăng nhập (X-User-Name)
+        # hoặc theo IP khi chưa đăng nhập; vượt ngưỡng trả 429 Too Many Requests. Xem vn.wms.gateway.ratelimit.
+        - name: RequestRateLimiter
+          args:
+            key-resolver: "#{@userOrIpKeyResolver}"
+            # Số token nạp lại mỗi giây (tốc độ ổn định) và sức chứa tối đa (cho phép bùng nổ ngắn)
+            redis-rate-limiter.replenishRate: ${RATE_LIMIT_REPLENISH_RATE:20}
+            redis-rate-limiter.burstCapacity: ${RATE_LIMIT_BURST_CAPACITY:40}
+            redis-rate-limiter.requestedTokens: 1
+            # Không có khóa (tắt giới hạn tốc độ) thì cho qua thay vì chặn
+            deny-empty-key: false
       # Giữ nguyên đường dẫn /api/... khi chuyển tiếp (các service khai báo đường dẫn đầy đủ).
       routes:
         - id: auth-service
@@ -66,6 +82,9 @@ gateway:
     public-paths:
       - /api/auth/login
       - /actuator/**
+  rate-limit:
+    # Tắt (RATE_LIMIT_ENABLED=false) khi chạy kiểm thử tải JMeter (WMS-19.2) để gateway không chặn kịch bản.
+    enabled: ${RATE_LIMIT_ENABLED:true}
 
 management:
   endpoints:

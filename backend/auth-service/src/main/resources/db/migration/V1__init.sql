@@ -38,7 +38,7 @@ CREATE TABLE user_roles (
     CONSTRAINT fk_user_roles_role FOREIGN KEY (role_id) REFERENCES roles (id)
 ) ENGINE = InnoDB;
 
--- Sáu vai trò của hệ thống (khớp vn.wms.common.constant.Roles)
+-- Sáu vai trò của hệ thống
 INSERT INTO roles (name, description, created_by, updated_by) VALUES
     ('ADMIN', 'System administrator', 'system', 'system'),
     ('WAREHOUSE_MANAGER', 'Warehouse manager', 'system', 'system'),

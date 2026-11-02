@@ -1,9 +1,11 @@
 import { LogoutOutlined, UserOutlined } from '@ant-design/icons'
-import { Avatar, Dropdown, Layout, Menu, Spin, Typography } from 'antd'
+import { Avatar, Dropdown, Layout, Menu, Typography } from 'antd'
 import type { MenuProps } from 'antd'
 import { Suspense, useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import PageLoading from '../components/PageLoading'
 import { clearAuth, getStoredUser } from '../utils/storage'
+import { logout } from '../features/auth/authApi'
 import { navigationItems } from './navigation'
 
 const { Header, Sider, Content } = Layout
@@ -26,9 +28,15 @@ export default function MainLayout() {
   const selectedKey = `/${pathname.split('/')[1]}`
   const currentTitle = navigationItems.find((item) => item.path === selectedKey)?.label
 
-  const handleLogout = () => {
-    clearAuth()
-    navigate('/login', { replace: true })
+  const handleLogout = async () => {
+    try {
+      await logout()
+    } catch {
+      // Bỏ qua lỗi nếu token đã hết hạn hoặc không kết nối được máy chủ
+    } finally {
+      clearAuth()
+      navigate('/login', { replace: true })
+    }
   }
 
   const userMenu: MenuProps['items'] = [
@@ -49,15 +57,28 @@ export default function MainLayout() {
         onBreakpoint={setIsNarrowScreen}
         collapsed={collapsed}
         onCollapse={setCollapsed}
-        width={256}
+        width={300}
         style={
           isNarrowScreen
             ? { position: 'fixed', top: 0, left: 0, zIndex: 100, height: '100vh' }
             : { position: 'sticky', top: 0, height: '100vh' }
         }
       >
-        <div className="flex h-16 items-center justify-center px-4 text-center text-lg font-semibold text-white">
-          {collapsed ? 'WMS' : 'WMS Supply Chain'}
+        <div
+          className={`flex h-16 items-center px-4 transition-all duration-200 ${collapsed ? 'justify-center' : 'gap-3'
+            }`}
+        >
+          <img
+            src="/logo.png"
+            alt="WMS Logo"
+            className="h-12 w-12 shrink-0 rounded-lg bg-white object-contain p-1 shadow-sm"
+          />
+          {!collapsed && (
+            <div className="flex flex-col overflow-hidden whitespace-nowrap">
+              <span className="text-sm font-bold tracking-wide text-white">WMS SUPPLY CHAIN</span>
+              <span className="text-[10px] text-slate-400">Warehouse Management</span>
+            </div>
+          )}
         </div>
         {/* 64px logo + 48px nút thu gọn; menu cuộn riêng khi màn hình thấp */}
         <div className="overflow-y-auto" style={{ height: 'calc(100vh - 112px)' }}>
@@ -94,13 +115,7 @@ export default function MainLayout() {
         </Header>
 
         <Content className="p-4 md:p-6">
-          <Suspense
-            fallback={
-              <div className="flex justify-center py-20">
-                <Spin size="large" />
-              </div>
-            }
-          >
+          <Suspense fallback={<PageLoading tip="Đang tải dữ liệu phân hệ..." />}>
             <Outlet />
           </Suspense>
         </Content>

@@ -9,6 +9,8 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import vn.wms.auth.dto.LoginRequest;
 import vn.wms.auth.dto.LoginResponse;
+import vn.wms.auth.dto.RefreshTokenRequest;
+import vn.wms.auth.dto.RefreshTokenResponse;
 import vn.wms.auth.dto.RegisterRequest;
 import vn.wms.auth.dto.RegisterResponse;
 import vn.wms.auth.dto.UserInfoResponse;
@@ -52,6 +54,12 @@ public class AuthController {
     @Operation(summary = "Thông tin người dùng hiện tại, lấy từ JWT trong header Authorization")
     public ApiResponse<UserInfoResponse> me(Authentication authentication) {
         return ApiResponse.ok(authService.currentUser(authentication));
+    }
+
+    @PostMapping("/refresh")
+    @Operation(summary = "Làm mới Access Token bằng Refresh Token")
+    public ApiResponse<RefreshTokenResponse> refresh(@Valid @RequestBody RefreshTokenRequest request) {
+        return ApiResponse.ok(authService.refreshToken(request));
     }
 
     @PostMapping("/logout")

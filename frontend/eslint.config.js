@@ -19,4 +19,11 @@ export default defineConfig([
       globals: globals.browser,
     },
   },
+  {
+    // router.tsx là file cấu hình điều hướng (export biến `router`), không phải component React
+    files: ['**/router.tsx', '**/router.ts'],
+    rules: {
+      'react-refresh/only-export-components': 'off',
+    },
+  },
 ])

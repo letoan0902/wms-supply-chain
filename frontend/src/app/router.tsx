@@ -1,11 +1,14 @@
-import { lazy } from 'react'
+import { lazy, Suspense } from 'react'
 import { createBrowserRouter } from 'react-router-dom'
-import LoginPage from '../features/auth/LoginPage'
+import PageLoading from '../components/PageLoading'
 import ProtectedRoute from '../features/auth/ProtectedRoute'
 import NotFoundPage from '../pages/NotFoundPage'
 import PlaceholderPage from '../pages/PlaceholderPage'
 import MainLayout from './MainLayout'
 import { navigationItems } from './navigation'
+
+const LoginPage = lazy(() => import('../features/auth/LoginPage'))
+const ForgotPasswordPage = lazy(() => import('../features/auth/ForgotPasswordPage'))
 
 // Các chức năng chưa phát triển dùng trang giữ chỗ, thay bằng trang thật khi hoàn thành
 const placeholderRoutes = navigationItems
@@ -16,7 +19,22 @@ const placeholderRoutes = navigationItems
   }))
 
 export const router = createBrowserRouter([
-  { path: '/login', element: <LoginPage /> },
+  {
+    path: '/login',
+    element: (
+      <Suspense fallback={<PageLoading fullScreen tip="Đang tải trang đăng nhập..." />}>
+        <LoginPage />
+      </Suspense>
+    ),
+  },
+  {
+    path: '/forgot-password',
+    element: (
+      <Suspense fallback={<PageLoading fullScreen tip="Đang tải trang..." />}>
+        <ForgotPasswordPage />
+      </Suspense>
+    ),
+  },
   {
     element: <ProtectedRoute />,
     children: [

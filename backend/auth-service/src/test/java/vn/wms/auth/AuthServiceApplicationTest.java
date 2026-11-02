@@ -87,6 +87,11 @@ class AuthServiceApplicationTest {
             return mockRedisStore.remove(key) != null;
         });
 
+        when(valueOperations.get(anyString())).thenAnswer(invocation -> {
+            String key = invocation.getArgument(0);
+            return mockRedisStore.get(key);
+        });
+
         doAnswer(invocation -> {
             String key = invocation.getArgument(0);
             String value = invocation.getArgument(1);
@@ -165,7 +170,8 @@ class AuthServiceApplicationTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.tokenType").value("Bearer"))
                 .andExpect(jsonPath("$.data.username").value("admin"))
-                .andExpect(jsonPath("$.data.roles[0]").value("ADMIN"));
+                .andExpect(jsonPath("$.data.roles[0]").value("ADMIN"))
+                .andExpect(jsonPath("$.data.refreshToken").isNotEmpty());
     }
 
     @Test
@@ -245,6 +251,81 @@ class AuthServiceApplicationTest {
 
         // Sau khi logout, token đã nằm trong blacklist -> Gọi /api/auth/me phải bị 401
         mockMvc.perform(get("/api/auth/me").header("Authorization", "Bearer " + token))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void refreshTokenSuccessAndRotatesToken() throws Exception {
+        // Đăng nhập lấy refresh token
+        String loginRes = mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(loginJson("admin", "Demopassword")))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        JsonNode data = objectMapper.readTree(loginRes).path("data");
+        String oldRefreshToken = data.path("refreshToken").asText();
+        assertThat(oldRefreshToken).isNotBlank();
+
+        // Gửi POST /api/auth/refresh với Refresh Token cũ
+        String refreshReq = objectMapper.writeValueAsString(Map.of("refreshToken", oldRefreshToken));
+        String refreshRes = mockMvc.perform(post("/api/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(refreshReq))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.accessToken").isNotEmpty())
+                .andExpect(jsonPath("$.data.tokenType").value("Bearer"))
+                .andExpect(jsonPath("$.data.refreshToken").isNotEmpty())
+                .andReturn().getResponse().getContentAsString();
+
+        JsonNode refreshData = objectMapper.readTree(refreshRes).path("data");
+        String newAccessToken = refreshData.path("accessToken").asText();
+        String newRefreshToken = refreshData.path("refreshToken").asText();
+
+        // Kiểm tra token mới dùng được để gọi /api/auth/me
+        mockMvc.perform(get("/api/auth/me").header("Authorization", "Bearer " + newAccessToken))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.username").value("admin"));
+
+        // Do có xoay vòng token (RTR), Refresh Token cũ không còn dùng được nữa
+        mockMvc.perform(post("/api/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(refreshReq))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void refreshTokenWithInvalidTokenFails() throws Exception {
+        String invalidReq = objectMapper.writeValueAsString(Map.of("refreshToken", "token.khong.hop.le"));
+        mockMvc.perform(post("/api/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(invalidReq))
+                .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void refreshTokenAfterLogoutFailsBecauseRevoked() throws Exception {
+        // 1. Đăng nhập
+        String loginRes = mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(loginJson("admin", "Demopassword")))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+
+        JsonNode data = objectMapper.readTree(loginRes).path("data");
+        String accessToken = data.path("accessToken").asText();
+        String refreshToken = data.path("refreshToken").asText();
+
+        // 2. Đăng xuất (xóa refresh token khỏi Redis)
+        mockMvc.perform(post("/api/auth/logout").header("Authorization", "Bearer " + accessToken))
+                .andExpect(status().isOk());
+
+        // 3. Cố gắng refresh bằng refresh token đó -> phải bị 401 Unauthorized
+        String refreshReq = objectMapper.writeValueAsString(Map.of("refreshToken", refreshToken));
+        mockMvc.perform(post("/api/auth/refresh")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(refreshReq))
                 .andExpect(status().isUnauthorized());
     }
 

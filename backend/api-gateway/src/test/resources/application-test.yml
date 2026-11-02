@@ -10,3 +10,8 @@ spring:
 eureka:
   client:
     enabled: false
+# Test không có Redis: tắt chỉ báo sức khỏe Redis (do starter data-redis-reactive thêm vào) để /actuator/health vẫn UP.
+management:
+  health:
+    redis:
+      enabled: false

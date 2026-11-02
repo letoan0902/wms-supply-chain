@@ -15,9 +15,12 @@ import java.util.Date;
 import java.util.List;
 
 /**
- * Tạo và kiểm tra JWT bằng jjwt (HS256). Secret đọc từ cấu hình (biến môi trường JWT_SECRET).
+ * Tạo và kiểm tra JWT bằng jjwt (HS256). Secret đọc từ cấu hình (biến môi
+ * trường JWT_SECRET).
  *
- * <p>Claim sử dụng: sub = tên đăng nhập, roles = danh sách vai trò (không tiền tố ROLE_), iss, iat, exp.
+ * <p>
+ * Claim sử dụng: sub = tên đăng nhập, roles = danh sách vai trò (không tiền tố
+ * ROLE_), iss, iat, exp.
  */
 @Service
 public class JwtService {
@@ -38,25 +41,66 @@ public class JwtService {
         this.signingKey = Keys.hmacShaKeyFor(keyBytes);
     }
 
-    /** Phát hành access token cho người dùng với danh sách vai trò. */
-    public String generateToken(String username, Collection<String> roles) {
+    /**
+     * Tạo Access Token (loại ACCESS) cho người dùng.
+     * Token chứa username, roles và claim "type":"ACCESS".
+     */
+    public String generateAccessToken(Long userId, String username, Collection<String> roles) {
         Instant now = Instant.now();
         return Jwts.builder()
                 .issuer(properties.issuer())
                 .subject(username)
+                .claim("userId", userId)
                 .claim(CLAIM_ROLES, List.copyOf(roles))
+                .claim("type", "ACCESS")
                 .issuedAt(Date.from(now))
-                .expiration(Date.from(now.plus(Duration.ofMinutes(properties.expirationMinutes()))))
+                .expiration(Date.from(now.plus(Duration.ofMinutes(properties.accessTokenMinutes()))))
                 .signWith(signingKey, Jwts.SIG.HS256)
                 .compact();
     }
 
     /**
-     * Kiểm tra chữ ký, issuer và hạn dùng rồi trả về claims.
-     *
-     * @throws JwtException nếu token sai định dạng, sai chữ ký, sai issuer hoặc đã hết hạn
+     * Tạo Refresh Token (loại REFRESH) cho người dùng.
+     * Token chỉ chứa username và claim "type":"REFRESH".
+     */
+    public String generateRefreshToken(String username) {
+        Instant now = Instant.now();
+        return Jwts.builder()
+                .issuer(properties.issuer())
+                .subject(username)
+                .claim("type", "REFRESH")
+                .issuedAt(Date.from(now))
+                .expiration(Date.from(now.plus(Duration.ofMinutes(properties.refreshTokenMinutes()))))
+                .signWith(signingKey, Jwts.SIG.HS256)
+                .compact();
+    }
+
+    /**
+     * Tạo token đơn giản cho username và roles (tương thích ngược cho test và service khác).
+     */
+    public String generateToken(String username, Collection<String> roles) {
+        return generateAccessToken(null, username, roles);
+    }
+
+    /**
+     * Kiểm tra chữ ký, issuer và hạn dùng rồi trả về claims (không kiểm tra blacklist).
      */
     public Claims parse(String token) {
+        return parse(token, null);
+    }
+
+    /**
+     * Kiểm tra token có bị blacklist (đăng xuất) không và trả về Claims.
+     * Nếu token nằm trong blacklist, ném JwtException.
+     */
+    public Claims parse(String token, org.springframework.data.redis.core.RedisTemplate<String, String> redisTemplate) {
+        // Kiểm tra blacklist nếu redisTemplate được cung cấp
+        if (redisTemplate != null) {
+            Boolean blacklisted = redisTemplate.hasKey("blacklist:" + token);
+            if (Boolean.TRUE.equals(blacklisted)) {
+                throw new JwtException("Token đã bị blacklist (đăng xuất)");
+            }
+        }
         return Jwts.parser()
                 .verifyWith(signingKey)
                 .requireIssuer(properties.issuer())
@@ -74,8 +118,21 @@ public class JwtService {
         return roles.stream().map(String::valueOf).toList();
     }
 
-    /** Thời gian sống của token tính bằng giây (trả về cho client trong trường expiresIn). */
+    /**
+     * Thời gian sống của token tính bằng giây (trả về cho client trong trường
+     * expiresIn).
+     */
     public long expiresInSeconds() {
         return Duration.ofMinutes(properties.expirationMinutes()).toSeconds();
+    }
+
+    /** Return the configured access token lifespan (minutes) */
+    public long getAccessTokenMinutes() {
+        return properties.accessTokenMinutes();
+    }
+
+    /** Return the configured refresh token lifespan (minutes) */
+    public long getRefreshTokenMinutes() {
+        return properties.refreshTokenMinutes();
     }
 }

@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -33,30 +34,32 @@ import java.nio.charset.StandardCharsets;
 public class SecurityConfig {
 
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http, JwtService jwtService, ObjectMapper objectMapper)
+    SecurityFilterChain securityFilterChain(HttpSecurity http, JwtService jwtService, ObjectMapper objectMapper, org.springframework.data.redis.core.RedisTemplate<String, String> redisTemplate)
             throws Exception {
         http
-                .csrf(AbstractHttpConfigurer::disable)
-                .formLogin(AbstractHttpConfigurer::disable)
-                .httpBasic(AbstractHttpConfigurer::disable)
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/me").authenticated()
-                        .requestMatchers("/api/auth/**", "/actuator/**",
-                                "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
-                        .anyRequest().authenticated())
-                .exceptionHandling(handling -> handling
-                        .authenticationEntryPoint((request, response, ex) ->
-                                writeError(response, objectMapper, HttpStatus.UNAUTHORIZED, ErrorCode.UNAUTHORIZED))
-                        .accessDeniedHandler((request, response, ex) ->
-                                writeError(response, objectMapper, HttpStatus.FORBIDDEN, ErrorCode.FORBIDDEN)))
-                .addFilterBefore(new JwtAuthenticationFilter(jwtService), UsernamePasswordAuthenticationFilter.class);
+            .csrf(AbstractHttpConfigurer::disable)
+            .formLogin(AbstractHttpConfigurer::disable)
+            .httpBasic(AbstractHttpConfigurer::disable)
+            .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            .authorizeHttpRequests(auth -> auth
+                    .requestMatchers(HttpMethod.POST, "/api/auth/register").hasRole("ADMIN")
+                    .requestMatchers(HttpMethod.POST, "/api/auth/logout").authenticated()
+                    .requestMatchers("/api/auth/me").authenticated()
+                    .requestMatchers("/api/auth/**", "/actuator/**",
+                            "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+                    .anyRequest().authenticated())
+            .exceptionHandling(handling -> handling
+                    .authenticationEntryPoint((request, response, ex) ->
+                            writeError(response, objectMapper, HttpStatus.UNAUTHORIZED, ErrorCode.UNAUTHORIZED))
+                    .accessDeniedHandler((request, response, ex) ->
+                            writeError(response, objectMapper, HttpStatus.FORBIDDEN, ErrorCode.FORBIDDEN)))
+            .addFilterBefore(new JwtAuthenticationFilter(jwtService, redisTemplate), UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
 
     /** Mã hóa mật khẩu bằng BCrypt (dùng khi triển khai đăng nhập/đăng ký thật dựa trên bảng users). */
     @Bean
-    PasswordEncoder passwordEncoder() {
+    public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 

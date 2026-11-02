@@ -8,7 +8,8 @@
 #   BRANCH=main bash deploy/deploy.sh    # triển khai nhánh khác
 #
 # Các bước: kiểm tra Docker -> đồng bộ mã nguồn (git) -> kiểm tra .env -> build -> up -d
-#           -> chờ container healthy -> kiểm tra HTTP/HTTPS -> dọn image cũ.
+#           -> chờ container healthy -> kiểm tra gateway và làm nóng vài request đầu
+#           -> kiểm tra HTTPS và API qua tên miền -> dọn image cũ.
 #
 # Biến môi trường (đều tùy chọn):
 #   APP_DIR       thư mục chứa mã nguồn trên VPS            mặc định /opt/wms-supply-chain
@@ -350,6 +351,27 @@ wait_healthy() {
   done
 }
 
+# --- Làm nóng sau khi khởi động --------------------------------------------
+# Request đầu tiên sau khi JVM khởi động thường mất 10-20 giây: api-gateway nạp danh sách instance từ Eureka và mở
+# kết nối Redis cho rate limiter, auth-service biên dịch JIT tầng web. Gửi trước vài request vô hại để người dùng
+# đầu tiên và smoke test không bị timeout. Chỉ ghi log, không bao giờ coi là lỗi triển khai.
+warm_up() {
+  local base="http://127.0.0.1:8080" path result i
+  log "Làm nóng api-gateway và auth-service bằng vài request vô hại"
+  # POST JSON rỗng tới /api/auth/login: gateway chuyển tiếp sang auth-service, auth-service trả 400 (thiếu dữ liệu)
+  # nên không bị tính là một lần đăng nhập sai của tài khoản nào.
+  for i in 1 2; do
+    result="$(curl -s -o /dev/null -w '%{http_code} sau %{time_total}s' --max-time 60 -X POST "$base/api/auth/login" \
+      -H 'Content-Type: application/json' -d '{}' || true)"
+    log "  POST /api/auth/login (JSON rỗng) lần $i: HTTP ${result:-000}"
+  done
+  # GET không token tới các route còn lại: gateway trả 401 nhưng bộ lọc JWT và rate limiter đã được làm nóng.
+  for path in /api/products /api/inventory/warehouses /api/orders /api/notifications; do
+    result="$(curl -s -o /dev/null -w '%{http_code} sau %{time_total}s' --max-time 30 "$base$path" || true)"
+    log "  GET $path (không token): HTTP ${result:-000}"
+  done
+}
+
 # --- Kiểm tra sau triển khai ------------------------------------------------
 check_health() {
   step "Bước 7/7: Kiểm tra sức khỏe và dọn dẹp"
@@ -358,12 +380,14 @@ check_health() {
   local gateway_url="http://127.0.0.1:8080/actuator/health"
   if curl -fsS -o /dev/null --max-time 10 --retry 5 --retry-delay 3 --retry-connrefused "$gateway_url"; then
     log "API Gateway: OK ($gateway_url)"
+    # 2. Làm nóng để request đầu tiên của người dùng (hoặc smoke test) không bị chậm hơn 10 giây
+    warm_up
   else
     warn "API Gateway không phản hồi tại $gateway_url"
     FAILED=1
   fi
 
-  # 2. HTTPS qua Caddy (chỉ cảnh báo: lần đầu có thể chưa trỏ DNS hoặc Caddy đang xin chứng chỉ)
+  # 3. HTTPS qua Caddy (chỉ cảnh báo: lần đầu có thể chưa trỏ DNS hoặc Caddy đang xin chứng chỉ)
   local url="https://${DOMAIN}/" attempt rc=0 err="" max_attempts=12
   for (( attempt = 1; attempt <= max_attempts; attempt++ )); do
     rc=0
@@ -389,7 +413,18 @@ check_health() {
     warn "Đây chỉ là cảnh báo. Sau khi sửa DNS hoặc firewall, chạy lệnh sau để Caddy xin chứng chỉ ngay: $COMPOSE_HINT restart caddy"
   fi
 
-  # 3. Dọn các image cũ không còn được dùng (chỉ image dangling)
+  # 4. API qua tên miền (Caddy -> nginx của frontend -> api-gateway): GET không token phải nhận 401, không phải 502/504
+  if (( rc == 0 )); then
+    local api_result
+    api_result="$(curl -s -o /dev/null -w '%{http_code}' --max-time 30 "https://${DOMAIN}/api/products" || true)"
+    if [[ "$api_result" == "401" ]]; then
+      log "API qua tên miền: OK (GET /api/products không token nhận 401 như mong đợi)"
+    else
+      warn "API qua tên miền trả về HTTP ${api_result:-000} thay vì 401: kiểm tra nginx của frontend có proxy /api tới api-gateway không ($COMPOSE_HINT logs --tail 50 frontend api-gateway)"
+    fi
+  fi
+
+  # 5. Dọn các image cũ không còn được dùng (chỉ image dangling)
   log "Dọn image cũ (docker image prune -f)"
   docker image prune -f
 }

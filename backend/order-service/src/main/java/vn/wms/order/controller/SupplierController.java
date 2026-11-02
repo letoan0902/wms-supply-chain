@@ -33,7 +33,7 @@ import java.net.URI;
  * REST API Quản lý hồ sơ Nhà cung cấp & Công nợ (FR09 - WMS-08.1).
  */
 @RestController
-@RequestMapping({"/api/orders/suppliers", "/api/suppliers"})
+@RequestMapping("/api/orders/suppliers")
 @Tag(name = "Suppliers", description = "Quản lý Nhà cung cấp, Hạn mức tín dụng & Lịch sử giao dịch công nợ (FR09 - WMS-08.1)")
 public class SupplierController {
 

@@ -161,10 +161,13 @@ public class SupplierService {
 
     /**
      * Ghi nhận giao dịch phát sinh công nợ với Nhà cung cấp (FR09).
+     * Áp dụng khóa bi quan (PESSIMISTIC_WRITE) để khóa bản ghi nhà cung cấp (SELECT ... FOR UPDATE),
+     * chống tranh chấp dữ liệu (Race Condition) khi có nhiều giao dịch phát sinh đồng thời.
      */
     @Transactional
     public SupplierTransactionResponse recordTransaction(Long supplierId, RecordSupplierTransactionRequest request) {
-        Supplier supplier = findSupplier(supplierId);
+        Supplier supplier = supplierRepository.findByIdForUpdate(supplierId)
+                .orElseThrow(() -> ApiException.notFound("Không tìm thấy nhà cung cấp với id: " + supplierId));
 
         BigDecimal current = supplier.getCurrentDebt() != null ? supplier.getCurrentDebt() : BigDecimal.ZERO;
         BigDecimal newDebt;

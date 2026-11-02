@@ -1,0 +1,3 @@
+# .gitignore ở thư mục gốc chặn mọi file .env.* (chỉ cho phép .env.example).
+# File mẫu biến môi trường production không chứa bí mật nên cần được commit.
+!.env.production.example

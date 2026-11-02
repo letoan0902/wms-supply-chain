@@ -45,6 +45,9 @@ class SupplierIntegrationTest {
     @Autowired
     private SupplierTransactionRepository transactionRepository;
 
+    @Autowired
+    private vn.wms.order.service.SupplierService supplierService;
+
     @Test
     void createSupplierSuccessfully() throws Exception {
         CreateSupplierRequest request = new CreateSupplierRequest(
@@ -282,5 +285,48 @@ class SupplierIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.overLimitSuppliers").value(1))
                 .andExpect(jsonPath("$.data.totalDebt").value(100000000.00));
+    }
+
+    @Test
+    @org.springframework.transaction.annotation.Transactional(propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
+    void recordTransactionsConcurrentlyMaintainsConsistentDebt() throws Exception {
+        Supplier s = new Supplier();
+        s.setCode("SUP-CONCUR");
+        s.setName("Công ty Đồng thời");
+        s.setCurrentDebt(BigDecimal.ZERO);
+        Supplier saved = supplierRepository.saveAndFlush(s);
+
+        int threadCount = 4;
+        BigDecimal amountPerThread = new BigDecimal("1000000.00");
+        java.util.concurrent.ExecutorService executor = java.util.concurrent.Executors.newFixedThreadPool(threadCount);
+        java.util.concurrent.CountDownLatch latch = new java.util.concurrent.CountDownLatch(threadCount);
+
+        try {
+            for (int i = 0; i < threadCount; i++) {
+                final int index = i;
+                executor.submit(() -> {
+                    try {
+                        supplierService.recordTransaction(saved.getId(), new RecordSupplierTransactionRequest(
+                                SupplierTransactionType.PURCHASE_INVOICE,
+                                amountPerThread,
+                                "REF-" + index,
+                                "Giao dịch đồng thời " + index
+                        ));
+                    } finally {
+                        latch.countDown();
+                    }
+                });
+            }
+
+            latch.await(10, java.util.concurrent.TimeUnit.SECONDS);
+            executor.shutdown();
+
+            Supplier reloaded = supplierRepository.findById(saved.getId()).orElseThrow();
+            // 4 luồng mỗi luồng tăng 1,000,000 -> Tổng nợ chính xác là 4,000,000 nhờ PESSIMISTIC_WRITE
+            assertThat(reloaded.getCurrentDebt()).isEqualByComparingTo(new BigDecimal("4000000.00"));
+        } finally {
+            transactionRepository.deleteAll();
+            supplierRepository.delete(saved);
+        }
     }
 }

@@ -11,7 +11,7 @@
 # để không lộ ra mạng LAN; chỉ frontend (80) và api-gateway (8080) mở ra bên ngoài.
 #
 # Thứ tự khởi động (depends_on kèm healthcheck):
-#   mysql / redis / rabbitmq -> config-server -> discovery-server
+#   mysql / redis / rabbitmq (-> rabbitmq-init nạp topology RabbitMQ) -> config-server -> discovery-server
 #   -> auth / product / inventory / order / notification, api-gateway -> frontend
 # ============================================================================
 
@@ -31,6 +31,8 @@ x-backend-env: &backend-env
   EUREKA_URL: http://discovery-server:8761/eureka
   REDIS_HOST: redis
   RABBITMQ_HOST: rabbitmq
+  RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:-guest}
+  RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-guest}
   JWT_SECRET: ${JWT_SECRET:?Thiếu JWT_SECRET trong file .env}
 
 # Thông tin kết nối CSDL (mỗi service chỉ dùng schema của riêng mình, xem DB_URL)
@@ -53,6 +55,8 @@ x-depends-on-core: &depends-on-core
     condition: service_healthy
   rabbitmq:
     condition: service_healthy
+  rabbitmq-init:
+    condition: service_completed_successfully
   config-server:
     condition: service_healthy
   discovery-server:
@@ -104,6 +108,10 @@ services:
   rabbitmq:
     <<: *common
     image: rabbitmq:3-management-alpine
+    # Tài khoản mặc định của broker: chỉ được tạo khi volume còn trống (xem docs/MESSAGING.md mục 6).
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME:-guest}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-guest}
     ports:
       - "127.0.0.1:${RABBITMQ_PORT:-5672}:5672"
       - "127.0.0.1:${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
@@ -115,6 +123,25 @@ services:
       timeout: 10s
       retries: 10
       start_period: 30s
+
+  # Nạp topology RabbitMQ (exchange wms.events, queue, binding, chính sách dead-letter) từ docker/rabbitmq/definitions.json
+  # qua API quản trị của broker. Chạy một lần mỗi khi up, nạp lại không sao (idempotent); các service nghiệp vụ chờ
+  # container này kết thúc thành công (xem x-depends-on-core). Chi tiết: docs/MESSAGING.md (WMS-02.1).
+  rabbitmq-init:
+    image: curlimages/curl:8.11.1
+    restart: "no"
+    networks:
+      - wms-network
+    environment:
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:-guest}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-guest}
+    volumes:
+      - ./docker/rabbitmq/definitions.json:/definitions.json:ro
+      - ./docker/rabbitmq/import-definitions.sh:/import-definitions.sh:ro
+    entrypoint: ["sh", "/import-definitions.sh"]
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
 
   # ==========================================================================
   # Nền tảng Spring Cloud

@@ -157,7 +157,33 @@ public class UserService {
      */
     @Transactional
     public UserDetailResponse updateUser(Long id, AdminUpdateUserRequest request) {
+        return updateUser(id, request, null);
+    }
+
+    @Transactional
+    public UserDetailResponse updateUser(Long id, AdminUpdateUserRequest request, String currentAdminUsername) {
         User user = findUserById(id);
+        boolean isCurrentlyAdmin = user.getRoles() != null && user.getRoles().stream().anyMatch(r -> "ADMIN".equalsIgnoreCase(r.getName()));
+
+        // Chặn admin tự khóa mình hoặc khóa admin cuối cùng qua updateUser
+        if (request.enabled() != null && !request.enabled() && user.isEnabled()) {
+            if (currentAdminUsername != null && user.getUsername().equalsIgnoreCase(currentAdminUsername)) {
+                throw ApiException.badRequest("Quản trị viên không được phép tự khóa tài khoản của chính mình");
+            }
+            if (isCurrentlyAdmin && userRepository.countActiveAdmins() <= 1) {
+                throw ApiException.badRequest("Không thể khóa quản trị viên duy nhất còn đang hoạt động trong hệ thống");
+            }
+        }
+
+        // Chặn admin tự gỡ quyền ADMIN hoặc gỡ quyền ADMIN của admin cuối cùng
+        if (isCurrentlyAdmin && request.roles() != null && !request.roles().contains("ADMIN")) {
+            if (currentAdminUsername != null && user.getUsername().equalsIgnoreCase(currentAdminUsername)) {
+                throw ApiException.badRequest("Quản trị viên không được phép tự gỡ vai trò ADMIN của chính mình");
+            }
+            if (userRepository.countActiveAdmins() <= 1) {
+                throw ApiException.badRequest("Không thể gỡ vai trò ADMIN của quản trị viên duy nhất trong hệ thống");
+            }
+        }
 
         if (!user.getEmail().equalsIgnoreCase(request.email().trim())) {
             if (userRepository.existsByEmail(request.email().trim())) {
@@ -197,7 +223,23 @@ public class UserService {
      */
     @Transactional
     public UserDetailResponse updateUserStatus(Long id, boolean enabled) {
+        return updateUserStatus(id, enabled, null);
+    }
+
+    @Transactional
+    public UserDetailResponse updateUserStatus(Long id, boolean enabled, String currentAdminUsername) {
         User user = findUserById(id);
+
+        if (!enabled && user.isEnabled()) {
+            if (currentAdminUsername != null && user.getUsername().equalsIgnoreCase(currentAdminUsername)) {
+                throw ApiException.badRequest("Quản trị viên không được phép tự khóa tài khoản của chính mình");
+            }
+            boolean isCurrentlyAdmin = user.getRoles() != null && user.getRoles().stream().anyMatch(r -> "ADMIN".equalsIgnoreCase(r.getName()));
+            if (isCurrentlyAdmin && userRepository.countActiveAdmins() <= 1) {
+                throw ApiException.badRequest("Không thể khóa quản trị viên duy nhất còn đang hoạt động trong hệ thống");
+            }
+        }
+
         user.setEnabled(enabled);
         User updated = userRepository.save(user);
         return mapToUserDetailResponse(updated);

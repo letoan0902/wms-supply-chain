@@ -63,4 +63,12 @@ public class User extends AuditableEntity {
             joinColumns = @JoinColumn(name = "user_id"))
     @Column(name = "warehouse_id", nullable = false)
     private Set<Long> warehouseIds = new HashSet<>();
+
+    public void setRoles(Set<Role> roles) {
+        this.roles = (roles != null) ? new HashSet<>(roles) : new HashSet<>();
+    }
+
+    public void setWarehouseIds(Set<Long> warehouseIds) {
+        this.warehouseIds = (warehouseIds != null) ? new HashSet<>(warehouseIds) : new HashSet<>();
+    }
 }

@@ -22,6 +22,9 @@ public interface UserRepository extends JpaRepository<User, Long> {
 
     boolean existsByEmail(String email);
 
+    @Query("SELECT COUNT(u) FROM User u JOIN u.roles r WHERE r.name = 'ADMIN' AND u.enabled = true")
+    long countActiveAdmins();
+
     @Query(value = "SELECT DISTINCT u FROM User u " +
             "LEFT JOIN u.roles r " +
             "LEFT JOIN u.warehouseIds w " +

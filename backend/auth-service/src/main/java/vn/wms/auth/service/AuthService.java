@@ -81,14 +81,15 @@ public class AuthService {
     public LoginResponse login(LoginRequest request, String clientIp) {
         String identifier = request.username();
 
-        // 1. Kiểm tra khóa 2 lớp (IP & Tài khoản) trước khi xử lý
-        checkLocks(clientIp, identifier);
-
-        // 2. Tìm người dùng theo username HOẶC email và so khớp mật khẩu
+        // 1. Tìm người dùng theo username HOẶC email để xác định tên người dùng chuẩn (canonical username)
         User userLogin = userRepository.findByUsernameOrEmail(identifier).orElse(null);
         boolean isUserExist = (userLogin != null);
         String canonicalUsername = isUserExist ? userLogin.getUsername() : identifier;
 
+        // 2. Kiểm tra khóa 2 lớp (IP & Tài khoản) theo canonicalUsername trước khi xác thực mật khẩu
+        checkLocks(clientIp, canonicalUsername);
+
+        // 3. So khớp mật khẩu
         if (!isUserExist || !passwordEncoder.matches(request.password(), userLogin.getPasswordHash())) {
             recordFailedAttempt(clientIp, canonicalUsername, isUserExist);
         }

@@ -120,8 +120,8 @@ public abstract class BaseIntegrationTest {
             admin.setPasswordHash(passwordEncoder.encode("Demopassword"));
             admin.setFullName("Admin User");
             admin.setEnabled(true);
-            admin.setRoles(Set.of(roleRepository.findByName(Roles.ADMIN).orElseThrow()));
-            admin.setWarehouseIds(Set.of(1L, 2L));
+            admin.setRoles(new java.util.HashSet<>(Set.of(roleRepository.findByName(Roles.ADMIN).orElseThrow())));
+            admin.setWarehouseIds(new java.util.HashSet<>(Set.of(1L, 2L)));
             userRepository.save(admin);
         }
 
@@ -133,8 +133,8 @@ public abstract class BaseIntegrationTest {
             staff.setPasswordHash(passwordEncoder.encode("Demopassword"));
             staff.setFullName("Staff User");
             staff.setEnabled(true);
-            staff.setRoles(Set.of(roleRepository.findByName(Roles.WAREHOUSE_STAFF).orElseThrow()));
-            staff.setWarehouseIds(Set.of(1L));
+            staff.setRoles(new java.util.HashSet<>(Set.of(roleRepository.findByName(Roles.WAREHOUSE_STAFF).orElseThrow())));
+            staff.setWarehouseIds(new java.util.HashSet<>(Set.of(1L)));
             userRepository.save(staff);
         }
 
@@ -146,8 +146,8 @@ public abstract class BaseIntegrationTest {
             manager.setPasswordHash(passwordEncoder.encode("Demopassword"));
             manager.setFullName("Manager User");
             manager.setEnabled(true);
-            manager.setRoles(Set.of(roleRepository.findByName(Roles.WAREHOUSE_MANAGER).orElseThrow()));
-            manager.setWarehouseIds(Set.of(1L, 2L));
+            manager.setRoles(new java.util.HashSet<>(Set.of(roleRepository.findByName(Roles.WAREHOUSE_MANAGER).orElseThrow())));
+            manager.setWarehouseIds(new java.util.HashSet<>(Set.of(1L, 2L)));
             userRepository.save(manager);
         }
     }

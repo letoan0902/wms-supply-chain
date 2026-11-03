@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import io.jsonwebtoken.Claims;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.MediaType;
+import org.springframework.transaction.annotation.Transactional;
 import vn.wms.auth.dto.auth.RegisterRequest;
 
 import java.util.Map;
@@ -21,6 +22,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
  * Đăng nhập DB thật, phân quyền RBAC, kiểm tra rate-limit, làm mới token,
  * xoay vòng Refresh Token (RTR), thu hồi token khi logout, và đăng ký tài khoản (Admin only).
  */
+@Transactional
 class AuthServiceApplicationTest extends BaseIntegrationTest {
 
     @Test
@@ -94,6 +96,32 @@ class AuthServiceApplicationTest extends BaseIntegrationTest {
                         .content(loginJson("admin", badPassword)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("30 phút")));
+    }
+
+    @Test
+    void loginWithEmailExceedingMaxAttemptsLocksAccountAndBlocksUsernameLoginToo() throws Exception {
+        String badPassword = "wrong_password";
+        // Thử đăng nhập sai 4 lần đầu bằng EMAIL (admin@wms.vn)
+        for (int i = 0; i < 4; i++) {
+            mockMvc.perform(post("/api/auth/login")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(loginJson("admin@wms.vn", badPassword)))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        // Lần thứ 5 sai bằng EMAIL -> Tài khoản admin bị khóa
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(loginJson("admin@wms.vn", badPassword)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("30 phút")));
+
+        // Sau khi bị khóa bằng email, thử đăng nhập lại bằng USERNAME (admin) dù đúng mật khẩu cũng phải bị chặn!
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(loginJson("admin", "Demopassword")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("tạm thời bị khóa")));
     }
 
     @Test

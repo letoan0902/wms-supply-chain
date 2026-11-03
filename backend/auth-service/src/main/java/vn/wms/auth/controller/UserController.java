@@ -6,6 +6,7 @@ import jakarta.validation.Valid;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
@@ -15,7 +16,7 @@ import vn.wms.common.api.ApiResponse;
 import vn.wms.common.api.PageResponse;
 
 @RestController
-@RequestMapping("/api/users")
+@RequestMapping({"/api/auth/users", "/api/users"})
 @Tag(name = "User", description = "Quản lý hồ sơ cá nhân và người dùng")
 public class UserController {
 
@@ -25,10 +26,7 @@ public class UserController {
         this.userService = userService;
     }
 
-    // ==========================================
     // 1. NGHIỆP VỤ HỒ SƠ CÁ NHÂN (SELF-SERVICE)
-    // ==========================================
-
     @GetMapping("/profile")
     @Operation(summary = "Xem hồ sơ người dùng đang đăng nhập")
     public ApiResponse<UserProfileResponse> getProfile(Authentication authentication) {
@@ -52,10 +50,7 @@ public class UserController {
         return ApiResponse.ok("Đổi mật khẩu thành công");
     }
 
-    // ==========================================
     // 2. NGHIỆP VỤ QUẢN TRỊ NGƯỜI DÙNG & PHÂN QUYỀN KHO (ADMIN)
-    // ==========================================
-
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Admin: Lấy danh sách người dùng có phân trang và bộ lọc")
@@ -76,6 +71,7 @@ public class UserController {
     }
 
     @PostMapping
+    @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Admin: Tạo người dùng mới và phân quyền kho")
     public ApiResponse<UserDetailResponse> createUser(@Valid @RequestBody CreateUserRequest request) {
@@ -87,8 +83,9 @@ public class UserController {
     @Operation(summary = "Admin: Cập nhật thông tin, vai trò và phân quyền kho")
     public ApiResponse<UserDetailResponse> updateUser(
             @PathVariable Long id,
-            @Valid @RequestBody AdminUpdateUserRequest request) {
-        return ApiResponse.ok(userService.updateUser(id, request));
+            @Valid @RequestBody AdminUpdateUserRequest request,
+            Authentication authentication) {
+        return ApiResponse.ok(userService.updateUser(id, request, authentication.getName()));
     }
 
     @PutMapping("/{id}/warehouses")
@@ -105,7 +102,8 @@ public class UserController {
     @Operation(summary = "Admin: Khóa hoặc mở khóa tài khoản")
     public ApiResponse<UserDetailResponse> updateUserStatus(
             @PathVariable Long id,
-            @Valid @RequestBody UpdateUserStatusRequest request) {
-        return ApiResponse.ok(userService.updateUserStatus(id, request.enabled()));
+            @Valid @RequestBody UpdateUserStatusRequest request,
+            Authentication authentication) {
+        return ApiResponse.ok(userService.updateUserStatus(id, request.enabled(), authentication.getName()));
     }
 }

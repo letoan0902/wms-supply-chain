@@ -13,7 +13,7 @@ import type {
 } from './types'
 
 /**
- * Các hàm gọi REST API quản lý kho và vị trí ô/kệ (WMS-05, WMS-06).
+ * Các hàm gọi REST API quản lý kho và vị trí ô/kệ .
  */
 
 export async function fetchWarehouses(params?: { keyword?: string; active?: boolean }): Promise<Warehouse[]> {
@@ -50,7 +50,7 @@ export async function deleteWarehouse(id: number): Promise<void> {
   await api.delete(`/inventory/warehouses/${id}`)
 }
 
-// --- Bin Location APIs (WMS-06) ---
+// --- Bin Location APIs ---
 
 export async function fetchLocations(params?: {
   warehouseId?: number

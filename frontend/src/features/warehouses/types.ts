@@ -1,5 +1,5 @@
 /**
- * Kiểu dữ liệu cho phân hệ Quản lý Đa Kho & Vị trí Ô/Kệ (WMS-05 & WMS-06).
+ * Kiểu dữ liệu cho phân hệ Quản lý Đa Kho & Vị trí Ô/Kệ .
  */
 
 export interface Warehouse {

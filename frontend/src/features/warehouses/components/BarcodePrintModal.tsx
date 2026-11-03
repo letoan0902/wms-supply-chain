@@ -21,7 +21,7 @@ export default function BarcodePrintModal({
 
   return (
     <Modal
-      title="Xem trước & In tem mã vạch vị trí Ô/Kệ (WMS-06.4)"
+      title="Xem trước & In tem mã vạch vị trí Ô/Kệ"
       open={open}
       onCancel={onClose}
       footer={[

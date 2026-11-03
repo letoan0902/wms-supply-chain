@@ -2,6 +2,7 @@ package vn.wms.gateway;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.cloud.gateway.filter.ratelimit.KeyResolver;
 import org.springframework.cloud.gateway.filter.ratelimit.RateLimiter;
@@ -28,6 +29,7 @@ class ApiGatewayApplicationTest {
     @Autowired
     private RouteLocator routeLocator;
 
+    @Qualifier("userOrIpKeyResolver")
     @Autowired
     private KeyResolver keyResolver;
 

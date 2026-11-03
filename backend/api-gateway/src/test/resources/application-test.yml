@@ -15,3 +15,7 @@ management:
   health:
     redis:
       enabled: false
+
+gateway:
+  jwt:
+    secret: "change_me_dev_only_jwt_secret_key_min_32_bytes"

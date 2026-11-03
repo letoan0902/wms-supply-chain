@@ -11,6 +11,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.Date;
 import java.util.List;
 import java.util.UUID;
@@ -27,6 +28,7 @@ import java.util.UUID;
 public class JwtService {
 
     public static final String CLAIM_ROLES = "roles";
+    public static final String CLAIM_WAREHOUSE_IDS = "warehouseIds";
     private static final int MIN_SECRET_BYTES = 32;
 
     private final JwtProperties properties;
@@ -43,16 +45,24 @@ public class JwtService {
     }
 
     /**
-     * Tạo Access Token (loại ACCESS) cho người dùng.
-     * Token chứa username, roles và claim "type":"ACCESS".
+     * Tạo Access Token (loại ACCESS) cho người dùng không kèm kho.
      */
     public String generateAccessToken(Long userId, String username, Collection<String> roles) {
+        return generateAccessToken(userId, username, roles, Collections.emptyList());
+    }
+
+    /**
+     * Tạo Access Token (loại ACCESS) cho người dùng kèm danh sách kho được phân quyền.
+     * Token chứa username, roles, warehouseIds và claim "type":"ACCESS".
+     */
+    public String generateAccessToken(Long userId, String username, Collection<String> roles, Collection<Long> warehouseIds) {
         Instant now = Instant.now();
         return Jwts.builder()
                 .issuer(properties.issuer())
                 .subject(username)
                 .claim("userId", userId)
                 .claim(CLAIM_ROLES, List.copyOf(roles))
+                .claim(CLAIM_WAREHOUSE_IDS, warehouseIds != null ? List.copyOf(warehouseIds) : List.of())
                 .claim("type", "ACCESS")
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plus(Duration.ofMinutes(properties.accessTokenMinutes()))))
@@ -118,6 +128,17 @@ public class JwtService {
             return List.of();
         }
         return roles.stream().map(String::valueOf).toList();
+    }
+
+    /** Lấy danh sách ID các kho trong claims (rỗng nếu token không có claim warehouseIds). */
+    public List<Long> warehouseIdsOf(Claims claims) {
+        List<?> list = claims.get(CLAIM_WAREHOUSE_IDS, List.class);
+        if (list == null) {
+            return List.of();
+        }
+        return list.stream()
+                .map(item -> item instanceof Number n ? n.longValue() : Long.parseLong(item.toString()))
+                .toList();
     }
 
     /**

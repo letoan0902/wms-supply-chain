@@ -1,4 +1,3 @@
-/* eslint-disable react-refresh/only-export-components */
 import { lazy, Suspense } from 'react'
 import { createBrowserRouter } from 'react-router-dom'
 import PageLoading from '../components/PageLoading'
@@ -48,6 +47,8 @@ export const router = createBrowserRouter([
           { path: 'warehouses', Component: lazy(() => import('../features/warehouses/WarehousesPage')) },
           // Quản lý danh mục hàng hóa, SKU & quy đổi đơn vị (WMS-07 - Sprint 1)
           { path: 'products', Component: lazy(() => import('../features/products/ProductsPage')) },
+          // Quản lý đối tác Nhà cung cấp & Công nợ (WMS-08.3 - Sprint 1 & 2)
+          { path: 'suppliers', Component: lazy(() => import('../features/suppliers/SuppliersPage')) },
           ...placeholderRoutes,
           { path: '*', element: <NotFoundPage /> },
         ],

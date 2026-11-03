@@ -1,0 +1,139 @@
+{
+  "_comment": "Topology RabbitMQ của WMS Supply Chain (WMS-02.1). File này được container rabbitmq-init nạp vào broker qua API quản trị mỗi lần docker compose up (xem import-definitions.sh). Tên exchange, queue và routing key phải khớp với hằng số trong backend/common vn.wms.common.messaging.WmsEvents; test WmsEventsDefinitionsTest kiểm tra điều đó. Quy ước: routing key <domain>.<action> (order.created), queue <service-nhận>.<nội-dung> (inventory.order-events). Chi tiết: docs/MESSAGING.md",
+  "vhosts": [
+    { "name": "/" }
+  ],
+  "exchanges": [
+    {
+      "name": "wms.events",
+      "vhost": "/",
+      "type": "topic",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    },
+    {
+      "name": "wms.dlx",
+      "vhost": "/",
+      "type": "topic",
+      "durable": true,
+      "auto_delete": false,
+      "internal": false,
+      "arguments": {}
+    }
+  ],
+  "queues": [
+    {
+      "name": "inventory.order-events",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    },
+    {
+      "name": "notification.order-events",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    },
+    {
+      "name": "notification.inventory-events",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    },
+    {
+      "name": "notification.alerts",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    },
+    {
+      "name": "wms.dead-letter",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    }
+  ],
+  "bindings": [
+    {
+      "source": "wms.events",
+      "vhost": "/",
+      "destination": "inventory.order-events",
+      "destination_type": "queue",
+      "routing_key": "order.created",
+      "arguments": {}
+    },
+    {
+      "source": "wms.events",
+      "vhost": "/",
+      "destination": "inventory.order-events",
+      "destination_type": "queue",
+      "routing_key": "order.dispatched",
+      "arguments": {}
+    },
+    {
+      "source": "wms.events",
+      "vhost": "/",
+      "destination": "notification.order-events",
+      "destination_type": "queue",
+      "routing_key": "order.#",
+      "arguments": {}
+    },
+    {
+      "source": "wms.events",
+      "vhost": "/",
+      "destination": "notification.inventory-events",
+      "destination_type": "queue",
+      "routing_key": "inventory.#",
+      "arguments": {}
+    },
+    {
+      "source": "wms.events",
+      "vhost": "/",
+      "destination": "notification.alerts",
+      "destination_type": "queue",
+      "routing_key": "alert.#",
+      "arguments": {}
+    },
+    {
+      "source": "wms.dlx",
+      "vhost": "/",
+      "destination": "wms.dead-letter",
+      "destination_type": "queue",
+      "routing_key": "#",
+      "arguments": {}
+    }
+  ],
+  "policies": [
+    {
+      "vhost": "/",
+      "name": "wms-dead-letter",
+      "pattern": "^(inventory|notification|order)\\.",
+      "apply-to": "queues",
+      "priority": 10,
+      "definition": {
+        "dead-letter-exchange": "wms.dlx"
+      }
+    },
+    {
+      "vhost": "/",
+      "name": "wms-dead-letter-retention",
+      "pattern": "^wms\\.dead-letter$",
+      "apply-to": "queues",
+      "priority": 20,
+      "definition": {
+        "message-ttl": 604800000,
+        "max-length": 10000,
+        "overflow": "drop-head"
+      }
+    }
+  ],
+  "parameters": [],
+  "topic_permissions": []
+}

@@ -1,160 +1,29 @@
 package vn.wms.auth;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import org.junit.jupiter.api.BeforeEach;
+import io.jsonwebtoken.Claims;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.http.MediaType;
-import org.springframework.security.crypto.password.PasswordEncoder;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.web.servlet.MockMvc;
-import vn.wms.auth.dto.RegisterRequest;
-import vn.wms.auth.entity.Role;
-import vn.wms.auth.entity.User;
-import vn.wms.auth.repository.RoleRepository;
-import vn.wms.auth.repository.UserRepository;
-import vn.wms.auth.security.JwtService;
-import vn.wms.common.constant.Roles;
+import org.springframework.transaction.annotation.Transactional;
+import vn.wms.auth.dto.auth.RegisterRequest;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.cookie;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Kiểm tra toàn diện luồng xác thực: Đăng nhập DB thật, phân quyền RBAC,
- * đăng ký tài khoản (Admin only), đăng xuất POST (blacklist Redis), và Rate-limit.
+ * Kiểm thử toàn diện nghiệp vụ Xác thực (Authentication & JWT):
+ * Đăng nhập DB thật, phân quyền RBAC, kiểm tra rate-limit, làm mới token,
+ * xoay vòng Refresh Token (RTR), thu hồi token khi logout, và đăng ký tài khoản (Admin only).
  */
-@SpringBootTest
-@AutoConfigureMockMvc
-@ActiveProfiles("test")
-class AuthServiceApplicationTest {
-
-    @Autowired
-    private MockMvc mockMvc;
-
-    @Autowired
-    private ObjectMapper objectMapper;
-
-    @Autowired
-    private JwtService jwtService;
-
-    @Autowired
-    private UserRepository userRepository;
-
-    @Autowired
-    private RoleRepository roleRepository;
-
-    @Autowired
-    private PasswordEncoder passwordEncoder;
-
-    @MockBean(name = "redisTemplate")
-    private RedisTemplate<String, String> redisTemplate;
-
-    @MockBean
-    private ValueOperations<String, String> valueOperations;
-
-    private final Map<String, String> mockRedisStore = new HashMap<>();
-
-    @BeforeEach
-    void setUp() {
-        mockRedisStore.clear();
-
-        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-
-        // Giả lập Redis: hasKey, delete, get, set, increment trong bộ nhớ test
-        when(redisTemplate.hasKey(anyString())).thenAnswer(invocation -> {
-            String key = invocation.getArgument(0);
-            return mockRedisStore.containsKey(key);
-        });
-
-        when(redisTemplate.delete(anyString())).thenAnswer(invocation -> {
-            String key = invocation.getArgument(0);
-            return mockRedisStore.remove(key) != null;
-        });
-
-        when(valueOperations.get(anyString())).thenAnswer(invocation -> {
-            String key = invocation.getArgument(0);
-            return mockRedisStore.get(key);
-        });
-
-        doAnswer(invocation -> {
-            String key = invocation.getArgument(0);
-            String value = invocation.getArgument(1);
-            mockRedisStore.put(key, value);
-            return null;
-        }).when(valueOperations).set(anyString(), anyString(), any());
-
-        when(valueOperations.increment(anyString())).thenAnswer(invocation -> {
-            String key = invocation.getArgument(0);
-            String current = mockRedisStore.get(key);
-            long count = (current != null) ? Long.parseLong(current) + 1 : 1L;
-            mockRedisStore.put(key, String.valueOf(count));
-            return count;
-        });
-
-        // Khởi tạo các vai trò chuẩn của hệ thống
-        for (String roleName : Roles.ALL) {
-            if (roleRepository.findByName(roleName).isEmpty()) {
-                Role role = new Role();
-                role.setName(roleName);
-                role.setDescription("Role " + roleName);
-                roleRepository.save(role);
-            }
-        }
-
-        // Seed tài khoản admin
-        if (userRepository.findByUsername("admin").isEmpty()) {
-            User admin = new User();
-            admin.setUsername("admin");
-            admin.setEmail("admin@wms.vn");
-            admin.setPasswordHash(passwordEncoder.encode("Demopassword"));
-            admin.setFullName("Admin User");
-            admin.setEnabled(true);
-            admin.setRoles(Set.of(roleRepository.findByName(Roles.ADMIN).orElseThrow()));
-            userRepository.save(admin);
-        }
-
-        // Seed tài khoản staff
-        if (userRepository.findByUsername("staff").isEmpty()) {
-            User staff = new User();
-            staff.setUsername("staff");
-            staff.setEmail("staff@wms.vn");
-            staff.setPasswordHash(passwordEncoder.encode("Demopassword"));
-            staff.setFullName("Staff User");
-            staff.setEnabled(true);
-            staff.setRoles(Set.of(roleRepository.findByName(Roles.WAREHOUSE_STAFF).orElseThrow()));
-            userRepository.save(staff);
-        }
-    }
-
-    private String loginJson(String username, String password) throws Exception {
-        return objectMapper.writeValueAsString(Map.of("username", username, "password", password));
-    }
-
-    private String loginAndGetToken(String username, String password) throws Exception {
-        String response = mockMvc.perform(post("/api/auth/login")
-                        .contentType(MediaType.APPLICATION_JSON)
-                        .content(loginJson(username, password)))
-                .andExpect(status().isOk())
-                .andReturn().getResponse().getContentAsString();
-        JsonNode data = objectMapper.readTree(response).path("data");
-        return data.path("accessToken").asText();
-    }
+@Transactional
+class AuthServiceApplicationTest extends BaseIntegrationTest {
 
     @Test
     void contextLoads() {
@@ -162,8 +31,15 @@ class AuthServiceApplicationTest {
     }
 
     @Test
+    void livenessProbeIsPublic() throws Exception {
+        mockMvc.perform(get("/actuator/health/liveness"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("UP"));
+    }
+
+    @Test
     void loginWithDatabaseAccountReturnsValidJwt() throws Exception {
-        mockMvc.perform(post("/api/auth/login")
+        String res = mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(loginJson("admin", "Demopassword")))
                 .andExpect(status().isOk())
@@ -171,7 +47,25 @@ class AuthServiceApplicationTest {
                 .andExpect(jsonPath("$.data.tokenType").value("Bearer"))
                 .andExpect(jsonPath("$.data.username").value("admin"))
                 .andExpect(jsonPath("$.data.roles[0]").value("ADMIN"))
-                .andExpect(jsonPath("$.data.refreshToken").isNotEmpty());
+                .andExpect(jsonPath("$.data.refreshToken").isNotEmpty())
+                .andExpect(cookie().exists("refreshToken"))
+                .andExpect(cookie().httpOnly("refreshToken", true))
+                .andReturn().getResponse().getContentAsString();
+
+        String token = objectMapper.readTree(res).path("data").path("accessToken").asText();
+        Claims claims = jwtService.parse(token);
+        assertThat(jwtService.warehouseIdsOf(claims)).containsExactlyInAnyOrder(1L, 2L);
+    }
+
+    @Test
+    void loginWithEmailReturnsValidJwt() throws Exception {
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(loginJson("admin@wms.vn", "Demopassword")))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.username").value("admin"))
+                .andExpect(jsonPath("$.data.roles[0]").value("ADMIN"));
     }
 
     @Test
@@ -202,6 +96,32 @@ class AuthServiceApplicationTest {
                         .content(loginJson("admin", badPassword)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("30 phút")));
+    }
+
+    @Test
+    void loginWithEmailExceedingMaxAttemptsLocksAccountAndBlocksUsernameLoginToo() throws Exception {
+        String badPassword = "wrong_password";
+        // Thử đăng nhập sai 4 lần đầu bằng EMAIL (admin@wms.vn)
+        for (int i = 0; i < 4; i++) {
+            mockMvc.perform(post("/api/auth/login")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(loginJson("admin@wms.vn", badPassword)))
+                    .andExpect(status().isUnauthorized());
+        }
+
+        // Lần thứ 5 sai bằng EMAIL -> Tài khoản admin bị khóa
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(loginJson("admin@wms.vn", badPassword)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("30 phút")));
+
+        // Sau khi bị khóa bằng email, thử đăng nhập lại bằng USERNAME (admin) dù đúng mật khẩu cũng phải bị chặn!
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(loginJson("admin", "Demopassword")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("tạm thời bị khóa")));
     }
 
     @Test
@@ -371,12 +291,5 @@ class AuthServiceApplicationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isForbidden());
-    }
-
-    @Test
-    void livenessProbeIsPublic() throws Exception {
-        mockMvc.perform(get("/actuator/health/liveness"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("UP"));
     }
 }

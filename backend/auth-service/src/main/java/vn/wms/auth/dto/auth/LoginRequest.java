@@ -1,4 +1,4 @@
-package vn.wms.auth.dto;
+package vn.wms.auth.dto.auth;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;

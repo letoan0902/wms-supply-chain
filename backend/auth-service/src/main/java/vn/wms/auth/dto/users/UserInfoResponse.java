@@ -1,4 +1,4 @@
-package vn.wms.auth.dto;
+package vn.wms.auth.dto.users;
 
 import java.util.List;
 

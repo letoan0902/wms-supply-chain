@@ -1,0 +1,112 @@
+# ============================================================================
+# Docker Compose override cho môi trường production: VPS Ubuntu 24.04, tên miền wms.toanmarket.me,
+# HTTPS tự động bằng Caddy (Let's Encrypt).
+#
+# File này KHÔNG chạy độc lập. Nó được ghép chồng lên docker-compose.yml ở thư mục gốc repository:
+#
+#   docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml config           # xem cấu hình sau khi ghép
+#   docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml up -d --build    # build và chạy
+#   docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml ps               # xem trạng thái
+#
+# Trên VPS nên dùng deploy/deploy.sh thay vì gõ tay. Luôn chạy từ thư mục gốc repository (nơi có file .env):
+# đường dẫn tương đối trong file này (./deploy/Caddyfile) được tính từ thư mục của docker-compose.yml, không phải từ file này.
+# Không chạy `docker compose up` chỉ với docker-compose.yml gốc trên VPS: cổng 80 và 8080 sẽ bị publish lại, và caddy bị coi là
+# container thừa. Dòng COMPOSE_FILE trong deploy/.env.production.example giúp các lệnh docker compose tự dùng cả hai file.
+#
+# Các thay đổi so với docker-compose.yml:
+#   1. Thêm service caddy: reverse proxy, tự xin và gia hạn chứng chỉ Let's Encrypt, tự chuyển HTTP sang HTTPS.
+#   2. frontend: bỏ publish cổng ra máy host. Cổng 80 thuộc về caddy, caddy gọi frontend qua mạng nội bộ wms-network.
+#   3. config-server: bỏ publish cổng 8888; api-gateway: chỉ publish trên 127.0.0.1:8080 (để kiểm tra sức khỏe từ chính máy chủ), không lộ cổng 8080 ra Internet.
+#   4. api-gateway: truyền thêm CORS_ALLOWED_ORIGINS, GATEWAY_JWT_ENABLED và các biến giới hạn tốc độ từ file .env.
+#      docker-compose.yml gốc chưa truyền các biến này vào container, nên chỉ khai báo trong .env thì không có tác dụng.
+#
+# Yêu cầu Docker Compose v2.24.4 trở lên vì file dùng hai thẻ YAML của Compose:
+#   !reset      xóa giá trị kế thừa từ file gốc (hỗ trợ từ v2.24.0)
+#   !override   thay thế hoàn toàn thay vì cộng dồn với file gốc (hỗ trợ từ v2.24.4)
+# Lý do cần hai thẻ này: khi ghép file, Compose cộng dồn danh sách ports. Chỉ khai báo `ports: []` thì không gỡ được cổng cũ,
+# còn khai báo `ports: ["127.0.0.1:8080:8080"]` mà không có thẻ thì "8080:8080" của file gốc vẫn còn (hai cổng cùng được publish).
+# Compose cũ hơn không hiểu hai thẻ này: có thể báo lỗi YAML hoặc bỏ qua chúng, khiến cổng 80 và 8080 vẫn bị publish. Hãy nâng cấp Compose thay vì sửa file (deploy.sh kiểm tra phiên bản trước khi chạy).
+# ============================================================================
+
+services:
+  # --------------------------------------------------------------------------
+  # Caddy: điểm vào duy nhất từ Internet (cổng 80 và 443). Cấu hình ở deploy/Caddyfile.
+  # Hai biến DOMAIN và ACME_EMAIL được truyền vào container để Caddyfile đọc bằng {$DOMAIN} và {$ACME_EMAIL}.
+  # --------------------------------------------------------------------------
+  caddy:
+    image: caddy:2-alpine
+    container_name: wms-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"        # HTTP: xác thực ACME HTTP-01 và chuyển hướng sang HTTPS
+      - "443:443"      # HTTPS (TCP)
+      - "443:443/udp"  # HTTP/3 (QUIC)
+    environment:
+      DOMAIN: ${DOMAIN:-wms.toanmarket.me}
+      ACME_EMAIL: ${ACME_EMAIL:?Thiếu ACME_EMAIL trong file .env}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data       # chứng chỉ TLS và tài khoản ACME: không xóa volume này
+      - caddy_config:/config
+    networks:
+      - wms-network
+    depends_on:
+      frontend:
+        condition: service_healthy
+
+  # --------------------------------------------------------------------------
+  # frontend: chỉ caddy gọi tới qua mạng nội bộ (http://frontend:80), không publish cổng ra máy host.
+  # Nginx trong frontend vẫn chuyển /api/ tới api-gateway như cấu hình gốc.
+  # --------------------------------------------------------------------------
+  frontend:
+    ports: !reset []
+    # Khai báo lại healthcheck nhẹ cho frontend (wget có sẵn trong nginx:alpine) để caddy chỉ khởi động khi nginx đã phục vụ được trang.
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 10s
+
+  # --------------------------------------------------------------------------
+  # rabbitmq: lệnh rabbitmq-diagnostics ping có lúc mất hơn 10 giây trên máy chủ, nới thời gian chờ của healthcheck
+  # để container không bị đánh dấu unhealthy dù broker vẫn hoạt động bình thường.
+  # --------------------------------------------------------------------------
+  rabbitmq:
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 30s
+      timeout: 30s
+      retries: 5
+      start_period: 60s
+
+  # --------------------------------------------------------------------------
+  # config-server: không publish cổng 8888 ra máy host (file gốc publish 127.0.0.1:8888 để debug). Trên VPS cổng này
+  # có thể đã bị tiến trình khác chiếm (ví dụ một phiên SSH forward), và các service gọi config-server qua mạng nội bộ.
+  # --------------------------------------------------------------------------
+  config-server:
+    ports: !reset []
+
+  # --------------------------------------------------------------------------
+  # api-gateway: chỉ nghe trên loopback của máy chủ. Người dùng đi qua caddy -> frontend -> /api/.
+  # --------------------------------------------------------------------------
+  api-gateway:
+    ports: !override
+      - "127.0.0.1:8080:8080"
+    environment:
+      # Origin của giao diện web, phân tách bằng dấu phẩy nếu có nhiều origin. Trình duyệt gửi header Origin
+      # https://<DOMAIN> kèm các request POST/PUT/DELETE (ví dụ đăng nhập), trong khi gateway chỉ thấy request HTTP nội bộ,
+      # nên gateway so khớp Origin với danh sách này và trả 403 nếu không có. Mặc định lấy theo DOMAIN.
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-https://${DOMAIN:-wms.toanmarket.me}}
+      # Kiểm tra JWT tập trung tại gateway: mọi API (trừ /api/auth/login và /actuator/**) cần Bearer token hợp lệ,
+      # đồng thời gateway gắn X-User-Name để các service ghi người tạo và người sửa. Mặc định trong application.yml của
+      # api-gateway là false (chỉ phù hợp khi phát triển), nên production phải bật ở đây.
+      GATEWAY_JWT_ENABLED: ${GATEWAY_JWT_ENABLED:-true}
+      # Giới hạn tốc độ (token bucket trên Redis). Giá trị mặc định giữ đồng bộ với application.yml của api-gateway.
+      RATE_LIMIT_ENABLED: ${RATE_LIMIT_ENABLED:-true}
+      RATE_LIMIT_REPLENISH_RATE: ${RATE_LIMIT_REPLENISH_RATE:-20}
+      RATE_LIMIT_BURST_CAPACITY: ${RATE_LIMIT_BURST_CAPACITY:-40}
+
+volumes:
+  caddy_data:
+  caddy_config:

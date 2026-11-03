@@ -81,6 +81,7 @@ gateway:
     secret: ${JWT_SECRET:change_me_dev_only_jwt_secret_key_min_32_bytes}
     public-paths:
       - /api/auth/login
+      - /api/auth/refresh
       - /actuator/**
   rate-limit:
     # Tắt (RATE_LIMIT_ENABLED=false) khi chạy kiểm thử tải JMeter (WMS-19.2) để gateway không chặn kịch bản.

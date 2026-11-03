@@ -1,6 +1,8 @@
 package vn.wms.auth.entity;
 
+import jakarta.persistence.CollectionTable;
 import jakarta.persistence.Column;
+import jakarta.persistence.ElementCollection;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
@@ -54,4 +56,19 @@ public class User extends AuditableEntity {
             joinColumns = @JoinColumn(name = "user_id"),
             inverseJoinColumns = @JoinColumn(name = "role_id"))
     private Set<Role> roles = new HashSet<>();
+
+    /** Danh sách ID các kho mà người dùng được phân quyền truy cập. */
+    @ElementCollection(fetch = FetchType.LAZY)
+    @CollectionTable(name = "user_warehouses",
+            joinColumns = @JoinColumn(name = "user_id"))
+    @Column(name = "warehouse_id", nullable = false)
+    private Set<Long> warehouseIds = new HashSet<>();
+
+    public void setRoles(Set<Role> roles) {
+        this.roles = (roles != null) ? new HashSet<>(roles) : new HashSet<>();
+    }
+
+    public void setWarehouseIds(Set<Long> warehouseIds) {
+        this.warehouseIds = (warehouseIds != null) ? new HashSet<>(warehouseIds) : new HashSet<>();
+    }
 }

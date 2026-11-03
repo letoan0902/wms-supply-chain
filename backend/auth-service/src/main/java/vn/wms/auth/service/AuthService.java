@@ -1,28 +1,23 @@
 package vn.wms.auth.service;
 
 import io.jsonwebtoken.Claims;
-import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.orm.hibernate5.SpringSessionContext;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.transaction.annotation.Transactional;
-import vn.wms.auth.dto.LoginRequest;
-import vn.wms.auth.dto.LoginResponse;
-import vn.wms.auth.dto.RefreshTokenRequest;
-import vn.wms.auth.dto.RefreshTokenResponse;
-import vn.wms.auth.dto.RegisterRequest;
-import vn.wms.auth.dto.RegisterResponse;
-import vn.wms.auth.dto.UserInfoResponse;
+import vn.wms.auth.dto.auth.LoginRequest;
+import vn.wms.auth.dto.auth.LoginResponse;
+import vn.wms.auth.dto.auth.RefreshTokenRequest;
+import vn.wms.auth.dto.auth.RefreshTokenResponse;
+import vn.wms.auth.dto.auth.RegisterRequest;
+import vn.wms.auth.dto.auth.RegisterResponse;
+import vn.wms.auth.dto.users.UserInfoResponse;
 import vn.wms.auth.entity.Role;
 import vn.wms.auth.entity.User;
-import vn.wms.auth.exceptions.UserNotExistedException;
 import vn.wms.auth.repository.RoleRepository;
 import vn.wms.auth.repository.UserRepository;
 import vn.wms.auth.security.JwtService;
@@ -35,7 +30,6 @@ import java.time.Duration;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -85,17 +79,19 @@ public class AuthService {
 
     @Transactional(readOnly = true)
     public LoginResponse login(LoginRequest request, String clientIp) {
-        String username = request.username();
+        String identifier = request.username();
 
-        // 1. Kiểm tra khóa 2 lớp (IP & Tài khoản) trước khi xử lý
-        checkLocks(clientIp, username);
-
-        // 2. Tìm người dùng và so khớp mật khẩu
-        User userLogin = userRepository.findByUsername(username).orElse(null);
+        // 1. Tìm người dùng theo username HOẶC email để xác định tên người dùng chuẩn (canonical username)
+        User userLogin = userRepository.findByUsernameOrEmail(identifier).orElse(null);
         boolean isUserExist = (userLogin != null);
+        String canonicalUsername = isUserExist ? userLogin.getUsername() : identifier;
 
+        // 2. Kiểm tra khóa 2 lớp (IP & Tài khoản) theo canonicalUsername trước khi xác thực mật khẩu
+        checkLocks(clientIp, canonicalUsername);
+
+        // 3. So khớp mật khẩu
         if (!isUserExist || !passwordEncoder.matches(request.password(), userLogin.getPasswordHash())) {
-            recordFailedAttempt(clientIp, username, isUserExist);
+            recordFailedAttempt(clientIp, canonicalUsername, isUserExist);
         }
 
         // 3. Kiểm tra tài khoản có bị vô hiệu hóa bởi Admin hay không
@@ -104,15 +100,16 @@ public class AuthService {
         }
 
         // 4. Đăng nhập thành công -> Reset bộ đếm số lần nhập sai của cả IP và Tài khoản
-        resetFailedAttempts(clientIp, username);
+        resetFailedAttempts(clientIp, canonicalUsername);
 
         // 5. Lấy danh sách tên vai trò thực tế từ database
         List<String> roles = userLogin.getRoles().stream()
                 .map(Role::getName)
                 .toList();
 
-        // 6. Tạo Access Token & Refresh Token
-        String accessToken = jwtService.generateAccessToken(userLogin.getId(), userLogin.getUsername(), roles);
+        // 6. Tạo Access Token (kèm warehouseIds) & Refresh Token
+        String accessToken = jwtService.generateAccessToken(
+                userLogin.getId(), userLogin.getUsername(), roles, userLogin.getWarehouseIds());
         String refreshToken = jwtService.generateRefreshToken(userLogin.getUsername());
 
         // 7. Lưu Refresh Token vào Redis với TTL
@@ -267,8 +264,9 @@ public class AuthService {
                 .map(Role::getName)
                 .toList();
 
-        // 4. Phát hành Access Token mới
-        String newAccessToken = jwtService.generateAccessToken(user.getId(), user.getUsername(), roles);
+        // 4. Phát hành Access Token mới (kèm warehouseIds)
+        String newAccessToken = jwtService.generateAccessToken(
+                user.getId(), user.getUsername(), roles, user.getWarehouseIds());
 
         // 5. Xoay vòng Refresh Token (Refresh Token Rotation - RTR) để nâng cao bảo mật
         String newRefreshToken = jwtService.generateRefreshToken(user.getUsername());

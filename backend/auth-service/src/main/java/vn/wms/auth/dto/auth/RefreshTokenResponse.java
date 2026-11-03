@@ -1,4 +1,4 @@
-package vn.wms.auth.dto;
+package vn.wms.auth.dto.auth;
 
 /**
  * Phản hồi sau khi làm mới Access Token thành công.

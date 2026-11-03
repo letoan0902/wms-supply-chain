@@ -1,4 +1,4 @@
-package vn.wms.auth.dto;
+package vn.wms.auth.dto.auth;
 
 import java.time.Instant;
 import java.util.Set;

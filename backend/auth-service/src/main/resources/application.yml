@@ -12,6 +12,7 @@ spring:
     exclude:
       # Không dùng user in-memory mặc định của Spring Boot (tránh in "generated security password" ra log).
       - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
+#  đã có cấu hình biến môi trường ngầm (tại workspace.xml)
   datasource:
     url: ${DB_URL:jdbc:mysql://localhost:3306/auth_db?createDatabaseIfNotExist=true}
     username: ${DB_USERNAME:root}

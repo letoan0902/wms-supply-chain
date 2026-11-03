@@ -3,8 +3,11 @@
 WMS Supply Chain là hệ thống quản lý kho và chuỗi cung ứng xây dựng theo kiến trúc microservice, giúp doanh nghiệp
 kiểm soát hàng hóa từ lúc đặt mua, nhập kho, lưu kho, điều chuyển cho tới lúc bán và xuất kho.
 
-Trạng thái hiện tại: **Sprint 1 (20/10 - 23/10/2026): khởi tạo** repository, khung backend, khung frontend,
-Docker Compose, CI và tài liệu. Kế hoạch chi tiết xem [docs/SPRINT_PLAN.md](docs/SPRINT_PLAN.md).
+Trạng thái hiện tại (03/11/2026): hạ tầng, xác thực và phân quyền, danh mục hàng hóa, đa kho và vị trí đã xong và đang chạy tại
+https://wms.toanmarket.me; đang làm trao đổi sự kiện RabbitMQ, đơn mua, đơn bán và nhập xuất kho. Từ 04/11 hệ thống mở rộng
+theo mô hình SaaS: nhiều doanh nghiệp tự đăng ký dùng chung, dữ liệu tách biệt theo doanh nghiệp, dùng thử 30 ngày, gói dịch vụ
+thanh toán qua PayOS, AI nhập liệu từ tài liệu và trợ lý AI. Kế hoạch chi tiết: [docs/SAAS_PLAN.md](docs/SAAS_PLAN.md)
+(Master Plan của nhóm) và [docs/SPRINT_PLAN.md](docs/SPRINT_PLAN.md) (kế hoạch sprint ban đầu).
 
 ## Bài toán
 
@@ -21,12 +24,12 @@ báo cáo và dashboard, phân quyền người dùng, thông báo; mọi biến
 
 ## Thành viên và vai trò
 
-| Thành viên | Vai trò | Phụ trách chính |
+| Thành viên | Vai trò | Phụ trách chính (theo Master Plan hiện tại) |
 | --- | --- | --- |
-| Lê Phú Toàn | TechLead, Core Inventory và Warehouse | Kiến trúc, chuẩn code và quy ước API, Git flow, review và merge PR; inventory-service: đa kho, vị trí Zone/Rack/Bin, tồn kho, điều chuyển, kiểm kê, cảnh báo tồn |
-| Phạm Phương Anh | Leader, Scrum Master; DevOps và nền tảng microservice, bảo mật, QA, AI nâng cao | Config Server, Eureka, API Gateway, Docker và Docker Compose, CI/CD, logging, backup, kiểm thử tích hợp, quản lý board và tiến độ |
-| Lê Phương Linh | Core Supply Chain và Master Data | product-service (SKU, đơn vị tính, barcode) và order-service (nhà cung cấp, khách hàng, PO và GRN, SO và GDN); tài liệu yêu cầu chức năng |
-| Trần Đăng Việt | Auth và RBAC, Báo cáo và Dashboard, Notification | auth-service (JWT, RBAC) và notification-service (KPI, báo cáo, email cảnh báo); Executive Dashboard; tài liệu yêu cầu phi chức năng |
+| Lê Phú Toàn | TechLead, Scrum Master, DevOps | Kiến trúc, quy ước và review PR; Config Server, Eureka, API Gateway (JWT, rate limiting), Docker Compose, CI/CD và GHCR, triển khai VPS với HTTPS; RabbitMQ và WebSocket; nền tảng đa doanh nghiệp, giới hạn gói, thanh toán PayOS, ai-service (AI nhập liệu, trợ lý AI), API key tích hợp, rà soát giao diện tuần cuối |
+| Phạm Phương Anh | Backend và Frontend: Auth, RBAC | auth-service: đăng nhập, refresh token, chống dò mật khẩu, quản lý người dùng và phân quyền theo kho; đăng ký doanh nghiệp, gói dịch vụ, email xác nhận; dashboard KPI, báo cáo xuất nhập tồn, truy vết lô, cảnh báo; kiểm thử bảo mật |
+| Lê Phương Linh | Backend và Frontend: Kho và vị trí | inventory-service: đa kho, vị trí Zone/Rack/Bin, tem vị trí, tồn kho thời gian thực, điều chuyển, kiểm kê và điều chỉnh, cache Redis, tối ưu MySQL; trang giới thiệu, bảng giá, trang gói dịch vụ và thanh toán |
+| Trần Đăng Việt | Backend và Frontend: Danh mục, đối tác, đơn hàng | product-service: SKU, đơn vị quy đổi, barcode; order-service: nhà cung cấp, khách hàng, PO, GRN, SO, GDN, lô và hạn dùng; xuất Excel; màn hình nhập dữ liệu bằng AI; kiểm thử E2E luồng mua nhập |
 
 ## Công nghệ
 

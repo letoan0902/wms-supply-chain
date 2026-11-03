@@ -104,3 +104,20 @@ Khối lượng thêm: Toàn 11 ngày (có trợ lý AI nên nhận nhiều hơn
 2. Chốt tên gói, giá tiền và giới hạn (mục 3) để Linh làm bảng giá ngay 05/11.
 3. PayOS: code làm trước với chế độ giả lập; khi Toàn có key thì tự điền PAYOS_CLIENT_ID, PAYOS_API_KEY, PAYOS_CHECKSUM_KEY vào file .env trên máy chủ (không gửi qua chat, không đưa vào repo) rồi tắt PAYOS_MOCK.
 4. Jira (epic "EPIC 10: THƯƠNG MẠI HÓA SAAS & AI", task WMS-22 đến WMS-26), Master Plan v3, SRS và README được cập nhật ngày 03/11 theo bản này; 22.1 bắt đầu 06/11 như lịch.
+
+## 8. Mã Jira tương ứng (tạo ngày 03/11/2026)
+
+| Mã Master Plan | Jira | Mã Master Plan | Jira | Mã Master Plan | Jira |
+| --- | --- | --- | --- | --- | --- |
+| EPIC 10 | TASK-131 | WMS-22 | TASK-132 | WMS-22.1 | TASK-133 |
+| WMS-22.2 | TASK-134 | WMS-22.3 | TASK-135 | WMS-22.4a | TASK-136 |
+| WMS-22.4b | TASK-137 | WMS-22.4c | TASK-138 | WMS-22.5 | TASK-139 |
+| WMS-23 | TASK-140 | WMS-23.0 | TASK-141 | WMS-23.1 | TASK-142 |
+| WMS-23.2 | TASK-143 | WMS-23.3a | TASK-144 | WMS-23.3b | TASK-145 |
+| WMS-23.4 | TASK-146 | WMS-23.5a | TASK-147 | WMS-23.5b | TASK-148 |
+| WMS-23.6 | TASK-149 | WMS-24 | TASK-150 | WMS-24.1 | TASK-151 |
+| WMS-24.2 | TASK-152 | WMS-24.3 | TASK-153 | WMS-24.4 | TASK-154 |
+| WMS-25 | TASK-155 | WMS-25.1 | TASK-156 | WMS-25.2 | TASK-157 |
+| WMS-26 | TASK-158 | WMS-26.1 | TASK-159 |  |  |
+
+Jira: https://plinhle26.atlassian.net/jira/software/projects/TASK/list (lọc nhãn SaaS).

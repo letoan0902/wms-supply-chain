@@ -10,6 +10,7 @@ Mục lục tài liệu của dự án. Hướng dẫn chạy dự án và thôn
 | [SPRINT_PLAN.md](SPRINT_PLAN.md) | Kế hoạch bốn sprint, mục tiêu từng sprint theo phân hệ và người phụ trách | Khi lập kế hoạch và theo dõi tiến độ |
 | [CONVENTIONS.md](CONVENTIONS.md) | Quy ước đặt tên API, mã lỗi, định dạng response, chuẩn code Java và TypeScript | Trước khi viết code và khi review |
 | [CI_CD.md](CI_CD.md) | Các job GitHub Actions, kiểm tra bắt buộc trước khi merge, tên và thẻ image trên GHCR, cách kéo image | Khi sửa workflow CI, khi cần image để triển khai |
+| [MESSAGING.md](MESSAGING.md) | Sự kiện RabbitMQ: exchange `wms.events`, quy ước routing key và queue, danh sách sự kiện, dead-letter, cách thêm sự kiện mới, tài khoản broker | Khi publish hoặc nhận sự kiện giữa các service, khi thêm sự kiện mới |
 | [../deploy/README.md](../deploy/README.md) | Hướng dẫn triển khai lên VPS Ubuntu bằng Docker Compose và Caddy: cài Docker, DNS, HTTPS tự động, script `deploy.sh`, sao lưu MySQL, khắc phục sự cố | Khi triển khai hoặc cập nhật máy chủ production |
 | [../CONTRIBUTING.md](../CONTRIBUTING.md) | Git flow, Conventional Commits, Pull Request, quy trình board, Definition of Done | Trước khi tạo nhánh và mở Pull Request |
 
@@ -19,7 +20,7 @@ Mục lục tài liệu của dự án. Hướng dẫn chạy dự án và thôn
 | --- | --- |
 | Sơ đồ ERD của từng schema (`auth_db`, `product_db`, `inventory_db`, `order_db`, `notification_db`) | Sprint 2 |
 | Tài liệu API của từng service (Swagger/OpenAPI) | Từ Sprint 2, cập nhật cùng tính năng |
-| Danh sách sự kiện RabbitMQ (exchange, routing key, nội dung message) | Sprint 3 |
+| Cấu trúc JSON chi tiết của từng sự kiện RabbitMQ (bổ sung vào MESSAGING.md) | Sprint 3 |
 | Hướng dẫn triển khai và vận hành | Sprint 4 |
 
 ## Quy ước viết tài liệu

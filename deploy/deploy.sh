@@ -287,13 +287,14 @@ build_images() {
   compose build --pull
 }
 
-# In mỗi container một dòng: <service>|<trạng thái>|<health> (health rỗng nếu container không có healthcheck)
+# In mỗi container một dòng: <service>|<trạng thái>|<health>|<mã thoát> (health rỗng nếu container không có healthcheck).
+# Container chạy một lần rồi kết thúc (rabbitmq-init) được coi là ổn khi trạng thái exited và mã thoát 0.
 container_states() {
   local -a ids=()
   mapfile -t ids < <(compose ps --all --quiet 2> /dev/null)
   (( ${#ids[@]} > 0 )) || return 0
   docker inspect \
-    --format '{{index .Config.Labels "com.docker.compose.service"}}|{{.State.Status}}|{{if .State.Health}}{{.State.Health.Status}}{{end}}' \
+    --format '{{index .Config.Labels "com.docker.compose.service"}}|{{.State.Status}}|{{if .State.Health}}{{.State.Health.Status}}{{end}}|{{.State.ExitCode}}' \
     "${ids[@]}" 2> /dev/null || true
 }
 
@@ -301,8 +302,8 @@ show_diagnostics() {
   warn "Trạng thái các container:"
   compose ps --all || true
   local svc state health
-  while IFS='|' read -r svc state health; do
-    if [[ -n "$svc" ]] && ! [[ "$state" == "running" && ( "$health" == "healthy" || -z "$health" ) ]]; then
+  while IFS='|' read -r svc state health exit_code; do
+    if [[ -n "$svc" ]] && ! [[ ( "$state" == "running" && ( "$health" == "healthy" || -z "$health" ) ) || ( "$state" == "exited" && "$exit_code" == "0" ) ]]; then
       warn "Log của $svc (40 dòng cuối):"
       compose logs --tail 40 "$svc" || true
     fi
@@ -334,7 +335,7 @@ wait_healthy() {
     if [[ -z "$states" ]]; then
       pending="(chưa đọc được trạng thái container)"
     else
-      pending="$(awk -F'|' 'NF > 0 && !($2 == "running" && ($3 == "healthy" || $3 == "")) { printf "%s%s", (n++ ? ", " : ""), $1 }' <<< "$states")"
+      pending="$(awk -F'|' 'NF > 0 && !(($2 == "running" && ($3 == "healthy" || $3 == "")) || ($2 == "exited" && $4 == "0")) { printf "%s%s", (n++ ? ", " : ""), $1 }' <<< "$states")"
     fi
     if [[ -z "$pending" ]]; then
       log "Tất cả container đã chạy và healthy."

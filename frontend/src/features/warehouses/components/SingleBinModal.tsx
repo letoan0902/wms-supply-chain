@@ -57,7 +57,7 @@ export default function SingleBinModal({
 
   return (
     <Modal
-      title="Thêm vị trí Ô/Kệ đơn lẻ (WMS-06.1)"
+      title="Thêm vị trí Ô/Kệ đơn lẻ"
       open={open}
       onCancel={onClose}
       onOk={() => form.submit()}

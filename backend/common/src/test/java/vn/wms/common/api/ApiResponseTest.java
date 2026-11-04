@@ -40,6 +40,7 @@ class ApiResponseTest {
         assertThat(ErrorCode.fromHttpStatus(404)).isEqualTo(ErrorCode.NOT_FOUND);
         assertThat(ErrorCode.fromHttpStatus(400)).isEqualTo(ErrorCode.BAD_REQUEST);
         assertThat(ErrorCode.fromHttpStatus(418)).isEqualTo(ErrorCode.BAD_REQUEST);
-        assertThat(ErrorCode.fromHttpStatus(503)).isEqualTo(ErrorCode.INTERNAL_ERROR);
+        assertThat(ErrorCode.fromHttpStatus(503)).isEqualTo(ErrorCode.SERVICE_UNAVAILABLE);
+        assertThat(ErrorCode.fromHttpStatus(502)).isEqualTo(ErrorCode.INTERNAL_ERROR);
     }
 }

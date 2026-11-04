@@ -1,5 +1,8 @@
 package vn.wms.common.messaging.event;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.List;
@@ -21,11 +24,27 @@ import java.util.List;
  * @param createdAt     thời điểm lập đơn
  * @param items         các dòng hàng
  */
-public record OrderCreatedEvent(Long orderId, String orderNumber, OrderType orderType, String status, Long supplierId,
-                                Long customerId, Long warehouseId, String warehouseName, BigDecimal totalAmount,
-                                String createdBy, Instant createdAt, List<OrderLine> items) {
+@JsonIgnoreProperties(ignoreUnknown = true)
+public record OrderCreatedEvent(
+        Long orderId,
+        @JsonAlias({"poNumber", "soNumber", "orderNumber"}) String orderNumber,
+        OrderType orderType,
+        String status,
+        Long supplierId,
+        Long customerId,
+        Long warehouseId,
+        String warehouseName,
+        BigDecimal totalAmount,
+        String createdBy,
+        @JsonAlias({"timestamp", "createdAt"}) Instant createdAt,
+        List<OrderLine> items
+) {
 
     public OrderCreatedEvent {
         items = items == null ? List.of() : List.copyOf(items);
+        if (orderType == null) {
+            orderType = (supplierId != null || (orderNumber != null && orderNumber.startsWith("PO")))
+                    ? OrderType.PURCHASE : OrderType.SALES;
+        }
     }
 }

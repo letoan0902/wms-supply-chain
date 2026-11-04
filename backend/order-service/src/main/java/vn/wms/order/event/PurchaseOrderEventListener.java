@@ -8,6 +8,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 import vn.wms.common.messaging.WmsEvents;
+import java.util.List;
 
 /**
  * Listener nhận sự kiện Spring sau khi transaction commit thành công (@TransactionalEventListener AFTER_COMMIT),
@@ -29,7 +30,27 @@ public class PurchaseOrderEventListener {
         }
 
         try {
-            rabbitTemplate.convertAndSend(WmsEvents.EXCHANGE, WmsEvents.RoutingKeys.ORDER_CREATED, event);
+            List<vn.wms.common.messaging.event.OrderLine> lines = event.items() == null ? java.util.List.of() :
+                    event.items().stream()
+                            .map(it -> new vn.wms.common.messaging.event.OrderLine(
+                                    it.productId(), it.skuCode(), it.productName(), it.quantity(), it.uom(), it.unitPrice()))
+                            .toList();
+
+            vn.wms.common.messaging.event.OrderCreatedEvent orderCreatedEvent = new vn.wms.common.messaging.event.OrderCreatedEvent(
+                    event.orderId(),
+                    event.poNumber(),
+                    vn.wms.common.messaging.event.OrderType.PURCHASE,
+                    event.status(),
+                    event.supplierId(),
+                    null,
+                    event.warehouseId(),
+                    event.warehouseName(),
+                    event.totalAmount(),
+                    "SYSTEM",
+                    event.timestamp(),
+                    lines
+            );
+            rabbitTemplate.convertAndSend(WmsEvents.EXCHANGE, WmsEvents.RoutingKeys.ORDER_CREATED, orderCreatedEvent);
             log.info("Đã gửi sự kiện '{}' sau commit cho đơn mua hàng: {}",
                     WmsEvents.RoutingKeys.ORDER_CREATED, event.poNumber());
         } catch (Exception e) {

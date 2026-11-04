@@ -205,11 +205,6 @@ export default function LoginPage() {
               Đăng nhập
             </Button>
           </Form>
-
-          {/* Hướng dẫn tài khoản kiểm thử mặc định */}
-          <div className="mt-5 rounded-lg border border-slate-100 bg-slate-50/70 p-3 text-center text-xs text-slate-500">
-            Tài khoản mặc định: <span className="font-semibold text-slate-700">admin</span> | Mật khẩu: <span className="font-semibold text-slate-700">Demopassword</span>
-          </div>
         </div>
 
         {/* Chân trang bản quyền */}

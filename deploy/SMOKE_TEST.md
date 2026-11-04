@@ -11,8 +11,9 @@ Yêu cầu: `bash`, `curl` và `python3` (Ubuntu có sẵn). Không có `python3
 Script không chứa mật khẩu. Thứ tự lấy mật khẩu: tham số thứ ba, biến môi trường `SMOKE_PASSWORD`, hoặc hỏi (không hiện ký tự) khi chạy trong terminal.
 
 Các tài khoản seed do Flyway tạo từ `backend/auth-service/src/main/resources/db/migration/V2__seed_default_accounts.sql`
-(`admin`, `manager`, `staff`, `purchasing`, `sales`, `accountant`, `demo`) có chung mật khẩu mặc định `Demopassword`, ghi trong chú thích đầu file migration đó.
-Nếu đã đổi mật khẩu theo mục 7 của [README.md](README.md) thì dùng mật khẩu mới.
+(`admin`, `manager`, `staff`, `purchasing`, `sales`, `accountant`; tài khoản `demo` đã bị `V4__remove_demo_account.sql` xóa) có mật khẩu ban đầu
+ghi trong chú thích đầu file V2. Máy chủ đã chạy `deploy/rotate-seed-passwords.sh` (mục 7 của [README.md](README.md)) thì dùng mật khẩu mới
+trong `/root/wms-seed-accounts.txt`.
 
 ## 2. Cách chạy
 

@@ -265,8 +265,9 @@ SMOKE_PASSWORD='<mật khẩu tài khoản admin>' bash deploy/smoke-test.sh htt
 
 ## 7. Tài khoản đăng nhập mẫu
 
-Lần đầu auth-service khởi động, Flyway chạy `V2__seed_default_accounts.sql` (`backend/auth-service/src/main/resources/db/migration/`) và tạo các tài khoản sau,
-mật khẩu của tất cả là `Demopassword`:
+Lần đầu auth-service khởi động, Flyway chạy `V2__seed_default_accounts.sql` (`backend/auth-service/src/main/resources/db/migration/`) và tạo 6 tài khoản nghiệp vụ mẫu,
+mỗi vai trò một tài khoản. Migration `V4__remove_demo_account.sql` xóa tài khoản `demo` (từng có quyền `ADMIN` với mật khẩu công khai), nên hệ thống không còn
+tài khoản thử nghiệm nào và trang đăng nhập cũng không hiển thị gợi ý tài khoản:
 
 | Tên đăng nhập | Vai trò | Email |
 | --- | --- | --- |
@@ -276,23 +277,20 @@ mật khẩu của tất cả là `Demopassword`:
 | `purchasing` | `PURCHASING` | purchasing@wms.vn |
 | `sales` | `SALES` | sales@wms.vn |
 | `accountant` | `ACCOUNTANT` | accountant@wms.vn |
-| `demo` | `ADMIN` và `WAREHOUSE_STAFF` | demo@example.com |
 
-Mật khẩu `Demopassword` nằm công khai trong repository, nên trước khi cho người khác truy cập hãy đổi mật khẩu các tài khoản đang dùng và vô hiệu hóa tài khoản không dùng
-(đặc biệt `demo` có quyền `ADMIN`). Hiện chưa có API đổi mật khẩu nên cập nhật trực tiếp trong CSDL:
+Mật khẩu ban đầu của 6 tài khoản này nằm công khai trong repository (chú thích đầu file V2), nên ngay sau lần triển khai đầu, và sau mỗi lần khôi phục CSDL
+từ bản sao lưu cũ, phải đổi toàn bộ bằng script có sẵn:
 
 ```bash
 cd /opt/wms-supply-chain
-
-# 1. Tạo hash BCrypt: nhập mật khẩu mới hai lần theo lời nhắc, chép chuỗi in ra (bắt đầu bằng $2a$)
-docker compose exec caddy caddy hash-password
-
-# 2. Ghi hash vào CSDL (thay <hash> bằng chuỗi vừa chép)
-docker compose exec -T mysql sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" auth_db' <<'SQL'
-UPDATE users SET password_hash = '<hash>' WHERE username = 'admin';
-UPDATE users SET enabled = FALSE WHERE username = 'demo';
-SQL
+bash deploy/rotate-seed-passwords.sh            # đổi cả 6 tài khoản
+bash deploy/rotate-seed-passwords.sh admin      # hoặc chỉ một số tài khoản
 ```
+
+Script sinh mật khẩu ngẫu nhiên 20 ký tự cho từng tài khoản, băm BCrypt bằng `caddy hash-password` trong container caddy, ghi vào CSDL `auth_db` và lưu danh sách
+mật khẩu mới tại `/root/wms-seed-accounts.txt` (quyền 600, không in ra màn hình, không truyền mật khẩu MySQL trên dòng lệnh). Đọc file bằng
+`cat /root/wms-seed-accounts.txt`, lưu vào trình quản lý mật khẩu rồi xóa file. Sau đó mỗi người tự đổi mật khẩu qua API `POST /api/auth/users/change-password`
+(gửi mật khẩu hiện tại và mật khẩu mới kèm token) hoặc màn hình đổi mật khẩu khi giao diện có; tài khoản không dùng tới thì vô hiệu hóa trong trang quản trị người dùng.
 
 ## 8. Vận hành hằng ngày
 
@@ -472,7 +470,7 @@ docker compose logs --tail 100 <tên-service>   # nguyên nhân thường nằm 
 ## 11. Lưu ý bảo mật
 
 - Giữ `.env` ở quyền `600`, không commit, không gửi qua kênh chat.
-- Đổi mật khẩu các tài khoản mẫu và vô hiệu hóa `demo` (mục 7).
+- Chạy `deploy/rotate-seed-passwords.sh` ngay sau lần triển khai đầu để đổi mật khẩu 6 tài khoản mẫu (mục 7); tài khoản `demo` đã bị migration V4 xóa.
 - RabbitMQ dùng tài khoản riêng đặt qua `RABBITMQ_USERNAME`, `RABBITMQ_PASSWORD` trong `.env` (máy chủ hiện tại đã tạo tài khoản `wms` ngày 04/11/2026). Sau khi các service đã chạy bằng tài khoản mới, xóa tài khoản mặc định: `docker compose exec rabbitmq rabbitmqctl delete_user guest`. Cổng 5672 và 15672 không mở ra ngoài, không đổi sang `0.0.0.0`.
 - Chỉ cho phép đăng nhập SSH bằng khóa (đặt `PasswordAuthentication no` trong cấu hình sshd), cân nhắc cài `fail2ban`, và bật cập nhật bảo mật tự động (`unattended-upgrades`, thường có sẵn trên Ubuntu).
 - Bật HSTS trong `deploy/Caddyfile` (dòng `Strict-Transport-Security` đang để dạng chú thích) khi HTTPS đã chạy ổn định.

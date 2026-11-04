@@ -1,0 +1,67 @@
+package vn.wms.inventory.messaging;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.amqp.AmqpRejectAndDontRequeueException;
+import org.springframework.amqp.core.Message;
+import org.springframework.amqp.core.MessageProperties;
+import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.stereotype.Component;
+import vn.wms.common.messaging.WmsEvents;
+import vn.wms.common.messaging.event.OrderCreatedEvent;
+import vn.wms.common.messaging.event.OrderDispatchedEvent;
+
+import java.io.IOException;
+import java.util.List;
+
+/**
+ * Consumer của queue {@code inventory.order-events} (nhận mọi routing key {@code order.#}).
+ * Phân loại theo routing key rồi đọc JSON thành record sự kiện tương ứng và chuyển cho các {@link OrderEventHandler}.
+ * Nhận message thô thay vì để converter tự đoán kiểu vì một queue chứa nhiều loại sự kiện.
+ */
+@Component
+public class OrderEventsListener {
+
+    private static final Logger log = LoggerFactory.getLogger(OrderEventsListener.class);
+
+    private final ObjectMapper objectMapper;
+    private final List<OrderEventHandler> handlers;
+
+    public OrderEventsListener(ObjectMapper objectMapper, List<OrderEventHandler> handlers) {
+        this.objectMapper = objectMapper;
+        this.handlers = List.copyOf(handlers);
+    }
+
+    @RabbitListener(queues = WmsEvents.Queues.INVENTORY_ORDER_EVENTS, id = "inventoryOrderEvents")
+    public void onMessage(Message message) {
+        MessageProperties properties = message.getMessageProperties();
+        String routingKey = properties.getReceivedRoutingKey() == null ? "" : properties.getReceivedRoutingKey();
+        String messageId = properties.getMessageId();
+        switch (routingKey) {
+            case WmsEvents.RoutingKeys.ORDER_CREATED -> {
+                OrderCreatedEvent event = read(message, OrderCreatedEvent.class);
+                log.info("Nhận {} cho đơn {} (messageId={}), chuyển cho {} handler",
+                        routingKey, event.orderNumber(), messageId, handlers.size());
+                handlers.forEach(handler -> handler.onOrderCreated(event, messageId));
+            }
+            case WmsEvents.RoutingKeys.ORDER_DISPATCHED -> {
+                OrderDispatchedEvent event = read(message, OrderDispatchedEvent.class);
+                log.info("Nhận {} cho đơn {} (messageId={}), chuyển cho {} handler",
+                        routingKey, event.orderNumber(), messageId, handlers.size());
+                handlers.forEach(handler -> handler.onOrderDispatched(event, messageId));
+            }
+            default -> log.warn("Bỏ qua sự kiện chưa hỗ trợ: routingKey='{}' messageId={}", routingKey, messageId);
+        }
+    }
+
+    private <T> T read(Message message, Class<T> type) {
+        try {
+            return objectMapper.readValue(message.getBody(), type);
+        } catch (IOException ex) {
+            // Nội dung hỏng thì thử lại cũng vô ích: từ chối không đẩy lại queue để broker chuyển sang wms.dlx
+            throw new AmqpRejectAndDontRequeueException(
+                    "Nội dung sự kiện không đọc được thành " + type.getSimpleName() + ", chuyển dead-letter", ex);
+        }
+    }
+}

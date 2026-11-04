@@ -1,5 +1,6 @@
 package vn.wms.order.entity;
 
+import jakarta.persistence.CascadeType;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -10,6 +11,7 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -19,11 +21,13 @@ import org.hibernate.type.SqlTypes;
 import vn.wms.common.persistence.AuditableEntity;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
- * Đơn mua hàng (Purchase Order) gửi nhà cung cấp.
- * TODO (Sprint 2): thêm dòng hàng (purchase_order_lines) và phiếu nhận hàng GRN.
+ * Đơn mua hàng (Purchase Order - PO) gửi nhà cung cấp (FR10, WMS-09.1).
  */
 @Entity
 @Table(name = "purchase_orders")
@@ -43,7 +47,13 @@ public class PurchaseOrder extends AuditableEntity {
     @JoinColumn(name = "supplier_id", nullable = false)
     private Supplier supplier;
 
-    /** Lưu dạng chuỗi VARCHAR (không dùng kiểu ENUM native của MySQL) để thêm trạng thái mới không cần đổi schema. */
+    @Column(name = "warehouse_id")
+    private Long warehouseId;
+
+    @Column(name = "warehouse_name", length = 100)
+    private String warehouseName;
+
+    /** Lưu dạng chuỗi VARCHAR để tương thích linh hoạt giữa các phiên bản schema. */
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.VARCHAR)
     @Column(nullable = false, length = 20)
@@ -55,9 +65,39 @@ public class PurchaseOrder extends AuditableEntity {
     @Column(name = "expected_date")
     private LocalDate expectedDate;
 
+    @Column(name = "subtotal_amount", nullable = false, precision = 18, scale = 2)
+    private BigDecimal subtotalAmount = BigDecimal.ZERO;
+
+    @Column(name = "discount_amount", nullable = false, precision = 18, scale = 2)
+    private BigDecimal discountAmount = BigDecimal.ZERO;
+
+    @Column(name = "tax_amount", nullable = false, precision = 18, scale = 2)
+    private BigDecimal taxAmount = BigDecimal.ZERO;
+
     @Column(name = "total_amount", nullable = false, precision = 18, scale = 2)
     private BigDecimal totalAmount = BigDecimal.ZERO;
 
     @Column(length = 500)
     private String note;
+
+    @Column(name = "approved_by", length = 50)
+    private String approvedBy;
+
+    @Column(name = "approved_at")
+    private Instant approvedAt;
+
+    @Column(name = "rejected_reason", length = 500)
+    private String rejectedReason;
+
+    @OneToMany(mappedBy = "purchaseOrder", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<PurchaseOrderItem> items = new ArrayList<>();
+
+    public void addItem(PurchaseOrderItem item) {
+        items.add(item);
+        item.setPurchaseOrder(this);
+    }
+
+    public void clearItems() {
+        items.clear();
+    }
 }

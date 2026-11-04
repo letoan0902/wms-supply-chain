@@ -5,7 +5,7 @@ import {
   ShopOutlined,
 } from '@ant-design/icons'
 import { App, Button, Space, Typography } from 'antd'
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import * as XLSX from 'xlsx'
 import { getApiErrorMessage } from '../../services/api'
 import RecordTransactionModal from './components/RecordTransactionModal'
@@ -42,6 +42,10 @@ export default function SuppliersPage() {
   const [summary, setSummary] = useState<SupplierDebtSummary | null>(null)
   const [summaryLoading, setSummaryLoading] = useState(false)
 
+  // Key kích hoạt tải lại dữ liệu khi thêm/sửa/xóa/ghi nhận giao dịch
+  const [refreshKey, setRefreshKey] = useState(0)
+  const reloadData = () => setRefreshKey((k) => k + 1)
+
   // Modals state
   const [isFormModalOpen, setIsFormModalOpen] = useState(false)
   const [editingSupplier, setEditingSupplier] = useState<Supplier | null>(null)
@@ -54,39 +58,9 @@ export default function SuppliersPage() {
   const [isRecordModalOpen, setIsRecordModalOpen] = useState(false)
   const [selectedSupplierForRecord, setSelectedSupplierForRecord] = useState<Supplier | null>(null)
   const [recordSubmitting, setRecordSubmitting] = useState(false)
+  const [exporting, setExporting] = useState(false)
 
-  // Tải danh sách nhà cung cấp
-  const loadSuppliers = useCallback(async () => {
-    setLoading(true)
-    try {
-      const data = await supplierApi.fetchSuppliers({
-        keyword,
-        active,
-        page,
-        size: pageSize,
-      })
-      setSuppliers(data.content || [])
-      setTotal(data.totalElements || 0)
-    } catch (err) {
-      message.error(getApiErrorMessage(err, 'Không thể tải danh sách nhà cung cấp'))
-    } finally {
-      setLoading(false)
-    }
-  }, [keyword, active, page, pageSize, message])
-
-  // Tải tóm tắt công nợ tổng thể
-  const loadSummary = useCallback(async () => {
-    setSummaryLoading(true)
-    try {
-      const data = await supplierApi.fetchSupplierDebtSummary()
-      setSummary(data)
-    } catch (err) {
-      console.error('Không thể tải tổng quan công nợ', err)
-    } finally {
-      setSummaryLoading(false)
-    }
-  }, [])
-
+  // Tải danh sách nhà cung cấp (tự động chạy khi filter, phân trang hoặc refreshKey thay đổi)
   useEffect(() => {
     let ignore = false
     const fetchList = async () => {
@@ -112,12 +86,14 @@ export default function SuppliersPage() {
         }
       }
     }
+
     void fetchList()
     return () => {
       ignore = true
     }
-  }, [keyword, active, page, pageSize, message])
+  }, [keyword, active, page, pageSize, refreshKey, message])
 
+  // Tải tóm tắt công nợ tổng thể
   useEffect(() => {
     let ignore = false
     const fetchSummary = async () => {
@@ -135,11 +111,12 @@ export default function SuppliersPage() {
         }
       }
     }
+
     void fetchSummary()
     return () => {
       ignore = true
     }
-  }, [])
+  }, [refreshKey])
 
   // Tìm kiếm
   const handleSearch = (newKeyword?: string, newActive?: boolean) => {
@@ -171,8 +148,7 @@ export default function SuppliersPage() {
       }
       setIsFormModalOpen(false)
       setEditingSupplier(null)
-      void loadSuppliers()
-      void loadSummary()
+      reloadData()
     } catch (err) {
       message.error(getApiErrorMessage(err, 'Có lỗi xảy ra khi lưu thông tin nhà cung cấp'))
     } finally {
@@ -185,8 +161,7 @@ export default function SuppliersPage() {
     try {
       await supplierApi.deleteSupplier(id)
       message.success('Đã chuyển nhà cung cấp sang trạng thái tạm dừng!')
-      void loadSuppliers()
-      void loadSummary()
+      reloadData()
     } catch (err) {
       message.error(getApiErrorMessage(err, 'Không thể ngưng hoạt động nhà cung cấp'))
     }
@@ -221,8 +196,7 @@ export default function SuppliersPage() {
         setSelectedSupplierForTransactions(updated)
       }
 
-      void loadSuppliers()
-      void loadSummary()
+      reloadData()
     } catch (err) {
       message.error(getApiErrorMessage(err, 'Không thể ghi nhận giao dịch công nợ'))
     } finally {
@@ -230,39 +204,53 @@ export default function SuppliersPage() {
     }
   }
 
-  // Xuất file Excel danh sách NCC & công nợ
-  const handleExportExcel = () => {
-    if (suppliers.length === 0) {
-      message.warning('Không có dữ liệu nhà cung cấp để xuất Excel')
-      return
+  // Xuất file Excel danh sách NCC & công nợ (lấy toàn bộ dữ liệu theo bộ lọc hiện tại)
+  const handleExportExcel = async () => {
+    try {
+      setExporting(true)
+      const data = await supplierApi.fetchSuppliers({
+        keyword,
+        active,
+        page: 0,
+        size: 1000,
+      })
+      const exportList = data.content || []
+      if (exportList.length === 0) {
+        message.warning('Không có dữ liệu nhà cung cấp để xuất Excel')
+        return
+      }
+
+      const exportData = exportList.map((s, index) => ({
+        STT: index + 1,
+        'Mã nhà cung cấp': s.code,
+        'Tên nhà cung cấp': s.name,
+        'Mã số thuế': s.taxCode || '',
+        'Người liên hệ': s.contactName || '',
+        'Số điện thoại': s.phone || '',
+        Email: s.email || '',
+        'Địa chỉ': s.address || '',
+        'Số tài khoản': s.bankAccount || '',
+        'Ngân hàng': s.bankName || '',
+        'Điều khoản thanh toán': s.paymentTerms || '',
+        'Hạn mức công nợ (VNĐ)': s.creditLimit,
+        'Công nợ hiện tại (VNĐ)': s.currentDebt,
+        'Tình trạng nợ': s.isOverCreditLimit ? 'VƯỢT HẠN MỨC' : 'Trong hạn mức',
+        'Trạng thái': s.active ? 'Đang hoạt động' : 'Tạm dừng',
+      }))
+
+      const worksheet = XLSX.utils.json_to_sheet(exportData)
+      const workbook = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(workbook, worksheet, 'Nha_Cung_Cap')
+      XLSX.writeFile(
+        workbook,
+        `WMS_Danh_sach_Nha_cung_cap_${new Date().toISOString().slice(0, 10)}.xlsx`
+      )
+      message.success(`Đã xuất file Excel ${exportList.length} nhà cung cấp thành công!`)
+    } catch (err) {
+      message.error(getApiErrorMessage(err, 'Lỗi khi xuất danh sách Excel'))
+    } finally {
+      setExporting(false)
     }
-
-    const exportData = suppliers.map((s, index) => ({
-      STT: index + 1,
-      'Mã nhà cung cấp': s.code,
-      'Tên nhà cung cấp': s.name,
-      'Mã số thuế': s.taxCode || '',
-      'Người liên hệ': s.contactName || '',
-      'Số điện thoại': s.phone || '',
-      Email: s.email || '',
-      'Địa chỉ': s.address || '',
-      'Số tài khoản': s.bankAccount || '',
-      'Ngân hàng': s.bankName || '',
-      'Điều khoản thanh toán': s.paymentTerms || 'NET_30',
-      'Hạn mức công nợ (VNĐ)': s.creditLimit,
-      'Công nợ hiện tại (VNĐ)': s.currentDebt,
-      'Tình trạng nợ': s.isOverCreditLimit ? 'VƯỢT HẠN MỨC' : 'Trong hạn mức',
-      'Trạng thái': s.active ? 'Đang hoạt động' : 'Tạm dừng',
-    }))
-
-    const worksheet = XLSX.utils.json_to_sheet(exportData)
-    const workbook = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Nha_Cung_Cap')
-    XLSX.writeFile(
-      workbook,
-      `WMS_Danh_sach_Nha_cung_cap_${new Date().toISOString().slice(0, 10)}.xlsx`
-    )
-    message.success('Đã xuất file Excel danh sách nhà cung cấp thành công!')
   }
 
   return (
@@ -283,6 +271,7 @@ export default function SuppliersPage() {
           <Button
             icon={<FileExcelOutlined />}
             onClick={handleExportExcel}
+            loading={exporting}
             className="hover:border-green-600 hover:text-green-600"
           >
             Xuất Excel
@@ -290,10 +279,7 @@ export default function SuppliersPage() {
 
           <Button
             icon={<ReloadOutlined />}
-            onClick={() => {
-              void loadSuppliers()
-              void loadSummary()
-            }}
+            onClick={reloadData}
             loading={loading || summaryLoading}
           >
             Làm mới
@@ -344,6 +330,7 @@ export default function SuppliersPage() {
 
       {/* Modal Sổ nợ & Lịch sử giao dịch */}
       <SupplierTransactionsModal
+        key={selectedSupplierForTransactions?.id}
         open={isTransactionsModalOpen}
         supplier={selectedSupplierForTransactions}
         onClose={() => {

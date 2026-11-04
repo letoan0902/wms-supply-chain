@@ -67,8 +67,8 @@ export type SupplierTransactionType =
 export interface SupplierTransaction {
   id: number
   supplierId: number
-  supplierCode: string
-  supplierName: string
+  supplierCode?: string | null
+  supplierName?: string | null
   transactionType: SupplierTransactionType
   amount: number
   balanceAfter: number

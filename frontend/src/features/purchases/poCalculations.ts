@@ -18,39 +18,53 @@ export interface OrderCalculationResult {
 }
 
 /**
+ * Làm tròn 2 chữ số thập phân (HALF_UP) khớp chuẩn BigDecimal.setScale(2, RoundingMode.HALF_UP) trên backend.
+ */
+export function round2(num: number): number {
+  return Math.round((num + Number.EPSILON) * 100) / 100
+}
+
+/**
  * Tính toán thành tiền, chiết khấu và thuế VAT cho 1 dòng sản phẩm (PO Item).
- * Khớp chuẩn với công thức backend:
- * 1. Tiền hàng trước CK = quantity * unitPrice
- * 2. Tiền CK = rawSubtotal * (discountPercent / 100)
- * 3. Tiền tính thuế = rawSubtotal - discount
- * 4. Tiền VAT = taxableAmount * (taxRate / 100)
- * 5. Thành tiền dòng = taxableAmount + tax
+ * Khớp chuẩn với PurchaseOrderService trên backend (làm tròn 2 chữ số thập phân):
+ * 1. Thành tiền thô (rawSubtotal) = round2(quantity * unitPrice)
+ * 2. Tiền chiết khấu (discount): ưu tiên discountAmount > 0, ngược lại tính theo discountPercent %
+ * 3. Tiền tính thuế (taxableAmount) = max(0, round2(rawSubtotal - discount))
+ * 4. Tiền thuế VAT (tax): ưu tiên taxAmount > 0, ngược lại tính theo taxRate %
+ * 5. Thành tiền dòng (lineTotal) = round2(taxableAmount + tax)
  */
 export function calculateLineTotals(item: PurchaseOrderItemPayload): LineCalculationResult {
   const qty = Number(item.quantity) || 0
   const price = Number(item.unitPrice) || 0
-  const rawSubtotal = Math.max(0, qty * price)
+  const rawSubtotal = round2(Math.max(0, qty * price))
 
   const discPercent = Math.min(100, Math.max(0, Number(item.discountPercent) || 0))
-  const discount =
+  let discount = 0
+  if (
     item.discountAmount !== undefined &&
     item.discountAmount !== null &&
-    item.discountAmount > 0 &&
-    discPercent === 0
-      ? Number(item.discountAmount)
-      : Math.round((rawSubtotal * discPercent) / 100)
+    item.discountAmount > 0
+  ) {
+    discount = round2(Number(item.discountAmount))
+  } else if (discPercent > 0) {
+    discount = round2((rawSubtotal * discPercent) / 100)
+  }
 
-  const taxableAmount = Math.max(0, rawSubtotal - discount)
+  const taxableAmount = Math.max(0, round2(rawSubtotal - discount))
+
   const taxRate = Math.min(100, Math.max(0, Number(item.taxRate) || 0))
-  const tax =
+  let tax = 0
+  if (
     item.taxAmount !== undefined &&
     item.taxAmount !== null &&
-    item.taxAmount > 0 &&
-    taxRate === 0
-      ? Number(item.taxAmount)
-      : Math.round((taxableAmount * taxRate) / 100)
+    item.taxAmount > 0
+  ) {
+    tax = round2(Number(item.taxAmount))
+  } else if (taxRate > 0) {
+    tax = round2((taxableAmount * taxRate) / 100)
+  }
 
-  const lineTotal = taxableAmount + tax
+  const lineTotal = round2(taxableAmount + tax)
 
   return {
     rawSubtotal,
@@ -81,11 +95,11 @@ export function calculateOrderTotals(items: PurchaseOrderItemPayload[]): OrderCa
   }
 
   return {
-    subtotal,
-    totalDiscount,
-    totalTax,
-    grandTotal,
-    totalQuantity,
+    subtotal: round2(subtotal),
+    totalDiscount: round2(totalDiscount),
+    totalTax: round2(totalTax),
+    grandTotal: round2(grandTotal),
+    totalQuantity: round2(totalQuantity),
     itemCount: items.length,
   }
 }

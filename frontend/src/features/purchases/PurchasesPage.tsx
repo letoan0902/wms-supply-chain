@@ -1,12 +1,8 @@
 import {
-  CheckCircleOutlined,
-  ClockCircleOutlined,
-  CloseCircleOutlined,
   EyeOutlined,
   FileTextOutlined,
   PlusOutlined,
   ReloadOutlined,
-  SearchOutlined,
   ShoppingCartOutlined,
 } from '@ant-design/icons'
 import {
@@ -31,6 +27,7 @@ import { formatCurrency, formatNumber } from '../../utils/format'
 import PurchaseOrderDetailModal from './components/PurchaseOrderDetailModal'
 import PurchaseOrderForm from './components/PurchaseOrderForm'
 import * as purchasesApi from './purchasesApi'
+import { STATUS_CONFIG } from './statusConfig'
 import type {
   OrderStatus,
   PurchaseOrder,
@@ -39,24 +36,14 @@ import type {
 
 const { Title, Text } = Typography
 const { RangePicker } = DatePicker
-
-const STATUS_CONFIG: Record<
-  OrderStatus,
-  { label: string; color: string; icon: React.ReactNode }
-> = {
-  DRAFT: { label: 'Bản nháp', color: 'default', icon: <FileTextOutlined /> },
-  PENDING: { label: 'Chờ duyệt', color: 'processing', icon: <ClockCircleOutlined /> },
-  APPROVED: { label: 'Đã duyệt', color: 'success', icon: <CheckCircleOutlined /> },
-  REJECTED: { label: 'Đã từ chối', color: 'error', icon: <CloseCircleOutlined /> },
-  CANCELLED: { label: 'Đã hủy', color: 'default', icon: <CloseCircleOutlined /> },
-  COMPLETED: { label: 'Hoàn thành', color: 'purple', icon: <CheckCircleOutlined /> },
-}
+const { Search } = Input
 
 export default function PurchasesPage() {
   const { message } = App.useApp()
 
   // Tab active: 'list' | 'create'
   const [activeTab, setActiveTab] = useState<'list' | 'create'>('list')
+  const [formKey, setFormKey] = useState(0)
 
   // State danh sách PO
   const [orders, setOrders] = useState<PurchaseOrder[]>([])
@@ -148,9 +135,15 @@ export default function PurchasesPage() {
   // Khi lập đơn mua hàng thành công từ Tab tạo mới
   const handleCreateSuccess = (created: PurchaseOrder) => {
     reloadData()
+    setFormKey((k) => k + 1)
     setActiveTab('list')
     setSelectedOrder(created)
     setIsDetailModalOpen(true)
+  }
+
+  const handleOpenCreateTab = () => {
+    setFormKey((k) => k + 1)
+    setActiveTab('create')
   }
 
   const columns: ColumnsType<PurchaseOrder> = [
@@ -284,7 +277,7 @@ export default function PurchasesPage() {
           <Button
             type="primary"
             icon={<PlusOutlined />}
-            onClick={() => setActiveTab('create')}
+            onClick={handleOpenCreateTab}
             className="bg-blue-600 font-semibold"
           >
             Lập đơn mua hàng mới
@@ -325,7 +318,7 @@ export default function PurchasesPage() {
           <Card size="small" className="border-l-4 border-l-purple-500 shadow-2xs">
             <div className="text-xs text-slate-500">Tổng ngân sách mua hàng</div>
             <div className="text-xl font-bold text-purple-700 mt-1">
-              {formatCurrency(summary?.totalSpend ?? 0)}
+              {formatCurrency(summary?.totalApprovedAmount ?? 0)}
             </div>
           </Card>
         </Col>
@@ -334,6 +327,7 @@ export default function PurchasesPage() {
       {/* Tabs điều hướng: Lập đơn mới / Danh sách PO */}
       <Tabs
         activeKey={activeTab}
+        destroyInactiveTabPane
         onChange={(k) => setActiveTab(k as 'list' | 'create')}
         items={[
           {
@@ -346,15 +340,13 @@ export default function PurchasesPage() {
             ),
             children: (
               <Card variant="borderless" className="shadow-2xs space-y-4">
-                {/* Bộ lọc & Tìm kiếm */}
+                {/* Bộ lọc & Tìm kiếm (dùng Search để tránh gọi API mỗi lần gõ phím) */}
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
                   <div className="flex flex-wrap items-center gap-2 flex-1">
-                    <Input
+                    <Search
                       placeholder="Tìm theo Mã PO, Tên NCC..."
-                      prefix={<SearchOutlined className="text-slate-400" />}
-                      value={keyword}
-                      onChange={(e) => {
-                        setKeyword(e.target.value.trim() ? e.target.value : undefined)
+                      onSearch={(val) => {
+                        setKeyword(val.trim() || undefined)
                         setPage(0)
                       }}
                       className="w-full sm:w-72"
@@ -374,6 +366,7 @@ export default function PurchasesPage() {
                         { value: 'PENDING', label: 'Chờ duyệt' },
                         { value: 'APPROVED', label: 'Đã phê duyệt' },
                         { value: 'DRAFT', label: 'Bản nháp' },
+                        { value: 'CONFIRMED', label: 'Đã xác nhận' },
                         { value: 'REJECTED', label: 'Đã từ chối' },
                         { value: 'CANCELLED', label: 'Đã hủy' },
                       ]}
@@ -445,6 +438,7 @@ export default function PurchasesPage() {
             children: (
               <Card variant="borderless" className="shadow-2xs">
                 <PurchaseOrderForm
+                  key={formKey}
                   onSuccess={handleCreateSuccess}
                   onCancel={() => setActiveTab('list')}
                 />

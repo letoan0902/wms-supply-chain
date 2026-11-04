@@ -24,6 +24,8 @@ interface Props {
   onChange: (items: PurchaseOrderItemPayload[]) => void
   products: Product[]
   disabled?: boolean
+  onSearchProducts?: (keyword: string) => void
+  loadingProducts?: boolean
 }
 
 const VAT_OPTIONS = [
@@ -33,15 +35,22 @@ const VAT_OPTIONS = [
   { value: 10, label: '10% (Chuẩn)' },
 ]
 
+function generateRowKey(): string {
+  return `row-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+}
+
 export default function PurchaseOrderItemsTable({
   items,
   onChange,
   products,
   disabled = false,
+  onSearchProducts,
+  loadingProducts = false,
 }: Props) {
   // Thêm một dòng sản phẩm rỗng
   const handleAddItem = () => {
     const newItem: PurchaseOrderItemPayload = {
+      _key: generateRowKey(),
       skuCode: '',
       productName: '',
       uom: 'Cái',
@@ -88,7 +97,6 @@ export default function PurchaseOrderItemsTable({
       productName: selected.name,
       uom: selected.uomName || selected.uomCode || current.uom || 'Cái',
       taxRate: selected.vatRate !== undefined && selected.vatRate !== null ? selected.vatRate : current.taxRate,
-      // Nếu sản phẩm đã có giá mua gợi ý thì điền vào, nếu chưa thì giữ nguyên hoặc 0
       unitPrice:
         selected.purchasePrice !== undefined && selected.purchasePrice !== null && selected.purchasePrice > 0
           ? selected.purchasePrice
@@ -123,11 +131,13 @@ export default function PurchaseOrderItemsTable({
               placeholder="Chọn hoặc tìm SKU / Tên sản phẩm..."
               value={record.productId || (record.skuCode ? record.skuCode : undefined)}
               disabled={disabled}
+              loading={loadingProducts}
               className="w-full"
               filterOption={(input, option) => {
                 const label = String(option?.label ?? '')
                 return label.toLowerCase().includes(input.toLowerCase())
               }}
+              onSearch={onSearchProducts}
               options={products.map((p) => ({
                 value: p.id,
                 label: `[${p.sku}] ${p.name} (${p.uomName || p.uomCode || 'ĐV'})`,
@@ -141,7 +151,7 @@ export default function PurchaseOrderItemsTable({
                 <div>
                   {menu}
                   <div className="p-2 border-t border-slate-100 text-[11px] text-slate-500 bg-slate-50">
-                    💡 Hoặc nhập tên / mã SKU tự do ở ô bên dưới nếu chưa có trong danh mục.
+                    Lưu ý: Hoặc nhập tên / mã SKU tự do ở ô bên dưới nếu chưa có trong danh mục.
                   </div>
                 </div>
               )}
@@ -381,7 +391,7 @@ export default function PurchaseOrderItemsTable({
         </div>
       ) : (
         <Table
-          rowKey={(_, index) => String(index)}
+          rowKey={(record) => record._key || record.skuCode || String(Math.random())}
           columns={columns}
           dataSource={items}
           pagination={false}

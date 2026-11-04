@@ -1,9 +1,4 @@
-import {
-  CheckCircleOutlined,
-  ClockCircleOutlined,
-  CloseCircleOutlined,
-  FileTextOutlined,
-} from '@ant-design/icons'
+import { FileTextOutlined } from '@ant-design/icons'
 import {
   Card,
   Descriptions,
@@ -14,48 +9,13 @@ import {
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { formatCurrency, formatNumber } from '../../../utils/format'
-import type { OrderStatus, PurchaseOrder, PurchaseOrderItem } from '../types'
+import { STATUS_CONFIG } from '../statusConfig'
+import type { PurchaseOrder, PurchaseOrderItem } from '../types'
 
 interface Props {
   open: boolean
   order: PurchaseOrder | null
   onClose: () => void
-}
-
-const STATUS_CONFIG: Record<
-  OrderStatus,
-  { label: string; color: string; icon: React.ReactNode }
-> = {
-  DRAFT: {
-    label: 'Bản nháp',
-    color: 'default',
-    icon: <FileTextOutlined />,
-  },
-  PENDING: {
-    label: 'Chờ phê duyệt',
-    color: 'processing',
-    icon: <ClockCircleOutlined />,
-  },
-  APPROVED: {
-    label: 'Đã phê duyệt',
-    color: 'success',
-    icon: <CheckCircleOutlined />,
-  },
-  REJECTED: {
-    label: 'Đã từ chối',
-    color: 'error',
-    icon: <CloseCircleOutlined />,
-  },
-  CANCELLED: {
-    label: 'Đã hủy',
-    color: 'default',
-    icon: <CloseCircleOutlined />,
-  },
-  COMPLETED: {
-    label: 'Hoàn thành',
-    color: 'purple',
-    icon: <CheckCircleOutlined />,
-  },
 }
 
 export default function PurchaseOrderDetailModal({ open, order, onClose }: Props) {

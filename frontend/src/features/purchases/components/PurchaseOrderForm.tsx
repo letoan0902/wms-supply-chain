@@ -26,7 +26,7 @@ import {
   Typography,
 } from 'antd'
 import dayjs from 'dayjs'
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { getApiErrorMessage } from '../../../services/api'
 import { formatCurrency, formatNumber } from '../../../utils/format'
 import * as productApi from '../../products/productApi'
@@ -77,12 +77,15 @@ export default function PurchaseOrderForm({
   const [warehouses, setWarehouses] = useState<Warehouse[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [loadingMetadata, setLoadingMetadata] = useState(false)
+  const [loadingSuppliers, setLoadingSuppliers] = useState(false)
+  const [loadingProducts, setLoadingProducts] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
   // Khởi tạo trực tiếp từ initialOrder hoặc mặc định 1 dòng rỗng
   const [items, setItems] = useState<PurchaseOrderItemPayload[]>(() => {
     if (initialOrder?.items && initialOrder.items.length > 0) {
-      return initialOrder.items.map((it) => ({
+      return initialOrder.items.map((it, idx) => ({
+        _key: `row-${idx + 1}-${Date.now()}`,
         productId: it.productId ?? undefined,
         skuCode: it.skuCode,
         productName: it.productName,
@@ -98,6 +101,7 @@ export default function PurchaseOrderForm({
     }
     return [
       {
+        _key: `row-1-${Date.now()}`,
         skuCode: '',
         productName: '',
         uom: 'Cái',
@@ -118,16 +122,16 @@ export default function PurchaseOrderForm({
     initialOrder?.warehouseId ?? undefined
   )
 
-  // Tải danh mục NCC, Kho và Sản phẩm từ API
+  // Tải danh mục ban đầu (tuân thủ giới hạn max-page-size: 100)
   useEffect(() => {
     let ignore = false
     const loadMetadata = async () => {
       setLoadingMetadata(true)
       try {
         const [supRes, whRes, prodRes] = await Promise.all([
-          supplierApi.fetchSuppliers({ active: true, size: 500 }),
+          supplierApi.fetchSuppliers({ active: true, size: 100 }),
           warehouseApi.fetchWarehouses({ active: true }),
-          productApi.fetchProducts({ active: true, size: 500 }),
+          productApi.fetchProducts({ active: true, size: 100 }),
         ])
         if (!ignore) {
           setSuppliers(supRes.content || [])
@@ -151,6 +155,52 @@ export default function PurchaseOrderForm({
     }
   }, [message])
 
+  // Tìm kiếm Nhà cung cấp theo từ khóa từ server (debounce 300ms)
+  const supplierSearchTimeout = useRef<number | null>(null)
+  const handleSearchSupplier = useCallback((keyword: string) => {
+    if (supplierSearchTimeout.current) {
+      window.clearTimeout(supplierSearchTimeout.current)
+    }
+    supplierSearchTimeout.current = window.setTimeout(async () => {
+      setLoadingSuppliers(true)
+      try {
+        const res = await supplierApi.fetchSuppliers({
+          keyword: keyword.trim() || undefined,
+          active: true,
+          size: 50,
+        })
+        setSuppliers(res.content || [])
+      } catch (err) {
+        console.error('Lỗi tìm kiếm nhà cung cấp', err)
+      } finally {
+        setLoadingSuppliers(false)
+      }
+    }, 300)
+  }, [])
+
+  // Tìm kiếm Sản phẩm / SKU theo từ khóa từ server (debounce 300ms)
+  const productSearchTimeout = useRef<number | null>(null)
+  const handleSearchProducts = useCallback((keyword: string) => {
+    if (productSearchTimeout.current) {
+      window.clearTimeout(productSearchTimeout.current)
+    }
+    productSearchTimeout.current = window.setTimeout(async () => {
+      setLoadingProducts(true)
+      try {
+        const res = await productApi.fetchProducts({
+          keyword: keyword.trim() || undefined,
+          active: true,
+          size: 50,
+        })
+        setProducts(res.content || [])
+      } catch (err) {
+        console.error('Lỗi tìm kiếm sản phẩm', err)
+      } finally {
+        setLoadingProducts(false)
+      }
+    }, 300)
+  }, [])
+
   // Lấy chi tiết NCC đang chọn để hiển thị thông tin thẻ tóm tắt & cảnh báo nợ
   const currentSupplier = useMemo(
     () => suppliers.find((s) => s.id === selectedSupplierId),
@@ -168,37 +218,42 @@ export default function PurchaseOrderForm({
 
   // Xử lý gửi Form (submit PO)
   const handleSubmitOrder = async (targetStatus: OrderStatus) => {
+    // Tách riêng bước validate fields: nếu lỗi, Ant Design sẽ hiển thị lỗi inline trên trường, không toast lỗi chung
+    let values: FormValues
     try {
-      const values = await form.validateFields()
+      values = await form.validateFields()
+    } catch {
+      return
+    }
 
-      // Kiểm tra danh sách mặt hàng
-      if (items.length === 0) {
-        message.error('Đơn mua hàng phải có ít nhất 1 dòng mặt hàng')
+    // Kiểm tra danh sách mặt hàng
+    if (items.length === 0) {
+      message.error('Đơn mua hàng phải có ít nhất 1 dòng mặt hàng')
+      return
+    }
+
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i]
+      if (!it.skuCode || !it.skuCode.trim()) {
+        message.error(`Dòng #${i + 1}: Mã SKU không được để trống`)
         return
       }
-
-      for (let i = 0; i < items.length; i++) {
-        const it = items[i]
-        if (!it.skuCode || !it.skuCode.trim()) {
-          message.error(`Dòng #${i + 1}: Mã SKU không được để trống`)
-          return
-        }
-        if (!it.productName || !it.productName.trim()) {
-          message.error(`Dòng #${i + 1}: Tên mặt hàng không được để trống`)
-          return
-        }
-        if (!it.quantity || it.quantity <= 0) {
-          message.error(`Dòng #${i + 1} (${it.skuCode}): Số lượng đặt mua phải lớn hơn 0`)
-          return
-        }
-        if (it.unitPrice === undefined || it.unitPrice === null || it.unitPrice < 0) {
-          message.error(`Dòng #${i + 1} (${it.skuCode}): Đơn giá mua không được âm`)
-          return
-        }
+      if (!it.productName || !it.productName.trim()) {
+        message.error(`Dòng #${i + 1}: Tên mặt hàng không được để trống`)
+        return
       }
+      if (!it.quantity || it.quantity <= 0) {
+        message.error(`Dòng #${i + 1} (${it.skuCode}): Số lượng đặt mua phải lớn hơn 0`)
+        return
+      }
+      if (it.unitPrice === undefined || it.unitPrice === null || it.unitPrice < 0) {
+        message.error(`Dòng #${i + 1} (${it.skuCode}): Đơn giá mua không được âm`)
+        return
+      }
+    }
 
-      setSubmitting(true)
-
+    setSubmitting(true)
+    try {
       const payload: CreatePurchaseOrderPayload = {
         poNumber: values.poNumber?.trim() ? values.poNumber.trim() : undefined,
         supplierId: values.supplierId,
@@ -208,6 +263,7 @@ export default function PurchaseOrderForm({
         expectedDate: values.expectedDate ? values.expectedDate.format('YYYY-MM-DD') : undefined,
         note: values.note?.trim(),
         status: targetStatus,
+        // Không truyền discountAmount/taxAmount cũ để backend tính toán chuẩn theo discountPercent và taxRate
         items: items.map((it) => ({
           productId: it.productId,
           skuCode: it.skuCode.trim(),
@@ -216,9 +272,9 @@ export default function PurchaseOrderForm({
           quantity: it.quantity,
           unitPrice: it.unitPrice,
           discountPercent: it.discountPercent ?? 0,
-          discountAmount: it.discountAmount ?? 0,
+          discountAmount: undefined,
           taxRate: it.taxRate ?? 0,
-          taxAmount: it.taxAmount ?? 0,
+          taxAmount: undefined,
           note: it.note?.trim(),
         })),
       }
@@ -318,10 +374,12 @@ export default function PurchaseOrderForm({
                       <Select
                         showSearch
                         placeholder="Tìm và chọn Nhà cung cấp..."
+                        loading={loadingSuppliers}
                         filterOption={(input, option) => {
                           const label = String(option?.label ?? '')
                           return label.toLowerCase().includes(input.toLowerCase())
                         }}
+                        onSearch={handleSearchSupplier}
                         options={suppliers.map((s) => ({
                           value: s.id,
                           label: `[${s.code}] ${s.name}`,
@@ -478,6 +536,8 @@ export default function PurchaseOrderForm({
             onChange={setItems}
             products={products}
             disabled={submitting}
+            onSearchProducts={handleSearchProducts}
+            loadingProducts={loadingProducts}
           />
         </Card>
 

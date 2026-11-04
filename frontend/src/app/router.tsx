@@ -51,7 +51,6 @@ export const router = createBrowserRouter([
           { path: 'suppliers', Component: lazy(() => import('../features/suppliers/SuppliersPage')) },
           // Quản lý Đơn mua hàng (PO) & Nhập kho (WMS-09 - Sprint 2)
           { path: 'purchases', Component: lazy(() => import('../features/purchases/PurchasesPage')) },
-          { path: 'purchases/new', Component: lazy(() => import('../features/purchases/PurchaseOrderFormPage')) },
           ...placeholderRoutes,
           { path: '*', element: <NotFoundPage /> },
         ],

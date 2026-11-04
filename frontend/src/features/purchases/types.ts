@@ -5,6 +5,7 @@
 export type OrderStatus =
   | 'DRAFT'
   | 'PENDING'
+  | 'CONFIRMED'
   | 'APPROVED'
   | 'REJECTED'
   | 'CANCELLED'
@@ -50,6 +51,7 @@ export interface PurchaseOrder {
 }
 
 export interface PurchaseOrderItemPayload {
+  _key?: string
   productId?: number
   skuCode: string
   productName: string
@@ -72,7 +74,7 @@ export interface CreatePurchaseOrderPayload {
   expectedDate?: string
   note?: string
   status?: OrderStatus
-  items: PurchaseOrderItemPayload[]
+  items: Omit<PurchaseOrderItemPayload, '_key'>[]
 }
 
 export interface UpdatePurchaseOrderPayload {
@@ -82,7 +84,7 @@ export interface UpdatePurchaseOrderPayload {
   orderDate?: string
   expectedDate?: string
   note?: string
-  items?: PurchaseOrderItemPayload[]
+  items?: Omit<PurchaseOrderItemPayload, '_key'>[]
 }
 
 export interface RejectPurchaseOrderPayload {
@@ -91,11 +93,12 @@ export interface RejectPurchaseOrderPayload {
 
 export interface PurchaseOrderSummary {
   totalOrders: number
+  draftOrders?: number
   pendingOrders: number
   approvedOrders: number
   rejectedOrders: number
   cancelledOrders: number
-  totalSpend: number
+  totalApprovedAmount: number
 }
 
 export interface PurchaseOrderFilterParams {

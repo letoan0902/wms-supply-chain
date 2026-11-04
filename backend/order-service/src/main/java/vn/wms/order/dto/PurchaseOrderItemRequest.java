@@ -1,6 +1,7 @@
 package vn.wms.order.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -40,6 +41,7 @@ public record PurchaseOrderItemRequest(
         BigDecimal unitPrice,
 
         @DecimalMin(value = "0.0", message = "Tỷ lệ chiết khấu không được âm")
+        @jakarta.validation.constraints.DecimalMax(value = "100.00", message = "Tỷ lệ chiết khấu tối đa 100%")
         @Schema(description = "Tỷ lệ chiết khấu (%)", example = "5.00")
         BigDecimal discountPercent,
 
@@ -48,6 +50,7 @@ public record PurchaseOrderItemRequest(
         BigDecimal discountAmount,
 
         @DecimalMin(value = "0.0", message = "Thuế suất VAT không được âm")
+        @jakarta.validation.constraints.DecimalMax(value = "100.00", message = "Thuế suất VAT tối đa 100%")
         @Schema(description = "Thuế suất VAT (%)", example = "8.00")
         BigDecimal taxRate,
 

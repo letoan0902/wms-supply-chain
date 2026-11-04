@@ -434,4 +434,175 @@ class PurchaseOrderIntegrationTest {
                 .andExpect(jsonPath("$.data.totalOrders").isNumber())
                 .andExpect(jsonPath("$.data.pendingOrders").isNumber());
     }
+
+    @Test
+    void createPurchaseOrderWithInvalidStatusReturnsBadRequest() throws Exception {
+        Supplier supplier = createSampleSupplier("SUP-INV-STATUS", "NCC Trạng thái sai");
+
+        PurchaseOrderItemRequest item = new PurchaseOrderItemRequest(
+                null, "SKU-TEST-01", "Hàng test", "Cái",
+                new BigDecimal("10.000"), new BigDecimal("10000.00"),
+                null, null, null, null, null
+        );
+
+        // Client cố tình gửi "APPROVED" để bỏ qua phê duyệt
+        CreatePurchaseOrderRequest reqApproved = new CreatePurchaseOrderRequest(
+                null, supplier.getId(), null, null,
+                LocalDate.now(), null, null,
+                OrderStatus.APPROVED,
+                List.of(item)
+        );
+
+        mockMvc.perform(post("/api/orders/purchase")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(reqApproved)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("Trạng thái khởi tạo chỉ được là DRAFT hoặc PENDING")));
+
+        // Client gửi "COMPLETED"
+        CreatePurchaseOrderRequest reqCompleted = new CreatePurchaseOrderRequest(
+                null, supplier.getId(), null, null,
+                LocalDate.now(), null, null,
+                OrderStatus.COMPLETED,
+                List.of(item)
+        );
+
+        mockMvc.perform(post("/api/orders/purchase")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(reqCompleted)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void createPurchaseOrderWithExceededDiscountOrTaxRateReturnsValidationErrors() throws Exception {
+        Supplier supplier = createSampleSupplier("SUP-VAL", "NCC Kiểm thử Validation");
+
+        // Chiết khấu 150% (> 100%)
+        PurchaseOrderItemRequest itemInvalidDiscount = new PurchaseOrderItemRequest(
+                null, "SKU-VAL-01", "Hàng chiết khấu lố", "Cái",
+                new BigDecimal("10.000"), new BigDecimal("10000.00"),
+                new BigDecimal("150.00"), null, null, null, null
+        );
+
+        CreatePurchaseOrderRequest req1 = new CreatePurchaseOrderRequest(
+                null, supplier.getId(), null, null,
+                LocalDate.now(), null, null, null,
+                List.of(itemInvalidDiscount)
+        );
+
+        mockMvc.perform(post("/api/orders/purchase")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req1)))
+                .andExpect(status().isBadRequest());
+
+        // Thuế VAT 120% (> 100%)
+        PurchaseOrderItemRequest itemInvalidTax = new PurchaseOrderItemRequest(
+                null, "SKU-VAL-02", "Hàng thuế lố", "Cái",
+                new BigDecimal("10.000"), new BigDecimal("10000.00"),
+                null, null, new BigDecimal("120.00"), null, null
+        );
+
+        CreatePurchaseOrderRequest req2 = new CreatePurchaseOrderRequest(
+                null, supplier.getId(), null, null,
+                LocalDate.now(), null, null, null,
+                List.of(itemInvalidTax)
+        );
+
+        mockMvc.perform(post("/api/orders/purchase")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req2)))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void cannotApproveUpdateDeleteOrCancelAlreadyApprovedOrder() throws Exception {
+        Supplier supplier = createSampleSupplier("SUP-RESTRICT", "NCC Giới hạn thao tác");
+
+        PurchaseOrderItemRequest item = new PurchaseOrderItemRequest(
+                null, "SKU-RESTRICT-01", "Hàng đã duyệt", "Cái",
+                new BigDecimal("5.000"), new BigDecimal("100000.00"),
+                null, null, null, null, null
+        );
+
+        CreatePurchaseOrderRequest createReq = new CreatePurchaseOrderRequest(
+                null, supplier.getId(), null, null,
+                LocalDate.now(), null, null,
+                OrderStatus.PENDING,
+                List.of(item)
+        );
+
+        String resStr = mockMvc.perform(post("/api/orders/purchase")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(createReq)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+
+        Long orderId = objectMapper.readTree(resStr).path("data").path("id").asLong();
+
+        // 1. Phê duyệt lần 1 thành công
+        mockMvc.perform(post("/api/orders/purchase/" + orderId + "/approve"))
+                .andExpect(status().isOk());
+
+        // 2. Phê duyệt lần 2 -> 400 Bad Request
+        mockMvc.perform(post("/api/orders/purchase/" + orderId + "/approve"))
+                .andExpect(status().isBadRequest());
+
+        // 3. Cập nhật đơn đã duyệt -> 400 Bad Request
+        UpdatePurchaseOrderRequest updateReq = new UpdatePurchaseOrderRequest(
+                supplier.getId(), null, null,
+                LocalDate.now(), null, "Sửa đơn đã duyệt",
+                List.of(item)
+        );
+        mockMvc.perform(put("/api/orders/purchase/" + orderId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(updateReq)))
+                .andExpect(status().isBadRequest());
+
+        // 4. Xóa đơn đã duyệt -> 400 Bad Request
+        mockMvc.perform(delete("/api/orders/purchase/" + orderId))
+                .andExpect(status().isBadRequest());
+
+        // 5. Từ chối đơn đã duyệt -> 400 Bad Request
+        RejectPurchaseOrderRequest rejectReq = new RejectPurchaseOrderRequest("Từ chối sau khi duyệt");
+        mockMvc.perform(post("/api/orders/purchase/" + orderId + "/reject")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(rejectReq)))
+                .andExpect(status().isBadRequest());
+
+        // 6. Hủy đơn đã duyệt -> 400 Bad Request (chỉ cho phép hủy DRAFT hoặc PENDING)
+        mockMvc.perform(post("/api/orders/purchase/" + orderId + "/cancel"))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void filterPurchaseOrdersByDateRange() throws Exception {
+        Supplier s = createSampleSupplier("SUP-DATE", "NCC Kiểm tra Ngày");
+
+        PurchaseOrderItemRequest item = new PurchaseOrderItemRequest(
+                null, "SKU-DATE-01", "Hàng hóa", "Cái",
+                new BigDecimal("1.000"), new BigDecimal("10000.00"),
+                null, null, null, null, null
+        );
+
+        CreatePurchaseOrderRequest poOct = new CreatePurchaseOrderRequest(
+                "PO-DATE-OCT", s.getId(), null, null,
+                LocalDate.of(2026, 10, 15), null, null, OrderStatus.PENDING, List.of(item)
+        );
+
+        CreatePurchaseOrderRequest poNov = new CreatePurchaseOrderRequest(
+                "PO-DATE-NOV", s.getId(), null, null,
+                LocalDate.of(2026, 11, 5), null, null, OrderStatus.PENDING, List.of(item)
+        );
+
+        mockMvc.perform(post("/api/orders/purchase").contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(poOct))).andExpect(status().isCreated());
+        mockMvc.perform(post("/api/orders/purchase").contentType(MediaType.APPLICATION_JSON).content(objectMapper.writeValueAsString(poNov))).andExpect(status().isCreated());
+
+        // Lọc trong khoảng tháng 11: 2026-11-01 -> 2026-11-10
+        mockMvc.perform(get("/api/orders/purchase")
+                        .param("fromOrderDate", "2026-11-01")
+                        .param("toOrderDate", "2026-11-10"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content[?(@.poNumber == 'PO-DATE-NOV')]").exists())
+                .andExpect(jsonPath("$.data.content[?(@.poNumber == 'PO-DATE-OCT')]").doesNotExist());
+    }
 }

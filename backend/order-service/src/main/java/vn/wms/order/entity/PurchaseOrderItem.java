@@ -70,14 +70,4 @@ public class PurchaseOrderItem extends AuditableEntity {
 
     @Column(length = 255)
     private String note;
-
-    /**
-     * Thành tiền thô trước chiết khấu và thuế: quantity * unitPrice.
-     */
-    public BigDecimal getRawAmount() {
-        if (quantity == null || unitPrice == null) {
-            return BigDecimal.ZERO;
-        }
-        return quantity.multiply(unitPrice).setScale(2, RoundingMode.HALF_UP);
-    }
 }

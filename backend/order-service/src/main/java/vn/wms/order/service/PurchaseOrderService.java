@@ -1,15 +1,11 @@
 package vn.wms.order.service;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.wms.common.api.PageResponse;
 import vn.wms.common.exception.ApiException;
-import vn.wms.common.messaging.WmsEvents;
 import vn.wms.order.dto.CreatePurchaseOrderRequest;
 import vn.wms.order.dto.PurchaseOrderItemRequest;
 import vn.wms.order.dto.PurchaseOrderResponse;
@@ -20,6 +16,7 @@ import vn.wms.order.entity.OrderStatus;
 import vn.wms.order.entity.PurchaseOrder;
 import vn.wms.order.entity.PurchaseOrderItem;
 import vn.wms.order.entity.Supplier;
+import vn.wms.order.event.PurchaseOrderApprovedEvent;
 import vn.wms.order.repository.PurchaseOrderRepository;
 import vn.wms.order.repository.SupplierRepository;
 
@@ -28,9 +25,9 @@ import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Service Quản lý Đơn mua hàng (Purchase Order - PO) & Phê duyệt (FR10 - WMS-09.1).
@@ -38,19 +35,20 @@ import java.util.Map;
 @Service
 public class PurchaseOrderService {
 
-    private static final Logger log = LoggerFactory.getLogger(PurchaseOrderService.class);
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
 
     private final PurchaseOrderRepository purchaseOrderRepository;
     private final SupplierRepository supplierRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
-    @Autowired(required = false)
-    private RabbitTemplate rabbitTemplate;
+    private final ConcurrentHashMap<String, AtomicInteger> dailySequences = new ConcurrentHashMap<>();
 
     public PurchaseOrderService(PurchaseOrderRepository purchaseOrderRepository,
-                                SupplierRepository supplierRepository) {
+                                SupplierRepository supplierRepository,
+                                ApplicationEventPublisher eventPublisher) {
         this.purchaseOrderRepository = purchaseOrderRepository;
         this.supplierRepository = supplierRepository;
+        this.eventPublisher = eventPublisher;
     }
 
     /**
@@ -128,8 +126,14 @@ public class PurchaseOrderService {
         po.setExpectedDate(request.expectedDate());
         po.setNote(normalizeString(request.note()));
 
-        // Trạng thái khởi tạo: mặc định PENDING (Chờ duyệt) hoặc DRAFT (Nháp)
-        OrderStatus initialStatus = request.status() != null ? request.status() : OrderStatus.PENDING;
+        // Trạng thái khởi tạo: chỉ chấp nhận DRAFT hoặc PENDING, từ chối các giá trị khác để tránh bỏ qua phê duyệt
+        OrderStatus initialStatus = OrderStatus.PENDING;
+        if (request.status() != null) {
+            if (request.status() != OrderStatus.DRAFT && request.status() != OrderStatus.PENDING) {
+                throw ApiException.badRequest("Trạng thái khởi tạo chỉ được là DRAFT hoặc PENDING. Không được phép tạo đơn với trạng thái: " + request.status());
+            }
+            initialStatus = request.status();
+        }
         po.setStatus(initialStatus);
 
         // 2. Tính toán chi tiết các dòng hàng
@@ -182,7 +186,7 @@ public class PurchaseOrderService {
 
     /**
      * Phê duyệt đơn mua hàng (PENDING -> APPROVED).
-     * Phát sinh sự kiện RabbitMQ 'order.created' để các service khác cập nhật dữ liệu (Incoming Stock - WMS-09.2).
+     * Phát sinh sự kiện sau commit (@TransactionalEventListener AFTER_COMMIT) sang RabbitMQ (WMS-09.2).
      */
     @Transactional
     public PurchaseOrderResponse approve(Long id, String approvedBy) {
@@ -203,8 +207,29 @@ public class PurchaseOrderService {
 
         PurchaseOrder saved = purchaseOrderRepository.save(po);
 
-        // Phát sự kiện RabbitMQ WmsEvents.RoutingKeys.ORDER_CREATED (WMS-09.2)
-        publishOrderCreatedEvent(saved);
+        // Phát sự kiện Spring Event (sẽ được PurchaseOrderEventListener chuyển sang RabbitMQ sau commit)
+        List<PurchaseOrderApprovedEvent.Item> eventItems = saved.getItems().stream()
+                .map(i -> new PurchaseOrderApprovedEvent.Item(
+                        i.getProductId(),
+                        i.getSkuCode(),
+                        i.getProductName(),
+                        i.getQuantity(),
+                        i.getUnitPrice(),
+                        i.getUom()
+                ))
+                .toList();
+
+        eventPublisher.publishEvent(new PurchaseOrderApprovedEvent(
+                saved.getId(),
+                saved.getPoNumber(),
+                saved.getSupplier() != null ? saved.getSupplier().getId() : null,
+                saved.getWarehouseId(),
+                saved.getWarehouseName(),
+                saved.getTotalAmount(),
+                saved.getStatus().name(),
+                eventItems,
+                Instant.now()
+        ));
 
         return PurchaseOrderResponse.from(saved);
     }
@@ -234,14 +259,14 @@ public class PurchaseOrderService {
     }
 
     /**
-     * Hủy đơn mua hàng (CANCELLED).
+     * Hủy đơn mua hàng (chỉ cho phép khi ở trạng thái DRAFT hoặc PENDING).
      */
     @Transactional
     public PurchaseOrderResponse cancel(Long id) {
         PurchaseOrder po = findOrder(id);
 
-        if (po.getStatus() == OrderStatus.COMPLETED) {
-            throw ApiException.badRequest("Đơn mua hàng đã hoàn tất nhập kho, không thể hủy!");
+        if (po.getStatus() != OrderStatus.DRAFT && po.getStatus() != OrderStatus.PENDING) {
+            throw ApiException.badRequest("Chỉ được hủy đơn mua hàng ở trạng thái DRAFT hoặc PENDING. Đơn hiện tại đang ở trạng thái: " + po.getStatus());
         }
 
         po.setStatus(OrderStatus.CANCELLED);
@@ -275,23 +300,34 @@ public class PurchaseOrderService {
 
     /**
      * Tự động sinh mã PO theo ngày hiện tại: PO-YYYYMMDD-XXXX.
+     * Sử dụng bộ đếm AtomicInteger kết hợp kiểm tra DB để chống va chạm mã khi nhiều giao dịch chạy đồng thời.
      */
-    public synchronized String generatePoNumber(LocalDate date) {
+    public String generatePoNumber(LocalDate date) {
         String dateStr = date.format(DATE_FORMATTER);
         String prefix = "PO-" + dateStr + "-";
 
-        return purchaseOrderRepository.findTopByPoNumberStartingWithOrderByPoNumberDesc(prefix)
-                .map(PurchaseOrder::getPoNumber)
-                .map(latestCode -> {
-                    try {
-                        String suffix = latestCode.substring(prefix.length());
-                        int nextSeq = Integer.parseInt(suffix) + 1;
-                        return String.format("%s%04d", prefix, nextSeq);
-                    } catch (Exception e) {
-                        return String.format("%s%04d", prefix, 1);
-                    }
-                })
-                .orElse(String.format("%s%04d", prefix, 1));
+        AtomicInteger counter = dailySequences.computeIfAbsent(dateStr, key -> {
+            int maxSeq = purchaseOrderRepository.findTopByPoNumberStartingWithOrderByPoNumberDesc(prefix)
+                    .map(PurchaseOrder::getPoNumber)
+                    .map(latestCode -> {
+                        try {
+                            String suffix = latestCode.substring(prefix.length());
+                            return Integer.parseInt(suffix);
+                        } catch (Exception e) {
+                            return 0;
+                        }
+                    })
+                    .orElse(0);
+            return new AtomicInteger(maxSeq);
+        });
+
+        String candidate;
+        do {
+            int nextSeq = counter.incrementAndGet();
+            candidate = String.format("%s%04d", prefix, nextSeq);
+        } while (purchaseOrderRepository.existsByPoNumber(candidate));
+
+        return candidate;
     }
 
     /**
@@ -370,43 +406,6 @@ public class PurchaseOrderService {
         po.setDiscountAmount(totalDiscount);
         po.setTaxAmount(totalTax);
         po.setTotalAmount(grandTotal);
-    }
-
-    private void publishOrderCreatedEvent(PurchaseOrder po) {
-        if (rabbitTemplate == null) {
-            return;
-        }
-        try {
-            List<Map<String, Object>> itemPayloads = po.getItems().stream()
-                    .map(item -> {
-                        Map<String, Object> map = new HashMap<>();
-                        map.put("productId", item.getProductId());
-                        map.put("skuCode", item.getSkuCode());
-                        map.put("productName", item.getProductName());
-                        map.put("quantity", item.getQuantity());
-                        map.put("unitPrice", item.getUnitPrice());
-                        map.put("uom", item.getUom());
-                        return map;
-                    })
-                    .toList();
-
-            Map<String, Object> event = new HashMap<>();
-            event.put("orderId", po.getId());
-            event.put("poNumber", po.getPoNumber());
-            event.put("supplierId", po.getSupplier() != null ? po.getSupplier().getId() : null);
-            event.put("warehouseId", po.getWarehouseId());
-            event.put("warehouseName", po.getWarehouseName());
-            event.put("status", po.getStatus().name());
-            event.put("totalAmount", po.getTotalAmount());
-            event.put("items", itemPayloads);
-            event.put("timestamp", Instant.now().toString());
-
-            rabbitTemplate.convertAndSend(WmsEvents.EXCHANGE, WmsEvents.RoutingKeys.ORDER_CREATED, event);
-            log.info("Đã phát sự kiện '{}' cho đơn mua hàng: {}", WmsEvents.RoutingKeys.ORDER_CREATED, po.getPoNumber());
-        } catch (Exception e) {
-            log.warn("Không thể gửi sự kiện RabbitMQ '{}' cho đơn mua hàng {}: {}",
-                    WmsEvents.RoutingKeys.ORDER_CREATED, po.getPoNumber(), e.getMessage());
-        }
     }
 
     private PurchaseOrder findOrder(Long id) {

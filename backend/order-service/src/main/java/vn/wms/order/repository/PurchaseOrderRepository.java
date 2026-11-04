@@ -2,6 +2,7 @@ package vn.wms.order.repository;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -14,12 +15,22 @@ import java.util.Optional;
 
 public interface PurchaseOrderRepository extends JpaRepository<PurchaseOrder, Long> {
 
+    @EntityGraph(attributePaths = {"supplier", "items"})
     Optional<PurchaseOrder> findByPoNumber(String poNumber);
 
     boolean existsByPoNumber(String poNumber);
 
     Optional<PurchaseOrder> findTopByPoNumberStartingWithOrderByPoNumberDesc(String prefix);
 
+    @Override
+    @EntityGraph(attributePaths = {"supplier", "items"})
+    Optional<PurchaseOrder> findById(Long id);
+
+    @Override
+    @EntityGraph(attributePaths = {"supplier"})
+    Page<PurchaseOrder> findAll(Pageable pageable);
+
+    @EntityGraph(attributePaths = {"supplier"})
     @Query("SELECT po FROM PurchaseOrder po " +
            "WHERE (:keyword IS NULL OR :keyword = '' " +
            "       OR LOWER(po.poNumber) LIKE LOWER(CONCAT('%', :keyword, '%')) " +

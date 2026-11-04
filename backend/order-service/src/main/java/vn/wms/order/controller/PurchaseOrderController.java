@@ -58,11 +58,6 @@ public class PurchaseOrderController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromOrderDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toOrderDate,
             @ParameterObject @PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
-
-        if (keyword == null && supplierId == null && warehouseId == null && status == null && fromOrderDate == null && toOrderDate == null) {
-            return ApiResponse.ok(purchaseOrderService.list(pageable));
-        }
-
         return ApiResponse.ok(purchaseOrderService.search(
                 keyword, supplierId, warehouseId, status, fromOrderDate, toOrderDate, pageable
         ));

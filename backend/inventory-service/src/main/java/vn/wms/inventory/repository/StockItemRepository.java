@@ -45,6 +45,9 @@ public interface StockItemRepository extends JpaRepository<StockItem, Long> {
     @Query("SELECT COUNT(DISTINCT s.binLocation.id) FROM StockItem s WHERE s.quantity > 0")
     long countTotalOccupiedLocations();
 
+    @Query("SELECT s.binLocation.id, COUNT(s.id), COALESCE(SUM(s.quantity), 0) FROM StockItem s WHERE s.binLocation.warehouse.id = :warehouseId GROUP BY s.binLocation.id")
+    List<Object[]> findStockStatsByWarehouseId(@Param("warehouseId") Long warehouseId);
+
     @Query("SELECT s.binLocation.id, COUNT(s.id), COALESCE(SUM(s.quantity), 0) FROM StockItem s WHERE s.binLocation.warehouse.id IN :warehouseIds GROUP BY s.binLocation.id")
     List<Object[]> findStockStatsByWarehouseIds(@Param("warehouseIds") Collection<Long> warehouseIds);
 

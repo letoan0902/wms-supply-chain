@@ -67,14 +67,9 @@ public class BinLocationService {
 
         // Lấy thống kê hàng hóa theo từng vị trí để map nhanh
         Map<Long, StockStat> statsMap = new HashMap<>();
-        List<Object[]> rawStats;
-        if (allowedWarehouseIds.isEmpty()) {
-            rawStats = Collections.emptyList();
-        } else if (allowedWarehouseIds.size() == 1) {
-            rawStats = stockItemRepository.findStockStatsByWarehouseId(allowedWarehouseIds.iterator().next());
-        } else {
-            rawStats = stockItemRepository.findStockStatsByWarehouseIds(allowedWarehouseIds);
-        }
+        List<Object[]> rawStats = allowedWarehouseIds.isEmpty()
+                ? Collections.emptyList()
+                : stockItemRepository.findStockStatsByWarehouseIds(allowedWarehouseIds);
 
         for (Object[] row : rawStats) {
             Long locId = (Long) row[0];

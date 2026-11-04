@@ -34,7 +34,7 @@ interface Props {
   page: number
   pageSize: number
   onPageChange: (page: number, pageSize: number) => void
-  onSearch: (keyword?: string, active?: boolean, overLimitOnly?: boolean) => void
+  onSearch: (keyword?: string, active?: boolean) => void
   onEdit: (supplier: Supplier) => void
   onDelete: (id: number) => Promise<void>
   onViewTransactions: (supplier: Supplier) => void
@@ -56,29 +56,19 @@ export default function SupplierTable({
 }: Props) {
   const [keywordInput, setKeywordInput] = useState('')
   const [activeFilter, setActiveFilter] = useState<boolean | undefined>(undefined)
-  const [overLimitFilter, setOverLimitFilter] = useState<boolean | undefined>(undefined)
 
   const handleApplyFilter = () => {
     onSearch(
       keywordInput.trim() ? keywordInput.trim() : undefined,
-      activeFilter,
-      overLimitFilter
+      activeFilter
     )
   }
 
   const handleResetFilter = () => {
     setKeywordInput('')
     setActiveFilter(undefined)
-    setOverLimitFilter(undefined)
-    onSearch(undefined, undefined, undefined)
+    onSearch(undefined, undefined)
   }
-
-  // Lọc client-side cho tiêu chí overLimitFilter nếu backend chưa hỗ trợ param riêng
-  const filteredSuppliers = suppliers.filter((s) => {
-    if (overLimitFilter === true && !s.isOverCreditLimit) return false
-    if (overLimitFilter === false && s.isOverCreditLimit) return false
-    return true
-  })
 
   const columns: ColumnsType<Supplier> = [
     {
@@ -143,11 +133,14 @@ export default function SupplierTable({
       dataIndex: 'paymentTerms',
       key: 'paymentTerms',
       width: 120,
-      render: (val: string | null) => (
-        <Tag color="cyan" className="font-mono text-xs">
-          {val || 'NET_30'}
-        </Tag>
-      ),
+      render: (val: string | null) =>
+        val ? (
+          <Tag color="cyan" className="font-mono text-xs">
+            {val}
+          </Tag>
+        ) : (
+          <span className="text-slate-400 text-xs italic">-</span>
+        ),
     },
     {
       title: 'Hạn mức nợ',
@@ -282,23 +275,11 @@ export default function SupplierTable({
             ]}
           />
 
-          <Select
-            placeholder="Tình trạng công nợ"
-            value={overLimitFilter}
-            onChange={(v) => setOverLimitFilter(v)}
-            className="w-48"
-            allowClear
-            options={[
-              { value: true, label: '⚠️ Vượt hạn mức nợ' },
-              { value: false, label: 'Trong hạn mức cho phép' },
-            ]}
-          />
-
           <Button type="primary" icon={<SearchOutlined />} onClick={handleApplyFilter}>
             Tìm kiếm
           </Button>
 
-          {(keywordInput || activeFilter !== undefined || overLimitFilter !== undefined) && (
+          {(keywordInput || activeFilter !== undefined) && (
             <Button icon={<ClearOutlined />} onClick={handleResetFilter}>
               Xóa bộ lọc
             </Button>
@@ -310,7 +291,7 @@ export default function SupplierTable({
       <Table
         rowKey="id"
         columns={columns}
-        dataSource={filteredSuppliers}
+        dataSource={suppliers}
         loading={loading}
         scroll={{ x: 1200 }}
         pagination={{

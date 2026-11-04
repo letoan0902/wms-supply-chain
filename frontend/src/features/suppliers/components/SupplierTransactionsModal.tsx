@@ -6,6 +6,7 @@ import {
 } from '@ant-design/icons'
 import {
   Alert,
+  App,
   Button,
   Card,
   Modal,
@@ -15,7 +16,8 @@ import {
   Typography,
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
+import { getApiErrorMessage } from '../../../services/api'
 import { formatCurrency, formatNumber } from '../../../utils/format'
 import * as supplierApi from '../supplierApi'
 import type { Supplier, SupplierTransaction, SupplierTransactionType } from '../types'
@@ -65,34 +67,27 @@ export default function SupplierTransactionsModal({
   onClose,
   onOpenRecordModal,
 }: Props) {
+  const { message } = App.useApp()
   const [transactions, setTransactions] = useState<SupplierTransaction[]>([])
   const [loading, setLoading] = useState(false)
   const [page, setPage] = useState(0)
   const [pageSize, setPageSize] = useState(10)
   const [total, setTotal] = useState(0)
+  const [reloadKey, setReloadKey] = useState(0)
 
-  const loadTransactions = useCallback(async () => {
-    if (!supplier) return
-    setLoading(true)
-    try {
-      const data = await supplierApi.fetchSupplierTransactions(supplier.id, {
-        page,
-        size: pageSize,
-      })
-      setTransactions(data.content || [])
-      setTotal(data.totalElements || 0)
-    } catch (err) {
-      console.error(err)
-    } finally {
-      setLoading(false)
-    }
-  }, [supplier, page, pageSize])
+  // Reset trang về 0 khi đổi nhà cung cấp mà không dùng effect gây cascading render
+  const [prevSupplierId, setPrevSupplierId] = useState(supplier?.id)
+  if (supplier?.id !== prevSupplierId) {
+    setPrevSupplierId(supplier?.id)
+    setPage(0)
+  }
 
   useEffect(() => {
     let ignore = false
     if (!open || !supplier) {
       return
     }
+
     const fetchTransactions = async () => {
       setLoading(true)
       try {
@@ -105,18 +100,21 @@ export default function SupplierTransactionsModal({
           setTotal(data.totalElements || 0)
         }
       } catch (err) {
-        console.error(err)
+        if (!ignore) {
+          message.error(getApiErrorMessage(err, 'Không thể tải lịch sử giao dịch công nợ'))
+        }
       } finally {
         if (!ignore) {
           setLoading(false)
         }
       }
     }
+
     void fetchTransactions()
     return () => {
       ignore = true
     }
-  }, [open, supplier, page, pageSize])
+  }, [open, supplier, page, pageSize, reloadKey, message])
 
   const creditLimit = supplier?.creditLimit ?? 0
   const currentDebt = supplier?.currentDebt ?? 0
@@ -256,7 +254,11 @@ export default function SupplierTransactionsModal({
                 <div className="text-xs text-slate-500">Mã số thuế / MST:</div>
                 <div className="font-medium text-slate-800">{supplier.taxCode || 'Chưa cập nhật'}</div>
                 <div className="text-xs text-slate-500 mt-1">Điều khoản thanh toán:</div>
-                <Tag color="cyan" className="mt-0.5">{supplier.paymentTerms || 'NET_30'}</Tag>
+                {supplier.paymentTerms ? (
+                  <Tag color="cyan" className="mt-0.5">{supplier.paymentTerms}</Tag>
+                ) : (
+                  <div className="text-slate-400 text-xs italic mt-0.5">Chưa thiết lập</div>
+                )}
               </div>
 
               <div>
@@ -308,7 +310,7 @@ export default function SupplierTransactionsModal({
             <Button
               size="small"
               icon={<ReloadOutlined />}
-              onClick={() => void loadTransactions()}
+              onClick={() => setReloadKey((k) => k + 1)}
               loading={loading}
             >
               Làm mới

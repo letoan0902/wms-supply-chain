@@ -43,7 +43,7 @@ Các tệp trong thư mục `deploy/`:
 | [docker-compose.prod.yml](docker-compose.prod.yml) | Ghép chồng lên `docker-compose.yml` gốc: thêm service `caddy`, bỏ cổng publish của `frontend`, đưa `api-gateway` về `127.0.0.1:8080`, truyền `CORS_ALLOWED_ORIGINS`, `GATEWAY_JWT_ENABLED` và các biến giới hạn tốc độ vào gateway |
 | [Caddyfile](Caddyfile) | Cấu hình Caddy: HTTPS tự động, nén, header bảo mật, log JSON, proxy tới `frontend:80` |
 | [.env.production.example](.env.production.example) | Mẫu file `.env` cho production, không chứa bí mật |
-| [deploy.sh](deploy.sh) | Script chạy trên VPS: lấy mã nguồn, build, khởi động, chờ healthy, kiểm tra HTTP và HTTPS, dọn image cũ |
+| [deploy.sh](deploy.sh) | Script chạy trên VPS: lấy mã nguồn, build, khởi động, chờ healthy, kiểm tra gateway, làm nóng vài request đầu, kiểm tra HTTPS và API qua tên miền, dọn image cũ |
 | `.gitignore`, `.gitattributes` | Cho phép commit file mẫu `.env.production.example` (`.gitignore` gốc chặn mọi `.env.*`) và ép dùng LF cho script |
 
 ## 2. Yêu cầu

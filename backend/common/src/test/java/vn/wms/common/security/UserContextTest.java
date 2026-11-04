@@ -122,4 +122,35 @@ class UserContextTest {
                 .isInstanceOf(ApiException.class)
                 .hasMessageContaining("Chưa đăng nhập");
     }
+
+    @Test
+    void requireWarehouseWriteAccessAllowsAdminAndAssignedManagerOnly() {
+        CurrentUser admin = new CurrentUser("admin", Set.of(Roles.ADMIN), Set.of());
+        CurrentUser manager = new CurrentUser("mgr", Set.of(Roles.WAREHOUSE_MANAGER), Set.of(1L, 2L));
+        CurrentUser accountant = new CurrentUser("acc", Set.of(Roles.ACCOUNTANT), Set.of());
+        CurrentUser staff = new CurrentUser("staff", Set.of(Roles.WAREHOUSE_STAFF), Set.of(1L));
+
+        // 1. Admin được phép ghi mọi kho
+        org.junit.jupiter.api.Assertions.assertDoesNotThrow(() -> UserContext.requireWarehouseWriteAccess(admin, 1L));
+        org.junit.jupiter.api.Assertions.assertDoesNotThrow(() -> UserContext.requireWarehouseWriteAccess(admin, 999L));
+
+        // 2. Manager được phép ghi kho được gán {1, 2}
+        org.junit.jupiter.api.Assertions.assertDoesNotThrow(() -> UserContext.requireWarehouseWriteAccess(manager, 1L));
+        org.junit.jupiter.api.Assertions.assertDoesNotThrow(() -> UserContext.requireWarehouseWriteAccess(manager, 2L));
+
+        // 3. Manager không được phép ghi kho ngoài phạm vi gán {3}
+        assertThatThrownBy(() -> UserContext.requireWarehouseWriteAccess(manager, 3L))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("Tài khoản không có quyền thay đổi dữ liệu của kho ID: 3");
+
+        // 4. Kế toán (ACCOUNTANT) có quyền đọc nhưng bị cấm ghi (403 Forbidden)
+        assertThatThrownBy(() -> UserContext.requireWarehouseWriteAccess(accountant, 1L))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("Tài khoản không có quyền thay đổi dữ liệu của kho ID: 1");
+
+        // 5. Nhân viên (STAFF) bị cấm ghi cấu hình kho / vị trí (403 Forbidden)
+        assertThatThrownBy(() -> UserContext.requireWarehouseWriteAccess(staff, 1L))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("Tài khoản không có quyền thay đổi dữ liệu của kho ID: 1");
+    }
 }

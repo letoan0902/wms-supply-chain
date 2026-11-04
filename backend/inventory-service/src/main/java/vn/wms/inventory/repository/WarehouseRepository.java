@@ -21,7 +21,5 @@ public interface WarehouseRepository extends JpaRepository<Warehouse, Long> {
 
     List<Warehouse> findByActiveTrueOrderByCodeAsc();
 
-    List<Warehouse> findByIdInAndActiveTrueOrderByCodeAsc(Collection<Long> ids);
-
     List<Warehouse> findByNameContainingIgnoreCaseOrCodeContainingIgnoreCaseOrderByCodeAsc(String name, String code);
 }

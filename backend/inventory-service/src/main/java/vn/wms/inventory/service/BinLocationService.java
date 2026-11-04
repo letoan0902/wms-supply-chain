@@ -123,7 +123,7 @@ public class BinLocationService {
      */
     @Transactional
     public BinLocationResponse createLocation(CreateBinLocationRequest request) {
-        checkWarehouseAccess(request.warehouseId());
+        checkWarehouseWriteAccess(request.warehouseId());
         Warehouse warehouse = warehouseRepository.findById(request.warehouseId())
                 .orElseThrow(() -> ApiException.notFound("Không tìm thấy kho có ID: " + request.warehouseId()));
 
@@ -156,7 +156,7 @@ public class BinLocationService {
      */
     @Transactional
     public List<BinLocationResponse> bulkCreateLocations(BulkCreateBinLocationsRequest request) {
-        checkWarehouseAccess(request.warehouseId());
+        checkWarehouseWriteAccess(request.warehouseId());
         Warehouse warehouse = warehouseRepository.findById(request.warehouseId())
                 .orElseThrow(() -> ApiException.notFound("Không tìm thấy kho có ID: " + request.warehouseId()));
 
@@ -207,7 +207,7 @@ public class BinLocationService {
     public BinLocationResponse updateLocation(Long id, UpdateBinLocationRequest request) {
         BinLocation loc = binLocationRepository.findById(id)
                 .orElseThrow(() -> ApiException.notFound("Không tìm thấy vị trí ô/kệ có ID: " + id));
-        checkWarehouseAccess(loc.getWarehouse().getId());
+        checkWarehouseWriteAccess(loc.getWarehouse().getId());
 
         if (request.maxWeight() != null) {
             loc.setMaxWeight(request.maxWeight());
@@ -230,7 +230,7 @@ public class BinLocationService {
     public void deleteLocation(Long id) {
         BinLocation loc = binLocationRepository.findById(id)
                 .orElseThrow(() -> ApiException.notFound("Không tìm thấy vị trí ô/kệ có ID: " + id));
-        checkWarehouseAccess(loc.getWarehouse().getId());
+        checkWarehouseWriteAccess(loc.getWarehouse().getId());
 
         if (stockItemRepository.existsActiveStockByBinLocationId(id)) {
             throw ApiException.conflict("Không thể xóa vị trí " + loc.getCode() + " vì đang có hàng hóa lưu trữ bên trong.");
@@ -274,11 +274,29 @@ public class BinLocationService {
         return BarcodeGenerator.generateCode128Png(loc.getCode(), 2, 60);
     }
 
+    /**
+     * Kiểm tra quyền đọc dữ liệu vị trí:
+     * - ADMIN và ACCOUNTANT được xem toàn bộ vị trí thuộc mọi kho (Global Read Scope).
+     * - WAREHOUSE_MANAGER và WAREHOUSE_STAFF chỉ được xem vị trí thuộc các kho được phân công.
+     * - Khi không có header X-User-Name (gọi nội bộ dev/mock test), hệ thống cho phép bỏ qua (fail-open dev).
+     */
     private void checkWarehouseAccess(Long warehouseId) {
         UserContext.getCurrentUser().ifPresent(user -> {
             if (!UserContext.isGlobalScope(user) && !user.warehouseIds().contains(warehouseId)) {
                 throw ApiException.forbidden("Bạn không có quyền thao tác trên dữ liệu của kho ID: " + warehouseId);
             }
+        });
+    }
+
+    /**
+     * Kiểm tra quyền ghi vị trí ô/kệ (tạo mới, sinh hàng loạt, cập nhật tải trọng/trạng thái, xóa vị trí):
+     * - Chỉ ADMIN hoặc WAREHOUSE_MANAGER phụ trách kho mới có quyền ghi.
+     * - ACCOUNTANT chỉ có quyền đọc báo cáo, bị từ chối thao tác ghi (403 Forbidden).
+     * - Khi không có header X-User-Name (gọi nội bộ dev/mock test), cho phép bỏ qua (fail-open dev).
+     */
+    private void checkWarehouseWriteAccess(Long warehouseId) {
+        UserContext.getCurrentUser().ifPresent(user -> {
+            UserContext.requireWarehouseWriteAccess(user, warehouseId);
         });
     }
 

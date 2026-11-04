@@ -185,7 +185,7 @@ public class WarehouseService {
      */
     @Transactional
     public WarehouseResponse updateWarehouse(Long id, UpdateWarehouseRequest request) {
-        checkWarehouseAccess(id);
+        checkWarehouseWriteAccess(id);
         Warehouse warehouse = warehouseRepository.findById(id)
                 .orElseThrow(() -> ApiException.notFound("Không tìm thấy kho có ID: " + id));
 
@@ -209,7 +209,7 @@ public class WarehouseService {
      */
     @Transactional
     public WarehouseResponse toggleWarehouseStatus(Long id, boolean active) {
-        checkWarehouseAccess(id);
+        checkWarehouseWriteAccess(id);
         Warehouse warehouse = warehouseRepository.findById(id)
                 .orElseThrow(() -> ApiException.notFound("Không tìm thấy kho có ID: " + id));
 
@@ -232,7 +232,7 @@ public class WarehouseService {
                 throw ApiException.forbidden("Chỉ Quản trị viên (ADMIN) mới có quyền xóa kho hàng");
             }
         });
-        checkWarehouseAccess(id);
+        checkWarehouseWriteAccess(id);
         Warehouse warehouse = warehouseRepository.findById(id)
                 .orElseThrow(() -> ApiException.notFound("Không tìm thấy kho có ID: " + id));
 
@@ -247,11 +247,29 @@ public class WarehouseService {
         warehouseRepository.delete(warehouse);
     }
 
+    /**
+     * Kiểm tra quyền đọc dữ liệu kho:
+     * - ADMIN và ACCOUNTANT được xem toàn bộ kho (Global Read Scope).
+     * - WAREHOUSE_MANAGER và WAREHOUSE_STAFF chỉ được xem kho được phân công.
+     * - Khi không có header X-User-Name (gọi nội bộ dev/mock test), hệ thống cho phép bỏ qua (fail-open dev).
+     */
     private void checkWarehouseAccess(Long warehouseId) {
         UserContext.getCurrentUser().ifPresent(user -> {
             if (!UserContext.isGlobalScope(user) && !user.warehouseIds().contains(warehouseId)) {
                 throw ApiException.forbidden("Bạn không có quyền thao tác trên kho ID: " + warehouseId);
             }
+        });
+    }
+
+    /**
+     * Kiểm tra quyền ghi dữ liệu kho (sửa kho, đổi trạng thái kho, xóa kho):
+     * - Chỉ ADMIN hoặc WAREHOUSE_MANAGER phụ trách kho mới có quyền ghi.
+     * - ACCOUNTANT chỉ có quyền đọc báo cáo, bị từ chối thao tác ghi.
+     * - Khi không có header X-User-Name (gọi nội bộ dev/mock test), cho phép bỏ qua (fail-open dev).
+     */
+    private void checkWarehouseWriteAccess(Long warehouseId) {
+        UserContext.getCurrentUser().ifPresent(user -> {
+            UserContext.requireWarehouseWriteAccess(user, warehouseId);
         });
     }
 

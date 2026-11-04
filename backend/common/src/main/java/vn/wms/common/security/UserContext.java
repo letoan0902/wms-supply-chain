@@ -66,10 +66,10 @@ public final class UserContext {
     }
 
     /**
-     * Kiểm tra người dùng có quyền xem toàn bộ kho (Global Scope) hay không.
-     * Theo tài liệu đặc tả: ADMIN và ACCOUNTANT được phép truy cập tất cả các kho.
+     * Kiểm tra người dùng có quyền xem toàn bộ kho (Global Read Scope) hay không.
+     * Theo tài liệu đặc tả: ADMIN và ACCOUNTANT được phép xem báo cáo và dữ liệu tất cả các kho.
      */
-    public static boolean isGlobalScope(CurrentUser user) {
+    public static boolean isGlobalReadScope(CurrentUser user) {
         if (user == null) {
             return false;
         }
@@ -77,8 +77,35 @@ public final class UserContext {
     }
 
     /**
+     * Tương thích ngược với các lệnh kiểm tra phạm vi đọc dữ liệu.
+     */
+    public static boolean isGlobalScope(CurrentUser user) {
+        return isGlobalReadScope(user);
+    }
+
+    /**
+     * Kiểm tra quyền thực hiện thao tác ghi (tạo, cập nhật, xóa, đổi trạng thái) trên kho:
+     * - ADMIN: Toàn quyền ghi trên tất cả các kho.
+     * - WAREHOUSE_MANAGER: Có quyền ghi trên các kho được phân công phụ trách.
+     * - ACCOUNTANT, WAREHOUSE_STAFF và các vai trò khác: Bị từ chối thao tác ghi (403 Forbidden).
+     * - user == null: Cho phép bỏ qua khi chạy nội bộ không có context người dùng (fail-open dev/internal).
+     */
+    public static void requireWarehouseWriteAccess(CurrentUser user, Long warehouseId) {
+        if (user == null) {
+            return;
+        }
+        if (user.hasRole(Roles.ADMIN)) {
+            return;
+        }
+        if (user.hasRole(Roles.WAREHOUSE_MANAGER) && warehouseId != null && user.warehouseIds().contains(warehouseId)) {
+            return;
+        }
+        throw ApiException.forbidden("Tài khoản không có quyền thay đổi dữ liệu của kho ID: " + warehouseId);
+    }
+
+    /**
      * Xác định và kiểm tra tính hợp lệ của danh sách kho cần truy vấn dữ liệu:
-     * - Nếu là Admin / Kế toán (Global Scope):
+     * - Nếu là Admin / Kế toán (Global Read Scope):
      *     + Có truyền requestedWarehouseId -> Trả về tập chứa đúng ID kho đó.
      *     + Không truyền requestedWarehouseId -> Trả về tập rỗng (nghĩa là không lọc theo kho, lấy tất cả).
      * - Nếu là Quản lý / Nhân viên kho (Warehouse Scope):

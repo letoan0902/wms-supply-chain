@@ -33,11 +33,7 @@ public interface BinLocationRepository extends JpaRepository<BinLocation, Long> 
 
     long countByWarehouseIdAndActive(Long warehouseId, boolean active);
 
-    long countByWarehouseIdInAndActive(Collection<Long> warehouseIds, boolean active);
-
     long countByWarehouseIdAndStatus(Long warehouseId, String status);
-
-    long countByWarehouseIdInAndStatus(Collection<Long> warehouseIds, String status);
 
     long countByStatus(String status);
 

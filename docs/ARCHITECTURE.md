@@ -149,3 +149,23 @@ SO -> kiểm tra ATP -> CONFIRMED (giữ hàng mềm) -> Picking List -> GDN (xu
   (file `.env` đã được `.gitignore` loại trừ).
 - Các cổng hạ tầng (MySQL, Redis, RabbitMQ) trong `docker-compose.yml` chỉ phục vụ môi trường phát triển và chỉ mở trên
   `127.0.0.1`; môi trường triển khai thật không được mở ra ngoài.
+
+## 8. Mô hình SaaS đa doanh nghiệp (từ 04/11/2026)
+
+Hệ thống mở rộng để nhiều doanh nghiệp tự đăng ký và dùng chung một bản triển khai. Chi tiết kế hoạch, task và lịch ở
+[SAAS_PLAN.md](SAAS_PLAN.md).
+
+- **Tách dữ liệu theo doanh nghiệp**: mọi bảng nghiệp vụ có cột `company_id`; Hibernate `@TenantId` tự thêm điều kiện lọc vào
+  mọi truy vấn JPA nên một công ty không bao giờ đọc hay ghi được dữ liệu của công ty khác. JWT mang claim `companyId`,
+  API Gateway chuyển tiếp header `X-Company-Id` cho service; sự kiện RabbitMQ mang `companyId` trong message. Ràng buộc duy
+  nhất đổi thành `(company_id, mã)`. Module `common` cung cấp `TenantContext`, `TenantEntity` và test cách ly mẫu.
+- **Đăng ký và gói dịch vụ**: auth-service có bảng `companies`, `subscriptions`, `plans`, `payments`; đăng ký tạo công ty,
+  admin đầu tiên và 30 ngày dùng thử, kích hoạt qua email. Gói Free, Trial, Pro với giới hạn số user, kho, SKU và lượt AI;
+  `PlanLimitChecker` trong `common` trả mã lỗi `PLAN_LIMIT_EXCEEDED` hoặc `SUBSCRIPTION_EXPIRED` (HTTP 403), hết hạn thì
+  hệ thống chỉ đọc. Gia hạn thanh toán qua PayOS: backend tạo link thanh toán có chữ ký, PayOS gọi webhook về
+  `/api/auth/payments/payos/webhook`, kiểm tra chữ ký và số tiền rồi mới kích hoạt gói; khóa PayOS chỉ nằm trong `.env`.
+- **ai-service (cổng 8086)**: Spring AI với Claude; trích xuất tài liệu (Excel, CSV, PDF, ảnh) thành hàng hóa, nhà cung cấp,
+  khách hàng để người dùng xem trước rồi nhập hàng loạt qua API của product-service và order-service; trợ lý AI hướng dẫn
+  sử dụng và tra cứu tồn kho, đơn hàng của chính công ty; tóm tắt báo cáo. Mỗi lượt gọi trừ hạn mức của gói.
+- **Tích hợp ngoài**: API key theo doanh nghiệp (bảng `api_keys`), gateway chấp nhận header `X-Api-Key` với vai trò
+  INTEGRATION chỉ đọc, giới hạn tốc độ theo key, Swagger công khai.

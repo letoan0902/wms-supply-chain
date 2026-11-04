@@ -9,9 +9,9 @@
   "Phạm Phương Anh"
  ],
  "counts": {
-  "epic": 9,
-  "task": 21,
-  "subtask": 86
+  "epic": 10,
+  "task": 26,
+  "subtask": 109
  },
  "period": {
   "start": "2026-10-27",
@@ -5780,7 +5780,1447 @@
      "WMS-21"
     ]
    ]
+  },
+  {
+   "row": 125,
+   "wms": "X",
+   "title_raw": "EPIC 10: THƯƠNG MẠI HÓA SAAS, THANH TOÁN PAYOS & AI NHẬP LIỆU",
+   "summary_raw": "[SaaS & AI] Mở rộng thành nền tảng SaaS cho nhiều doanh nghiệp: tách dữ liệu theo công ty, đăng ký và dùng thử 30 ngày, gói dịch vụ thanh toán qua PayOS, AI nhập liệu từ tài liệu và trợ lý AI, API key tích hợp, rà soát giao diện tuần cuối.",
+   "assignee": "Lê Phú Toàn",
+   "collab": "Cả nhóm",
+   "progress": 0.0,
+   "start": "2026-11-04",
+   "due": "2026-11-20",
+   "days": 13,
+   "level": "epic",
+   "parent": null,
+   "summary": "EPIC 10: THƯƠNG MẠI HÓA SAAS, THANH TOÁN PAYOS & AI NHẬP LIỆU",
+   "labels": [
+    "SaaS"
+   ],
+   "phase": "SaaS & AI",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "X"
+    ],
+    [
+     "Nội dung",
+     "[SaaS & AI] Mở rộng thành nền tảng SaaS cho nhiều doanh nghiệp: tách dữ liệu theo công ty, đăng ký và dùng thử 30 ngày, gói dịch vụ thanh toán qua PayOS, AI nhập liệu từ tài liệu và trợ lý AI, API key tích hợp, rà soát giao diện tuần cuối."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Phối hợp",
+     "Cả nhóm"
+    ],
+    [
+     "Kế hoạch",
+     "04/11/2026 - 20/11/2026 (13 ngày làm việc)"
+    ],
+    [
+     "Giai đoạn",
+     "SaaS & AI"
+    ]
+   ]
+  },
+  {
+   "row": 126,
+   "wms": "WMS-22",
+   "title_raw": "Task WMS-22: Nền tảng đa doanh nghiệp (Multi-tenant)",
+   "summary_raw": "[SaaS & AI] Tách dữ liệu theo doanh nghiệp (company_id) ở cả 5 service bằng @TenantId của Hibernate 6 và bộ lọc chung trong module common; JWT mang companyId, api-gateway chuyển tiếp X-Company-Id; sự kiện RabbitMQ mang companyId; kiểm thử cách ly dữ liệu giữa 2 công ty.",
+   "assignee": "Lê Phú Toàn",
+   "collab": "Cả nhóm",
+   "progress": 0.0,
+   "start": "2026-11-06",
+   "due": "2026-11-20",
+   "days": 11,
+   "level": "task",
+   "parent": "X",
+   "summary": "WMS-22: Nền tảng đa doanh nghiệp (Multi-tenant)",
+   "labels": [
+    "SaaS"
+   ],
+   "phase": "SaaS & AI",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-22"
+    ],
+    [
+     "Nội dung",
+     "[SaaS & AI] Tách dữ liệu theo doanh nghiệp (company_id) ở cả 5 service bằng @TenantId của Hibernate 6 và bộ lọc chung trong module common; JWT mang companyId, api-gateway chuyển tiếp X-Company-Id; sự kiện RabbitMQ mang companyId; kiểm thử cách ly dữ liệu giữa 2 công ty."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Phối hợp",
+     "Cả nhóm"
+    ],
+    [
+     "Kế hoạch",
+     "06/11/2026 - 20/11/2026 (11 ngày làm việc)"
+    ],
+    [
+     "Giai đoạn",
+     "SaaS & AI"
+    ],
+    [
+     "Thuộc",
+     "IX"
+    ]
+   ]
+  },
+  {
+   "row": 127,
+   "wms": "WMS-22.1",
+   "title_raw": "+ [Backend] Thiết kế đa doanh nghiệp và bộ lọc chung trong module common (TenantContext, @TenantId, TenantEntity, test), tài liệu docs/MULTI_TENANT.md",
+   "summary_raw": "Thiết kế đa doanh nghiệp và bộ lọc chung trong module common (TenantContext, @TenantId, TenantEntity, test), tài liệu docs/MULTI_TENANT.md. Kết quả nghiệm thu: Test trong common chứng minh query tự lọc theo company_id.",
+   "assignee": "Lê Phú Toàn",
+   "collab": "Cả nhóm",
+   "progress": 0.0,
+   "start": "2026-11-06",
+   "due": "2026-11-06",
+   "days": 1,
+   "level": "subtask",
+   "parent": "WMS-22",
+   "summary": "WMS-22.1 [Backend] Thiết kế đa doanh nghiệp và bộ lọc chung trong module common (TenantContext, @TenantId, TenantEntity, test), tài liệu docs/MULTI_TENANT.md",
+   "labels": [
+    "SaaS",
+    "Backend"
+   ],
+   "phase": "SaaS & AI",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-22.1"
+    ],
+    [
+     "Nội dung",
+     "Thiết kế đa doanh nghiệp và bộ lọc chung trong module common (TenantContext, @TenantId, TenantEntity, test), tài liệu docs/MULTI_TENANT.md. Kết quả nghiệm thu: Test trong common chứng minh query tự lọc theo company_id."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Phối hợp",
+     "Cả nhóm"
+    ],
+    [
+     "Kế hoạch",
+     "06/11/2026 - 06/11/2026 (1 ngày làm việc)"
+    ],
+    [
+     "Giai đoạn",
+     "SaaS & AI"
+    ],
+    [
+     "Thuộc",
+     "WMS-22"
+    ]
+   ]
+  },
+  {
+   "row": 128,
+   "wms": "WMS-22.2",
+   "title_raw": "+ [Backend] auth-service: bảng companies, users.company_id, JWT claim companyId, đăng nhập theo công ty, seed 2 công ty mẫu",
+   "summary_raw": "auth-service: bảng companies, users.company_id, JWT claim companyId, đăng nhập theo công ty, seed 2 công ty mẫu. Kết quả nghiệm thu: Đăng nhập trả JWT có companyId; user công ty A không đăng nhập được vào B.",
+   "assignee": "Phạm Phương Anh",
+   "collab": "Lê Phú Toàn",
+   "progress": 0.0,
+   "start": "2026-11-06",
+   "due": "2026-11-06",
+   "days": 1,
+   "level": "subtask",
+   "parent": "WMS-22",
+   "summary": "WMS-22.2 [Backend] auth-service: bảng companies, users.company_id, JWT claim companyId, đăng nhập theo công ty, seed 2 công ty mẫu",
+   "labels": [
+    "SaaS",
+    "Backend"
+   ],
+   "phase": "SaaS & AI",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-22.2"
+    ],
+    [
+     "Nội dung",
+     "auth-service: bảng companies, users.company_id, JWT claim companyId, đăng nhập theo công ty, seed 2 công ty mẫu. Kết quả nghiệm thu: Đăng nhập trả JWT có companyId; user công ty A không đăng nhập được vào B."
+    ],
+    [
+     "Phụ trách",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Kế hoạch",
+     "06/11/2026 - 06/11/2026 (1 ngày làm việc)"
+    ],
+    [
+     "Giai đoạn",
+     "SaaS & AI"
+    ],
+    [
+     "Thuộc",
+     "WMS-22"
+    ]
+   ]
+  },
+  {
+   "row": 129,
+   "wms": "WMS-22.3",
+   "title_raw": "+ [Backend] api-gateway chuyển tiếp X-Company-Id, chặn request thiếu công ty; áp mẫu vào inventory-service cùng Linh; test tích hợp 2 công ty",
+   "summary_raw": "api-gateway chuyển tiếp X-Company-Id, chặn request thiếu công ty; áp mẫu vào inventory-service cùng Linh; test tích hợp 2 công ty. Kết quả nghiệm thu: Gọi API kho bằng token công ty A chỉ thấy kho của A.",
+   "assignee": "Lê Phú Toàn",
+   "collab": "Cả nhóm",
+   "progress": 0.0,
+   "start": "2026-11-09",
+   "due": "2026-11-09",
+   "days": 1,
+   "level": "subtask",
+   "parent": "WMS-22",
+   "summary": "WMS-22.3 [Backend] api-gateway chuyển tiếp X-Company-Id, chặn request thiếu công ty; áp mẫu vào inventory-service cùng Linh; test tích hợp 2 công ty",
+   "labels": [
+    "SaaS",
+    "Backend"
+   ],
+   "phase": "SaaS & AI",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-22.3"
+    ],
+    [
+     "Nội dung",
+     "api-gateway chuyển tiếp X-Company-Id, chặn request thiếu công ty; áp mẫu vào inventory-service cùng Linh; test tích hợp 2 công ty. Kết quả nghiệm thu: Gọi API kho bằng token công ty A chỉ thấy kho của A."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Phối hợp",
+     "Cả nhóm"
+    ],
+    [
+     "Kế hoạch",
+     "09/11/2026 - 09/11/2026 (1 ngày làm việc)"
+    ],
+    [
+     "Giai đoạn",
+     "SaaS & AI"
+    ],
+    [
+     "Thuộc",
+     "WMS-22"
+    ]
+   ]
+  },
+  {
+   "row": 130,
+   "wms": "WMS-22.4a",
+   "title_raw": "+ [Backend] inventory-service: company_id cho kho, vị trí, tồn kho, thẻ kho; ràng buộc duy nhất theo công ty; migration",
+   "summary_raw": "inventory-service: company_id cho kho, vị trí, tồn kho, thẻ kho; ràng buộc duy nhất theo công ty; migration. Kết quả nghiệm thu: Test cách ly pass.",
+   "assignee": "Lê Phương Linh",
+   "collab": "Lê Phú Toàn",
+   "progress": 0.0,
+   "start": "2026-11-09",
+   "due": "2026-11-09",
+   "days": 1,
+   "level": "subtask",
+   "parent": "WMS-22",
+   "summary": "WMS-22.4a [Backend] inventory-service: company_id cho kho, vị trí, tồn kho, thẻ kho; ràng buộc duy nhất theo công ty; migration",
+   "labels": [
+    "SaaS",
+    "Backend"
+   ],
+   "phase": "SaaS & AI",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-22.4a"
+    ],
+    [
+     "Nội dung",
+     "inventory-service: company_id cho kho, vị trí, tồn kho, thẻ kho; ràng buộc duy nhất theo công ty; migration. Kết quả nghiệm thu: Test cách ly pass."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phương Linh"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Kế hoạch",
+     "09/11/2026 - 09/11/2026 (1 ngày làm việc)"
+    ],
+    [
+     "Giai đoạn",
+     "SaaS & AI"
+    ],
+    [
+     "Thuộc",
+     "WMS-22"
+    ]
+   ]
+  },
+  {
+   "row": 131,
+   "wms": "WMS-22.4b",
+   "title_raw": "+ [Backend] product-service và order-service: company_id cho SKU, đơn vị, nhà cung cấp, khách hàng, PO, SO, GRN, GDN; migration; API nhập hàng loạt POST /api/products/bulk, /api/orders/suppliers/bulk, /api/orders/customers/bulk",
+   "summary_raw": "product-service và order-service: company_id cho SKU, đơn vị, nhà cung cấp, khách hàng, PO, SO, GRN, GDN; migration; API nhập hàng loạt POST /api/products/bulk, /api/orders/suppliers/bulk, /api/orders/customers/bulk. Kết quả nghiệm thu: Test cách ly pass; API bulk có validation và trả danh sách lỗi theo dòng.",
+   "assignee": "Trần Đăng Việt",
+   "collab": "Lê Phú Toàn",
+   "progress": 0.0,
+   "start": "2026-11-10",
+   "due": "2026-11-12",
+   "days": 3,
+   "level": "subtask",
+   "parent": "WMS-22",
+   "summary": "WMS-22.4b [Backend] product-service và order-service: company_id cho SKU, đơn vị, nhà cung cấp, khách hàng, PO, SO, GRN, GDN; migration; API nhập hàng loạt POST /api/products/bulk, /api/orders/suppliers/bulk, /api/orders/customers/bulk",
+   "labels": [
+    "SaaS",
+    "Backend"
+   ],
+   "phase": "SaaS & AI",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-22.4b"
+    ],
+    [
+     "Nội dung",
+     "product-service và order-service: company_id cho SKU, đơn vị, nhà cung cấp, khách hàng, PO, SO, GRN, GDN; migration; API nhập hàng loạt POST /api/products/bulk, /api/orders/suppliers/bulk, /api/orders/customers/bulk. Kết quả nghiệm thu: Test cách ly pass; API bulk có validation và trả danh sách lỗi theo dòng."
+    ],
+    [
+     "Phụ trách",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Kế hoạch",
+     "10/11/2026 - 12/11/2026 (3 ngày làm việc)"
+    ],
+    [
+     "Giai đoạn",
+     "SaaS & AI"
+    ],
+    [
+     "Thuộc",
+     "WMS-22"
+    ]
+   ]
+  },
+  {
+   "row": 132,
+   "wms": "WMS-22.4c",
+   "title_raw": "+ [Backend] notification-service: company_id cho thông báo, báo cáo, KPI; sự kiện RabbitMQ mang companyId",
+   "summary_raw": "notification-service: company_id cho thông báo, báo cáo, KPI; sự kiện RabbitMQ mang companyId. Kết quả nghiệm thu: Báo cáo chỉ tổng hợp dữ liệu của công ty đang đăng nhập.",
+   "assignee": "Lê Phú Toàn",
+   "collab": "Cả nhóm",
+   "progress": 0.0,
+   "start": "2026-11-16",
+   "due": "2026-11-16",
+   "days": 1,
+   "level": "subtask",
+   "parent": "WMS-22",
+   "summary": "WMS-22.4c [Backend] notification-service: company_id cho thông báo, báo cáo, KPI; sự kiện RabbitMQ mang companyId",
+   "labels": [
+    "SaaS",
+    "Backend"
+   ],
+   "phase": "SaaS & AI",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-22.4c"
+    ],
+    [
+     "Nội dung",
+     "notification-service: company_id cho thông báo, báo cáo, KPI; sự kiện RabbitMQ mang companyId. Kết quả nghiệm thu: Báo cáo chỉ tổng hợp dữ liệu của công ty đang đăng nhập."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Phối hợp",
+     "Cả nhóm"
+    ],
+    [
+     "Kế hoạch",
+     "16/11/2026 - 16/11/2026 (1 ngày làm việc)"
+    ],
+    [
+     "Giai đoạn",
+     "SaaS & AI"
+    ],
+    [
+     "Thuộc",
+     "WMS-22"
+    ]
+   ]
+  },
+  {
+   "row": 133,
+   "wms": "WMS-22.5",
+   "title_raw": "+ [QA] Kiểm thử cách ly dữ liệu 2 công ty, giới hạn gói, hết hạn (gộp vào WMS-20.3)",
+   "summary_raw": "Kiểm thử cách ly dữ liệu 2 công ty, giới hạn gói, hết hạn (gộp vào WMS-20.3). Kết quả nghiệm thu: Bảng test case có kết quả.",
+   "assignee": "Phạm Phương Anh",
+   "collab": "Lê Phú Toàn",
+   "progress": 0.0,
+   "start": "2026-11-19",
+   "due": "2026-11-20",
+   "days": 2,
+   "level": "subtask",
+   "parent": "WMS-22",
+   "summary": "WMS-22.5 [QA] Kiểm thử cách ly dữ liệu 2 công ty, giới hạn gói, hết hạn (gộp vào WMS-20.3)",
+   "labels": [
+    "SaaS",
+    "QA"
+   ],
+   "phase": "SaaS & AI",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-22.5"
+    ],
+    [
+     "Nội dung",
+     "Kiểm thử cách ly dữ liệu 2 công ty, giới hạn gói, hết hạn (gộp vào WMS-20.3). Kết quả nghiệm thu: Bảng test case có kết quả."
+    ],
+    [
+     "Phụ trách",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Kế hoạch",
+     "19/11/2026 - 20/11/2026 (2 ngày làm việc)"
+    ],
+    [
+     "Giai đoạn",
+     "SaaS & AI"
+    ],
+    [
+     "Thuộc",
+     "WMS-22"
+    ]
+   ]
+  },
+  {
+   "row": 134,
+   "wms": "WMS-23",
+   "title_raw": "Task WMS-23: Đăng ký doanh nghiệp, dùng thử, gói dịch vụ & thanh toán PayOS",
+   "summary_raw": "[SaaS & AI] Doanh nghiệp tự đăng ký (tạo công ty và admin đầu tiên, xác nhận email, quên mật khẩu), dùng thử 30 ngày, gói Free / Trial / Pro giới hạn số user, kho, SKU, lượt AI; hết hạn thì chỉ đọc; gia hạn bằng thanh toán PayOS (webhook kiểm tra chữ ký); bỏ tài khoản mặc định; trang giới thiệu và bảng giá.",
+   "assignee": "Phạm Phương Anh",
+   "collab": "Lê Phú Toàn, Lê Phương Linh",
+   "progress": 0.0,
+   "start": "2026-11-04",
+   "due": "2026-11-18",
+   "days": 11,
+   "level": "task",
+   "parent": "X",
+   "summary": "WMS-23: Đăng ký doanh nghiệp, dùng thử, gói dịch vụ & thanh toán PayOS",
+   "labels": [
+    "SaaS"
+   ],
+   "phase": "SaaS & AI",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-23"
+    ],
+    [
+     "Nội dung",
+     "[SaaS & AI] Doanh nghiệp tự đăng ký (tạo công ty và admin đầu tiên, xác nhận email, quên mật khẩu), dùng thử 30 ngày, gói Free / Trial / Pro giới hạn số user, kho, SKU, lượt AI; hết hạn thì chỉ đọc; gia hạn bằng thanh toán PayOS (webhook kiểm tra chữ ký); bỏ tài khoản mặc định; trang giới thiệu và bảng giá."
+    ],
+    [
+     "Phụ trách",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phú Toàn, Lê Phương Linh"
+    ],
+    [
+     "Kế hoạch",
+     "04/11/2026 - 18/11/2026 (11 ngày làm việc)"
+    ],
+    [
+     "Giai đoạn",
+     "SaaS & AI"
+    ],
+    [
+     "Thuộc",
+     "IX"
+    ]
+   ]
+  },
+  {
+   "row": 135,
+   "wms": "WMS-23.0",
+   "title_raw": "+ [Fullstack] Bỏ gợi ý tài khoản mặc định trên trang đăng nhập, bỏ tài khoản demo khỏi dữ liệu mẫu, đổi mật khẩu các tài khoản mẫu còn lại và cập nhật tài liệu",
+   "summary_raw": "Bỏ gợi ý tài khoản mặc định trên trang đăng nhập, bỏ tài khoản demo khỏi dữ liệu mẫu, đổi mật khẩu các tài khoản mẫu còn lại và cập nhật tài liệu. Kết quả nghiệm thu: Trang đăng nhập không còn gợi ý tài khoản; seed chỉ còn tài khoản của công ty mẫu.",
+   "assignee": "Lê Phú Toàn",
+   "collab": "Phạm Phương Anh",
+   "progress": 0.0,
+   "start": "2026-11-04",
+   "due": "2026-11-04",
+   "days": 1,
+   "level": "subtask",
+   "parent": "WMS-23",
+   "summary": "WMS-23.0 [Fullstack] Bỏ gợi ý tài khoản mặc định trên trang đăng nhập, bỏ tài khoản demo khỏi dữ liệu mẫu, đổi mật khẩu các tài khoản mẫu còn lại và cập nhật tài liệu",
+   "labels": [
+    "SaaS",
+    "Fullstack"
+   ],
+   "phase": "SaaS & AI",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-23.0"
+    ],
+    [
+     "Nội dung",
+     "Bỏ gợi ý tài khoản mặc định trên trang đăng nhập, bỏ tài khoản demo khỏi dữ liệu mẫu, đổi mật khẩu các tài khoản mẫu còn lại và cập nhật tài liệu. Kết quả nghiệm thu: Trang đăng nhập không còn gợi ý tài khoản; seed chỉ còn tài khoản của công ty mẫu."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Phối hợp",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Kế hoạch",
+     "04/11/2026 - 04/11/2026 (1 ngày làm việc)"
+    ],
+    [
+     "Giai đoạn",
+     "SaaS & AI"
+    ],
+    [
+     "Thuộc",
+     "WMS-23"
+    ]
+   ]
+  },
+  {
+   "row": 136,
+   "wms": "WMS-23.1",
+   "title_raw": "+ [Backend] API đăng ký doanh nghiệp (tạo company, admin đầu tiên, Trial 30 ngày), bảng subscriptions và plans, API gia hạn giả lập, API xem gói hiện tại",
+   "summary_raw": "API đăng ký doanh nghiệp (tạo company, admin đầu tiên, Trial 30 ngày), bảng subscriptions và plans, API gia hạn giả lập, API xem gói hiện tại. Kết quả nghiệm thu: Đăng ký xong đăng nhập được ngay; gia hạn đổi được gói và ngày hết hạn.",
+   "assignee": "Phạm Phương Anh",
+   "collab": "Lê Phú Toàn, Lê Phương Linh",
+   "progress": 0.0,
+   "start": "2026-11-09",
+   "due": "2026-11-09",
+   "days": 1,
+   "level": "subtask",
+   "parent": "WMS-23",
+   "summary": "WMS-23.1 [Backend] API đăng ký doanh nghiệp (tạo company, admin đầu tiên, Trial 30 ngày), bảng subscriptions và plans, API gia hạn giả lập, API xem gói hiện tại",
+   "labels": [
+    "SaaS",
+    "Backend"
+   ],
+   "phase": "SaaS & AI",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-23.1"
+    ],
+    [
+     "Nội dung",
+     "API đăng ký doanh nghiệp (tạo company, admin đầu tiên, Trial 30 ngày), bảng subscriptions và plans, API gia hạn giả lập, API xem gói hiện tại. Kết quả nghiệm thu: Đăng ký xong đăng nhập được ngay; gia hạn đổi được gói và ngày hết hạn."
+    ],
+    [
+     "Phụ trách",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phú Toàn, Lê Phương Linh"
+    ],
+    [
+     "Kế hoạch",
+     "09/11/2026 - 09/11/2026 (1 ngày làm việc)"
+    ],
+    [
+     "Giai đoạn",
+     "SaaS & AI"
+    ],
+    [
+     "Thuộc",
+     "WMS-23"
+    ]
+   ]
+  },
+  {
+   "row": 137,
+   "wms": "WMS-23.2",
+   "title_raw": "+ [Backend] Thực thi giới hạn gói: PlanLimitChecker trong common, đếm user/kho/SKU/lượt AI qua Redis, chặn ghi khi hết hạn, mã lỗi chuẩn",
+   "summary_raw": "Thực thi giới hạn gói: PlanLimitChecker trong common, đếm user/kho/SKU/lượt AI qua Redis, chặn ghi khi hết hạn, mã lỗi chuẩn. Kết quả nghiệm thu: Vượt giới hạn hoặc hết hạn thì nhận 403 với mã lỗi đúng.",
+   "assignee": "Lê Phú Toàn",
+   "collab": "Phạm Phương Anh",
+   "progress": 0.0,
+   "start": "2026-11-10",
+   "due": "2026-11-10",
+   "days": 1,
+   "level": "subtask",
+   "parent": "WMS-23",
+   "summary": "WMS-23.2 [Backend] Thực thi giới hạn gói: PlanLimitChecker trong common, đếm user/kho/SKU/lượt AI qua Redis, chặn ghi khi hết hạn, mã lỗi chuẩn",
+   "labels": [
+    "SaaS",
+    "Backend"
+   ],
+   "phase": "SaaS & AI",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-23.2"
+    ],
+    [
+     "Nội dung",
+     "Thực thi giới hạn gói: PlanLimitChecker trong common, đếm user/kho/SKU/lượt AI qua Redis, chặn ghi khi hết hạn, mã lỗi chuẩn. Kết quả nghiệm thu: Vượt giới hạn hoặc hết hạn thì nhận 403 với mã lỗi đúng."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Phối hợp",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Kế hoạch",
+     "10/11/2026 - 10/11/2026 (1 ngày làm việc)"
+    ],
+    [
+     "Giai đoạn",
+     "SaaS & AI"
+    ],
+    [
+     "Thuộc",
+     "WMS-23"
+    ]
+   ]
+  },
+  {
+   "row": 138,
+   "wms": "WMS-23.3a",
+   "title_raw": "+ [Frontend] Trang giới thiệu và bảng giá (tĩnh, dữ liệu gói lấy từ file cấu hình)",
+   "summary_raw": "Trang giới thiệu và bảng giá (tĩnh, dữ liệu gói lấy từ file cấu hình). Kết quả nghiệm thu: Trang landing đẹp, responsive, nút Đăng ký và Đăng nhập.",
+   "assignee": "Lê Phương Linh",
+   "collab": "Phạm Phương Anh",
+   "progress": 0.0,
+   "start": "2026-11-05",
+   "due": "2026-11-05",
+   "days": 1,
+   "level": "subtask",
+   "parent": "WMS-23",
+   "summary": "WMS-23.3a [Frontend] Trang giới thiệu và bảng giá (tĩnh, dữ liệu gói lấy từ file cấu hình)",
+   "labels": [
+    "SaaS",
+    "Frontend"
+   ],
+   "phase": "SaaS & AI",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-23.3a"
+    ],
+    [
+     "Nội dung",
+     "Trang giới thiệu và bảng giá (tĩnh, dữ liệu gói lấy từ file cấu hình). Kết quả nghiệm thu: Trang landing đẹp, responsive, nút Đăng ký và Đăng nhập."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phương Linh"
+    ],
+    [
+     "Phối hợp",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Kế hoạch",
+     "05/11/2026 - 05/11/2026 (1 ngày làm việc)"
+    ],
+    [
+     "Giai đoạn",
+     "SaaS & AI"
+    ],
+    [
+     "Thuộc",
+     "WMS-23"
+    ]
+   ]
+  },
+  {
+   "row": 139,
+   "wms": "WMS-23.3b",
+   "title_raw": "+ [Frontend] Form đăng ký doanh nghiệp, đăng nhập theo công ty, nối API 23.1",
+   "summary_raw": "Form đăng ký doanh nghiệp, đăng nhập theo công ty, nối API 23.1. Kết quả nghiệm thu: Đăng ký và đăng nhập từ giao diện.",
+   "assignee": "Phạm Phương Anh",
+   "collab": "Lê Phú Toàn, Lê Phương Linh",
+   "progress": 0.0,
+   "start": "2026-11-17",
+   "due": "2026-11-17",
+   "days": 1,
+   "level": "subtask",
+   "parent": "WMS-23",
+   "summary": "WMS-23.3b [Frontend] Form đăng ký doanh nghiệp, đăng nhập theo công ty, nối API 23.1",
+   "labels": [
+    "SaaS",
+    "Frontend"
+   ],
+   "phase": "SaaS & AI",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-23.3b"
+    ],
+    [
+     "Nội dung",
+     "Form đăng ký doanh nghiệp, đăng nhập theo công ty, nối API 23.1. Kết quả nghiệm thu: Đăng ký và đăng nhập từ giao diện."
+    ],
+    [
+     "Phụ trách",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phú Toàn, Lê Phương Linh"
+    ],
+    [
+     "Kế hoạch",
+     "17/11/2026 - 17/11/2026 (1 ngày làm việc)"
+    ],
+    [
+     "Giai đoạn",
+     "SaaS & AI"
+    ],
+    [
+     "Thuộc",
+     "WMS-23"
+    ]
+   ]
+  },
+  {
+   "row": 140,
+   "wms": "WMS-23.4",
+   "title_raw": "+ [Frontend] Trang Gói dịch vụ và gia hạn, banner \"còn N ngày dùng thử\", màn hình hết hạn chỉ đọc, hiển thị mức dùng so với giới hạn",
+   "summary_raw": "Trang Gói dịch vụ và gia hạn, banner \"còn N ngày dùng thử\", màn hình hết hạn chỉ đọc, hiển thị mức dùng so với giới hạn. Kết quả nghiệm thu: Hết hạn thì mọi nút ghi bị khóa và dẫn tới trang gia hạn.",
+   "assignee": "Lê Phương Linh",
+   "collab": "Phạm Phương Anh",
+   "progress": 0.0,
+   "start": "2026-11-16",
+   "due": "2026-11-16",
+   "days": 1,
+   "level": "subtask",
+   "parent": "WMS-23",
+   "summary": "WMS-23.4 [Frontend] Trang Gói dịch vụ và gia hạn, banner \"còn N ngày dùng thử\", màn hình hết hạn chỉ đọc, hiển thị mức dùng so với giới hạn",
+   "labels": [
+    "SaaS",
+    "Frontend"
+   ],
+   "phase": "SaaS & AI",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-23.4"
+    ],
+    [
+     "Nội dung",
+     "Trang Gói dịch vụ và gia hạn, banner \"còn N ngày dùng thử\", màn hình hết hạn chỉ đọc, hiển thị mức dùng so với giới hạn. Kết quả nghiệm thu: Hết hạn thì mọi nút ghi bị khóa và dẫn tới trang gia hạn."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phương Linh"
+    ],
+    [
+     "Phối hợp",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Kế hoạch",
+     "16/11/2026 - 16/11/2026 (1 ngày làm việc)"
+    ],
+    [
+     "Giai đoạn",
+     "SaaS & AI"
+    ],
+    [
+     "Thuộc",
+     "WMS-23"
+    ]
+   ]
+  },
+  {
+   "row": 141,
+   "wms": "WMS-23.5a",
+   "title_raw": "+ [Backend] Thanh toán PayOS: tạo link thanh toán có chữ ký, xử lý webhook và return, kiểm tra chữ ký và số tiền, kích hoạt gói, bảng payments, chế độ giả lập khi chưa có key, test chữ ký",
+   "summary_raw": "Thanh toán PayOS: tạo link thanh toán có chữ ký, xử lý webhook và return, kiểm tra chữ ký và số tiền, kích hoạt gói, bảng payments, chế độ giả lập khi chưa có key, test chữ ký. Kết quả nghiệm thu: Thanh toán test thành công thì gói đổi sang Pro và ngày hết hạn tăng; webhook chữ ký sai bị từ chối.",
+   "assignee": "Lê Phú Toàn",
+   "collab": "Phạm Phương Anh",
+   "progress": 0.0,
+   "start": "2026-11-10",
+   "due": "2026-11-10",
+   "days": 1,
+   "level": "subtask",
+   "parent": "WMS-23",
+   "summary": "WMS-23.5a [Backend] Thanh toán PayOS: tạo link thanh toán có chữ ký, xử lý webhook và return, kiểm tra chữ ký và số tiền, kích hoạt gói, bảng payments, chế độ giả lập khi chưa có key, test chữ ký",
+   "labels": [
+    "SaaS",
+    "Backend"
+   ],
+   "phase": "SaaS & AI",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-23.5a"
+    ],
+    [
+     "Nội dung",
+     "Thanh toán PayOS: tạo link thanh toán có chữ ký, xử lý webhook và return, kiểm tra chữ ký và số tiền, kích hoạt gói, bảng payments, chế độ giả lập khi chưa có key, test chữ ký. Kết quả nghiệm thu: Thanh toán test thành công thì gói đổi sang Pro và ngày hết hạn tăng; webhook chữ ký sai bị từ chối."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Phối hợp",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Kế hoạch",
+     "10/11/2026 - 10/11/2026 (1 ngày làm việc)"
+    ],
+    [
+     "Giai đoạn",
+     "SaaS & AI"
+    ],
+    [
+     "Thuộc",
+     "WMS-23"
+    ]
+   ]
+  },
+  {
+   "row": 142,
+   "wms": "WMS-23.5b",
+   "title_raw": "+ [Frontend] Nút thanh toán trên trang gói dịch vụ, chuyển sang trang PayOS, trang kết quả thanh toán, lịch sử giao dịch",
+   "summary_raw": "Nút thanh toán trên trang gói dịch vụ, chuyển sang trang PayOS, trang kết quả thanh toán, lịch sử giao dịch. Kết quả nghiệm thu: Chạy trọn bước 5 của kịch bản demo.",
+   "assignee": "Lê Phương Linh",
+   "collab": "Phạm Phương Anh",
+   "progress": 0.0,
+   "start": "2026-11-16",
+   "due": "2026-11-16",
+   "days": 1,
+   "level": "subtask",
+   "parent": "WMS-23",
+   "summary": "WMS-23.5b [Frontend] Nút thanh toán trên trang gói dịch vụ, chuyển sang trang PayOS, trang kết quả thanh toán, lịch sử giao dịch",
+   "labels": [
+    "SaaS",
+    "Frontend"
+   ],
+   "phase": "SaaS & AI",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-23.5b"
+    ],
+    [
+     "Nội dung",
+     "Nút thanh toán trên trang gói dịch vụ, chuyển sang trang PayOS, trang kết quả thanh toán, lịch sử giao dịch. Kết quả nghiệm thu: Chạy trọn bước 5 của kịch bản demo."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phương Linh"
+    ],
+    [
+     "Phối hợp",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Kế hoạch",
+     "16/11/2026 - 16/11/2026 (1 ngày làm việc)"
+    ],
+    [
+     "Giai đoạn",
+     "SaaS & AI"
+    ],
+    [
+     "Thuộc",
+     "WMS-23"
+    ]
+   ]
+  },
+  {
+   "row": 143,
+   "wms": "WMS-23.6",
+   "title_raw": "+ [Backend] Email xác nhận đăng ký (kích hoạt công ty qua liên kết), quên mật khẩu và đặt lại mật khẩu qua email, dùng notification-service gửi mail",
+   "summary_raw": "Email xác nhận đăng ký (kích hoạt công ty qua liên kết), quên mật khẩu và đặt lại mật khẩu qua email, dùng notification-service gửi mail. Kết quả nghiệm thu: Đăng ký xong nhận email kích hoạt; đặt lại mật khẩu thành công.",
+   "assignee": "Phạm Phương Anh",
+   "collab": "Lê Phú Toàn, Lê Phương Linh",
+   "progress": 0.0,
+   "start": "2026-11-18",
+   "due": "2026-11-18",
+   "days": 1,
+   "level": "subtask",
+   "parent": "WMS-23",
+   "summary": "WMS-23.6 [Backend] Email xác nhận đăng ký (kích hoạt công ty qua liên kết), quên mật khẩu và đặt lại mật khẩu qua email, dùng notification-service gửi mail",
+   "labels": [
+    "SaaS",
+    "Backend"
+   ],
+   "phase": "SaaS & AI",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-23.6"
+    ],
+    [
+     "Nội dung",
+     "Email xác nhận đăng ký (kích hoạt công ty qua liên kết), quên mật khẩu và đặt lại mật khẩu qua email, dùng notification-service gửi mail. Kết quả nghiệm thu: Đăng ký xong nhận email kích hoạt; đặt lại mật khẩu thành công."
+    ],
+    [
+     "Phụ trách",
+     "Phạm Phương Anh"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phú Toàn, Lê Phương Linh"
+    ],
+    [
+     "Kế hoạch",
+     "18/11/2026 - 18/11/2026 (1 ngày làm việc)"
+    ],
+    [
+     "Giai đoạn",
+     "SaaS & AI"
+    ],
+    [
+     "Thuộc",
+     "WMS-23"
+    ]
+   ]
+  },
+  {
+   "row": 144,
+   "wms": "WMS-24",
+   "title_raw": "Task WMS-24: AI nhập liệu từ tài liệu & trợ lý AI",
+   "summary_raw": "[SaaS & AI] Service mới ai-service (Spring AI + Claude): trích xuất tài liệu Excel, CSV, PDF, ảnh thành hàng hóa, nhà cung cấp, khách hàng, xem trước rồi nhập hàng loạt; trợ lý AI hướng dẫn sử dụng và tra cứu tồn kho, đơn hàng của chính công ty; mỗi lượt gọi AI trừ hạn mức của gói.",
+   "assignee": "Lê Phú Toàn",
+   "collab": "Trần Đăng Việt",
+   "progress": 0.0,
+   "start": "2026-11-11",
+   "due": "2026-11-17",
+   "days": 5,
+   "level": "task",
+   "parent": "X",
+   "summary": "WMS-24: AI nhập liệu từ tài liệu & trợ lý AI",
+   "labels": [
+    "SaaS"
+   ],
+   "phase": "SaaS & AI",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-24"
+    ],
+    [
+     "Nội dung",
+     "[SaaS & AI] Service mới ai-service (Spring AI + Claude): trích xuất tài liệu Excel, CSV, PDF, ảnh thành hàng hóa, nhà cung cấp, khách hàng, xem trước rồi nhập hàng loạt; trợ lý AI hướng dẫn sử dụng và tra cứu tồn kho, đơn hàng của chính công ty; mỗi lượt gọi AI trừ hạn mức của gói."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Phối hợp",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Kế hoạch",
+     "11/11/2026 - 17/11/2026 (5 ngày làm việc)"
+    ],
+    [
+     "Giai đoạn",
+     "SaaS & AI"
+    ],
+    [
+     "Thuộc",
+     "IX"
+    ]
+   ]
+  },
+  {
+   "row": 145,
+   "wms": "WMS-24.1",
+   "title_raw": "+ [Backend] ai-service: khung Spring AI + Claude, key qua .env, đếm lượt theo gói, Dockerfile, compose, CI, route gateway /api/ai/**",
+   "summary_raw": "ai-service: khung Spring AI + Claude, key qua .env, đếm lượt theo gói, Dockerfile, compose, CI, route gateway /api/ai/**. Kết quả nghiệm thu: /api/ai/health chạy; gọi thử trả lời được.",
+   "assignee": "Lê Phú Toàn",
+   "collab": "Trần Đăng Việt",
+   "progress": 0.0,
+   "start": "2026-11-11",
+   "due": "2026-11-11",
+   "days": 1,
+   "level": "subtask",
+   "parent": "WMS-24",
+   "summary": "WMS-24.1 [Backend] ai-service: khung Spring AI + Claude, key qua .env, đếm lượt theo gói, Dockerfile, compose, CI, route gateway /api/ai/**",
+   "labels": [
+    "SaaS",
+    "Backend"
+   ],
+   "phase": "SaaS & AI",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-24.1"
+    ],
+    [
+     "Nội dung",
+     "ai-service: khung Spring AI + Claude, key qua .env, đếm lượt theo gói, Dockerfile, compose, CI, route gateway /api/ai/**. Kết quả nghiệm thu: /api/ai/health chạy; gọi thử trả lời được."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Phối hợp",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Kế hoạch",
+     "11/11/2026 - 11/11/2026 (1 ngày làm việc)"
+    ],
+    [
+     "Giai đoạn",
+     "SaaS & AI"
+    ],
+    [
+     "Thuộc",
+     "WMS-24"
+    ]
+   ]
+  },
+  {
+   "row": 146,
+   "wms": "WMS-24.2",
+   "title_raw": "+ [Backend] API trích xuất tài liệu (Excel, CSV, PDF, ảnh) thành JSON hàng hóa, nhà cung cấp, khách hàng theo schema cố định, kèm độ tin cậy từng dòng; API nhập sau khi người dùng xác nhận (gọi bulk của 22.4b)",
+   "summary_raw": "API trích xuất tài liệu (Excel, CSV, PDF, ảnh) thành JSON hàng hóa, nhà cung cấp, khách hàng theo schema cố định, kèm độ tin cậy từng dòng; API nhập sau khi người dùng xác nhận (gọi bulk của 22.4b). Kết quả nghiệm thu: File Excel 50 dòng trích xuất đúng trên 90% ô; nhập xong thấy trong danh mục.",
+   "assignee": "Lê Phú Toàn",
+   "collab": "Trần Đăng Việt",
+   "progress": 0.0,
+   "start": "2026-11-12",
+   "due": "2026-11-12",
+   "days": 1,
+   "level": "subtask",
+   "parent": "WMS-24",
+   "summary": "WMS-24.2 [Backend] API trích xuất tài liệu (Excel, CSV, PDF, ảnh) thành JSON hàng hóa, nhà cung cấp, khách hàng theo schema cố định, kèm độ tin cậy từng dòng; API nhập sau khi người dùng xác nhận (gọi bulk của 22.4b)",
+   "labels": [
+    "SaaS",
+    "Backend"
+   ],
+   "phase": "SaaS & AI",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-24.2"
+    ],
+    [
+     "Nội dung",
+     "API trích xuất tài liệu (Excel, CSV, PDF, ảnh) thành JSON hàng hóa, nhà cung cấp, khách hàng theo schema cố định, kèm độ tin cậy từng dòng; API nhập sau khi người dùng xác nhận (gọi bulk của 22.4b). Kết quả nghiệm thu: File Excel 50 dòng trích xuất đúng trên 90% ô; nhập xong thấy trong danh mục."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Phối hợp",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Kế hoạch",
+     "12/11/2026 - 12/11/2026 (1 ngày làm việc)"
+    ],
+    [
+     "Giai đoạn",
+     "SaaS & AI"
+    ],
+    [
+     "Thuộc",
+     "WMS-24"
+    ]
+   ]
+  },
+  {
+   "row": 147,
+   "wms": "WMS-24.3",
+   "title_raw": "+ [Frontend] Màn hình \"Nhập dữ liệu bằng AI\": tải file, bảng xem trước có đánh dấu ô độ tin cậy thấp, sửa tay, chọn loại dữ liệu, bấm nhập, xem kết quả theo dòng",
+   "summary_raw": "Màn hình \"Nhập dữ liệu bằng AI\": tải file, bảng xem trước có đánh dấu ô độ tin cậy thấp, sửa tay, chọn loại dữ liệu, bấm nhập, xem kết quả theo dòng. Kết quả nghiệm thu: Chạy trọn kịch bản demo bước 2.",
+   "assignee": "Trần Đăng Việt",
+   "collab": "Lê Phú Toàn",
+   "progress": 0.0,
+   "start": "2026-11-16",
+   "due": "2026-11-17",
+   "days": 2,
+   "level": "subtask",
+   "parent": "WMS-24",
+   "summary": "WMS-24.3 [Frontend] Màn hình \"Nhập dữ liệu bằng AI\": tải file, bảng xem trước có đánh dấu ô độ tin cậy thấp, sửa tay, chọn loại dữ liệu, bấm nhập, xem kết quả theo dòng",
+   "labels": [
+    "SaaS",
+    "Frontend"
+   ],
+   "phase": "SaaS & AI",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-24.3"
+    ],
+    [
+     "Nội dung",
+     "Màn hình \"Nhập dữ liệu bằng AI\": tải file, bảng xem trước có đánh dấu ô độ tin cậy thấp, sửa tay, chọn loại dữ liệu, bấm nhập, xem kết quả theo dòng. Kết quả nghiệm thu: Chạy trọn kịch bản demo bước 2."
+    ],
+    [
+     "Phụ trách",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Phối hợp",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Kế hoạch",
+     "16/11/2026 - 17/11/2026 (2 ngày làm việc)"
+    ],
+    [
+     "Giai đoạn",
+     "SaaS & AI"
+    ],
+    [
+     "Thuộc",
+     "WMS-24"
+    ]
+   ]
+  },
+  {
+   "row": 148,
+   "wms": "WMS-24.4",
+   "title_raw": "+ [Backend] Trợ lý AI: gộp chatbot tra cứu tồn kho, đơn hàng (18.2) với hướng dẫn sử dụng lấy từ docs của hệ thống; luôn giới hạn trong dữ liệu công ty đang đăng nhập",
+   "summary_raw": "Trợ lý AI: gộp chatbot tra cứu tồn kho, đơn hàng (18.2) với hướng dẫn sử dụng lấy từ docs của hệ thống; luôn giới hạn trong dữ liệu công ty đang đăng nhập. Kết quả nghiệm thu: Hỏi \"tạo kho thế nào\" nhận hướng dẫn đúng; hỏi tồn SKU nhận số đúng.",
+   "assignee": "Lê Phú Toàn",
+   "collab": "Trần Đăng Việt",
+   "progress": 0.0,
+   "start": "2026-11-13",
+   "due": "2026-11-13",
+   "days": 1,
+   "level": "subtask",
+   "parent": "WMS-24",
+   "summary": "WMS-24.4 [Backend] Trợ lý AI: gộp chatbot tra cứu tồn kho, đơn hàng (18.2) với hướng dẫn sử dụng lấy từ docs của hệ thống; luôn giới hạn trong dữ liệu công ty đang đăng nhập",
+   "labels": [
+    "SaaS",
+    "Backend"
+   ],
+   "phase": "SaaS & AI",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-24.4"
+    ],
+    [
+     "Nội dung",
+     "Trợ lý AI: gộp chatbot tra cứu tồn kho, đơn hàng (18.2) với hướng dẫn sử dụng lấy từ docs của hệ thống; luôn giới hạn trong dữ liệu công ty đang đăng nhập. Kết quả nghiệm thu: Hỏi \"tạo kho thế nào\" nhận hướng dẫn đúng; hỏi tồn SKU nhận số đúng."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Phối hợp",
+     "Trần Đăng Việt"
+    ],
+    [
+     "Kế hoạch",
+     "13/11/2026 - 13/11/2026 (1 ngày làm việc)"
+    ],
+    [
+     "Giai đoạn",
+     "SaaS & AI"
+    ],
+    [
+     "Thuộc",
+     "WMS-24"
+    ]
+   ]
+  },
+  {
+   "row": 149,
+   "wms": "WMS-25",
+   "title_raw": "Task WMS-25: Tích hợp hệ thống ngoài (API key, Swagger)",
+   "summary_raw": "[SaaS & AI] API key theo doanh nghiệp để hệ thống khác gọi API (api-gateway chấp nhận X-Api-Key, vai trò INTEGRATION chỉ đọc, rate limit theo key), Swagger công khai và hướng dẫn tích hợp docs/INTEGRATION.md.",
+   "assignee": "Lê Phú Toàn",
+   "collab": "",
+   "progress": 0.0,
+   "start": "2026-11-17",
+   "due": "2026-11-20",
+   "days": 4,
+   "level": "task",
+   "parent": "X",
+   "summary": "WMS-25: Tích hợp hệ thống ngoài (API key, Swagger)",
+   "labels": [
+    "SaaS"
+   ],
+   "phase": "SaaS & AI",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-25"
+    ],
+    [
+     "Nội dung",
+     "[SaaS & AI] API key theo doanh nghiệp để hệ thống khác gọi API (api-gateway chấp nhận X-Api-Key, vai trò INTEGRATION chỉ đọc, rate limit theo key), Swagger công khai và hướng dẫn tích hợp docs/INTEGRATION.md."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Phối hợp",
+     "-"
+    ],
+    [
+     "Kế hoạch",
+     "17/11/2026 - 20/11/2026 (4 ngày làm việc)"
+    ],
+    [
+     "Giai đoạn",
+     "SaaS & AI"
+    ],
+    [
+     "Thuộc",
+     "IX"
+    ]
+   ]
+  },
+  {
+   "row": 150,
+   "wms": "WMS-25.1",
+   "title_raw": "+ [Backend] API key theo doanh nghiệp (tạo, thu hồi trong trang Cài đặt), gateway xác thực X-Api-Key, vai trò INTEGRATION chỉ đọc, rate limit theo key",
+   "summary_raw": "API key theo doanh nghiệp (tạo, thu hồi trong trang Cài đặt), gateway xác thực X-Api-Key, vai trò INTEGRATION chỉ đọc, rate limit theo key. Kết quả nghiệm thu: curl với API key đọc được tồn kho của đúng công ty.",
+   "assignee": "Lê Phú Toàn",
+   "collab": "",
+   "progress": 0.0,
+   "start": "2026-11-17",
+   "due": "2026-11-17",
+   "days": 1,
+   "level": "subtask",
+   "parent": "WMS-25",
+   "summary": "WMS-25.1 [Backend] API key theo doanh nghiệp (tạo, thu hồi trong trang Cài đặt), gateway xác thực X-Api-Key, vai trò INTEGRATION chỉ đọc, rate limit theo key",
+   "labels": [
+    "SaaS",
+    "Backend"
+   ],
+   "phase": "SaaS & AI",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-25.1"
+    ],
+    [
+     "Nội dung",
+     "API key theo doanh nghiệp (tạo, thu hồi trong trang Cài đặt), gateway xác thực X-Api-Key, vai trò INTEGRATION chỉ đọc, rate limit theo key. Kết quả nghiệm thu: curl với API key đọc được tồn kho của đúng công ty."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Phối hợp",
+     "-"
+    ],
+    [
+     "Kế hoạch",
+     "17/11/2026 - 17/11/2026 (1 ngày làm việc)"
+    ],
+    [
+     "Giai đoạn",
+     "SaaS & AI"
+    ],
+    [
+     "Thuộc",
+     "WMS-25"
+    ]
+   ]
+  },
+  {
+   "row": 151,
+   "wms": "WMS-25.2",
+   "title_raw": "+ [Docs] Hướng dẫn tích hợp, Swagger công khai (gộp WMS-21.1)",
+   "summary_raw": "Hướng dẫn tích hợp, Swagger công khai (gộp WMS-21.1). Kết quả nghiệm thu: Tài liệu trong docs/INTEGRATION.md.",
+   "assignee": "Lê Phú Toàn",
+   "collab": "",
+   "progress": 0.0,
+   "start": "2026-11-20",
+   "due": "2026-11-20",
+   "days": 1,
+   "level": "subtask",
+   "parent": "WMS-25",
+   "summary": "WMS-25.2 [Docs] Hướng dẫn tích hợp, Swagger công khai (gộp WMS-21.1)",
+   "labels": [
+    "SaaS",
+    "Docs"
+   ],
+   "phase": "SaaS & AI",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-25.2"
+    ],
+    [
+     "Nội dung",
+     "Hướng dẫn tích hợp, Swagger công khai (gộp WMS-21.1). Kết quả nghiệm thu: Tài liệu trong docs/INTEGRATION.md."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Phối hợp",
+     "-"
+    ],
+    [
+     "Kế hoạch",
+     "20/11/2026 - 20/11/2026 (1 ngày làm việc)"
+    ],
+    [
+     "Giai đoạn",
+     "SaaS & AI"
+    ],
+    [
+     "Thuộc",
+     "WMS-25"
+    ]
+   ]
+  },
+  {
+   "row": 152,
+   "wms": "WMS-26",
+   "title_raw": "Task WMS-26: Rà soát và hoàn thiện giao diện tuần cuối",
+   "summary_raw": "[SaaS & AI] Rà soát giao diện toàn hệ thống ở tuần cuối theo góp ý của Toàn (bố cục, luồng thao tác, chữ, responsive), sửa trực tiếp hoặc giao lại cho người phụ trách màn hình.",
+   "assignee": "Lê Phú Toàn",
+   "collab": "Cả nhóm",
+   "progress": 0.0,
+   "start": "2026-11-18",
+   "due": "2026-11-19",
+   "days": 2,
+   "level": "task",
+   "parent": "X",
+   "summary": "WMS-26: Rà soát và hoàn thiện giao diện tuần cuối",
+   "labels": [
+    "SaaS"
+   ],
+   "phase": "SaaS & AI",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-26"
+    ],
+    [
+     "Nội dung",
+     "[SaaS & AI] Rà soát giao diện toàn hệ thống ở tuần cuối theo góp ý của Toàn (bố cục, luồng thao tác, chữ, responsive), sửa trực tiếp hoặc giao lại cho người phụ trách màn hình."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Phối hợp",
+     "Cả nhóm"
+    ],
+    [
+     "Kế hoạch",
+     "18/11/2026 - 19/11/2026 (2 ngày làm việc)"
+    ],
+    [
+     "Giai đoạn",
+     "SaaS & AI"
+    ],
+    [
+     "Thuộc",
+     "IX"
+    ]
+   ]
+  },
+  {
+   "row": 153,
+   "wms": "WMS-26.1",
+   "title_raw": "+ [Frontend] Rà soát giao diện toàn hệ thống theo góp ý của Toàn (bố cục, luồng thao tác, chữ, responsive), sửa trực tiếp hoặc giao lại cho người phụ trách màn hình",
+   "summary_raw": "Rà soát giao diện toàn hệ thống theo góp ý của Toàn (bố cục, luồng thao tác, chữ, responsive), sửa trực tiếp hoặc giao lại cho người phụ trách màn hình. Kết quả nghiệm thu: Danh sách góp ý đã xử lý, ảnh trước và sau.",
+   "assignee": "Lê Phú Toàn",
+   "collab": "Cả nhóm",
+   "progress": 0.0,
+   "start": "2026-11-18",
+   "due": "2026-11-19",
+   "days": 2,
+   "level": "subtask",
+   "parent": "WMS-26",
+   "summary": "WMS-26.1 [Frontend] Rà soát giao diện toàn hệ thống theo góp ý của Toàn (bố cục, luồng thao tác, chữ, responsive), sửa trực tiếp hoặc giao lại cho người phụ trách màn hình",
+   "labels": [
+    "SaaS",
+    "Frontend"
+   ],
+   "phase": "SaaS & AI",
+   "description_lines": [
+    [
+     "Mã Master Plan",
+     "WMS-26.1"
+    ],
+    [
+     "Nội dung",
+     "Rà soát giao diện toàn hệ thống theo góp ý của Toàn (bố cục, luồng thao tác, chữ, responsive), sửa trực tiếp hoặc giao lại cho người phụ trách màn hình. Kết quả nghiệm thu: Danh sách góp ý đã xử lý, ảnh trước và sau."
+    ],
+    [
+     "Phụ trách",
+     "Lê Phú Toàn"
+    ],
+    [
+     "Phối hợp",
+     "Cả nhóm"
+    ],
+    [
+     "Kế hoạch",
+     "18/11/2026 - 19/11/2026 (2 ngày làm việc)"
+    ],
+    [
+     "Giai đoạn",
+     "SaaS & AI"
+    ],
+    [
+     "Thuộc",
+     "WMS-26"
+    ]
+   ]
   }
  ],
- "note": "Lịch không có thứ Bảy, Chủ nhật, cập nhật 31/10/2026"
+ "note": "Lịch không có thứ Bảy, Chủ nhật, cập nhật 31/10/2026; bổ sung WMS-22 đến WMS-26 (SaaS & AI) theo Master Plan v3, cập nhật 03/11/2026"
 }

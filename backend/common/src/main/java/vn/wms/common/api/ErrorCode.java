@@ -14,7 +14,8 @@ public enum ErrorCode {
     METHOD_NOT_ALLOWED(405, "Phương thức HTTP không được hỗ trợ"),
     CONFLICT(409, "Dữ liệu bị xung đột hoặc đã tồn tại"),
     UNSUPPORTED_MEDIA_TYPE(415, "Định dạng nội dung không được hỗ trợ"),
-    INTERNAL_ERROR(500, "Lỗi hệ thống, vui lòng thử lại sau");
+    INTERNAL_ERROR(500, "Lỗi hệ thống, vui lòng thử lại sau"),
+    SERVICE_UNAVAILABLE(503, "Dịch vụ phụ thuộc chưa sẵn sàng, vui lòng thử lại sau");
 
     private final int httpStatus;
     private final String defaultMessage;

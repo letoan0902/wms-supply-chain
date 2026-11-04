@@ -131,3 +131,25 @@ Dùng bảng này để điền cột key Jira vào Master Plan và mục "PHẦ
 - WMS-20.4 và WMS-21.4 trong Master Plan ghi "Cả 4 thành viên"; trên Jira gán cho Lê Phú Toàn (TASK-126) và Lê Phương Linh (TASK-130) làm đầu mối.
 - TASK-1 (Xây dựng Project Proposal, Done) nằm ngoài Master Plan, giữ nguyên để lưu vết giai đoạn 1.
 - Tiêu đề gốc do Lê Phương Linh đặt được lưu trong jira_mapping_backup.txt.
+
+## Bổ sung 03/11/2026: EPIC 10 (SaaS, PayOS, AI) theo Master Plan v3
+
+| Mã Master Plan | Jira | Mã Master Plan | Jira |
+| --- | --- | --- | --- |
+| EPIC 10 (X) | TASK-131 | WMS-22 | TASK-132 |
+| WMS-22.1 | TASK-133 | WMS-22.2 | TASK-134 |
+| WMS-22.3 | TASK-135 | WMS-22.4a | TASK-136 |
+| WMS-22.4b | TASK-137 | WMS-22.4c | TASK-138 |
+| WMS-22.5 | TASK-139 | WMS-23 | TASK-140 |
+| WMS-23.0 | TASK-141 | WMS-23.1 | TASK-142 |
+| WMS-23.2 | TASK-143 | WMS-23.3a | TASK-144 |
+| WMS-23.3b | TASK-145 | WMS-23.4 | TASK-146 |
+| WMS-23.5a | TASK-147 | WMS-23.5b | TASK-148 |
+| WMS-23.6 | TASK-149 | WMS-24 | TASK-150 |
+| WMS-24.1 | TASK-151 | WMS-24.2 | TASK-152 |
+| WMS-24.3 | TASK-153 | WMS-24.4 | TASK-154 |
+| WMS-25 | TASK-155 | WMS-25.1 | TASK-156 |
+| WMS-25.2 | TASK-157 | WMS-26 | TASK-158 |
+| WMS-26.1 | TASK-159 |  |  |
+
+Chi tiết nội dung từng task: docs/SAAS_PLAN.md mục 4. Tệp jira_plan.json và jira_mapping_backup.txt trong thư mục này đã được cập nhật cùng ngày.

@@ -1,1 +1,3 @@
 vn.wms.common.config.WmsCommonAutoConfiguration
+vn.wms.common.config.WmsMessagingAutoConfiguration
+vn.wms.common.config.WmsEventPublisherAutoConfiguration

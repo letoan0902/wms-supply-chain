@@ -68,7 +68,7 @@ export default function BinManagementView({
     })
   }, [locations, selectedZone, statusFilter])
 
-  // Nhóm theo Kệ (Rack) để vẽ ma trận sơ đồ trực quan (WMS-06.3)
+  // Nhóm theo Kệ (Rack) để vẽ ma trận sơ đồ trực quan
   const groupedByRack = useMemo(() => {
     const map = new Map<string, BinLocation[]>()
     for (const loc of filteredLocations) {
@@ -138,7 +138,7 @@ export default function BinManagementView({
       align: 'center',
       render: (_, record) => (
         <Space size="small">
-          <Tooltip title="Xem & In tem mã vạch (WMS-06.4)">
+          <Tooltip title="Xem & In tem mã vạch">
             <Button
               type="text"
               size="small"
@@ -290,7 +290,7 @@ export default function BinManagementView({
           pagination={{ pageSize: 15, showSizeChanger: true }}
         />
       ) : (
-        /* Sơ đồ trực quan dạng ma trận Kệ - Ô (WMS-06.3) */
+        /* Sơ đồ trực quan dạng ma trận Kệ - Ô */
         <div className="space-y-6">
           {groupedByRack.map(([rackTitle, binList]) => {
             const [zonePart, rackPart] = rackTitle.split('-')

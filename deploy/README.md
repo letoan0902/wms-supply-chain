@@ -207,6 +207,7 @@ nano .env     # điền ACME_EMAIL, kiểm tra DOMAIN và CORS_ALLOWED_ORIGINS
 | `GATEWAY_JWT_ENABLED` | Không (mặc định `true`) | Gateway bắt buộc Bearer token hợp lệ cho mọi API trừ `/api/auth/login` |
 | `RATE_LIMIT_ENABLED`, `RATE_LIMIT_REPLENISH_RATE`, `RATE_LIMIT_BURST_CAPACITY` | Không | Giới hạn tốc độ tại gateway (mặc định bật, 20 request/giây, bùng nổ tối đa 40) |
 | `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD` | Không | SMTP gửi email cảnh báo tồn kho |
+| `RABBITMQ_USERNAME`, `RABBITMQ_PASSWORD` | Nên đặt | Tài khoản RabbitMQ riêng cho các service và container `rabbitmq-init` (không dùng `guest`). Volume mới: broker tự tạo tài khoản này. Volume đã có dữ liệu: tạo trước bằng `rabbitmqctl` theo mục 6 của [docs/MESSAGING.md](../docs/MESSAGING.md) rồi mới ghi vào `.env` |
 | `COMPOSE_PATH_SEPARATOR`, `COMPOSE_FILE` | Nên giữ | Để lệnh `docker compose` trong thư mục này tự dùng cả hai file compose |
 
 Hai dòng `COMPOSE_*` giúp mọi lệnh `docker compose ...` chạy trong `/opt/wms-supply-chain` tự dùng cả `docker-compose.yml` lẫn `deploy/docker-compose.prod.yml`
@@ -472,7 +473,7 @@ docker compose logs --tail 100 <tên-service>   # nguyên nhân thường nằm 
 
 - Giữ `.env` ở quyền `600`, không commit, không gửi qua kênh chat.
 - Đổi mật khẩu các tài khoản mẫu và vô hiệu hóa `demo` (mục 7).
-- RabbitMQ vẫn dùng tài khoản mặc định `guest`/`guest`; chỉ an toàn vì cổng 5672 và 15672 không mở ra ngoài. Không đổi các cổng này sang `0.0.0.0`.
+- RabbitMQ dùng tài khoản riêng đặt qua `RABBITMQ_USERNAME`, `RABBITMQ_PASSWORD` trong `.env` (máy chủ hiện tại đã tạo tài khoản `wms` ngày 04/11/2026). Sau khi các service đã chạy bằng tài khoản mới, xóa tài khoản mặc định: `docker compose exec rabbitmq rabbitmqctl delete_user guest`. Cổng 5672 và 15672 không mở ra ngoài, không đổi sang `0.0.0.0`.
 - Chỉ cho phép đăng nhập SSH bằng khóa (đặt `PasswordAuthentication no` trong cấu hình sshd), cân nhắc cài `fail2ban`, và bật cập nhật bảo mật tự động (`unattended-upgrades`, thường có sẵn trên Ubuntu).
 - Bật HSTS trong `deploy/Caddyfile` (dòng `Strict-Transport-Security` đang để dạng chú thích) khi HTTPS đã chạy ổn định.
 

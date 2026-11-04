@@ -53,7 +53,7 @@ export default function WarehousesPage() {
   const [barcodeData, setBarcodeData] = useState<BinBarcodeData | null>(null)
   const [loadingBarcode, setLoadingBarcode] = useState(false)
 
-  // Nạp dữ liệu kho bãi và thẻ thống kê (WMS-05)
+  // Nạp dữ liệu kho bãi và thẻ thống kê
   const loadWarehouses = useCallback(async (keyword?: string, active?: boolean) => {
     setLoadingWarehouses(true)
     try {
@@ -81,7 +81,7 @@ export default function WarehousesPage() {
     }
   }, [])
 
-  // Nạp danh sách vị trí ô/kệ cho kho đang chọn (WMS-06)
+  // Nạp danh sách vị trí ô/kệ cho kho đang chọn
   const loadLocations = useCallback(async (warehouseId?: number) => {
     const targetId = warehouseId || selectedWarehouseId
     if (!targetId) return
@@ -165,7 +165,7 @@ export default function WarehousesPage() {
     }
   }, [selectedWarehouseId, message])
 
-  // Handlers cho Kho hàng (WMS-05)
+  // Handlers cho Kho hàng
   const handleOpenCreateWarehouse = () => {
     setEditingWarehouse(null)
     setIsWarehouseModalOpen(true)
@@ -227,7 +227,7 @@ export default function WarehousesPage() {
     setActiveTab('locations')
   }
 
-  // Handlers cho Vị trí Ô/Kệ & Mã vạch (WMS-06)
+  // Handlers cho Vị trí Ô/Kệ & Mã vạch
   const handleCreateSingleBin = async (payload: CreateBinLocationPayload) => {
     setSubmittingLocation(true)
     try {
@@ -289,7 +289,7 @@ export default function WarehousesPage() {
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
           <h1 className="text-xl font-bold text-gray-900 tracking-tight">
-            Quản Lý Đa Kho & Sơ Đồ Vị Trí Ô/Kệ (WMS-05 & WMS-06)
+            Quản Lý Đa Kho & Sơ Đồ Vị Trí Ô/Kệ
           </h1>
           <p className="text-sm text-gray-500 mt-1">
             Thiết kế danh mục đa kho, giám sát dung tích sức chứa, cấu trúc vị trí 4 cấp và in tem mã vạch giá kệ.
@@ -309,10 +309,10 @@ export default function WarehousesPage() {
         </Button>
       </div>
 
-      {/* Thẻ tóm tắt thông số kho (WMS-05.2) */}
+      {/* Thẻ tóm tắt thông số kho */}
       <WarehouseMetricsCards summary={summary} loading={loadingSummary} />
 
-      {/* Tabs chuyển đổi giữa Danh sách Kho và Sơ đồ Vị trí (WMS-05.3 & WMS-06.3) */}
+      {/* Tabs chuyển đổi giữa Danh sách Kho và Sơ đồ Vị trí */}
       <Tabs
         activeKey={activeTab}
         onChange={(key) => setActiveTab(key as 'warehouses' | 'locations')}
@@ -321,7 +321,7 @@ export default function WarehousesPage() {
             key: 'warehouses',
             label: (
               <span className="flex items-center gap-1.5 font-medium px-1">
-                <ShopOutlined /> Danh mục Đa Kho & Năng lực Chứa (WMS-05)
+                <ShopOutlined /> Danh mục Đa Kho & Năng lực Chứa
               </span>
             ),
             children: (
@@ -341,7 +341,7 @@ export default function WarehousesPage() {
             key: 'locations',
             label: (
               <span className="flex items-center gap-1.5 font-medium px-1">
-                <ApartmentOutlined /> Sơ đồ Vị trí Ô/Kệ & In Tem Mã Vạch (WMS-06)
+                <ApartmentOutlined /> Sơ đồ Vị trí Ô/Kệ & In Tem Mã Vạch
               </span>
             ),
             children: (

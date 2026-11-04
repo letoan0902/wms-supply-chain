@@ -11,6 +11,9 @@ dependencies {
     compileOnly 'org.springframework.security:spring-security-core'
     compileOnly 'org.springframework.data:spring-data-commons'
     compileOnly 'org.springframework.boot:spring-boot-starter-data-jpa'
+    // RabbitMQ (JSON converter, WmsEventPublisher) và Jackson: service nào dùng thì tự mang starter-amqp
+    compileOnly 'org.springframework.boot:spring-boot-starter-amqp'
+    compileOnly 'org.springframework.boot:spring-boot-starter-json'
 
     // API ràng buộc dữ liệu (chỉ là interface, nhẹ) để GlobalExceptionHandler xử lý ConstraintViolationException.
     api 'jakarta.validation:jakarta.validation-api'
@@ -21,4 +24,6 @@ dependencies {
     testImplementation 'org.springframework.security:spring-security-core'
     testImplementation 'org.springframework.data:spring-data-commons'
     testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    testImplementation 'org.springframework.boot:spring-boot-starter-amqp'
+    testImplementation 'org.springframework.boot:spring-boot-starter-json'
 }

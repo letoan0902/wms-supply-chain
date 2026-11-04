@@ -55,4 +55,26 @@ public class InventoryGateway {
         }
         return warehouse;
     }
+
+    /**
+     * Lấy thông tin tồn khả dụng ATP của một sản phẩm từ inventory-service (FR15 - WMS-11.1).
+     * Trả về AtpResponse với ATP = 0 nếu không tìm thấy hoặc lỗi kết nối.
+     */
+    public AtpResponse getAtp(Long productId, Long warehouseId) {
+        if (productId == null) {
+            return AtpResponse.zero(null, warehouseId);
+        }
+        try {
+            ApiResponse<AtpResponse> response = inventoryClient.getAtp(productId, warehouseId);
+            if (response != null && response.success() && response.data() != null) {
+                return response.data();
+            }
+            return AtpResponse.zero(productId, warehouseId);
+        } catch (FeignException.NotFound ex) {
+            return AtpResponse.zero(productId, warehouseId);
+        } catch (FeignException ex) {
+            log.warn("Gọi inventory-service lấy ATP sản phẩm {} thất bại (status {}): {}", productId, ex.status(), ex.getMessage());
+            return AtpResponse.zero(productId, warehouseId);
+        }
+    }
 }

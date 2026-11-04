@@ -17,4 +17,11 @@ public interface InventoryClient {
     /** Thông tin một kho; inventory-service trả 404 (ApiResponse lỗi) nếu id không tồn tại. */
     @GetMapping("/api/inventory/warehouses/{id}")
     ApiResponse<WarehouseSummary> getWarehouse(@PathVariable("id") Long id);
+
+    /** Thông tin tồn khả dụng ATP của một sản phẩm (ATP = OnHand - Reserved) (WMS-11.1). */
+    @GetMapping("/api/inventory/stock/atp")
+    ApiResponse<AtpResponse> getAtp(
+            @org.springframework.web.bind.annotation.RequestParam("productId") Long productId,
+            @org.springframework.web.bind.annotation.RequestParam(value = "warehouseId", required = false) Long warehouseId
+    );
 }

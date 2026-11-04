@@ -6,6 +6,7 @@ import org.springframework.data.repository.query.Param;
 import vn.wms.inventory.entity.StockItem;
 
 import java.math.BigDecimal;
+import java.util.Collection;
 import java.util.List;
 
 public interface StockItemRepository extends JpaRepository<StockItem, Long> {
@@ -58,4 +59,5 @@ public interface StockItemRepository extends JpaRepository<StockItem, Long> {
 
     @Query("SELECT s.productId, COALESCE(SUM(s.quantity), 0), COALESCE(SUM(s.reservedQuantity), 0) FROM StockItem s WHERE s.productId IN :productIds AND s.binLocation.warehouse.id = :warehouseId GROUP BY s.productId")
     List<Object[]> getBatchStockTotalsByProductIdsAndWarehouseId(@Param("productIds") List<Long> productIds, @Param("warehouseId") Long warehouseId);
+
 }

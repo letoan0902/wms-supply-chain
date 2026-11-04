@@ -43,6 +43,28 @@ spring:
     port: ${RABBITMQ_PORT:5672}
     username: ${RABBITMQ_USERNAME:guest}
     password: ${RABBITMQ_PASSWORD:guest}
+    listener:
+      simple:
+        # Hết số lần thử lại thì không đẩy lại queue; broker chuyển message sang wms.dlx (xem docs/MESSAGING.md mục 4)
+        default-requeue-rejected: false
+        retry:
+          enabled: true
+          max-attempts: 3
+          initial-interval: 1s
+          multiplier: 2
+    template:
+      retry:
+        enabled: true
+        max-attempts: 3
+        initial-interval: 500ms
+  cloud:
+    openfeign:
+      client:
+        config:
+          # Gọi đồng bộ sang service khác (inventory-service, product-service): không chờ quá lâu để request của người dùng không treo
+          default:
+            connect-timeout: 3000
+            read-timeout: 5000
 
 eureka:
   client:

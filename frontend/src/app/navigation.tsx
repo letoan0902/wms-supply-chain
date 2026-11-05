@@ -35,7 +35,7 @@ export const navigationItems: NavigationItem[] = [
   { path: '/inventory', label: 'Tồn kho', icon: <DatabaseOutlined />, sprint: 3 },
   { path: '/transfers', label: 'Điều chuyển', icon: <SwapOutlined />, sprint: 3 },
   { path: '/purchases', label: 'Mua hàng và nhập kho', icon: <ShoppingCartOutlined /> },
-  { path: '/sales', label: 'Bán hàng và xuất kho', icon: <ShoppingOutlined />, sprint: 3 },
+  { path: '/sales', label: 'Bán hàng và xuất kho', icon: <ShoppingOutlined /> },
   { path: '/stocktakes', label: 'Kiểm kê', icon: <AuditOutlined />, sprint: 4 },
   { path: '/reports', label: 'Báo cáo', icon: <BarChartOutlined /> },
   { path: '/users', label: 'Người dùng', icon: <TeamOutlined /> },

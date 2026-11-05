@@ -20,6 +20,8 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import PageLoading from '../components/PageLoading'
 import { clearAuth, getStoredUser } from '../utils/storage'
 import { logout } from '../features/auth/authApi'
+import NotificationBell from '../features/realtime/components/NotificationBell'
+import { useWebSocket } from '../features/realtime/useWebSocket'
 import { navigationItems } from './navigation'
 import { ROLE_CONFIG } from '../features/users/types'
 
@@ -53,6 +55,9 @@ export default function MainLayout() {
       window.removeEventListener('wms:user-updated', handleUserUpdate)
     }
   }, [])
+
+  // Nối WebSocket nhận thông báo thời gian thực (MainLayout chỉ hiển thị sau khi đăng nhập)
+  useWebSocket()
 
   // Đường dẫn gốc của mục menu đang chọn: '/' giữ nguyên, '/products/12' thành '/products'
   const selectedKey = `/${pathname.split('/')[1]}`
@@ -179,33 +184,35 @@ export default function MainLayout() {
 
       <Layout>
         <Header
-          className="flex items-center justify-between"
+          className="flex items-center justify-between gap-3"
           style={{ background: '#fff', padding: '0 24px' }}
         >
-          <Typography.Title level={4} style={{ margin: 0 }}>
+          <Typography.Title level={4} ellipsis className="min-w-0" style={{ margin: 0 }}>
             {currentTitle ?? 'WMS Supply Chain'}
           </Typography.Title>
-
-          {/* User profile trigger */}
-          <Dropdown menu={{ items: userMenu }} placement="bottomRight" trigger={['click']}>
-            <button
-              type="button"
-              className="flex cursor-pointer items-center gap-2.5 border-0 bg-transparent px-2.5 py-1.5 rounded-lg hover:bg-slate-100/70 transition-colors select-none text-left"
-            >
-              <div className="w-8 h-8 rounded-full border border-slate-200 bg-transparent flex items-center justify-center text-xs font-semibold text-slate-700 shrink-0">
-                {initial || <UserOutlined className="text-slate-400" />}
-              </div>
-              <div className="hidden sm:flex flex-col">
-                <span className="text-xs font-semibold text-gray-800 leading-tight">
-                  {displayName}
-                </span>
-                <span className="text-[10px] text-gray-400 font-mono leading-tight">
-                  @{user?.username}
-                </span>
-              </div>
-              <DownOutlined className="text-[10px] text-gray-400 ml-0.5" />
-            </button>
-          </Dropdown>
+          <div className="flex shrink-0 items-center gap-2 sm:gap-4">
+            <NotificationBell />
+            {/* User profile trigger */}
+            <Dropdown menu={{ items: userMenu }} placement="bottomRight" trigger={['click']}>
+              <button
+                type="button"
+                className="flex cursor-pointer items-center gap-2.5 border-0 bg-transparent px-2.5 py-1.5 rounded-lg hover:bg-slate-100/70 transition-colors select-none text-left"
+              >
+                <div className="w-8 h-8 rounded-full border border-slate-200 bg-transparent flex items-center justify-center text-xs font-semibold text-slate-700 shrink-0">
+                  {initial || <UserOutlined className="text-slate-400" />}
+                </div>
+                <div className="hidden sm:flex flex-col">
+                  <span className="text-xs font-semibold text-gray-800 leading-tight">
+                    {displayName}
+                  </span>
+                  <span className="text-[10px] text-gray-400 font-mono leading-tight">
+                    @{user?.username}
+                  </span>
+                </div>
+                <DownOutlined className="text-[10px] text-gray-400 ml-0.5" />
+              </button>
+            </Dropdown>
+          </div>
         </Header>
 
         <Content className="p-4 md:p-6">

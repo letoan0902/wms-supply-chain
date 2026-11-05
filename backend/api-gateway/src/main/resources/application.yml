@@ -62,6 +62,13 @@ spring:
           uri: lb://notification-service
           predicates:
             - Path=/api/notifications/**
+        # Hub WebSocket STOMP của notification-service (WMS-02.3): handshake SockJS (/ws-wms/info, /ws-wms/{server}/{session}/...)
+        # và WebSocket thuần (/ws-wms). Request có header Upgrade: websocket được WebsocketRoutingFilter tự đổi http sang ws
+        # sau khi load balancer chọn instance, nên dùng lb:// như các route khác.
+        - id: notification-websocket
+          uri: lb://notification-service
+          predicates:
+            - Path=/ws-wms/**
 
 eureka:
   client:
@@ -75,14 +82,18 @@ eureka:
 # Kiểm tra JWT tại gateway (xem JwtAuthenticationGlobalFilter).
 gateway:
   jwt:
-    # TODO: bật (GATEWAY_JWT_ENABLED=true) khi auth-service/RBAC hoàn thiện. Hiện TẮT để nhóm phát triển không bị chặn.
-    enabled: ${GATEWAY_JWT_ENABLED:true}
+    # Mặc định TẮT ở máy phát triển để nhóm gọi API không bị chặn; production bật qua deploy/docker-compose.prod.yml.
+    # Bật (GATEWAY_JWT_ENABLED=true trong .env) thì gateway mới chuyển tiếp X-User-Name, X-User-Roles, X-User-Warehouse-Ids,
+    # nhờ đó các service lọc dữ liệu theo kho được phân quyền (WMS-04.2).
+    enabled: ${GATEWAY_JWT_ENABLED:false}
     # PHẢI trùng JWT_SECRET của auth-service. Chỉ là giá trị dev, đổi ở môi trường thật.
     secret: ${JWT_SECRET:change_me_dev_only_jwt_secret_key_min_32_bytes}
     public-paths:
       - /api/auth/login
       - /api/auth/refresh
       - /actuator/**
+      # Handshake WebSocket từ trình duyệt không mang được header Bearer; notification-service kiểm tra JWT ở frame STOMP CONNECT.
+      - /ws-wms/**
   rate-limit:
     # Tắt (RATE_LIMIT_ENABLED=false) khi chạy kiểm thử tải JMeter (WMS-19.2) để gateway không chặn kịch bản.
     enabled: ${RATE_LIMIT_ENABLED:true}

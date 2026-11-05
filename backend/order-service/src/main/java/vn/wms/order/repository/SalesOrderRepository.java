@@ -28,10 +28,10 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Long> {
     Optional<SalesOrder> findById(Long id);
 
     @Override
-    @EntityGraph(attributePaths = {"customer"})
+    @EntityGraph(attributePaths = {"customer", "items"})
     Page<SalesOrder> findAll(Pageable pageable);
 
-    @EntityGraph(attributePaths = {"customer"})
+    @EntityGraph(attributePaths = {"customer", "items"})
     @Query("SELECT so FROM SalesOrder so " +
            "WHERE (:keyword IS NULL OR :keyword = '' " +
            "       OR LOWER(so.soNumber) LIKE LOWER(CONCAT('%', :keyword, '%')) " +

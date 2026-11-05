@@ -15,7 +15,6 @@ import {
   Typography,
 } from 'antd'
 import type { MenuProps } from 'antd'
-import { Dropdown, Layout, Menu, Modal, Tag, Typography } from 'antd'
 import { Suspense, useEffect, useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import PageLoading from '../components/PageLoading'
@@ -37,14 +36,6 @@ export default function MainLayout() {
   const [user, setUser] = useState(() => getStoredUser())
   const [logoutModalOpen, setLogoutModalOpen] = useState(false)
   const [logoutLoading, setLogoutLoading] = useState(false)
-
-  // Theo đặc tả phân quyền SRS 2.5: Giữ nguyên tất cả các mục trên thanh Sidebar
-  // để người dùng nắm rõ cấu trúc tính năng. Nếu không có quyền, màn hình đích sẽ hiển thị thông báo 403.
-  const menuItems: MenuProps['items'] = navigationItems.map((item) => ({
-    key: item.path,
-    icon: item.icon,
-    label: item.label,
-  }))
 
   // Lắng nghe sự kiện khi người dùng cập nhật hồ sơ cá nhân để sync ngay lập tức lên Header
   useEffect(() => {

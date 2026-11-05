@@ -6,6 +6,14 @@ import {
   LogoutOutlined,
   UserOutlined,
 } from '@ant-design/icons'
+import {
+  Dropdown,
+  Layout,
+  Menu,
+  Modal,
+  Tag,
+  Typography,
+} from 'antd'
 import type { MenuProps } from 'antd'
 import { Dropdown, Layout, Menu, Modal, Tag, Typography } from 'antd'
 import { Suspense, useEffect, useState } from 'react'
@@ -29,6 +37,25 @@ export default function MainLayout() {
   const [user, setUser] = useState(() => getStoredUser())
   const [logoutModalOpen, setLogoutModalOpen] = useState(false)
   const [logoutLoading, setLogoutLoading] = useState(false)
+
+  // Theo đặc tả phân quyền SRS 2.5: Giữ nguyên tất cả các mục trên thanh Sidebar
+  // để người dùng nắm rõ cấu trúc tính năng. Nếu không có quyền, màn hình đích sẽ hiển thị thông báo 403.
+  const menuItems: MenuProps['items'] = navigationItems.map((item) => ({
+    key: item.path,
+    icon: item.icon,
+    label: item.label,
+  }))
+
+  // Lắng nghe sự kiện khi người dùng cập nhật hồ sơ cá nhân để sync ngay lập tức lên Header
+  useEffect(() => {
+    const handleUserUpdate = () => {
+      setUser(getStoredUser())
+    }
+    window.addEventListener('wms:user-updated', handleUserUpdate)
+    return () => {
+      window.removeEventListener('wms:user-updated', handleUserUpdate)
+    }
+  }, [])
 
   // Nối WebSocket nhận thông báo thời gian thực (MainLayout chỉ hiển thị sau khi đăng nhập)
   useWebSocket()

@@ -20,6 +20,9 @@ public record SalesOrderSummaryResponse(
         @Schema(description = "Số lượng đơn đã xác nhận (CONFIRMED)", example = "20")
         long confirmedOrders,
 
+        @Schema(description = "Chỉ số đơn bán chờ xử lý / chờ xuất hàng (Pending Sale Orders - FR16)", example = "20")
+        long pendingSaleOrders,
+
         @Schema(description = "Số lượng đơn đã hoàn tất giao (COMPLETED)", example = "20")
         long completedOrders,
 

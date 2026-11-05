@@ -389,6 +389,77 @@ class SalesOrderIntegrationTest {
                 .andExpect(jsonPath("$.success", is(true)))
                 .andExpect(jsonPath("$.data.totalOrders").isNumber())
                 .andExpect(jsonPath("$.data.confirmedOrders").isNumber())
+                .andExpect(jsonPath("$.data.pendingSaleOrders").isNumber())
                 .andExpect(jsonPath("$.data.totalRevenue").isNumber());
+    }
+
+    @Test
+    @DisplayName("Tạo đơn bán hàng với trạng thái không hợp lệ (ví dụ PENDING) -> Trả về 400 Bad Request")
+    void createSalesOrderWithInvalidStatusReturnsBadRequest() throws Exception {
+        SalesOrderItemRequest item = new SalesOrderItemRequest(
+                701L, "SKU-INVALID", "Sản phẩm", "Cái",
+                new BigDecimal("5.000"), new BigDecimal("100000.00"),
+                BigDecimal.ZERO, null,
+                BigDecimal.ZERO, null,
+                null
+        );
+
+        CreateSalesOrderRequest request = new CreateSalesOrderRequest(
+                null,
+                sampleCustomer.getId(),
+                1L,
+                "Kho Tổng Hà Nội",
+                "Hà Nội",
+                "Người nhận",
+                "0987654321",
+                LocalDate.now(),
+                null,
+                "Đơn status sai",
+                OrderStatus.PENDING, // Chỉ cho DRAFT hoặc CONFIRMED
+                true,
+                List.of(item)
+        );
+
+        mockMvc.perform(post("/api/orders/sales")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success", is(false)))
+                .andExpect(jsonPath("$.message", containsString("chỉ chấp nhận DRAFT hoặc CONFIRMED")));
+    }
+
+    @Test
+    @DisplayName("Tạo đơn bán hàng với dòng mặt hàng thiếu productId -> Báo lỗi validation 400")
+    void createSalesOrderWithNullProductIdReturnsBadRequest() throws Exception {
+        SalesOrderItemRequest item = new SalesOrderItemRequest(
+                null, // Bắt buộc @NotNull
+                "SKU-NO-ID", "Sản phẩm không có ID", "Cái",
+                new BigDecimal("5.000"), new BigDecimal("100000.00"),
+                BigDecimal.ZERO, null,
+                BigDecimal.ZERO, null,
+                null
+        );
+
+        CreateSalesOrderRequest request = new CreateSalesOrderRequest(
+                null,
+                sampleCustomer.getId(),
+                1L,
+                "Kho Tổng Hà Nội",
+                "Hà Nội",
+                "Người nhận",
+                "0987654321",
+                LocalDate.now(),
+                null,
+                "Đơn thiếu productId",
+                OrderStatus.CONFIRMED,
+                true,
+                List.of(item)
+        );
+
+        mockMvc.perform(post("/api/orders/sales")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success", is(false)));
     }
 }

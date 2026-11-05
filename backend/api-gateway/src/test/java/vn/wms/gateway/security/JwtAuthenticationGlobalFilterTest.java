@@ -41,6 +41,7 @@ class JwtAuthenticationGlobalFilterTest {
         return Jwts.builder()
                 .subject("manager01")
                 .claim("roles", List.of("WAREHOUSE_MANAGER", "SALES"))
+                .claim("warehouseIds", List.of(1L, 2L))
                 .issuedAt(new Date())
                 .expiration(Date.from(expiresAt))
                 .signWith(key, Jwts.SIG.HS256)
@@ -50,7 +51,8 @@ class JwtAuthenticationGlobalFilterTest {
     private static MockServerWebExchange exchange(String path, String authorization) {
         MockServerHttpRequest.BaseBuilder<?> builder = MockServerHttpRequest.get(path)
                 .header("X-User-Name", "ke-gia-mao")
-                .header("X-User-Roles", "ADMIN");
+                .header("X-User-Roles", "ADMIN")
+                .header("X-User-Warehouse-Ids", "99");
         if (authorization != null) {
             builder.header("Authorization", authorization);
         }
@@ -66,6 +68,7 @@ class JwtAuthenticationGlobalFilterTest {
         assertThat(forwarded.get()).isNotNull();
         assertThat(forwarded.get().getRequest().getHeaders().containsKey("X-User-Name")).isFalse();
         assertThat(forwarded.get().getRequest().getHeaders().containsKey("X-User-Roles")).isFalse();
+        assertThat(forwarded.get().getRequest().getHeaders().containsKey("X-User-Warehouse-Ids")).isFalse();
     }
 
     @Test
@@ -111,6 +114,8 @@ class JwtAuthenticationGlobalFilterTest {
         assertThat(forwarded.get().getRequest().getHeaders().getFirst("X-User-Name")).isEqualTo("manager01");
         assertThat(forwarded.get().getRequest().getHeaders().getFirst("X-User-Roles"))
                 .isEqualTo("WAREHOUSE_MANAGER,SALES");
+        assertThat(forwarded.get().getRequest().getHeaders().getFirst("X-User-Warehouse-Ids"))
+                .isEqualTo("1,2");
     }
 
     @Test

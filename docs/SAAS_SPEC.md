@@ -27,6 +27,19 @@ Tác nhân:
 - Hệ thống ngoài: gọi API bằng API key, vai trò `INTEGRATION`, chỉ đọc.
 - PayOS: cổng thanh toán, gọi webhook về máy chủ khi khách chuyển khoản xong.
 
+### 1.1. Nghiệp vụ thay đổi thế nào
+
+Trước đây hệ thống phục vụ một doanh nghiệp duy nhất: quản trị viên tạo tài khoản cho nhân viên, mọi người cùng nhìn chung một bộ kho, hàng hóa, đơn hàng. Sau phần mở rộng, nhiều doanh nghiệp không liên quan tới nhau cùng dùng một hệ thống, mỗi bên chỉ thấy dữ liệu của mình và trả phí theo gói. Một ví dụ đi từ đầu tới cuối:
+
+1. Anh An vào trang giới thiệu, bấm Đăng ký, nhập tên "Công ty A", email và mật khẩu. Hệ thống tạo doanh nghiệp Công ty A, tạo tài khoản của anh An với vai trò `ADMIN` của công ty đó và cho 30 ngày dùng thử đầy đủ tính năng.
+2. Anh An đăng nhập và thấy một hệ thống trống. Anh tạo kho, nhập hàng hóa (tự nhập hoặc tải file để AI trích xuất), tạo tài khoản cho nhân viên. Mọi thứ anh và nhân viên tạo ra đều thuộc Công ty A.
+3. Chị Bình đăng ký "Công ty B" theo cách tương tự. Chị và nhân viên của mình không thấy kho, hàng hóa, đơn hàng hay tài khoản nào của Công ty A, kể cả khi biết ID. Hai công ty có thể cùng đặt mã kho `WH01` hay mã hàng `SP001` mà không đụng nhau.
+4. Trong 30 ngày dùng thử, mọi trang có dòng nhắc còn bao nhiêu ngày. Admin xem được mình đang dùng bao nhiêu người dùng, kho, mã hàng, lượt AI so với giới hạn của gói.
+5. Hết 30 ngày mà chưa thanh toán, Công ty A vẫn đăng nhập và xem được toàn bộ dữ liệu nhưng không tạo, sửa, xóa được gì. Anh An mở trang Gói dịch vụ và chọn một trong hai: thanh toán gói Pro qua PayOS (quét mã QR chuyển khoản, hệ thống mở lại ngay khi nhận được tiền), hoặc chuyển về gói Khởi Đầu miễn phí với giới hạn 3 người dùng, 1 kho, 200 mã hàng.
+6. Khi cần nối với phần mềm kế toán, anh An tạo một API key trong phần cài đặt; phần mềm đó dùng key để đọc tồn kho và đơn hàng của Công ty A.
+
+Các task của EPIC 10 chia câu chuyện trên thành từng phần: WMS-22 lo việc "mỗi bên chỉ thấy dữ liệu của mình", WMS-23 lo đăng ký, gói dịch vụ và thanh toán, WMS-24 lo AI, WMS-25 lo API key.
+
 ## 2. Quy ước chung cho mọi task
 
 ### 2.1. JWT và kết quả đăng nhập
@@ -187,6 +200,14 @@ Người làm: Phương Anh. Ngày: 06/11. Jira: TASK-134. Phụ thuộc: quy ư
 
 Mỗi tài khoản thuộc đúng một doanh nghiệp. Đăng nhập xong hệ thống biết người dùng thuộc doanh nghiệp nào và mọi thao tác quản lý người dùng chỉ nằm trong doanh nghiệp đó.
 
+**Giải thích nghiệp vụ**
+
+- Hiện nay bảng `users` không ghi ai thuộc công ty nào, nên `ADMIN` nào cũng thấy và sửa được mọi tài khoản. Task này thêm khái niệm doanh nghiệp vào auth-service và gắn mỗi tài khoản vào một doanh nghiệp.
+- Người dùng không phải làm gì khác lúc đăng nhập: vẫn nhập tên đăng nhập (hoặc email) và mật khẩu. Hệ thống tự biết tài khoản thuộc doanh nghiệp nào và ghi `companyId` vào token. Các service khác (kho, hàng hóa, đơn hàng) sẽ dựa vào `companyId` này để lọc dữ liệu ở các task WMS-22.3 và WMS-22.4.
+- Trang Người dùng của `ADMIN` Công ty A chỉ còn tài khoản của Công ty A. Tài khoản `ADMIN` tạo ra tự động thuộc công ty của người tạo.
+- Task này chưa có chức năng đăng ký doanh nghiệp (đó là WMS-23.1). Vì vậy dùng hai công ty mẫu tạo sẵn bằng migration: toàn bộ tài khoản đang có thuộc Công ty mẫu A, thêm một tài khoản `admin_b` thuộc Công ty mẫu B để kiểm tra hai bên không thấy nhau.
+- Ví dụ kiểm tra bằng tay: đăng nhập `admin` rồi gọi `GET /api/users` thì không thấy `admin_b`; lấy ID của `admin_b` gọi `GET /api/users/{id}` thì nhận `404`.
+
 **Dữ liệu**
 
 - Bảng mới `companies`: `id`, `code` (30 ký tự, duy nhất, dạng `CTY` cộng 6 chữ số theo `id`, ví dụ `CTY000001`), `name` (150, bắt buộc), `tax_code` (30), `email` (100), `phone` (30), `address` (255), `status` (`PENDING`, `ACTIVE`, `SUSPENDED`), `activated_at`, bốn cột audit.
@@ -205,12 +226,55 @@ Mỗi tài khoản thuộc đúng một doanh nghiệp. Đăng nhập xong hệ 
 | `GET /api/users` và các API `/api/users/{id}/**` | Chỉ liệt kê và thao tác trên tài khoản cùng doanh nghiệp. ID của tài khoản thuộc doanh nghiệp khác trả `404` |
 | `GET /api/auth/company` (mới) | Mọi tài khoản đã đăng nhập xem thông tin doanh nghiệp của mình: `id`, `code`, `name`, `taxCode`, `email`, `phone`, `address`, `status`, `createdAt` |
 
+Kết quả đăng nhập sau khi sửa (phần `data`):
+
+```json
+{
+  "accessToken": "...",
+  "refreshToken": "...",
+  "tokenType": "Bearer",
+  "expiresIn": 900,
+  "username": "admin",
+  "roles": ["ADMIN"],
+  "company": { "id": 1, "code": "CTY000001", "name": "Công ty mẫu A" }
+}
+```
+
+Nội dung access token sau khi giải mã:
+
+```json
+{
+  "sub": "admin",
+  "userId": 1,
+  "roles": ["ADMIN"],
+  "warehouseIds": [],
+  "companyId": 1,
+  "companyCode": "CTY000001",
+  "type": "ACCESS"
+}
+```
+
 **Quy tắc nghiệp vụ**
 
 - Vai trò `ADMIN` là quản trị của một doanh nghiệp, không có quyền gì với doanh nghiệp khác.
+- Quy tắc đang có "không được khóa hoặc bỏ quyền `ADMIN` cuối cùng" tính trong từng doanh nghiệp, không tính trên toàn hệ thống.
+- Các hành vi đăng nhập đang có giữ nguyên: đăng nhập bằng tên đăng nhập hoặc email, khóa tạm sau 5 lần sai, xoay vòng refresh token.
 - Tài khoản không chuyển được sang doanh nghiệp khác.
 - Tài khoản dev (`dev-login`), nếu còn bật ở môi trường phát triển, thuộc doanh nghiệp 1.
 - Danh sách kho gán cho người dùng (`user_warehouses`) giữ nguyên cách làm; giao diện chỉ đưa ra các kho của doanh nghiệp đó.
+
+**Các bước triển khai gợi ý**
+
+1. Migration mới trong `auth-service/src/main/resources/db/migration` (hiện có tới `V3`, kiểm tra lại trước khi đặt số): tạo bảng `companies`; thêm hai công ty mẫu; `ALTER TABLE users ADD COLUMN company_id BIGINT NULL`; `UPDATE users SET company_id = 1`; đổi cột thành `NOT NULL`, thêm khóa ngoại và index; thêm tài khoản `admin_b` và gán vai trò `ADMIN`.
+2. Thêm `entity/Company` (kế thừa `AuditableEntity`), enum `CompanyStatus`, `repository/CompanyRepository`.
+3. `entity/User`: thêm quan hệ `@ManyToOne(fetch = LAZY)` tới `Company` qua cột `company_id`, không cho null.
+4. `security/JwtService`: `generateAccessToken` nhận thêm `companyId`, `companyCode` và ghi vào claim; thêm hàm đọc `companyId` từ claims. Giữ các hàm cũ gọi sang hàm mới để test đang có vẫn chạy.
+5. `security/UserPrincipal` thêm trường `companyId`; `security/JwtAuthenticationFilter` đọc claim và điền vào.
+6. `service/AuthService`: trong `login` và `refreshToken`, sau bước kiểm tra tài khoản bị khóa thì kiểm tra trạng thái doanh nghiệp, rồi truyền thông tin doanh nghiệp khi tạo token. `LoginResponse` và `UserInfoResponse` thêm `company`.
+7. `AuthService.register` và `UserService.createUser`: gán doanh nghiệp của `ADMIN` đang đăng nhập (lấy `companyId` từ `UserPrincipal`).
+8. `repository/UserRepository`: thêm điều kiện doanh nghiệp vào `searchUsers`; thêm `findByIdAndCompanyId`; sửa `countActiveAdmins` đếm theo doanh nghiệp. Trong `UserService`, mọi hàm nhận `id` (xem, sửa, gán kho, đổi trạng thái) tìm bằng `findByIdAndCompanyId`, không thấy thì trả `404`.
+9. Thêm `GET /api/auth/company`.
+10. Test: test chạy H2 và không chạy Flyway, nên `BaseIntegrationTest` phải tự tạo hai doanh nghiệp trước khi tạo tài khoản; sửa các test đang có cho phù hợp rồi thêm test theo sáu tiêu chí bên dưới.
 
 **Tiêu chí nghiệm thu**
 
@@ -338,6 +402,18 @@ Trang đăng nhập không còn hiển thị gợi ý tài khoản mặc định
 
 Người làm: Phương Anh. Ngày: 09/11. Jira: TASK-142. Phụ thuộc: WMS-22.2.
 
+**Mục tiêu**
+
+Một doanh nghiệp mới tự đăng ký được mà không cần ai tạo hộ, nhận 30 ngày dùng thử, và hệ thống luôn biết doanh nghiệp đang ở gói nào, còn hạn hay đã hết hạn.
+
+**Giải thích nghiệp vụ**
+
+- Đăng ký: khách điền một form duy nhất gồm thông tin công ty và thông tin người quản trị. Hệ thống tạo cùng lúc ba thứ: doanh nghiệp, tài khoản `ADMIN` đầu tiên của doanh nghiệp đó, và thuê bao dùng thử 30 ngày. Hoặc cả ba cùng được tạo, hoặc không có gì được tạo.
+- Gói dịch vụ là bảng giá và giới hạn cố định của nền tảng (ba dòng `FREE`, `TRIAL`, `PRO`). Thuê bao là trạng thái của riêng từng doanh nghiệp: đang ở gói nào, tới ngày nào.
+- Task này chỉ lưu và trả lời "doanh nghiệp đang ở gói nào, còn bao nhiêu ngày". Việc chặn khi vượt giới hạn hoặc hết hạn do WMS-23.2 (Toàn) làm, dựa trên dữ liệu task này ghi ra Redis.
+- Chưa có thanh toán thật ở task này. API `renew-mock` là cách gia hạn tạm để nhóm test được luồng đổi gói; khi WMS-23.5a xong, thanh toán PayOS sẽ gọi đúng hàm kích hoạt gói mà task này viết.
+- API `demo/expire` là công cụ để trình diễn với thầy: bấm một cái cho doanh nghiệp hết hạn ngay thay vì chờ 30 ngày.
+
 **Dữ liệu**
 
 - Bảng `plans` (seed bằng migration theo mục 2.5): `code` (`FREE`, `TRIAL`, `PRO`), `name`, `price_monthly`, `price_yearly`, `max_users`, `max_warehouses`, `max_skus`, `max_ai_requests`, `api_access`, `trial_days`. Giá trị `-1` là không giới hạn.
@@ -354,6 +430,46 @@ Người làm: Phương Anh. Ngày: 09/11. Jira: TASK-142. Phụ thuộc: WMS-22
 | `POST /api/auth/subscription/downgrade` | `ADMIN` | Chuyển về `FREE` theo quy tắc mục 2.6; không hợp lệ trả `409 CONFLICT` |
 | `POST /api/auth/subscription/demo/expire` | `ADMIN`, chỉ khi `APP_DEMO_TOOLS=true` | Đặt thuê bao của doanh nghiệp mình thành hết hạn để trình diễn |
 
+Ví dụ đăng ký, body gửi lên `POST /api/auth/companies/register`:
+
+```json
+{
+  "companyName": "Công ty TNHH Kho Vận Mẫu",
+  "taxCode": "0101234567",
+  "phone": "0901234567",
+  "fullName": "Nguyễn Văn An",
+  "username": "an.nguyen",
+  "email": "an@example.com",
+  "password": "<mật khẩu>"
+}
+```
+
+Phần `data` trả về:
+
+```json
+{
+  "company": { "id": 3, "code": "CTY000003", "name": "Công ty TNHH Kho Vận Mẫu", "status": "ACTIVE" },
+  "admin": { "username": "an.nguyen", "email": "an@example.com" },
+  "subscription": { "plan": "TRIAL", "status": "ACTIVE", "trialEndsAt": "2026-12-09T03:00:00Z" }
+}
+```
+
+Phần `data` của `GET /api/auth/subscription` ngay sau khi đăng ký:
+
+```json
+{
+  "plan": "TRIAL",
+  "planName": "Dùng thử",
+  "status": "ACTIVE",
+  "trialEndsAt": "2026-12-09T03:00:00Z",
+  "expiresAt": null,
+  "daysRemaining": 30,
+  "readOnly": false,
+  "limits": { "maxUsers": 50, "maxWarehouses": 20, "maxSkus": -1, "maxAiRequests": 500, "apiAccess": true },
+  "usage": { "users": 1, "warehouses": null, "skus": null, "aiRequests": null }
+}
+```
+
 **Quy tắc nghiệp vụ**
 
 - Tên đăng nhập hoặc email đã tồn tại trả `409 CONFLICT`, nêu rõ trường nào trùng. Mỗi email chỉ đăng ký được một doanh nghiệp.
@@ -363,6 +479,19 @@ Người làm: Phương Anh. Ngày: 09/11. Jira: TASK-142. Phụ thuộc: WMS-22
 - Mỗi thay đổi thuê bao ghi lại bộ nhớ đệm theo mục 2.7.
 - Viết phần kích hoạt gói thành một hàm dùng chung của `SubscriptionService` (nhận doanh nghiệp, gói, chu kỳ) để WMS-23.5a gọi lại khi thanh toán thành công.
 - Token và kết quả đăng nhập thêm `plan`, `subscription` theo mục 2.1.
+
+**Các bước triển khai gợi ý**
+
+1. Migration kế tiếp của auth-service: tạo `plans` và thêm ba dòng theo bảng ở mục 2.5; tạo `subscriptions` và thêm thuê bao cho hai công ty mẫu.
+2. Thêm entity `Plan`, `Subscription`, enum `SubscriptionStatus`, `BillingCycle` và hai repository.
+3. `SubscriptionService` gồm: `startTrial(company)`; `activate(companyId, planCode, cycle)` tính ngày hết hạn theo công thức mục 2.6; `downgradeToFree(companyId)`; `expireIfDue(subscription)`; `getCurrent(companyId)` trả DTO cho API. Sau mỗi thay đổi gọi một hàm ghi hash `wms:subscription:{companyId}` vào Redis (auth-service đã có sẵn `RedisTemplate`).
+4. `CompanyRegistrationService.register(request)` đặt `@Transactional`: kiểm tra trùng tên đăng nhập và email; lưu doanh nghiệp để có `id` rồi đặt `code`; tạo tài khoản với vai trò `ADMIN` (dùng lại cách băm mật khẩu và gán vai trò của `AuthService.register`); gọi `startTrial`.
+5. Controller mới cho `/api/auth/companies/register`, `/api/auth/plans`, `/api/auth/subscription/**`. Trong `SecurityConfig` cho phép gọi không cần đăng nhập với hai API công khai.
+6. Đường dẫn công khai ở gateway (`gateway.jwt.public-paths` trong `api-gateway/src/main/resources/application.yml`) do Toàn thêm ở WMS-22.3 cùng ngày; nếu Pull Request của task này vào trước thì thêm luôn `/api/auth/companies/register` và `/api/auth/plans`.
+7. Tác vụ định kỳ: bật `@EnableScheduling`, một hàm `@Scheduled` chạy 5 phút một lần tìm thuê bao `ACTIVE` đã quá `trial_ends_at` hoặc `expires_at`, chuyển `EXPIRED` và ghi lại Redis.
+8. `AuthService.login` và `refreshToken`: gọi `expireIfDue`, ghi lại Redis, thêm claim `plan` và đối tượng `subscription` vào kết quả.
+9. Hai API chỉ dùng khi phát triển và trình diễn đọc cấu hình `PAYOS_MOCK` (mặc định `true`) và `APP_DEMO_TOOLS` (mặc định `false`); khi tắt thì trả `404`.
+10. Test theo năm tiêu chí bên dưới; bài test đăng ký trùng email kiểm tra thêm là không có dòng `companies` nào được tạo.
 
 **Tiêu chí nghiệm thu**
 

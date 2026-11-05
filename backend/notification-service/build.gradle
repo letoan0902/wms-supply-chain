@@ -17,6 +17,13 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-amqp'
     implementation 'org.springframework.boot:spring-boot-starter-mail'
 
+    // WebSocket STOMP (/ws-wms) đẩy thông báo thời gian thực tới giao diện (WMS-02.3)
+    implementation 'org.springframework.boot:spring-boot-starter-websocket'
+    // JWT: kiểm tra token ở frame STOMP CONNECT, cùng cách khai báo với api-gateway
+    implementation "io.jsonwebtoken:jjwt-api:${jjwtVersion}"
+    runtimeOnly "io.jsonwebtoken:jjwt-impl:${jjwtVersion}"
+    runtimeOnly "io.jsonwebtoken:jjwt-jackson:${jjwtVersion}"
+
     // Spring Cloud: đăng ký Eureka + cấu hình tập trung
     implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
     implementation 'org.springframework.cloud:spring-cloud-starter-config'

@@ -158,6 +158,10 @@ public class SalesOrderService {
      */
     @Transactional
     public SalesOrderResponse create(CreateSalesOrderRequest request, String username) {
+        if (request.status() != null && request.status() != OrderStatus.DRAFT && request.status() != OrderStatus.CONFIRMED) {
+            throw ApiException.badRequest("Trạng thái khởi tạo đơn bán chỉ chấp nhận DRAFT hoặc CONFIRMED");
+        }
+
         Customer customer = customerRepository.findById(request.customerId())
                 .orElseThrow(() -> ApiException.badRequest("Không tìm thấy khách hàng với ID: " + request.customerId()));
 
@@ -315,10 +319,7 @@ public class SalesOrderService {
         }
 
         if (!shortages.isEmpty()) {
-            so.setStatus(OrderStatus.BACKORDER);
-            so.setBackorderReason(String.join("; ", shortages));
-            salesOrderRepository.save(so);
-            throw ApiException.badRequest("Không thể xác nhận đơn: " + so.getBackorderReason());
+            throw ApiException.badRequest("Không thể xác nhận đơn do thiếu tồn khả dụng: " + String.join("; ", shortages));
         }
 
         // Kiểm tra lại hạn mức tín dụng khách hàng
@@ -340,6 +341,7 @@ public class SalesOrderService {
 
     /**
      * Hủy đơn bán hàng (chuyển sang trạng thái CANCELLED).
+     * Giải phóng tồn kho giữ chỗ (soft reservation) nếu đơn đã xác nhận trước đó (WMS-11.2).
      */
     @Transactional
     public SalesOrderResponse cancel(Long id) {
@@ -352,8 +354,15 @@ public class SalesOrderService {
             return SalesOrderResponse.from(so);
         }
 
+        OrderStatus oldStatus = so.getStatus();
         so.setStatus(OrderStatus.CANCELLED);
         SalesOrder cancelled = salesOrderRepository.save(so);
+
+        // Nếu đơn từng ở trạng thái CONFIRMED (đã giữ hàng ảo), giải phóng giữ chỗ bên inventory-service (WMS-11.2)
+        if (oldStatus == OrderStatus.CONFIRMED) {
+            inventoryGateway.releaseReservations(so.getId());
+        }
+
         return SalesOrderResponse.from(cancelled);
     }
 
@@ -371,6 +380,7 @@ public class SalesOrderService {
 
     /**
      * Báo cáo thống kê tổng quan các chỉ số đơn bán hàng (SO Metrics Summary).
+     * Bao gồm chỉ số 'Pending Sale Orders' (đơn bán chờ xử lý - FR16).
      */
     @Transactional(readOnly = true)
     public SalesOrderSummaryResponse getSummary() {
@@ -378,6 +388,7 @@ public class SalesOrderService {
         long draftOrders = salesOrderRepository.countByStatus(OrderStatus.DRAFT);
         long backorders = salesOrderRepository.countByStatus(OrderStatus.BACKORDER);
         long confirmedOrders = salesOrderRepository.countByStatus(OrderStatus.CONFIRMED);
+        long pendingSaleOrders = confirmedOrders; // Chỉ số 'Pending Sale Orders' (FR16)
         long completedOrders = salesOrderRepository.countByStatus(OrderStatus.COMPLETED);
         long cancelledOrders = salesOrderRepository.countByStatus(OrderStatus.CANCELLED);
 
@@ -388,6 +399,7 @@ public class SalesOrderService {
                 draftOrders,
                 backorders,
                 confirmedOrders,
+                pendingSaleOrders,
                 completedOrders,
                 cancelledOrders,
                 revenue != null ? revenue : BigDecimal.ZERO

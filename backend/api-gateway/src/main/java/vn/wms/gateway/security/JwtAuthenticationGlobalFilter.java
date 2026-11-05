@@ -45,6 +45,7 @@ public class JwtAuthenticationGlobalFilter implements GlobalFilter, Ordered {
 
     static final String HEADER_USER_NAME = "X-User-Name";
     static final String HEADER_USER_ROLES = "X-User-Roles";
+    static final String HEADER_USER_WAREHOUSE_IDS = "X-User-Warehouse-Ids";
     private static final String BEARER_PREFIX = "Bearer ";
     private static final int MIN_SECRET_BYTES = 32;
 
@@ -78,6 +79,7 @@ public class JwtAuthenticationGlobalFilter implements GlobalFilter, Ordered {
                 .headers(headers -> {
                     headers.remove(HEADER_USER_NAME);
                     headers.remove(HEADER_USER_ROLES);
+                    headers.remove(HEADER_USER_WAREHOUSE_IDS);
                 })
                 .build();
 
@@ -101,6 +103,7 @@ public class JwtAuthenticationGlobalFilter implements GlobalFilter, Ordered {
             ServerHttpRequest authenticated = sanitized.mutate()
                     .header(HEADER_USER_NAME, claims.getSubject())
                     .header(HEADER_USER_ROLES, rolesOf(claims))
+                    .header(HEADER_USER_WAREHOUSE_IDS, warehouseIdsOf(claims))
                     .build();
             return chain.filter(exchange.mutate().request(authenticated).build());
         } catch (JwtException | IllegalArgumentException ex) {
@@ -125,6 +128,14 @@ public class JwtAuthenticationGlobalFilter implements GlobalFilter, Ordered {
             return "";
         }
         return roles.stream().map(String::valueOf).collect(Collectors.joining(","));
+    }
+
+    private static String warehouseIdsOf(Claims claims) {
+        List<?> warehouseIds = claims.get("warehouseIds", List.class);
+        if (warehouseIds == null || warehouseIds.isEmpty()) {
+            return "";
+        }
+        return warehouseIds.stream().map(String::valueOf).collect(Collectors.joining(","));
     }
 
     /** Thân phản hồi lỗi cùng khung với ApiResponse của module common (success, code, message). */

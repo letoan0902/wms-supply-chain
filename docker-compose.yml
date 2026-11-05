@@ -183,6 +183,9 @@ services:
       dockerfile: api-gateway/Dockerfile
     environment:
       <<: *backend-env
+      # Kiểm tra JWT tại gateway: mặc định tắt ở máy phát triển, đặt GATEWAY_JWT_ENABLED=true trong .env để thử
+      # phân quyền theo kho (WMS-04.2). notification-service dùng chung công tắc này cho WebSocket /ws-wms.
+      GATEWAY_JWT_ENABLED: ${GATEWAY_JWT_ENABLED:-false}
     depends_on:
       redis:
         condition: service_healthy

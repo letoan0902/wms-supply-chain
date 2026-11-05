@@ -8,6 +8,7 @@ import org.springframework.amqp.core.MessageProperties;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.TopicExchange;
 import org.springframework.amqp.support.converter.MessageConverter;
+import vn.wms.common.messaging.WmsEvents;
 import vn.wms.notification.messaging.NotificationMessage;
 
 import java.util.Map;
@@ -33,6 +34,30 @@ class RabbitMqConfigTest {
         assertThat(binding.getExchange()).isEqualTo("wms.events");
         assertThat(binding.getDestination()).isEqualTo("notification.alerts");
         assertThat(binding.getRoutingKey()).isEqualTo("alert.#");
+    }
+
+    @Test
+    void declaresOrderAndInventoryQueuesLikeDefinitionsFile() {
+        TopicExchange exchange = config.wmsEventsExchange(properties);
+        Queue orderQueue = config.notificationOrderEventsQueue();
+        Queue inventoryQueue = config.notificationInventoryEventsQueue();
+
+        Binding orderBinding = config.notificationOrderEventsBinding(orderQueue, exchange);
+        Binding inventoryBinding = config.notificationInventoryEventsBinding(inventoryQueue, exchange);
+
+        // definitions.json: durable, không auto-delete, không arguments (dead-letter đi qua policy)
+        for (Queue queue : new Queue[]{orderQueue, inventoryQueue}) {
+            assertThat(queue.isDurable()).isTrue();
+            assertThat(queue.isAutoDelete()).isFalse();
+            assertThat(queue.isExclusive()).isFalse();
+            assertThat(queue.getArguments()).isEmpty();
+        }
+        assertThat(orderBinding.getExchange()).isEqualTo(WmsEvents.EXCHANGE);
+        assertThat(orderBinding.getDestination()).isEqualTo(WmsEvents.Queues.NOTIFICATION_ORDER_EVENTS);
+        assertThat(orderBinding.getRoutingKey()).isEqualTo("order.#");
+        assertThat(inventoryBinding.getExchange()).isEqualTo(WmsEvents.EXCHANGE);
+        assertThat(inventoryBinding.getDestination()).isEqualTo(WmsEvents.Queues.NOTIFICATION_INVENTORY_EVENTS);
+        assertThat(inventoryBinding.getRoutingKey()).isEqualTo("inventory.#");
     }
 
     @Test

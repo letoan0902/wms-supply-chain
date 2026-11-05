@@ -3,6 +3,8 @@ package vn.wms.order.client;
 import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import vn.wms.common.api.ApiResponse;
 
 /**
@@ -21,7 +23,11 @@ public interface InventoryClient {
     /** Thông tin tồn khả dụng ATP của một sản phẩm (ATP = OnHand - Reserved) (WMS-11.1). */
     @GetMapping("/api/inventory/stock/atp")
     ApiResponse<AtpResponse> getAtp(
-            @org.springframework.web.bind.annotation.RequestParam("productId") Long productId,
-            @org.springframework.web.bind.annotation.RequestParam(value = "warehouseId", required = false) Long warehouseId
+            @RequestParam("productId") Long productId,
+            @RequestParam(value = "warehouseId", required = false) Long warehouseId
     );
+
+    /** Giải phóng giữ hàng ảo khi đơn bán bị hủy (WMS-11.2). */
+    @PostMapping("/api/inventory/stock/reservations/release")
+    ApiResponse<Void> releaseReservations(@RequestParam("orderId") Long orderId);
 }

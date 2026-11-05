@@ -24,9 +24,12 @@ import vn.wms.inventory.service.StockService;
 public class StockController {
 
     private final StockService stockService;
+    private final vn.wms.inventory.service.StockReservationService stockReservationService;
 
-    public StockController(StockService stockService) {
+    public StockController(StockService stockService,
+                           vn.wms.inventory.service.StockReservationService stockReservationService) {
         this.stockService = stockService;
+        this.stockReservationService = stockReservationService;
     }
 
     @GetMapping("/atp")
@@ -42,5 +45,12 @@ public class StockController {
     @Operation(summary = "Kiểm tra tồn khả dụng ATP cho danh sách nhiều sản phẩm cùng lúc (Batch ATP)")
     public ApiResponse<BatchAtpResponse> getBatchAtp(@Valid @RequestBody BatchAtpRequest request) {
         return ApiResponse.ok(stockService.getBatchAtp(request.productIds(), request.warehouseId()));
+    }
+
+    @PostMapping("/reservations/release")
+    @Operation(summary = "Giải phóng số lượng giữ hàng ảo (soft reservation) khi đơn bán bị hủy (WMS-11.2)")
+    public ApiResponse<Void> releaseReservations(@RequestParam Long orderId) {
+        stockReservationService.releaseReservationsByOrderId(orderId);
+        return ApiResponse.ok();
     }
 }

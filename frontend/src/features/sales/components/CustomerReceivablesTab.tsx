@@ -150,7 +150,7 @@ export default function CustomerReceivablesTab() {
         amount: values.amount,
         referenceCode:
           values.referenceCode?.trim() ||
-          `PT-${dayjs().format('YYYYMMDD')}-${Math.floor(100 + Math.random() * 900)}`,
+          `PT-${dayjs().format('YYYYMMDD-HHmmss')}`,
         note: values.note?.trim() || 'Khách hàng thanh toán tiền hàng',
       })
       message.success(
@@ -270,7 +270,7 @@ export default function CustomerReceivablesTab() {
                 setCustomerForPayment(r)
                 paymentForm.setFieldsValue({
                   amount: r.currentDebt > 0 ? r.currentDebt : undefined,
-                  referenceCode: `PT-${dayjs().format('YYYYMMDD')}-${Math.floor(100 + Math.random() * 900)}`,
+                  referenceCode: `PT-${dayjs().format('YYYYMMDD-HHmmss')}`,
                   note: `Thu tiền công nợ khách hàng ${r.name}`,
                 })
                 setPaymentModalOpen(true)
@@ -496,7 +496,7 @@ export default function CustomerReceivablesTab() {
                       setCustomerForPayment(activeCustomer)
                       paymentForm.setFieldsValue({
                         amount: activeCustomer.currentDebt > 0 ? activeCustomer.currentDebt : undefined,
-                        referenceCode: `PT-${dayjs().format('YYYYMMDD')}-${Math.floor(100 + Math.random() * 900)}`,
+                        referenceCode: `PT-${dayjs().format('YYYYMMDD-HHmmss')}`,
                         note: `Thu tiền công nợ khách hàng ${activeCustomer.name}`,
                       })
                       setPaymentModalOpen(true)
@@ -607,6 +607,19 @@ export default function CustomerReceivablesTab() {
               rules={[
                 { required: true, message: 'Vui lòng nhập số tiền thanh toán' },
                 { type: 'number', min: 1, message: 'Số tiền phải lớn hơn 0' },
+                () => ({
+                  validator(_, value) {
+                    const currentDebt = customerForPayment?.currentDebt ?? 0
+                    if (value && currentDebt > 0 && value > currentDebt) {
+                      return Promise.reject(
+                        new Error(
+                          `Số tiền thu (${formatCurrency(value)}) không được lớn hơn công nợ hiện tại (${formatCurrency(currentDebt)})!`
+                        )
+                      )
+                    }
+                    return Promise.resolve()
+                  },
+                }),
               ]}
             >
               <InputNumber

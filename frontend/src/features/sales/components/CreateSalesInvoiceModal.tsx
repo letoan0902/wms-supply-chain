@@ -2,6 +2,7 @@ import {
   DollarOutlined,
   FileDoneOutlined,
   InfoCircleOutlined,
+  WarningOutlined,
 } from '@ant-design/icons'
 import {
   Alert,
@@ -53,6 +54,7 @@ export default function CreateSalesInvoiceModal({
   const [loading, setLoading] = useState(false)
   const [customers, setCustomers] = useState<Customer[]>([])
   const [creditInfo, setCreditInfo] = useState<CustomerCreditCheckResponse | null>(null)
+  const [hasExistingInvoice, setHasExistingInvoice] = useState(false)
 
   // Tải danh mục khách hàng nếu chưa có
   useEffect(() => {
@@ -65,7 +67,7 @@ export default function CreateSalesInvoiceModal({
           setCustomers(res.content || [])
         }
       } catch {
-        // Bỏ qua lỗi tải khách hàng
+        // Fallback silently
       }
     }
     void loadCustomers()
@@ -74,14 +76,14 @@ export default function CreateSalesInvoiceModal({
     }
   }, [open])
 
-  // Thiết lập giá trị mặc định cho form
+  // Thiết lập giá trị mặc định cho form & kiểm tra hóa đơn trùng
   useEffect(() => {
     if (!open) return
 
     const initialCustomerId = order?.customerId || customer?.id || undefined
     const autoRef = order
       ? `INV-${order.soNumber}`
-      : `INV-${dayjs().format('YYYYMMDD')}-${Math.floor(100 + Math.random() * 900)}`
+      : `INV-${dayjs().format('YYYYMMDD-HHmmss')}`
 
     form.setFieldsValue({
       customerId: initialCustomerId,
@@ -101,6 +103,26 @@ export default function CreateSalesInvoiceModal({
         .catch(() => {
           if (!ignore) setCreditInfo(null)
         })
+
+      // Kiểm tra xem đơn hàng đã từng phát sinh hóa đơn bán trước đó chưa
+      if (order?.soNumber) {
+        void customerApi
+          .fetchCustomerTransactions(initialCustomerId, { size: 50 })
+          .then((txRes) => {
+            if (!ignore) {
+              const matched = (txRes.content || []).some(
+                (tx) =>
+                  tx.transactionType === 'SALES_INVOICE' &&
+                  tx.referenceCode?.toUpperCase().includes(order.soNumber.toUpperCase())
+              )
+              setHasExistingInvoice(matched)
+            }
+          })
+          .catch(() => {
+            if (!ignore) setHasExistingInvoice(false)
+          })
+      }
+
       return () => {
         ignore = true
       }
@@ -153,6 +175,7 @@ export default function CreateSalesInvoiceModal({
       }
       onCancel={() => {
         setCreditInfo(null)
+        setHasExistingInvoice(false)
         onClose()
       }}
       width={680}
@@ -177,6 +200,17 @@ export default function CreateSalesInvoiceModal({
                 </span>
               </div>
             }
+          />
+        )}
+
+        {/* Cảnh báo đơn hàng đã từng lập hóa đơn bán */}
+        {hasExistingInvoice && (
+          <Alert
+            type="warning"
+            showIcon
+            icon={<WarningOutlined />}
+            message="Cảnh báo: Đơn bán này dường như đã có hóa đơn được tạo trước đó!"
+            description="Tìm thấy chứng từ hóa đơn trùng khớp với mã đơn hàng. Việc tiếp tục tạo hóa đơn sẽ tiếp tục ghi tăng thêm công nợ phải thu của khách hàng!"
           />
         )}
 
@@ -239,7 +273,7 @@ export default function CreateSalesInvoiceModal({
                   { max: 50, message: 'Tối đa 50 ký tự' },
                 ]}
               >
-                <Input placeholder="Ví dụ: INV-SO-20261105-01" />
+                <Input placeholder="Ví dụ: INV-20261105-183000" />
               </Form.Item>
             </Col>
           </Row>
@@ -289,6 +323,20 @@ export default function CreateSalesInvoiceModal({
                     min: 1,
                     message: 'Số tiền phải lớn hơn 0',
                   },
+                  ({ getFieldValue }) => ({
+                    validator(_, value) {
+                      const type = getFieldValue('type')
+                      const currentDebt = creditInfo?.currentDebt ?? 0
+                      if (type === 'PAYMENT' && currentDebt > 0 && value > currentDebt) {
+                        return Promise.reject(
+                          new Error(
+                            `Số tiền thanh toán (${formatCurrency(value)}) không được lớn hơn công nợ hiện tại (${formatCurrency(currentDebt)})`
+                          )
+                        )
+                      }
+                      return Promise.resolve()
+                    },
+                  }),
                 ]}
               >
                 <InputNumber
@@ -317,6 +365,7 @@ export default function CreateSalesInvoiceModal({
             <Button
               onClick={() => {
                 setCreditInfo(null)
+                setHasExistingInvoice(false)
                 onClose()
               }}
               disabled={loading}

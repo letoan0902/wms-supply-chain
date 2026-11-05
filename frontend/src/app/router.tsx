@@ -67,6 +67,8 @@ export const router = createBrowserRouter([
           { path: 'products', Component: lazy(() => import('../features/products/ProductsPage')) },
           // Quản lý đối tác Nhà cung cấp & Công nợ (WMS-08.3 - Sprint 1 & 2)
           { path: 'suppliers', Component: lazy(() => import('../features/suppliers/SuppliersPage')) },
+          // Quản lý Khách hàng / Đại lý & Cảnh báo hạn mức công nợ (WMS-08.4 - FR14)
+          { path: 'customers', Component: lazy(() => import('../features/customers/CustomersPage')) },
           // Quản lý Đơn mua hàng (PO) & Nhập kho (WMS-09 - Sprint 2)
           { path: 'purchases', Component: lazy(() => import('../features/purchases/PurchasesPage')) },
           // Quản lý Đơn bán hàng (SO) (WMS-11 - Sprint 3)

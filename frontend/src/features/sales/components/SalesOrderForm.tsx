@@ -184,7 +184,7 @@ export default function SalesOrderForm({
         })
         setCustomers(res.content || [])
       } catch {
-        setCreditInfo(null)
+        // Tìm kiếm lỗi thì giữ danh sách khách hàng đang có, không đụng tới kết quả kiểm tra công nợ
       } finally {
         setLoadingCustomers(false)
       }
@@ -207,7 +207,7 @@ export default function SalesOrderForm({
         })
         setProducts(res.content || [])
       } catch {
-        setCreditInfo(null)
+        // Tìm kiếm lỗi thì giữ danh sách sản phẩm đang có, không đụng tới kết quả kiểm tra công nợ
       } finally {
         setLoadingProducts(false)
       }

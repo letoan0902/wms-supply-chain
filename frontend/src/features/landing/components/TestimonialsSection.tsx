@@ -1,4 +1,5 @@
 import { StarFilled } from '@ant-design/icons'
+import { Avatar } from 'antd'
 import { TESTIMONIALS } from '../pricingConfig'
 
 export default function TestimonialsSection() {
@@ -8,13 +9,13 @@ export default function TestimonialsSection() {
         {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto mb-14">
           <div className="inline-flex items-center gap-2 rounded-full bg-emerald-50 border border-emerald-200 px-3.5 py-1 text-xs font-semibold text-emerald-700 mb-3">
-            Sự Hài Lòng Của Khách Hàng
+            Tình Huống Minh Họa
           </div>
           <h2 className="text-3xl font-extrabold tracking-tight text-slate-900 sm:text-4xl">
-            Được tin dùng bởi hơn 500+ doanh nghiệp kho vận
+            Hệ thống giúp gì cho từng loại hình kho
           </h2>
           <p className="mt-4 text-base text-slate-600">
-            Xem các nhà quản lý chuỗi cung ứng chia sẻ về sự thay đổi vượt trội sau khi áp dụng WMS Supply Chain.
+            Ba tình huống giả định cho thấy lợi ích khi áp dụng WMS Supply Chain. Tên người, doanh nghiệp và số liệu là nội dung minh họa cho đồ án, không phải đánh giá của khách hàng thật.
           </p>
         </div>
 
@@ -47,11 +48,9 @@ export default function TestimonialsSection() {
 
               {/* Author Info */}
               <div className="mt-6 pt-5 border-t border-slate-100 flex items-center gap-3">
-                <img
-                  src={t.avatar}
-                  alt={t.author}
-                  className="h-11 w-11 rounded-full object-cover border border-slate-200"
-                />
+                <Avatar size={44} className="shrink-0 bg-blue-600 font-semibold">
+                  {t.author.trim().split(' ').pop()?.charAt(0)}
+                </Avatar>
                 <div>
                   <div className="text-sm font-bold text-slate-900">{t.author}</div>
                   <div className="text-xs text-slate-500">{t.role}</div>

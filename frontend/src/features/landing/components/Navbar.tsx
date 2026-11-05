@@ -90,7 +90,7 @@ export default function Navbar({ onScrollTo }: NavbarProps) {
 
       {/* Mobile Drawer Navigation Menu */}
       {mobileMenuOpen && (
-        <div className="border-b border-slate-200 bg-white px-4 pt-2 pb-6 md:hidden shadow-lg animate-fadeIn">
+        <div className="border-b border-slate-200 bg-white px-4 pt-2 pb-6 md:hidden shadow-lg">
           <div className="flex flex-col space-y-3">
             {navLinks.map((link) => (
               <button

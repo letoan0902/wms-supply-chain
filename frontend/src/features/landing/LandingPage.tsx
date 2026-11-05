@@ -18,7 +18,7 @@ export default function LandingPage() {
     if (element) {
       const navOffset = 80
       const elementPosition = element.getBoundingClientRect().top
-      const offsetPosition = elementPosition + window.pageYOffset - navOffset
+      const offsetPosition = elementPosition + window.scrollY - navOffset
 
       window.scrollTo({
         top: offsetPosition,

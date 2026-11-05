@@ -55,7 +55,6 @@ export interface TestimonialItem {
   role: string
   company: string
   rating: number
-  avatar: string
   metric: string
   metricLabel: string
 }
@@ -204,12 +203,6 @@ export const FEATURE_COMPARISON_CATEGORIES: FeatureComparisonCategory[] = [
         name: 'Lượt xử lý tài liệu & trợ lý AI',
         free: '20 lượt / tháng',
         pro: '500 lượt / tháng',
-        enterprise: 'Không giới hạn',
-      },
-      {
-        name: 'Dung lượng lưu trữ chứng từ đính kèm',
-        free: '1 GB',
-        pro: '50 GB',
         enterprise: 'Không giới hạn',
       },
     ],
@@ -376,7 +369,7 @@ export const FAQS: FAQItem[] = [
 ]
 
 /**
- * Đánh giá & Cảm nhận khách hàng thực tế
+ * Tình huống sử dụng minh họa. Tên người và doanh nghiệp là giả định cho đồ án, không phải khách hàng thật.
  */
 export const TESTIMONIALS: TestimonialItem[] = [
   {
@@ -385,9 +378,8 @@ export const TESTIMONIALS: TestimonialItem[] = [
       'Nhờ sơ đồ kho trực quan theo từng ô kệ Bin-level và tính năng in mã vạch tự động, thời gian lấy hàng (picking) của kho chúng tôi đã giảm hơn 45% chỉ sau 2 tháng vận hành.',
     author: 'Nguyễn Văn Hùng',
     role: 'Giám đốc Vận hành Kho',
-    company: 'Công ty CP Tiếp vận Logistics Á Châu',
+    company: 'Công ty mẫu A (dịch vụ kho vận)',
     rating: 5,
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80',
     metric: 'Giảm 45%',
     metricLabel: 'Thời gian lấy và xử lý đơn hàng',
   },
@@ -397,9 +389,8 @@ export const TESTIMONIALS: TestimonialItem[] = [
       'Tính năng trích xuất danh mục hàng hóa bằng AI thật sự là bước đột phá. Đội ngũ chỉ mất chưa đầy 15 phút để đưa hơn 1.200 SKU từ file Excel cũ vào hệ thống mà không hề sai sót.',
     author: 'Trần Thị Mỹ Linh',
     role: 'Trưởng phòng Cung ứng',
-    company: 'Chuỗi Bán lẻ Phụ kiện & Thiết bị DigiLife',
+    company: 'Công ty mẫu B (chuỗi bán lẻ)',
     rating: 5,
-    avatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=150&q=80',
     metric: '10x Nhanh hơn',
     metricLabel: 'Tốc độ số hóa danh mục hàng hóa',
   },
@@ -409,9 +400,8 @@ export const TESTIMONIALS: TestimonialItem[] = [
       'Khả năng quản lý nhiều kho song song và điều chuyển hàng nội bộ minh bạch giúp chúng tôi kiểm soát chính xác 99.8% độ lệch tồn kho trên toàn hệ thống 8 chi nhánh.',
     author: 'Lê Hoàng Nam',
     role: 'Phó Tổng Giám Đốc',
-    company: 'Tập đoàn Phân phối Dược & Y tế Vinamed',
+    company: 'Công ty mẫu C (phân phối dược phẩm)',
     rating: 5,
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=150&q=80',
     metric: '99.8%',
     metricLabel: 'Độ chính xác tồn kho thực tế',
   },
@@ -475,28 +465,28 @@ export const KEY_FEATURES: KeyFeatureItem[] = [
 ]
 
 /**
- * Số liệu thống kê ấn tượng của nền tảng
+ * Thông tin nổi bật của nền tảng (đúng với phạm vi sản phẩm, không dùng số liệu khách hàng giả định)
  */
 export const PLATFORM_STATS: PlatformStat[] = [
   {
-    value: '99.9%',
-    label: 'Độ khả dụng hệ thống (Uptime)',
-    sublabel: 'Vận hành ổn định liên tục 24/7',
+    value: '30 ngày',
+    label: 'Dùng thử Gói Chuyên Nghiệp',
+    sublabel: 'Không cần thẻ tín dụng',
   },
   {
-    value: '500+',
-    label: 'Kho bãi & Trung tâm phân phối',
-    sublabel: 'Đang vận hành hiệu quả trên cả nước',
+    value: '6',
+    label: 'Vai trò phân quyền',
+    sublabel: 'Từ quản trị hệ thống đến nhân viên kho',
   },
   {
-    value: '10 Triệu+',
-    label: 'Giao dịch xuất nhập kho / tháng',
-    sublabel: 'Xử lý an toàn, mượt mà và chuẩn xác',
+    value: '3 cấp',
+    label: 'Vị trí lưu trữ Zone, Rack, Bin',
+    sublabel: 'Theo dõi hàng hóa tới từng ô kệ',
   },
   {
-    value: '< 30 Giây',
-    label: 'Kích hoạt tài khoản & Dùng thử',
-    sublabel: 'Bắt đầu sử dụng ngay tức thì',
+    value: 'Tức thì',
+    label: 'Cảnh báo tồn kho và đơn hàng',
+    sublabel: 'Thông báo thời gian thực trên giao diện',
   },
 ]
 

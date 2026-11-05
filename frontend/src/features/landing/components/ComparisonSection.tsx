@@ -4,6 +4,7 @@ import {
   InfoCircleOutlined,
 } from '@ant-design/icons'
 import { Tooltip } from 'antd'
+import { Fragment } from 'react'
 import { FEATURE_COMPARISON_CATEGORIES } from '../pricingConfig'
 
 export default function ComparisonSection() {
@@ -53,7 +54,7 @@ export default function ComparisonSection() {
             </thead>
             <tbody className="divide-y divide-slate-100 text-sm">
               {FEATURE_COMPARISON_CATEGORIES.map((cat, catIdx) => (
-                <div key={catIdx} className="contents">
+                <Fragment key={catIdx}>
                   {/* Category Header Row */}
                   <tr className="bg-slate-50/80">
                     <td
@@ -91,7 +92,7 @@ export default function ComparisonSection() {
                       </td>
                     </tr>
                   ))}
-                </div>
+                </Fragment>
               ))}
             </tbody>
           </table>

@@ -87,6 +87,7 @@ export default function PricingSection({ onScrollToComparison }: PricingSectionP
         <div className="mt-16 grid grid-cols-1 gap-8 lg:grid-cols-3 lg:items-stretch">
           {PRICING_PLANS.map((plan) => {
             const isPro = plan.isPopular
+            const isContactOnly = plan.tier === 'enterprise'
             const displayPricePerMonth =
               plan.monthlyPrice === 0
                 ? 0
@@ -136,15 +137,21 @@ export default function PricingSection({ onScrollToComparison }: PricingSectionP
                   <div className="mt-6 border-b border-slate-100 pb-6">
                     <div className="flex items-baseline gap-1">
                       <span className="text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">
-                        {displayPricePerMonth === 0 ? 'Miễn phí' : formatCurrency(displayPricePerMonth)}
+                        {isContactOnly
+                          ? 'Liên hệ'
+                          : displayPricePerMonth === 0
+                            ? 'Miễn phí'
+                            : formatCurrency(displayPricePerMonth)}
                       </span>
-                      {displayPricePerMonth > 0 && (
+                      {!isContactOnly && displayPricePerMonth > 0 && (
                         <span className="text-sm font-semibold text-slate-500">/ tháng</span>
                       )}
                     </div>
 
                     <div className="mt-2 text-xs text-slate-500 min-h-[18px]">
-                      {plan.monthlyPrice === 0 ? (
+                      {isContactOnly ? (
+                        <span>Báo giá theo quy mô triển khai</span>
+                      ) : plan.monthlyPrice === 0 ? (
                         <span>Miễn phí vĩnh viễn cho kho nhỏ</span>
                       ) : billingCycle === 'yearly' ? (
                         <span className="text-emerald-600 font-semibold">
@@ -292,13 +299,13 @@ export default function PricingSection({ onScrollToComparison }: PricingSectionP
       >
         <div className="py-4 space-y-3 text-slate-600 text-sm">
           <p>
-            Gói Doanh Nghiệp cung cấp giải pháp tùy chỉnh riêng biệt bao gồm API Key tích hợp với SAP, Oracle, MISA,
-            cơ sở dữ liệu độc lập và cam kết SLA 99.9%.
+            Gói Doanh Nghiệp dành cho đơn vị cần không giới hạn tài nguyên và API Key để tích hợp với phần mềm khác.
           </p>
           <div className="rounded-xl bg-blue-50 p-4 border border-blue-100 text-xs text-slate-700 space-y-1.5">
-            <div><strong>Hotline tư vấn giải pháp:</strong> 1900 6868 (Miễn phí)</div>
-            <div><strong>Email liên hệ:</strong> enterprise@wms-supplychain.vn</div>
-            <div><strong>Thời gian phản hồi:</strong> Trong vòng 30 phút làm việc</div>
+            <div>
+              Trong phạm vi đồ án, gói này chưa mở bán trực tuyến. Bạn có thể đăng ký tài khoản để dùng thử đầy đủ
+              tính năng của Gói Chuyên Nghiệp trong 30 ngày.
+            </div>
           </div>
         </div>
       </Modal>

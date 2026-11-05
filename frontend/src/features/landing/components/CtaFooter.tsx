@@ -1,8 +1,7 @@
 import {
   ArrowRightOutlined,
-  EnvironmentOutlined,
-  MailOutlined,
-  PhoneOutlined,
+  GithubOutlined,
+  TeamOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons'
 import { Button } from 'antd'
@@ -75,16 +74,19 @@ export default function CtaFooter({ onScrollTo }: CtaFooterProps) {
             </p>
             <div className="mt-4 space-y-1.5 text-xs text-slate-400">
               <div className="flex items-center gap-2">
-                <PhoneOutlined className="text-blue-400" />
-                <span>Hotline: 1900 6868 (8:00 - 18:00)</span>
+                <TeamOutlined className="text-blue-400" />
+                <span>Đồ án cuối môn của Nhóm 3</span>
               </div>
               <div className="flex items-center gap-2">
-                <MailOutlined className="text-blue-400" />
-                <span>Email: support@wms-supplychain.vn</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <EnvironmentOutlined className="text-blue-400" />
-                <span>Khu Công nghệ cao, TP. Hồ Chí Minh, Việt Nam</span>
+                <GithubOutlined className="text-blue-400" />
+                <a
+                  href="https://github.com/letoan0902/wms-supply-chain"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-slate-400 hover:text-white transition-colors"
+                >
+                  github.com/letoan0902/wms-supply-chain
+                </a>
               </div>
             </div>
           </div>

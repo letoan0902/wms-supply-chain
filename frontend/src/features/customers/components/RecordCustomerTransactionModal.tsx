@@ -1,5 +1,6 @@
 import { DollarCircleOutlined } from '@ant-design/icons'
 import { Form, Input, InputNumber, Modal, Radio } from 'antd'
+import dayjs from 'dayjs'
 import { useEffect } from 'react'
 import type {
   Customer,
@@ -55,10 +56,11 @@ export default function RecordCustomerTransactionModal({
       form.resetFields()
       form.setFieldsValue({
         type: 'PAYMENT',
-        amount: 0,
+        amount: customer?.currentDebt && customer.currentDebt > 0 ? customer.currentDebt : 0,
+        referenceCode: `PT-${dayjs().format('YYYYMMDD-HHmmss')}`,
       })
     }
-  }, [open, form])
+  }, [open, customer, form])
 
   const handleFinish = async (values: Record<string, unknown>) => {
     const payload: RecordCustomerTransactionPayload = {
@@ -115,7 +117,21 @@ export default function RecordCustomerTransactionModal({
           label={<span className="font-medium text-gray-700">Loại giao dịch công nợ</span>}
           rules={[{ required: true, message: 'Vui lòng chọn loại giao dịch' }]}
         >
-          <Radio.Group className="flex flex-col gap-2">
+          <Radio.Group
+            className="flex flex-col gap-2"
+            onChange={(e) => {
+              const val = e.target.value as CustomerTransactionType
+              if (val === 'PAYMENT') {
+                form.setFieldsValue({
+                  referenceCode: `PT-${dayjs().format('YYYYMMDD-HHmmss')}`,
+                })
+              } else if (val === 'SALES_INVOICE') {
+                form.setFieldsValue({
+                  referenceCode: `INV-${dayjs().format('YYYYMMDD-HHmmss')}`,
+                })
+              }
+            }}
+          >
             {TRANSACTION_TYPES.map((t) => (
               <Radio key={t.value} value={t.value} className="items-start">
                 <div>
@@ -137,6 +153,24 @@ export default function RecordCustomerTransactionModal({
               min: 1,
               message: 'Số tiền phải lớn hơn 0',
             },
+            ({ getFieldValue }) => ({
+              validator(_, value) {
+                const type = getFieldValue('type')
+                const currentDebt = customer?.currentDebt ?? 0
+                if (
+                  (type === 'PAYMENT' || type === 'RETURN') &&
+                  currentDebt > 0 &&
+                  value > currentDebt
+                ) {
+                  return Promise.reject(
+                    new Error(
+                      `Số tiền (${formatCurrency(value)}) không được lớn hơn công nợ hiện tại (${formatCurrency(currentDebt)})`
+                    )
+                  )
+                }
+                return Promise.resolve()
+              },
+            }),
           ]}
         >
           <InputNumber<number>
@@ -159,7 +193,7 @@ export default function RecordCustomerTransactionModal({
           label={<span className="font-medium text-gray-700">Mã chứng từ / Hóa đơn tham chiếu</span>}
           rules={[{ max: 100, message: 'Tối đa 100 ký tự' }]}
         >
-          <Input placeholder="VD: PT-2026-0012, UNC-VIB-9923..." />
+          <Input placeholder="VD: PT-20261105-183000..." />
         </Form.Item>
 
         <Form.Item

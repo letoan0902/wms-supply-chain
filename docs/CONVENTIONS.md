@@ -32,6 +32,7 @@ Tiền tố và service tương ứng (khai báo trong `backend/api-gateway`):
 | `/api/inventory/**` | inventory-service | Kho, vị trí, tồn kho, điều chuyển, kiểm kê |
 | `/api/orders/**` | order-service | Nhà cung cấp, khách hàng, PO, GRN, SO, GDN, hóa đơn |
 | `/api/notifications/**` | notification-service | Thông báo, báo cáo, Dashboard |
+| `/ws-wms/**` | notification-service | WebSocket STOMP đẩy thông báo thời gian thực (công khai ở gateway, JWT kiểm tra ở frame CONNECT, xem [MESSAGING.md](MESSAGING.md) mục 8) |
 
 Thêm tiền tố mới thì phải khai báo route tương ứng ở api-gateway trong cùng Pull Request.
 

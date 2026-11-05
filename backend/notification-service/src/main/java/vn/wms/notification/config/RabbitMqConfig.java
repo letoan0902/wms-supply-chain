@@ -12,8 +12,12 @@ import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import vn.wms.common.messaging.WmsEvents;
 
-/** Khai báo exchange, queue, binding và bộ chuyển đổi JSON cho RabbitMQ. */
+/**
+ * Khai báo exchange, queue, binding và bộ chuyển đổi JSON cho RabbitMQ. Tham số khớp docker/rabbitmq/definitions.json
+ * (durable, không arguments) để chạy service rời với broker trống vẫn được mà không lệch tham số.
+ */
 @Configuration
 public class RabbitMqConfig {
 
@@ -32,6 +36,30 @@ public class RabbitMqConfig {
     Binding notificationBinding(Queue notificationQueue, TopicExchange wmsEventsExchange,
                                 NotificationProperties properties) {
         return BindingBuilder.bind(notificationQueue).to(wmsEventsExchange).with(properties.rabbitmq().routingKey());
+    }
+
+    /** Queue nhận mọi sự kiện đơn hàng (order.#) để đẩy WebSocket, xem OrderEventsListener. */
+    @Bean
+    Queue notificationOrderEventsQueue() {
+        return QueueBuilder.durable(WmsEvents.Queues.NOTIFICATION_ORDER_EVENTS).build();
+    }
+
+    @Bean
+    Binding notificationOrderEventsBinding(Queue notificationOrderEventsQueue, TopicExchange wmsEventsExchange) {
+        return BindingBuilder.bind(notificationOrderEventsQueue).to(wmsEventsExchange)
+                .with(WmsEvents.RoutingKeys.ORDER_ALL);
+    }
+
+    /** Queue nhận mọi sự kiện tồn kho (inventory.#) để đẩy WebSocket, xem InventoryEventsListener. */
+    @Bean
+    Queue notificationInventoryEventsQueue() {
+        return QueueBuilder.durable(WmsEvents.Queues.NOTIFICATION_INVENTORY_EVENTS).build();
+    }
+
+    @Bean
+    Binding notificationInventoryEventsBinding(Queue notificationInventoryEventsQueue, TopicExchange wmsEventsExchange) {
+        return BindingBuilder.bind(notificationInventoryEventsQueue).to(wmsEventsExchange)
+                .with(WmsEvents.RoutingKeys.INVENTORY_ALL);
     }
 
     /**

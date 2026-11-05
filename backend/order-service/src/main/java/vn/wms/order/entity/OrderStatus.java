@@ -14,6 +14,8 @@ public enum OrderStatus {
     REJECTED,
     /** Đã xác nhận. */
     CONFIRMED,
+    /** Thiếu hàng / Chờ nhập bù tồn kho (WMS-11.1 - FR15). */
+    BACKORDER,
     /** Đã hoàn tất nhập/xuất hàng. */
     COMPLETED,
     /** Đã hủy. */

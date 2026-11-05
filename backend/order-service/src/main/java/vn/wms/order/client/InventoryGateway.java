@@ -55,4 +55,45 @@ public class InventoryGateway {
         }
         return warehouse;
     }
+
+    /**
+     * Lấy thông tin tồn khả dụng ATP của một sản phẩm từ inventory-service (FR15 - WMS-11.1).
+     * Trả về AtpResponse với ATP = 0 nếu không tìm thấy (404); ném ApiException SERVICE_UNAVAILABLE nếu lỗi kết nối.
+     */
+    public AtpResponse getAtp(Long productId, Long warehouseId) {
+        if (productId == null) {
+            return AtpResponse.zero(null, warehouseId);
+        }
+        try {
+            ApiResponse<AtpResponse> response = inventoryClient.getAtp(productId, warehouseId);
+            if (response != null && response.success() && response.data() != null) {
+                return response.data();
+            }
+            return AtpResponse.zero(productId, warehouseId);
+        } catch (FeignException.NotFound ex) {
+            return AtpResponse.zero(productId, warehouseId);
+        } catch (FeignException ex) {
+            log.warn("Gọi inventory-service lấy ATP sản phẩm {} thất bại (status {}): {}", productId, ex.status(), ex.getMessage());
+            throw new ApiException(ErrorCode.SERVICE_UNAVAILABLE,
+                    "Không kết nối được dịch vụ kho để kiểm tra tồn kho ATP, vui lòng thử lại sau", ex);
+        }
+    }
+
+    /**
+     * Giải phóng số lượng giữ hàng ảo (soft reservation) khi đơn bán bị hủy (WMS-11.2).
+     */
+    public void releaseReservations(Long orderId) {
+        if (orderId == null) {
+            return;
+        }
+        try {
+            inventoryClient.releaseReservations(orderId);
+            log.info("Đã yêu cầu inventory-service giải phóng giữ chỗ tồn kho cho đơn bán ID {}", orderId);
+        } catch (FeignException.NotFound ex) {
+            log.info("Không có bản ghi giữ chỗ nào cần giải phóng cho đơn bán ID {}", orderId);
+        } catch (FeignException ex) {
+            log.warn("Gọi inventory-service giải phóng giữ chỗ cho đơn {} thất bại (status {}): {}",
+                    orderId, ex.status(), ex.getMessage());
+        }
+    }
 }

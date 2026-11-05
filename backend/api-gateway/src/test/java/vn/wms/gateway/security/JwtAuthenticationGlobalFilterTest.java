@@ -24,7 +24,7 @@ class JwtAuthenticationGlobalFilterTest {
 
     private static final String SECRET = "unit-test-secret-key-that-is-at-least-32-bytes-long";
     private static final String OTHER_SECRET = "another-secret-key-that-is-also-at-least-32-bytes";
-    private static final List<String> PUBLIC_PATHS = List.of("/api/auth/login", "/actuator/**");
+    private static final List<String> PUBLIC_PATHS = List.of("/api/auth/login", "/actuator/**", "/ws-wms/**");
 
     private final AtomicReference<ServerWebExchange> forwarded = new AtomicReference<>();
     private final GatewayFilterChain chain = exchange -> {
@@ -120,6 +120,18 @@ class JwtAuthenticationGlobalFilterTest {
         filter(true).filter(exchange, chain).block();
 
         assertThat(forwarded.get()).isNotNull();
+    }
+
+    @Test
+    void webSocketHandshakePathsSkipValidation() {
+        for (String path : List.of("/ws-wms", "/ws-wms/info", "/ws-wms/123/abcdef/websocket")) {
+            forwarded.set(null);
+            MockServerWebExchange exchange = exchange(path, null);
+
+            filter(true).filter(exchange, chain).block();
+
+            assertThat(forwarded.get()).as(path).isNotNull();
+        }
     }
 
     @Test

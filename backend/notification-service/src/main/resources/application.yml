@@ -1,4 +1,4 @@
-# Notification Service (cổng 8085): lắng nghe RabbitMQ và gửi email cảnh báo.
+# Notification Service (cổng 8085): lắng nghe RabbitMQ, gửi email cảnh báo và đẩy thông báo thời gian thực qua WebSocket.
 server:
   port: ${SERVER_PORT:8085}
   shutdown: graceful
@@ -46,7 +46,13 @@ spring:
     listener:
       simple:
         # Tin nhắn lỗi không được đưa lại hàng đợi vô hạn (tránh vòng lặp với tin nhắn hỏng).
+        # Hết số lần thử lại thì broker chuyển tin sang wms.dlx (xem docs/MESSAGING.md mục 4).
         default-requeue-rejected: false
+        retry:
+          enabled: true
+          max-attempts: 3
+          initial-interval: 1s
+          multiplier: 2
   mail:
     host: ${MAIL_HOST:localhost}
     port: ${MAIL_PORT:1025}
@@ -90,6 +96,14 @@ app:
     exchange: ${NOTIFICATION_EXCHANGE:wms.events}
     queue: ${NOTIFICATION_QUEUE:notification.alerts}
     routing-key: ${NOTIFICATION_ROUTING_KEY:alert.#}
+  # Hub WebSocket STOMP /ws-wms (WMS-02.3, xem docs/MESSAGING.md mục 8)
+  websocket:
+    # Bật thì frame CONNECT phải mang header Authorization: Bearer <accessToken> hợp lệ; dùng chung công tắc với gateway.
+    auth-required: ${GATEWAY_JWT_ENABLED:false}
+    # PHẢI trùng JWT_SECRET của auth-service và api-gateway. Chỉ là giá trị dev, đổi ở môi trường thật.
+    jwt-secret: ${JWT_SECRET:change_me_dev_only_jwt_secret_key_min_32_bytes}
+    # Origin được phép mở kết nối, phân tách bằng dấu phẩy (cùng biến với CORS của gateway).
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:5173}
 ---
 # Nạp cấu hình tập trung từ Config Server. Tiền tố optional nghĩa là Config Server chưa chạy thì service vẫn
 # khởi động bằng cấu hình cục bộ ở trên. Tài liệu này bị bỏ qua khi chạy test (profile test) để test không gọi mạng.

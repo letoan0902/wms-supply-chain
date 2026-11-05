@@ -33,7 +33,29 @@ export default function MainLayout() {
   const [collapsed, setCollapsed] = useState(false)
   // Màn hình hẹp (dưới breakpoint lg): sidebar thu gọn hoàn toàn và khi mở sẽ phủ lên nội dung
   const [isNarrowScreen, setIsNarrowScreen] = useState(false)
-  const user = getStoredUser()
+  const [user, setUser] = useState(() => getStoredUser())
+  const [logoutModalOpen, setLogoutModalOpen] = useState(false)
+  const [logoutLoading, setLogoutLoading] = useState(false)
+
+  // Theo đặc tả phân quyền SRS 2.5: Giữ nguyên tất cả các mục trên thanh Sidebar
+  // để người dùng nắm rõ cấu trúc tính năng. Nếu không có quyền, màn hình đích sẽ hiển thị thông báo 403.
+  const menuItems: MenuProps['items'] = navigationItems.map((item) => ({
+    key: item.path,
+    icon: item.icon,
+    label: item.label,
+  }))
+
+  // Lắng nghe sự kiện khi người dùng cập nhật hồ sơ cá nhân để sync ngay lập tức lên Header
+  useEffect(() => {
+    const handleUserUpdate = () => {
+      setUser(getStoredUser())
+    }
+    window.addEventListener('wms:user-updated', handleUserUpdate)
+    return () => {
+      window.removeEventListener('wms:user-updated', handleUserUpdate)
+    }
+  }, [])
+
   // Nối WebSocket nhận thông báo thời gian thực (MainLayout chỉ hiển thị sau khi đăng nhập)
   useWebSocket()
   const [user, setUser] = useState(() => getStoredUser())
@@ -192,15 +214,24 @@ export default function MainLayout() {
           </Typography.Title>
           <div className="flex shrink-0 items-center gap-2 sm:gap-4">
             <NotificationBell />
-            <Dropdown menu={{ items: userMenu }} placement="bottomRight">
+            {/* User profile trigger */}
+            <Dropdown menu={{ items: userMenu }} placement="bottomRight" trigger={['click']}>
               <button
                 type="button"
-                className="flex cursor-pointer items-center gap-2 border-0 bg-transparent"
+                className="flex cursor-pointer items-center gap-2.5 border-0 bg-transparent px-2.5 py-1.5 rounded-lg hover:bg-slate-100/70 transition-colors select-none text-left"
               >
-                <Avatar size="small" icon={<UserOutlined />} />
-                <span className="hidden sm:inline">
-                  {user?.fullName ?? user?.username ?? 'Người dùng'}
-                </span>
+                <div className="w-8 h-8 rounded-full border border-slate-200 bg-transparent flex items-center justify-center text-xs font-semibold text-slate-700 shrink-0">
+                  {initial || <UserOutlined className="text-slate-400" />}
+                </div>
+                <div className="hidden sm:flex flex-col">
+                  <span className="text-xs font-semibold text-gray-800 leading-tight">
+                    {displayName}
+                  </span>
+                  <span className="text-[10px] text-gray-400 font-mono leading-tight">
+                    @{user?.username}
+                  </span>
+                </div>
+                <DownOutlined className="text-[10px] text-gray-400 ml-0.5" />
               </button>
             </Dropdown>
           </div>

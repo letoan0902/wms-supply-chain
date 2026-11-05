@@ -1,6 +1,6 @@
 # Trao đổi sự kiện qua RabbitMQ
 
-Tài liệu cho task WMS-02 (Sprint 2 và 3): exchange, routing key, queue, chính sách dead-letter, cách thêm sự kiện mới (WMS-02.1) và cách phát, nhận sự kiện trong code bằng `WmsEventPublisher`, converter JSON dùng chung và OpenFeign (WMS-02.2, mục 7). Phần WebSocket (WMS-02.3, WMS-02.4) sẽ bổ sung khi làm.
+Tài liệu cho task WMS-02 (Sprint 2 và 3): exchange, routing key, queue, chính sách dead-letter, cách thêm sự kiện mới (WMS-02.1) và cách phát, nhận sự kiện trong code bằng `WmsEventPublisher`, converter JSON dùng chung và OpenFeign (WMS-02.2, mục 7), hub WebSocket STOMP `/ws-wms` đẩy thông báo thời gian thực tới giao diện (WMS-02.3, mục 8).
 
 ## 1. Tổng quan
 
@@ -38,7 +38,7 @@ Không đặt `x-arguments` trực tiếp trên queue (dead-letter đi qua polic
 | `order.created` | order-service | `inventory.order-events` (inventory), `notification.order-events` (notification) | Đơn hàng mới (PO hoặc SO) đã tạo: mã đơn, loại đơn, kho, danh sách dòng hàng (SKU, số lượng) |
 | `order.dispatched` | order-service | `inventory.order-events`, `notification.order-events` | Đơn bán đã xuất kho (GDN xác nhận): mã đơn, mã GDN, dòng hàng đã xuất |
 | `inventory.updated` | inventory-service | `notification.inventory-events` (notification) | Tồn kho thay đổi sau nhập, xuất, điều chỉnh: SKU, kho, tồn trước và sau |
-| `alert.low-stock` | inventory-service | `notification.alerts` (notification, đã có consumer) | Tồn chạm ngưỡng an toàn: SKU, kho, tồn hiện tại, ngưỡng; notification-service gửi email |
+| `alert.low-stock` | inventory-service | `notification.alerts` (notification) | Tồn chạm ngưỡng an toàn: SKU, kho, tồn hiện tại, ngưỡng; notification-service đẩy cảnh báo lên WebSocket `/topic/alerts` (mục 8) |
 
 Nội dung message là JSON (Jackson). Payload của mỗi routing key là một record trong gói `vn.wms.common.messaging.event` của module `common`, service phát và service nhận dùng chung một kiểu:
 
@@ -128,14 +128,14 @@ public class PurchaseOrderService {
 
 ### 7.2. Nhận sự kiện (consumer)
 
-Queue chỉ chứa một loại sự kiện (`notification.alerts`): khai báo tham số đúng kiểu record, converter tự đọc JSON:
+Queue chỉ chứa một loại sự kiện: khai báo tham số đúng kiểu record, converter tự đọc JSON:
 
 ```java
-@RabbitListener(queues = WmsEvents.Queues.NOTIFICATION_ALERTS)
-public void onLowStock(LowStockAlertEvent event) { ... }
+@RabbitListener(queues = "<queue chỉ có một loại sự kiện>")
+public void onEvent(LowStockAlertEvent event) { ... }
 ```
 
-Queue chứa nhiều loại sự kiện (`inventory.order-events` nhận `order.#`): nhận `Message` thô, phân loại theo routing key rồi đọc JSON, như `vn.wms.inventory.messaging.OrderEventsListener`. Nghiệp vụ kho không viết trong listener mà implement `OrderEventHandler` (một `@Component`, có thể nhiều cái):
+Queue chứa nhiều loại sự kiện (`inventory.order-events` nhận `order.#`, cả ba queue của notification-service): nhận `Message` thô, phân loại theo routing key rồi đọc JSON, như `vn.wms.inventory.messaging.OrderEventsListener`. Mỗi queue chỉ được có **một** `@RabbitListener`: hai listener cùng queue sẽ bị broker chia tin luân phiên, mỗi bên chỉ nhận một phần. Nghiệp vụ kho không viết trong listener mà implement `OrderEventHandler` (một `@Component`, có thể nhiều cái):
 
 ```java
 @Component
@@ -169,9 +169,96 @@ spring:
 
 Sự kiện dùng cho những việc "đã xảy ra" và không cần kết quả ngay. Khi lập đơn cần kiểm tra ngay (kho có tồn tại, đang hoạt động không) thì gọi REST qua OpenFeign với Eureka: `vn.wms.order.client.InventoryClient` (`GET /api/inventory/warehouses/{id}`) bọc bởi `InventoryGateway`, quy lỗi về `ApiException`: không có kho thì `NOT_FOUND` (404), kho ngừng hoạt động thì `BAD_REQUEST`, inventory-service không trả lời thì `SERVICE_UNAVAILABLE` (503). Timeout Feign đặt trong `spring.cloud.openfeign.client.config.default` (3 giây kết nối, 5 giây đọc) để request của người dùng không bị treo. Tương tự `ProductClient` cho product-service.
 
-## 8. Việc tiếp theo
+## 8. WebSocket STOMP: thông báo thời gian thực (WMS-02.3)
 
-- WMS-02.3, WMS-02.4: WebSocket STOMP (`/ws-wms`) trong notification-service đẩy cảnh báo và KPI tới giao diện; consumer cho `notification.order-events` và `notification.inventory-events` làm cùng lúc vì nguồn dữ liệu chính là các sự kiện ở mục 3.
+notification-service là hub WebSocket: nhận sự kiện ở mục 3 từ ba queue của mình, dựng phong bì JSON tiếng Việt rồi đẩy tới trình duyệt qua STOMP. Hub chỉ đẩy một chiều: không có `@MessageMapping`, frame SEND từ client bị từ chối.
+
+### 8.1. Kết nối
+
+| Thành phần | Giá trị |
+| --- | --- |
+| Endpoint | `/ws-wms` qua api-gateway (route `notification-websocket`, `lb://notification-service`). Bản SockJS (`sockjs-client` nối `http(s)://<host>/ws-wms`) và bản WebSocket thuần (`ws(s)://<host>/ws-wms`) dùng chung đường dẫn |
+| Broker | Simple broker trong bộ nhớ, tiền tố `/topic`, nhịp tim 10000/10000 ms |
+| Client được làm | CONNECT, SUBSCRIBE vào `/topic/**`, UNSUBSCRIBE, DISCONNECT. SUBSCRIBE đích khác hoặc SEND đều nhận frame ERROR |
+| Origin | `setAllowedOriginPatterns` lấy từ `CORS_ALLOWED_ORIGINS` (mặc định `http://localhost:5173`; compose dev thêm `http://localhost`, production là `https://<DOMAIN>`) |
+
+Gateway chuyển request có header `Upgrade: websocket` sang `ws://` sau khi load balancer chọn instance (`WebsocketRoutingFilter` của Spring Cloud Gateway 4.1 đổi `http` thành `ws`), nên route dùng `lb://` như các route khác; các request HTTP của SockJS (`/ws-wms/info`, xhr-streaming) đi như request thường. Origin được kiểm tra ở notification-service (gateway không giữ Host gốc nên mọi kết nối qua gateway đều là khác origin), vì vậy `CORS_ALLOWED_ORIGINS` của notification-service phải chứa origin của giao diện. Nginx của frontend phải chuyển tiếp `/ws-wms` tới api-gateway kèm header `Upgrade` và `Connection` như khối `/api/` (Caddy tự hỗ trợ WebSocket).
+
+### 8.2. Xác thực
+
+- Trình duyệt không gắn được header vào handshake, nên gateway để `/ws-wms/**` trong `gateway.jwt.public-paths`; JWT được kiểm tra ở frame STOMP CONNECT: client gửi header `Authorization: Bearer <accessToken>` trong frame.
+- `StompAuthChannelInterceptor` (kênh inbound) kiểm tra chữ ký HS256 và hạn giống `JwtAuthenticationGlobalFilter`; token hợp lệ thì gắn `Principal` là username (kèm vai trò trong claim `roles`); thiếu, sai chữ ký hoặc hết hạn thì trả frame ERROR và đóng kết nối. Khi bật xác thực, SUBSCRIBE của phiên chưa CONNECT thành công cũng bị từ chối.
+- Cấu hình `app.websocket.auth-required: ${GATEWAY_JWT_ENABLED:false}` (cùng công tắc với gateway; production bật qua `deploy/docker-compose.prod.yml`) và `app.websocket.jwt-secret: ${JWT_SECRET:...}` (phải trùng auth-service và gateway, compose truyền qua `x-backend-env`). Tắt thì CONNECT không cần token, nhưng giới hạn SUBSCRIBE và SEND vẫn áp dụng.
+
+### 8.3. Topic và phong bì
+
+| Topic | `type` | `severity` | Nguồn | Chỉ số KPI tăng |
+| --- | --- | --- | --- | --- |
+| `/topic/alerts` | `LOW_STOCK` | `warning` | `alert.low-stock` | `lowStockAlerts` |
+| `/topic/orders` | `ORDER_CREATED` | `info` | `order.created` | `purchaseOrders` hoặc `salesOrders` theo `orderType` |
+| `/topic/orders` | `ORDER_DISPATCHED` | `success` | `order.dispatched` | `dispatchedOrders` |
+| `/topic/inventory` | `INVENTORY_UPDATED` | `info` | `inventory.updated` | `inventoryMovements` |
+| `/topic/kpi` | `KPI_UPDATED` | `info` | sau mỗi lần tăng bộ đếm | |
+
+Mọi tin là một phong bì JSON (`vn.wms.notification.realtime.RealtimeNotification`):
+
+```json
+{
+  "id": "messageId của sự kiện gốc (UUID), không có thì sinh UUID mới",
+  "type": "LOW_STOCK",
+  "severity": "warning",
+  "title": "Cảnh báo tồn kho thấp",
+  "message": "SKU-001 Thùng carton tại Kho Hà Nội còn 5, dưới ngưỡng 20",
+  "occurredAt": "2026-11-05T08:00:00Z",
+  "payload": { "...": "nguyên record sự kiện gốc ở mục 3" }
+}
+```
+
+- `severity` thuộc `info | success | warning | error`, chữ thường. `title`, `message` tiếng Việt có dấu, dùng thẳng cho toast. Tiêu đề: `Cảnh báo tồn kho thấp`, `Đơn mua hàng mới` hoặc `Đơn bán hàng mới`, `Đơn bán hàng đã xuất kho` hoặc `Đơn mua hàng đã nhập kho`, `Tồn kho thay đổi`, `Cập nhật chỉ số KPI`.
+- `occurredAt` lấy thời điểm trong payload (`detectedAt`, `createdAt`, `dispatchedAt`, `updatedAt`), không có thì lấy timestamp của message RabbitMQ, cuối cùng là giờ hệ thống.
+- Broker giao lại một sự kiện thì thông báo được đẩy lại với cùng `id`; frontend bỏ tin trùng theo `id`. Tin `KPI_UPDATED` luôn có `id` mới.
+
+### 8.4. Bộ đếm KPI
+
+`payload` của `KPI_UPDATED` và `data` của `GET /api/notifications/realtime/kpi` (trả `ApiResponse<KpiSnapshot>`, giao diện gọi khi vừa mở trang):
+
+```json
+{ "date": "2026-11-05", "purchaseOrders": 3, "salesOrders": 5, "dispatchedOrders": 2, "lowStockAlerts": 1, "inventoryMovements": 12, "updatedAt": "2026-11-05T08:00:00Z" }
+```
+
+- Đếm trong ngày theo giờ Việt Nam (Asia/Ho_Chi_Minh), lưu Redis: hash `wms:notification:kpi:<yyyy-MM-dd>`, hết hạn sau 2 ngày. `updatedAt` là null khi trong ngày chưa có sự kiện.
+- Chống đếm trùng khi broker giao lại: `SET NX` khóa `wms:notification:kpi:processed:<messageId>` giữ 1 ngày; sự kiện không có `messageId` thì cứ đếm.
+- Redis lỗi không làm hỏng việc tiêu thụ sự kiện: ghi log warn, thông báo chính vẫn được đẩy, chỉ bỏ lượt đẩy `/topic/kpi`. API `GET .../kpi` khi Redis lỗi trả 503 `SERVICE_UNAVAILABLE` thay vì báo số 0 sai.
+
+### 8.5. Queue `notification.alerts`: hai định dạng, một listener
+
+Queue này có từ trước với `NotificationConsumer` đọc `NotificationMessage` (`eventType`, `recipient`, `subject`, `content`) để gửi email. Vì một queue chỉ được có một listener, `AlertEventsListener` thay cho consumer cũ và phân loại theo loại sự kiện (routing key nhận được, không có thì header `x-wms-event`):
+
+| Routing key | Payload | Xử lý |
+| --- | --- | --- |
+| `alert.low-stock` | `LowStockAlertEvent` (mục 3) | Đẩy `/topic/alerts`, tăng `lowStockAlerts`. Chưa gửi email vì sự kiện không có người nhận |
+| `alert.*` khác, ví dụ `alert.email` | `NotificationMessage` | Gửi email và ghi `notification_logs` như trước (`NotificationService`). Tin không có `recipient` (loại cảnh báo chưa hỗ trợ) thì ghi log và bỏ qua |
+
+Bên phát muốn gửi email thì dùng routing key `alert.*` khác `alert.low-stock` với payload `NotificationMessage`. JSON hỏng ở cả hai nhánh chuyển dead-letter.
+
+### 8.6. Thử nhanh không cần service phát
+
+1. Chạy stack (`docker compose up -d`), mở giao diện đã nối WebSocket hoặc một client STOMP bất kỳ nối `ws://localhost:8080/ws-wms` rồi SUBSCRIBE `/topic/alerts` và `/topic/kpi`.
+2. Vào giao diện quản trị RabbitMQ (mục 6), Exchanges, `wms.events`, Publish message: Routing key `alert.low-stock`; Properties `content_type` = `application/json` và `message_id` = một UUID; Payload:
+
+```json
+{ "warehouseId": 5, "warehouseName": "Kho Hà Nội", "productId": 100, "skuCode": "SKU-001", "productName": "Thùng carton", "quantityOnHand": 5, "minimumQuantity": 20, "detectedAt": "2026-11-05T08:00:00Z" }
+```
+
+3. Client nhận phong bì `LOW_STOCK` trên `/topic/alerts` và `KPI_UPDATED` trên `/topic/kpi`. Publish lại đúng `message_id` đó thì thông báo được đẩy lại nhưng KPI không tăng. Làm tương tự với `order.created` (payload `OrderCreatedEvent`) và `inventory.updated` (payload `InventoryUpdatedEvent`).
+4. Xem số hiện tại: `GET http://localhost:8080/api/notifications/realtime/kpi`.
+
+## 9. Việc tiếp theo
+
+- WMS-02.4 (làm ở PR frontend riêng, thư mục `frontend/src/features/realtime/`): giao diện nối `/ws-wms` bằng SockJS, gửi header `Authorization` trong frame CONNECT, SUBSCRIBE bốn topic ở mục 8.3, bỏ tin trùng theo `id`, lấy KPI ban đầu từ `GET /api/notifications/realtime/kpi`; `frontend/nginx.conf` có khối chuyển tiếp `/ws-wms` tới api-gateway (mục 8.1). Sau khi cả hai phần được merge cần thử trọn luồng trên máy chủ.
+- order-service: `PurchaseOrderEventListener` còn phát `order.created` bằng payload cũ khi duyệt PO, nên thông báo đơn mua chưa có mã đơn và loại đơn cho tới khi chuyển sang `OrderCreatedEvent` (WMS-09.2).
+- Gửi email cho `alert.low-stock` cần danh sách người nhận (ví dụ quản lý của kho); hiện cảnh báo này chỉ đẩy WebSocket (mục 8.5).
 - WMS-09.1, WMS-09.2, WMS-11.1, WMS-11.2: order-service chuyển sang `WmsEventPublisher.publishAfterCommit` với `OrderCreatedEvent`; inventory-service implement `OrderEventHandler` để cập nhật tồn chờ nhập và giữ hàng.
-- Khi hệ thống chạy nhiều doanh nghiệp (EPIC 10): thêm `companyId` vào từng record sự kiện.
+- Khi hệ thống chạy nhiều doanh nghiệp (EPIC 10): thêm `companyId` vào từng record sự kiện; WebSocket tách topic theo doanh nghiệp (ví dụ `/topic/{companyId}/alerts`), interceptor chỉ cho SUBSCRIBE topic của `companyId` trong JWT, bộ đếm KPI tách khóa Redis theo `companyId`.
+- Lọc thông báo theo kho người dùng được phân quyền (WMS-04.2): thêm `warehouseId` vào đích hoặc lọc trước khi đẩy.
 - Cân nhắc mẫu outbox nếu cần đảm bảo không mất sự kiện khi broker ngừng đúng lúc commit.

@@ -1,5 +1,5 @@
 import { Alert, Checkbox, Divider, Modal, Space, Tag, Typography } from 'antd'
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { ROLE_CONFIG, type UserDetail } from '../types'
 import type { Warehouse } from '../../warehouses/types'
 
@@ -20,13 +20,15 @@ export default function AssignWarehousesModal({
   onSubmit,
   onCancel,
 }: Props) {
+  // Lưu prevUser để đồng bộ selectedIds khi user thay đổi mà không cần useEffect
+  // (React official pattern: "Adjusting some state when a prop changes")
+  const [prevUser, setPrevUser] = useState<UserDetail | null>(null)
   const [selectedIds, setSelectedIds] = useState<number[]>([])
 
-  useEffect(() => {
-    if (open && user) {
-      setSelectedIds(user.warehouseIds || [])
-    }
-  }, [open, user])
+  if (user !== prevUser) {
+    setPrevUser(user)
+    setSelectedIds(user?.warehouseIds ? [...user.warehouseIds] : [])
+  }
 
   const handleOk = async () => {
     if (!user) return

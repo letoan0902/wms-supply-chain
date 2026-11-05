@@ -7,8 +7,9 @@ export interface LoginRequest {
 export interface AuthUser {
   username: string
   roles: string[]
-  /** Chưa có trong response đăng nhập ở Sprint 1, sẽ bổ sung cùng hồ sơ người dùng (FR02) */
   fullName?: string
+  email?: string
+  warehouseIds?: number[]
 }
 
 /** Dữ liệu trả về trong `data` của POST /api/auth/login (vn.wms.auth.dto.LoginResponse). */

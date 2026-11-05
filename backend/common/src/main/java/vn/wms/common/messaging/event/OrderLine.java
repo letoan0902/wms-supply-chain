@@ -1,5 +1,7 @@
 package vn.wms.common.messaging.event;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 import java.math.BigDecimal;
 
 /**
@@ -12,6 +14,7 @@ import java.math.BigDecimal;
  * @param uom         đơn vị tính
  * @param unitPrice   đơn giá
  */
+@JsonIgnoreProperties(ignoreUnknown = true)
 public record OrderLine(Long productId, String skuCode, String productName, BigDecimal quantity, String uom,
                         BigDecimal unitPrice) {
 }

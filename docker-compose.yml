@@ -267,6 +267,11 @@ services:
       MAIL_PORT: ${MAIL_PORT:-587}
       MAIL_USERNAME: ${MAIL_USERNAME:-}
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      # Hub WebSocket /ws-wms (WMS-02.3, docs/MESSAGING.md mục 8). JWT_SECRET đã có trong x-backend-env.
+      # GATEWAY_JWT_ENABLED=true thì frame STOMP CONNECT phải mang Bearer token hợp lệ (cùng công tắc với api-gateway).
+      GATEWAY_JWT_ENABLED: ${GATEWAY_JWT_ENABLED:-false}
+      # Origin được mở WebSocket: Vite dev server và frontend chạy trong compose (http://localhost, cổng 80).
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://localhost}
     depends_on: *depends-on-core
     ports:
       - "127.0.0.1:8085:8085"

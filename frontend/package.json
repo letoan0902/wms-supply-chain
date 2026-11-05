@@ -12,6 +12,7 @@
   "dependencies": {
     "@ant-design/cssinjs": "^1.24.0",
     "@ant-design/icons": "^5.6.1",
+    "@stomp/stompjs": "^7.5.0",
     "@tailwindcss/vite": "^4.3.3",
     "antd": "^5.29.3",
     "axios": "^1.20.0",
@@ -20,14 +21,17 @@
     "react-is": "^18.3.1",
     "react-router-dom": "^7.18.4",
     "recharts": "^3.10.1",
+    "sockjs-client": "^1.6.1",
     "tailwindcss": "^4.3.3",
-    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
+    "zustand": "^5.0.16"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/node": "^24.19.2",
     "@types/react": "^18.3.31",
     "@types/react-dom": "^18.3.7",
+    "@types/sockjs-client": "^1.5.4",
     "@vitejs/plugin-react": "^6.1.2",
     "eslint": "^10.13.0",
     "eslint-plugin-react-hooks": "^7.1.1",

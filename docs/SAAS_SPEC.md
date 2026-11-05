@@ -1,0 +1,623 @@
+# Đặc tả chức năng phần mở rộng SaaS (WMS-22 đến WMS-26)
+
+Tài liệu này mô tả chi tiết từng task của EPIC 10 để người nhận task đọc xong là làm được: dữ liệu thêm gì, API nào, quy tắc nghiệp vụ ra sao và nghiệm thu bằng cách nào. Lập ngày 05/11/2026 theo đề nghị của nhóm.
+
+Quan hệ với các tài liệu khác:
+
+- [SAAS_PLAN.md](SAAS_PLAN.md): phạm vi, lịch và phân công. Ngày và người làm lấy theo tài liệu đó.
+- SRS (`docs/project-management/srs/Template_SRS2.docx`), mục 2.7 và UC-11, UC-12, UC-13: mô tả ở mức use case.
+- `docs/MULTI_TENANT.md` (có cùng WMS-22.1, ngày 06/11): hướng dẫn kỹ thuật áp dụng bộ lọc doanh nghiệp vào từng service.
+
+Khi làm mà thấy cần lệch khỏi mô tả ở đây thì báo Toàn và sửa tài liệu này trong cùng Pull Request.
+
+## 1. Khái niệm và tác nhân
+
+| Khái niệm | Ý nghĩa |
+| --- | --- |
+| Doanh nghiệp (company) | Một khách hàng của nền tảng. Mọi dữ liệu nghiệp vụ và mọi tài khoản đều thuộc đúng một doanh nghiệp. |
+| Gói dịch vụ (plan) | `FREE`, `TRIAL`, `PRO`. Gói quyết định giới hạn số người dùng, số kho, số SKU, số lượt AI và quyền dùng API key. |
+| Thuê bao (subscription) | Trạng thái gói của một doanh nghiệp: đang dùng gói nào, còn hiệu lực hay đã hết hạn, hết hạn ngày nào. Mỗi doanh nghiệp có đúng một thuê bao. |
+| Chỉ đọc | Trạng thái của doanh nghiệp khi thuê bao hết hạn: xem được mọi dữ liệu nhưng không tạo, sửa, xóa được. Dữ liệu không bị xóa. |
+
+Tác nhân:
+
+- Khách truy cập: xem trang giới thiệu, đăng ký doanh nghiệp.
+- Admin của doanh nghiệp: tài khoản đầu tiên tạo lúc đăng ký và các tài khoản có vai trò `ADMIN`. Quản lý người dùng, gói dịch vụ, thanh toán, API key của chính doanh nghiệp mình. Hệ thống không có quản trị viên toàn nền tảng.
+- Năm vai trò nghiệp vụ hiện có (`WAREHOUSE_MANAGER`, `WAREHOUSE_STAFF`, `PURCHASING`, `SALES`, `ACCOUNTANT`): giữ nguyên quyền, nhưng chỉ trong phạm vi doanh nghiệp của mình.
+- Hệ thống ngoài: gọi API bằng API key, vai trò `INTEGRATION`, chỉ đọc.
+- PayOS: cổng thanh toán, gọi webhook về máy chủ khi khách chuyển khoản xong.
+
+## 2. Quy ước chung cho mọi task
+
+### 2.1. JWT và kết quả đăng nhập
+
+Access token hiện có các claim `sub` (tên đăng nhập), `userId`, `roles`, `warehouseIds`, `type`. Bổ sung:
+
+| Claim | Kiểu | Thêm ở task | Ý nghĩa |
+| --- | --- | --- | --- |
+| `companyId` | số | WMS-22.2 | ID doanh nghiệp của người dùng |
+| `companyCode` | chuỗi | WMS-22.2 | Mã doanh nghiệp, ví dụ `CTY000001` |
+| `plan` | chuỗi | WMS-23.1 | `FREE`, `TRIAL` hoặc `PRO` tại thời điểm cấp token, chỉ để giao diện hiển thị |
+
+Kết quả `POST /api/auth/login` và `GET /api/auth/me` thêm hai đối tượng:
+
+- `company`: `id`, `code`, `name` (từ WMS-22.2).
+- `subscription`: `plan`, `status`, `expiresAt` (từ WMS-23.1).
+
+Việc chặn theo gói không dựa vào claim `plan` (token sống 15 phút nên có thể cũ) mà dựa vào bộ nhớ đệm ở mục 2.7.
+
+### 2.2. Header do API Gateway chuyển tiếp
+
+| Header | Có từ | Nội dung |
+| --- | --- | --- |
+| `X-User-Name`, `X-User-Roles`, `X-User-Warehouse-Ids` | đã có | Người dùng, vai trò, các kho được gán |
+| `X-Company-Id` | WMS-22.3 | ID doanh nghiệp lấy từ JWT hoặc từ API key |
+| `X-Plan` | WMS-23.2 | Gói hiện tại của doanh nghiệp |
+
+Gateway luôn xóa các header trên nếu chúng do trình duyệt gửi lên, rồi mới gắn giá trị lấy từ token. Service chỉ tin các header này, không đọc mã doanh nghiệp từ body, query hay đường dẫn. Khi service gọi nhau bằng OpenFeign phải chuyển tiếp nguyên các header này (module `common` cung cấp sẵn interceptor ở WMS-22.1).
+
+### 2.3. Quy tắc tách dữ liệu, áp dụng cho mọi service
+
+1. Mọi bảng nghiệp vụ có cột `company_id BIGINT NOT NULL`. Bảng mới tạo từ ngày 09/11 trở đi (điều chuyển, kiểm kê, phiếu nhập, phiếu xuất, báo cáo) phải có cột này ngay từ đầu.
+2. `company_id` được gán tự động khi thêm mới và tự động thêm vào điều kiện lọc của mọi truy vấn. Không nhận `company_id` từ phía client.
+3. Truy cập bản ghi của doanh nghiệp khác bằng ID trả `404 NOT_FOUND` như thể bản ghi không tồn tại, không trả 403.
+4. Mọi ràng buộc duy nhất theo mã đổi thành duy nhất trong một doanh nghiệp: `(company_id, mã)`. Hai doanh nghiệp được phép dùng trùng mã SKU, mã kho, mã đối tác, số chứng từ.
+5. Ngoại lệ: tên đăng nhập và email của tài khoản duy nhất trên toàn hệ thống, vì đăng nhập chỉ cần tên đăng nhập và mật khẩu.
+6. Truy vấn SQL gốc (native query) không được lọc tự động, phải tự thêm điều kiện `company_id`.
+7. Sự kiện RabbitMQ luôn mang `companyId`. Bên nhận đặt lại ngữ cảnh doanh nghiệp trước khi đọc, ghi dữ liệu.
+8. Khóa Redis của dữ liệu nghiệp vụ (cache, bộ đếm, KPI) phải có `companyId` trong tên khóa.
+9. Dữ liệu đang có trên máy chủ được gán cho doanh nghiệp có `id = 1` trong migration.
+10. Mỗi service có ít nhất một bài test cách ly: tạo dữ liệu cho hai doanh nghiệp, kiểm tra bên này không đọc, sửa, xóa được dữ liệu bên kia.
+
+Lưu ý về Flyway: trước khi tạo file migration, xem số phiên bản mới nhất của service trên nhánh `develop` và báo trong nhóm số mình định dùng. Test chạy H2 không phát hiện được hai file trùng số.
+
+### 2.4. Mã lỗi mới
+
+Toàn thêm toàn bộ các mã dưới đây vào `ErrorCode` của module `common` trong WMS-22.1 để mọi người dùng chung, không ai phải sửa file này nữa.
+
+| Mã | HTTP | Trả khi nào |
+| --- | --- | --- |
+| `COMPANY_REQUIRED` | 403 | Request tới service nghiệp vụ không xác định được doanh nghiệp |
+| `COMPANY_INACTIVE` | 403 | Đăng nhập khi doanh nghiệp chưa kích hoạt qua email hoặc đang bị tạm khóa |
+| `SUBSCRIPTION_EXPIRED` | 403 | Gọi API ghi khi thuê bao đã hết hạn |
+| `PLAN_LIMIT_EXCEEDED` | 403 | Tạo mới vượt giới hạn của gói. Trường `data` gồm `limit` (`USERS`, `WAREHOUSES`, `SKUS`, `AI_REQUESTS`, `API_ACCESS`), `current`, `max`, `plan` |
+| `PAYMENT_INVALID` | 400 | Webhook thanh toán sai chữ ký, sai số tiền hoặc mã đơn không tồn tại |
+| `TOKEN_INVALID` | 400 | Mã kích hoạt hoặc mã đặt lại mật khẩu sai, đã dùng hoặc hết hạn |
+
+Các trường hợp còn lại dùng mã đã có (`VALIDATION_ERROR`, `CONFLICT`, `NOT_FOUND`, `UNAUTHORIZED`, `FORBIDDEN`). Frontend xử lý theo `code`, không theo nội dung `message`.
+
+### 2.5. Gói dịch vụ và giới hạn
+
+| | `FREE` (Khởi Đầu) | `TRIAL` (Dùng thử) | `PRO` (Chuyên Nghiệp) |
+| --- | --- | --- | --- |
+| Giá | 0 đ | 0 đ | 499.000 đ mỗi tháng hoặc 4.790.000 đ mỗi năm |
+| Thời hạn | Không giới hạn | 30 ngày kể từ lúc đăng ký | 30 ngày hoặc 365 ngày cho mỗi lần thanh toán |
+| Số người dùng | 3 | 50 | 50 |
+| Số kho | 1 | 20 | 20 |
+| Số SKU | 200 | Không giới hạn | Không giới hạn |
+| Lượt AI mỗi tháng | 20 | 500 | 500 |
+| API key | Không | Có | Có |
+
+Cách đếm:
+
+- Người dùng: tài khoản đang bật (`enabled = true`) của doanh nghiệp.
+- Kho và SKU: bản ghi đang hoạt động, không tính bản ghi đã ngưng hoặc xóa mềm.
+- Lượt AI: mỗi lần trích xuất tài liệu và mỗi câu hỏi gửi trợ lý tính một lượt. Đếm theo tháng dương lịch, giờ Việt Nam, sang ngày 1 thì về 0. Lượt gọi lỗi do hệ thống không bị tính.
+- Giới hạn chỉ chặn việc tạo thêm. Dữ liệu đã có không bị khóa hay xóa khi doanh nghiệp chuyển xuống gói thấp hơn.
+
+Gói "Doanh nghiệp" trên trang bảng giá chỉ là lời mời liên hệ, không có trong hệ thống.
+
+### 2.6. Vòng đời thuê bao
+
+```
+đăng ký --> TRIAL/ACTIVE --(quá trial_ends_at)--> TRIAL/EXPIRED --+
+                 |                                 (chỉ đọc)      |
+                 | thanh toán                                     +-- thanh toán ---------> PRO/ACTIVE
+                 v                                                +-- chọn gói Khởi Đầu --> FREE/ACTIVE
+            PRO/ACTIVE ---(quá expires_at)------> PRO/EXPIRED ----+
+                                                   (chỉ đọc)
+
+TRIAL/ACTIVE --(chọn gói Khởi Đầu)--> FREE/ACTIVE --(thanh toán)--> PRO/ACTIVE
+```
+
+- Mỗi lần thanh toán thành công: `expires_at = max(thời điểm hiện tại, mốc hết hạn đang còn hiệu lực) + 30 hoặc 365 ngày`. Thanh toán sớm không bị mất ngày còn lại.
+- Chuyển về `FREE` chỉ được phép khi đang `TRIAL` hoặc khi thuê bao đã `EXPIRED`. Đang `PRO` còn hạn thì chờ hết hạn.
+- Khi `EXPIRED`: mọi request `POST`, `PUT`, `PATCH`, `DELETE` trả `SUBSCRIPTION_EXPIRED`, trừ đăng nhập, làm mới token, đăng xuất, đổi mật khẩu và các API dưới `/api/auth/subscription/**`, `/api/auth/payments/**`. Request `GET` vẫn chạy bình thường.
+
+### 2.7. Bộ nhớ đệm thuê bao trên Redis
+
+auth-service là nơi duy nhất ghi trạng thái thuê bao. Mỗi khi thuê bao thay đổi (đăng ký, kích hoạt, gia hạn, thanh toán, chuyển gói, hết hạn) và mỗi lần đăng nhập, auth-service ghi lại hash `wms:subscription:{companyId}`:
+
+| Trường | Ví dụ | Ghi chú |
+| --- | --- | --- |
+| `plan` | `TRIAL` | |
+| `status` | `ACTIVE` | `ACTIVE` hoặc `EXPIRED` |
+| `expiresAt` | `2026-12-09T03:00:00Z` | Rỗng với gói `FREE` |
+| `maxUsers`, `maxWarehouses`, `maxSkus`, `maxAiRequests` | `50`, `20`, `-1`, `500` | `-1` là không giới hạn |
+| `apiAccess` | `true` | |
+
+Gateway và `PlanLimitChecker` (WMS-23.2) chỉ đọc khóa này. Lượt AI trong tháng đếm ở khóa `wms:usage:ai:{companyId}:{yyyyMM}`.
+
+### 2.8. Màn hình mới
+
+| Đường dẫn | Màn hình | Task | Ai dùng |
+| --- | --- | --- | --- |
+| `/landing`, `/pricing` | Trang giới thiệu, bảng giá | WMS-23.3a (xong) | Khách truy cập |
+| `/register` | Đăng ký doanh nghiệp | WMS-23.3b | Khách truy cập |
+| `/activate`, `/reset-password` | Kích hoạt doanh nghiệp, đặt lại mật khẩu | WMS-23.6 | Khách truy cập |
+| `/subscription` | Gói dịch vụ, mức dùng, lịch sử thanh toán | WMS-23.4, WMS-23.5b | Mọi tài khoản xem; chỉ `ADMIN` thanh toán |
+| `/payment/result` | Kết quả thanh toán | WMS-23.5b | `ADMIN` |
+| `/ai-import` | Nhập dữ liệu bằng AI | WMS-24.3 | `ADMIN`, `WAREHOUSE_MANAGER`, `PURCHASING`, `SALES` |
+| Cửa sổ trợ lý AI | Hỏi đáp | WMS-18.4 | Mọi tài khoản |
+| `/settings/api-keys` | Quản lý API key | WMS-25.1 | `ADMIN` |
+
+## 3. Đặc tả theo task
+
+### WMS-22.1 [Backend] Bộ lọc doanh nghiệp dùng chung trong module common
+
+Người làm: Toàn. Ngày: 06/11. Jira: TASK-133. Phụ thuộc: không.
+
+**Mục tiêu**
+
+Module `common` cung cấp sẵn cơ chế tách dữ liệu để mỗi service chỉ cần khai báo, không phải tự viết điều kiện lọc trong từng truy vấn.
+
+**Mô tả chức năng**
+
+- `TenantContext`: giữ ID doanh nghiệp của request đang xử lý; có hàm lấy bắt buộc, thiếu thì ném `COMPANY_REQUIRED`; có hàm chạy một đoạn code dưới danh nghĩa một doanh nghiệp cho tác vụ nền.
+- Bộ lọc HTTP đọc header `X-Company-Id`, đặt vào `TenantContext` và xóa khi xử lý xong. Request tới API nghiệp vụ mà thiếu header trả `403 COMPANY_REQUIRED`. Không áp dụng cho `/actuator/**`, Swagger và các đường dẫn khai báo công khai.
+- Khi chạy máy cá nhân với `GATEWAY_JWT_ENABLED=false`, service dùng doanh nghiệp mặc định cấu hình ở `app.tenant.default-company-id` (mặc định 1) để không ai bị chặn lúc phát triển. Trên máy chủ không đặt giá trị này.
+- Lớp cha `TenantEntity` (kế thừa `AuditableEntity`) có cột `company_id` dùng `@TenantId` của Hibernate: tự gán khi thêm mới, tự lọc khi đọc, sửa, xóa.
+- `WmsEventPublisher` tự gắn `companyId` vào sự kiện; có tiện ích để `@RabbitListener` đặt lại ngữ cảnh doanh nghiệp từ sự kiện.
+- Interceptor cho OpenFeign chuyển tiếp `X-Company-Id` và các header người dùng.
+- Thêm các mã lỗi ở mục 2.4 vào `ErrorCode`.
+- Tài liệu `docs/MULTI_TENANT.md`: các bước chuyển một service, mẫu migration, mẫu test cách ly.
+
+**Tiêu chí nghiệm thu**
+
+1. Test trong `common`: có dữ liệu của hai doanh nghiệp, truy vấn dưới doanh nghiệp A chỉ trả dữ liệu của A; tìm theo ID một bản ghi của B trả rỗng; thêm mới dưới A thì bản ghi mang `company_id` của A.
+2. Request thiếu `X-Company-Id` nhận `403 COMPANY_REQUIRED`.
+3. Sự kiện phát ra có `companyId`; listener nhận sự kiện của doanh nghiệp 2 thì ghi dữ liệu vào doanh nghiệp 2.
+4. Toàn bộ test hiện có của năm service vẫn chạy được.
+
+### WMS-22.2 [Backend] auth-service: doanh nghiệp, tài khoản thuộc doanh nghiệp, JWT mang companyId
+
+Người làm: Phương Anh. Ngày: 06/11. Jira: TASK-134. Phụ thuộc: quy ước ở mục 2 của tài liệu này.
+
+**Mục tiêu**
+
+Mỗi tài khoản thuộc đúng một doanh nghiệp. Đăng nhập xong hệ thống biết người dùng thuộc doanh nghiệp nào và mọi thao tác quản lý người dùng chỉ nằm trong doanh nghiệp đó.
+
+**Dữ liệu**
+
+- Bảng mới `companies`: `id`, `code` (30 ký tự, duy nhất, dạng `CTY` cộng 6 chữ số theo `id`, ví dụ `CTY000001`), `name` (150, bắt buộc), `tax_code` (30), `email` (100), `phone` (30), `address` (255), `status` (`PENDING`, `ACTIVE`, `SUSPENDED`), `activated_at`, bốn cột audit.
+- Bảng `users` thêm `company_id BIGINT NOT NULL`, khóa ngoại tới `companies`, có index. Ràng buộc duy nhất của `username` và `email` giữ nguyên trên toàn hệ thống.
+- Migration (số kế tiếp của auth-service): tạo `companies`, thêm doanh nghiệp `id = 1` tên "Công ty mẫu A", gán toàn bộ tài khoản đang có vào doanh nghiệp 1 rồi mới đặt `NOT NULL`; thêm doanh nghiệp `id = 2` tên "Công ty mẫu B" với một tài khoản `admin_b` vai trò `ADMIN` để test cách ly. Mật khẩu tài khoản mẫu theo quy ước seed hiện có, không ghi vào tài liệu.
+- Trong auth-service, lọc theo doanh nghiệp viết tường minh bằng `companyId` của người đang đăng nhập, không dùng `@TenantId` cho `users` và `companies`, vì lúc đăng nhập chưa biết doanh nghiệp.
+
+**API thay đổi**
+
+| API | Thay đổi |
+| --- | --- |
+| `POST /api/auth/login` | Body giữ nguyên (`username`, `password`). Sai thông tin vẫn trả lỗi như cũ. Doanh nghiệp không ở trạng thái `ACTIVE` trả `403 COMPANY_INACTIVE`. Thành công: token có `companyId`, `companyCode`; kết quả thêm `company` gồm `id`, `code`, `name` |
+| `POST /api/auth/refresh` | Access token mới mang đúng `companyId`, `companyCode` đọc lại từ cơ sở dữ liệu |
+| `GET /api/auth/me` | Thêm `company` |
+| `POST /api/auth/register`, `POST /api/users` | Tài khoản mới luôn thuộc doanh nghiệp của `ADMIN` đang tạo; không nhận `companyId` từ body |
+| `GET /api/users` và các API `/api/users/{id}/**` | Chỉ liệt kê và thao tác trên tài khoản cùng doanh nghiệp. ID của tài khoản thuộc doanh nghiệp khác trả `404` |
+| `GET /api/auth/company` (mới) | Mọi tài khoản đã đăng nhập xem thông tin doanh nghiệp của mình: `id`, `code`, `name`, `taxCode`, `email`, `phone`, `address`, `status`, `createdAt` |
+
+**Quy tắc nghiệp vụ**
+
+- Vai trò `ADMIN` là quản trị của một doanh nghiệp, không có quyền gì với doanh nghiệp khác.
+- Tài khoản không chuyển được sang doanh nghiệp khác.
+- Tài khoản dev (`dev-login`), nếu còn bật ở môi trường phát triển, thuộc doanh nghiệp 1.
+- Danh sách kho gán cho người dùng (`user_warehouses`) giữ nguyên cách làm; giao diện chỉ đưa ra các kho của doanh nghiệp đó.
+
+**Tiêu chí nghiệm thu**
+
+1. Đăng nhập tài khoản của Công ty mẫu A: giải mã token thấy `companyId = 1`; kết quả có `company.name`.
+2. `ADMIN` của A gọi danh sách người dùng chỉ thấy tài khoản của A; gọi xem, sửa, khóa, gán kho với ID tài khoản của B đều nhận `404`.
+3. `ADMIN` của A tạo tài khoản mới: tài khoản thuộc A dù body có gửi `companyId` khác.
+4. Đổi trạng thái doanh nghiệp B thành `SUSPENDED` trong cơ sở dữ liệu: `admin_b` đăng nhập nhận `403 COMPANY_INACTIVE`.
+5. Làm mới token: token mới vẫn có `companyId`.
+6. Migration chạy được trên cơ sở dữ liệu đang có dữ liệu; test cũ của auth-service vẫn xanh, có thêm test cho các mục 1 đến 5.
+
+### WMS-22.3 [Backend] API Gateway chuyển tiếp doanh nghiệp, áp mẫu vào inventory-service
+
+Người làm: Toàn (phối hợp Linh). Ngày: 09/11. Jira: TASK-135. Phụ thuộc: WMS-22.1, WMS-22.2.
+
+**Mô tả chức năng**
+
+- Gateway đọc claim `companyId` trong JWT và gắn header `X-Company-Id` cho service phía sau. Token hợp lệ nhưng không có `companyId` (token cấp trước khi nâng cấp) trả `401` để giao diện buộc đăng nhập lại.
+- Gateway xóa `X-Company-Id`, `X-Plan` và các header `X-User-*` do client tự gửi trước khi gắn giá trị thật.
+- Bổ sung đường dẫn công khai cho các API không cần đăng nhập của WMS-23: đăng ký, kích hoạt, quên và đặt lại mật khẩu, danh sách gói, webhook PayOS.
+- Áp `TenantEntity` vào thực thể kho của inventory-service làm mẫu để Linh làm tiếp các bảng còn lại ở WMS-22.4a.
+- Test tích hợp hai doanh nghiệp đi qua gateway.
+
+**Tiêu chí nghiệm thu**
+
+1. Gọi API kho bằng token của A chỉ thấy kho của A; bằng token của B chỉ thấy kho của B.
+2. Tự thêm header `X-Company-Id: 2` vào request dùng token của A: kết quả vẫn là dữ liệu của A.
+3. Token không có `companyId` nhận `401`.
+
+### WMS-22.4a [Backend] inventory-service: tách dữ liệu kho theo doanh nghiệp
+
+Người làm: Linh. Ngày: 09/11. Jira: TASK-136. Phụ thuộc: WMS-22.1; làm theo mẫu của WMS-22.3 và `docs/MULTI_TENANT.md`.
+
+**Mô tả chức năng**
+
+- Thêm `company_id` và chuyển sang kế thừa `TenantEntity` cho các bảng `warehouses`, `bin_locations`, `stock_items`, `stock_reservations`, `incoming_stocks`. Dữ liệu đang có gán doanh nghiệp 1.
+- Đổi ràng buộc duy nhất: mã kho thành `(company_id, code)`, mã vị trí thành `(company_id, code)`. Ràng buộc theo vị trí trong kho `(warehouse_id, zone, rack, bin)` và `(order_id, product_id)` giữ nguyên.
+- Thêm index bắt đầu bằng `company_id` cho các cột hay lọc (kho, sản phẩm).
+- Sự kiện inventory-service phát ra (`inventory.updated`, `alert.low-stock`) mang `companyId`. Listener nhận sự kiện đơn hàng đặt ngữ cảnh doanh nghiệp từ sự kiện trước khi ghi tồn kho, hàng đang về.
+- Phân quyền theo kho được gán (WMS-04.2) vẫn áp dụng bên trong doanh nghiệp.
+- Các bảng làm sau (khóa bi quan, điều chuyển, kiểm kê, thẻ kho) kế thừa `TenantEntity` ngay khi tạo.
+
+**Tiêu chí nghiệm thu**
+
+1. Doanh nghiệp A và B cùng tạo kho mã `WH01`: cả hai đều thành công.
+2. B liệt kê kho, vị trí, tồn kho: không có bản ghi nào của A. B gọi theo ID kho của A nhận `404`.
+3. B sửa hoặc xóa kho của A bằng ID nhận `404`, dữ liệu của A không đổi.
+4. Sự kiện `order.created` của A chỉ tạo hàng đang về cho A.
+5. Test cách ly nằm trong bộ test của service và chạy trên CI.
+
+### WMS-22.4b [Backend] product-service và order-service: tách dữ liệu và API nhập hàng loạt
+
+Người làm: Việt. Ngày: 10/11 đến 12/11. Jira: TASK-137. Phụ thuộc: WMS-22.1.
+
+**Phần 1: tách dữ liệu**
+
+- product-service: `categories`, `uoms`, `products`, `unit_conversions`. Ràng buộc duy nhất đổi thành `(company_id, code)` cho danh mục và đơn vị, `(company_id, sku)` và `(company_id, barcode)` cho hàng hóa.
+- order-service: `suppliers`, `customers`, `supplier_transactions`, `customer_transactions`, `purchase_orders`, `po_items`, `sales_orders`, `so_items`. Ràng buộc duy nhất đổi thành `(company_id, code)` cho đối tác, `(company_id, po_number)` và `(company_id, so_number)` cho đơn.
+- Kiểm tra trùng mã số thuế của nhà cung cấp, khách hàng chỉ xét trong cùng doanh nghiệp.
+- Số chứng từ (PO, SO) sinh theo từng doanh nghiệp: hai doanh nghiệp có thể cùng có `PO-20261110-001`.
+- Sự kiện đơn hàng mang `companyId`. Lời gọi sang inventory-service chuyển tiếp header doanh nghiệp.
+- Doanh nghiệp mới đăng ký bắt đầu với danh mục rỗng, không dùng chung đơn vị tính hay danh mục với doanh nghiệp khác.
+
+**Phần 2: API nhập hàng loạt**
+
+| API | Vai trò được gọi | Trường của mỗi dòng |
+| --- | --- | --- |
+| `POST /api/products/bulk` | Như API tạo hàng hóa | `sku`, `name` (bắt buộc), `barcode`, `description`, `categoryName`, `uomName` (bắt buộc), `purchasePrice`, `sellingPrice`, `vatRate`, `safetyStock`, `reorderPoint`, `maxStock` |
+| `POST /api/orders/suppliers/bulk` | Như API tạo nhà cung cấp | Các trường của `CreateSupplierRequest` |
+| `POST /api/orders/customers/bulk` | Như API tạo khách hàng | Các trường của `CreateCustomerRequest` |
+
+- Body: `{ "items": [ ... ] }`, tối đa 500 dòng. Body rỗng hoặc quá 500 dòng trả `400 VALIDATION_ERROR`.
+- Kết quả luôn là `200` với `total`, `created`, `skipped`, `failed` và mảng `results`, mỗi phần tử gồm `row` (thứ tự dòng, từ 1), `status` (`CREATED`, `SKIPPED`, `FAILED`), `id`, `code`, `message`.
+- Mỗi dòng là một giao dịch riêng: dòng lỗi không làm hỏng dòng khác.
+- Mỗi dòng được kiểm tra đúng như khi tạo từng bản ghi. Mã đã tồn tại trong doanh nghiệp thì `SKIPPED`, không ghi đè. Mã lặp lại trong cùng file thì dòng sau `FAILED`.
+- Với hàng hóa: `categoryName` và `uomName` chưa có trong doanh nghiệp thì tự tạo mới rồi gán.
+- Khi WMS-23.2 có giới hạn gói: các dòng vượt giới hạn SKU nhận `FAILED` kèm lý do vượt giới hạn gói.
+
+**Tiêu chí nghiệm thu**
+
+1. Test cách ly cho hàng hóa, nhà cung cấp, khách hàng, đơn mua, đơn bán: B không đọc, sửa, xóa được dữ liệu của A; hai bên dùng trùng mã SKU và mã đối tác được.
+2. Nhập 50 hàng hóa hợp lệ: `created = 50`, xem được trong danh mục.
+3. File có 3 dòng lỗi (thiếu tên, trùng SKU đã có, trùng SKU trong file): 47 dòng còn lại vẫn vào, 3 dòng lỗi có `row` và `message` đúng.
+4. Nhập lại đúng file đó: tất cả `SKIPPED`, không sinh bản ghi trùng.
+
+### WMS-22.4c [Backend] notification-service: thông báo, KPI và báo cáo theo doanh nghiệp
+
+Người làm: Toàn. Ngày: 16/11. Jira: TASK-138. Phụ thuộc: WMS-22.1.
+
+**Mô tả chức năng**
+
+- `notification_logs` và các bảng báo cáo thêm `company_id`.
+- KPI thời gian thực đếm riêng từng doanh nghiệp, khóa Redis có `companyId`.
+- Kênh WebSocket tách theo doanh nghiệp: `/topic/company/{companyId}/alerts`, `/orders`, `/inventory`, `/kpi`. Khi đăng ký kênh, máy chủ chỉ cho phép kênh của đúng doanh nghiệp trong JWT. Toàn sửa luôn hook `useWebSocket` ở frontend.
+- Listener bỏ qua và ghi log cảnh báo với sự kiện không có `companyId`.
+- Báo cáo và email cảnh báo chỉ tổng hợp dữ liệu, chỉ gửi tới người dùng của doanh nghiệp phát sinh sự kiện.
+
+**Tiêu chí nghiệm thu**
+
+1. A tạo đơn hàng: chỉ người dùng của A nhận thông báo; KPI của B không đổi.
+2. Người dùng của B đăng ký kênh của A bị từ chối.
+
+### WMS-22.5 [QA] Kiểm thử cách ly dữ liệu, giới hạn gói và hết hạn
+
+Người làm: Phương Anh. Ngày: 19/11 đến 20/11. Jira: TASK-139. Phụ thuộc: toàn bộ WMS-22 và WMS-23.
+
+**Mô tả công việc**
+
+- Lập bảng test case và chạy trên máy chủ với hai doanh nghiệp đăng ký mới, ghi kết quả đạt hoặc không đạt, kèm ảnh hoặc lệnh gọi API.
+- Nhóm cách ly: với từng nhóm dữ liệu (người dùng, kho, vị trí, tồn kho, hàng hóa, nhà cung cấp, khách hàng, đơn mua, đơn bán, thông báo, báo cáo, API key) thử ba thao tác của B lên dữ liệu của A: xem danh sách, xem theo ID, sửa hoặc xóa theo ID.
+- Nhóm giới hạn gói: ở gói `FREE` tạo tài khoản thứ 4, kho thứ 2, SKU thứ 201, lượt AI thứ 21, tạo API key.
+- Nhóm hết hạn: dùng công cụ demo đặt hết hạn; kiểm tra xem được, không ghi được, thanh toán xong ghi lại được ngay.
+- Lỗi tìm thấy tạo thành issue giao cho người phụ trách service, gộp vào đợt sửa lỗi WMS-20.4.
+
+**Tiêu chí nghiệm thu**
+
+Bảng test case có kết quả nằm trong `docs/`, không còn trường hợp lọt dữ liệu nào chưa được xử lý.
+
+### WMS-23.0 [Fullstack] Bỏ gợi ý tài khoản mặc định trên trang đăng nhập
+
+Người làm: Toàn. Đã xong ngày 04/11. Jira: TASK-141.
+
+Trang đăng nhập không còn hiển thị gợi ý tài khoản mặc định. Theo quyết định của Toàn, phạm vi dừng ở giao diện; các tài khoản mẫu trong dữ liệu seed giữ nguyên và thuộc Công ty mẫu A sau WMS-22.2.
+
+### WMS-23.1 [Backend] Đăng ký doanh nghiệp, gói dịch vụ và thuê bao
+
+Người làm: Phương Anh. Ngày: 09/11. Jira: TASK-142. Phụ thuộc: WMS-22.2.
+
+**Dữ liệu**
+
+- Bảng `plans` (seed bằng migration theo mục 2.5): `code` (`FREE`, `TRIAL`, `PRO`), `name`, `price_monthly`, `price_yearly`, `max_users`, `max_warehouses`, `max_skus`, `max_ai_requests`, `api_access`, `trial_days`. Giá trị `-1` là không giới hạn.
+- Bảng `subscriptions`: `company_id` (duy nhất), `plan_code`, `status` (`ACTIVE`, `EXPIRED`), `trial_ends_at`, `expires_at`, bốn cột audit. Migration tạo thuê bao `PRO` còn hạn tới hết 31/12/2026 cho hai công ty mẫu.
+
+**API**
+
+| API | Ai gọi | Mô tả |
+| --- | --- | --- |
+| `POST /api/auth/companies/register` | Công khai | Body: `companyName` (2 đến 150 ký tự), `taxCode`, `phone` (không bắt buộc), `fullName`, `username`, `email`, `password` (quy tắc như tạo tài khoản hiện nay). Trong một giao dịch: tạo doanh nghiệp, tài khoản `ADMIN` đầu tiên, thuê bao `TRIAL` với `trial_ends_at` bằng thời điểm đăng ký cộng 30 ngày. Trả `201` với `company`, `admin`, `subscription`. Không trả token; giao diện chuyển sang trang đăng nhập |
+| `GET /api/auth/plans` | Công khai | Danh sách gói, giá và giới hạn |
+| `GET /api/auth/subscription` | Mọi tài khoản | `plan`, `planName`, `status`, `trialEndsAt`, `expiresAt`, `daysRemaining`, `readOnly`, `limits`, `usage` (`users`, `warehouses`, `skus`, `aiRequests`; ở task này trả `users`, ba số còn lại do WMS-23.2 bổ sung) |
+| `POST /api/auth/subscription/renew-mock` | `ADMIN`, chỉ khi `PAYOS_MOCK=true` | Body: `plan` (`PRO`), `cycle` (`MONTHLY`, `YEARLY`). Kích hoạt ngay không qua thanh toán, dùng để phát triển và test |
+| `POST /api/auth/subscription/downgrade` | `ADMIN` | Chuyển về `FREE` theo quy tắc mục 2.6; không hợp lệ trả `409 CONFLICT` |
+| `POST /api/auth/subscription/demo/expire` | `ADMIN`, chỉ khi `APP_DEMO_TOOLS=true` | Đặt thuê bao của doanh nghiệp mình thành hết hạn để trình diễn |
+
+**Quy tắc nghiệp vụ**
+
+- Tên đăng nhập hoặc email đã tồn tại trả `409 CONFLICT`, nêu rõ trường nào trùng. Mỗi email chỉ đăng ký được một doanh nghiệp.
+- Mã doanh nghiệp do hệ thống sinh, người dùng không nhập.
+- Trạng thái doanh nghiệp sau đăng ký là `ACTIVE` cho tới khi WMS-23.6 thêm bước kích hoạt qua email.
+- Việc chuyển sang `EXPIRED` do một tác vụ định kỳ 5 phút một lần thực hiện, đồng thời kiểm tra lại khi đăng nhập và khi gọi `GET /api/auth/subscription`.
+- Mỗi thay đổi thuê bao ghi lại bộ nhớ đệm theo mục 2.7.
+- Viết phần kích hoạt gói thành một hàm dùng chung của `SubscriptionService` (nhận doanh nghiệp, gói, chu kỳ) để WMS-23.5a gọi lại khi thanh toán thành công.
+- Token và kết quả đăng nhập thêm `plan`, `subscription` theo mục 2.1.
+
+**Tiêu chí nghiệm thu**
+
+1. Đăng ký xong đăng nhập được ngay bằng tài khoản vừa tạo; `GET /api/auth/subscription` trả `TRIAL`, `daysRemaining = 30`.
+2. Đăng ký lần hai với cùng email hoặc cùng tên đăng nhập nhận `409`, không sinh doanh nghiệp rác.
+3. `renew-mock` gói `PRO` chu kỳ tháng: `plan = PRO`, `expiresAt` tăng 30 ngày theo đúng công thức mục 2.6.
+4. `demo/expire` rồi `downgrade`: thuê bao thành `FREE / ACTIVE`.
+5. Sau mỗi bước trên, khóa `wms:subscription:{companyId}` trong Redis có giá trị mới.
+
+### WMS-23.2 [Backend] Thực thi giới hạn gói và trạng thái hết hạn
+
+Người làm: Toàn. Ngày: 10/11. Jira: TASK-143. Phụ thuộc: WMS-23.1.
+
+**Mô tả chức năng**
+
+- Gateway đọc bộ nhớ đệm thuê bao, gắn `X-Plan`, và chặn request ghi khi thuê bao `EXPIRED` theo danh sách ngoại lệ ở mục 2.6.
+- `PlanLimitChecker` trong `common`: service gọi trước khi tạo mới. auth-service kiểm tra số người dùng, inventory-service kiểm tra số kho, product-service kiểm tra số SKU (cả API nhập hàng loạt), ai-service kiểm tra lượt AI. Vượt thì trả `PLAN_LIMIT_EXCEEDED` kèm `data` theo mục 2.4.
+- Bật lại một tài khoản đã khóa hoặc một kho đã ngưng cũng tính là tạo thêm.
+- `GET /api/auth/subscription` trả đủ bốn số `usage`.
+
+**Tiêu chí nghiệm thu**
+
+1. Gói `FREE`: tạo tài khoản thứ 4, kho thứ 2, SKU thứ 201 đều nhận `403 PLAN_LIMIT_EXCEEDED` với `limit`, `current`, `max` đúng.
+2. Thuê bao hết hạn: `GET` vẫn chạy, `POST`, `PUT`, `PATCH`, `DELETE` nghiệp vụ nhận `403 SUBSCRIPTION_EXPIRED`; đăng nhập và các API thuê bao, thanh toán vẫn dùng được.
+3. Gia hạn xong, request ghi kế tiếp chạy được ngay, không cần đăng nhập lại.
+
+### WMS-23.3a [Frontend] Trang giới thiệu và bảng giá
+
+Người làm: Linh. Đã xong ngày 05/11. Jira: TASK-144.
+
+Trang `/landing` và `/pricing` đã có, dữ liệu gói lấy từ `pricingConfig.ts`. Việc còn lại: khi WMS-23.3b có trang `/register`, các nút "Bắt đầu" trỏ sang trang đó; số liệu trong `pricingConfig.ts` giữ khớp mục 2.5.
+
+### WMS-23.3b [Frontend] Đăng ký doanh nghiệp và đăng nhập theo doanh nghiệp
+
+Người làm: Phương Anh. Ngày: 17/11. Jira: TASK-145. Phụ thuộc: WMS-23.1.
+
+**Mô tả chức năng**
+
+- Trang `/register`: các trường tên doanh nghiệp, mã số thuế, số điện thoại, họ tên người quản trị, tên đăng nhập, email, mật khẩu, nhập lại mật khẩu, ô đồng ý điều khoản. Kiểm tra dữ liệu ngay trên form theo đúng quy tắc của API.
+- Gửi thành công: thông báo đăng ký thành công và 30 ngày dùng thử, chuyển sang `/login` (sau WMS-23.6 thì hiện hướng dẫn mở email để kích hoạt). Lỗi `409` hiển thị ngay dưới trường bị trùng.
+- Đăng nhập: lưu `company` và `subscription` cùng thông tin người dùng; hiển thị tên doanh nghiệp ở thanh tiêu đề và trang hồ sơ. Lỗi `COMPANY_INACTIVE` hiện thông báo riêng, kèm nút gửi lại email kích hoạt khi WMS-23.6 xong.
+- Trang đăng nhập có liên kết "Đăng ký doanh nghiệp" và "Quên mật khẩu".
+
+**Tiêu chí nghiệm thu**
+
+Từ trang giới thiệu bấm đăng ký, điền form, đăng nhập và vào được trang tổng quan của doanh nghiệp mới với dữ liệu rỗng, thanh tiêu đề hiện đúng tên doanh nghiệp.
+
+### WMS-23.4 [Frontend] Trang gói dịch vụ, nhắc hạn dùng thử và chế độ chỉ đọc
+
+Người làm: Linh. Ngày: 16/11. Jira: TASK-146. Phụ thuộc: WMS-23.1, WMS-23.2.
+
+**Mô tả chức năng**
+
+- Trang `/subscription`: gói hiện tại, trạng thái, ngày hết hạn, số ngày còn lại; bốn thanh mức dùng (người dùng, kho, SKU, lượt AI trong tháng) so với giới hạn; bảng so sánh gói; nút nâng cấp hoặc gia hạn theo tháng, theo năm (nối thanh toán ở WMS-23.5b); nút chuyển về gói Khởi Đầu khi được phép.
+- Chỉ `ADMIN` thấy các nút thanh toán và chuyển gói. Vai trò khác thấy dòng "Liên hệ quản trị viên của doanh nghiệp".
+- Dải nhắc ở đầu mọi trang khi đang `TRIAL`: "Còn N ngày dùng thử", đổi màu cảnh báo khi còn từ 7 ngày trở xuống, có liên kết tới `/subscription`.
+- Khi thuê bao `EXPIRED`: hiện dải thông báo cố định "Gói đã hết hạn, hệ thống đang ở chế độ chỉ đọc"; các nút tạo, sửa, xóa trên toàn hệ thống bị vô hiệu hóa qua một hook dùng chung (ví dụ `useSubscription().readOnly`); mọi phản hồi `SUBSCRIPTION_EXPIRED` mở hộp thoại dẫn tới `/subscription`.
+- Phản hồi `PLAN_LIMIT_EXCEEDED` ở bất kỳ màn hình nào mở hộp thoại nêu giới hạn nào đã chạm, đang dùng bao nhiêu trên tối đa bao nhiêu, kèm nút nâng cấp.
+
+**Tiêu chí nghiệm thu**
+
+1. Tài khoản dùng thử thấy dải nhắc với số ngày đúng.
+2. Sau khi đặt hết hạn bằng công cụ demo: mọi nút ghi bị khóa, xem dữ liệu bình thường, hộp thoại dẫn tới trang gia hạn.
+3. Gói `FREE` tạo kho thứ 2: hiện hộp thoại vượt giới hạn với số liệu đúng.
+
+### WMS-23.5a [Backend] Thanh toán PayOS
+
+Người làm: Toàn. Ngày: 10/11. Jira: TASK-147. Phụ thuộc: WMS-23.1.
+
+**Dữ liệu**
+
+Bảng `payments` ở auth-service: `company_id`, `order_code` (số, duy nhất toàn hệ thống), `plan_code`, `cycle`, `amount`, `status` (`PENDING`, `PAID`, `CANCELLED`, `EXPIRED`), `checkout_url`, `reference` (mã giao dịch ngân hàng), `paid_at`, người tạo, bốn cột audit.
+
+**API**
+
+| API | Ai gọi | Mô tả |
+| --- | --- | --- |
+| `POST /api/auth/payments` | `ADMIN` | Body: `plan` (`PRO`), `cycle` (`MONTHLY`, `YEARLY`). Số tiền lấy từ bảng `plans`, không nhận từ client. Tạo bản ghi `PENDING`, gọi PayOS tạo liên kết thanh toán, trả `orderCode`, `amount`, `checkoutUrl`, `qrCode`, `expiresAt`. Liên kết hết hạn sau 15 phút |
+| `POST /api/auth/payments/payos/webhook` | PayOS (công khai) | Kiểm tra chữ ký bằng checksum key, đối chiếu `orderCode` và số tiền với bản ghi `PENDING`. Hợp lệ: chuyển `PAID`, kích hoạt gói theo mục 2.6, ghi bộ nhớ đệm. Sai chữ ký hoặc sai số tiền: `400 PAYMENT_INVALID`, ghi log cảnh báo, gói không đổi. Gửi lặp cho đơn đã `PAID`: trả `200`, không cộng thêm ngày |
+| `GET /api/auth/payments/{orderCode}` | `ADMIN` của doanh nghiệp đó | Trạng thái một giao dịch, để trang kết quả hỏi lại |
+| `POST /api/auth/payments/{orderCode}/cancel` | `ADMIN` | Người dùng hủy ở trang PayOS: chuyển `CANCELLED` nếu đang `PENDING` |
+| `GET /api/auth/payments` | `ADMIN` | Lịch sử giao dịch của doanh nghiệp, có phân trang |
+
+**Quy tắc nghiệp vụ**
+
+- Gói chỉ được kích hoạt bởi webhook hợp lệ. Tham số trả về trên trình duyệt chỉ dùng để hiển thị.
+- Chế độ giả lập `PAYOS_MOCK=true` (mặc định khi chưa có khóa): `checkoutUrl` trỏ tới trang giả lập của hệ thống, bấm xác nhận thì backend xử lý như một webhook hợp lệ. Trên máy chủ thật đặt `PAYOS_MOCK=false`.
+- Khóa `PAYOS_CLIENT_ID`, `PAYOS_API_KEY`, `PAYOS_CHECKSUM_KEY` chỉ nằm trong `.env` trên máy chủ, không vào repo, không gửi qua chat.
+
+**Tiêu chí nghiệm thu**
+
+1. Test đơn vị cho việc tạo và kiểm tra chữ ký.
+2. Thanh toán thành công (giả lập hoặc thật): giao dịch `PAID`, thuê bao thành `PRO`, ngày hết hạn tăng đúng chu kỳ.
+3. Webhook sai chữ ký hoặc sai số tiền bị từ chối, thuê bao không đổi.
+4. Gửi lại cùng webhook lần hai: không cộng thêm ngày.
+
+### WMS-23.5b [Frontend] Thanh toán trên trang gói dịch vụ
+
+Người làm: Linh. Ngày: 16/11. Jira: TASK-148. Phụ thuộc: WMS-23.5a, WMS-23.4.
+
+**Mô tả chức năng**
+
+- Nút nâng cấp hoặc gia hạn: chọn chu kỳ, xem số tiền, bấm thanh toán thì gọi `POST /api/auth/payments` rồi chuyển trình duyệt sang `checkoutUrl`.
+- Trang `/payment/result`: đọc `orderCode` trên địa chỉ, gọi `GET /api/auth/payments/{orderCode}` 2 giây một lần, tối đa 60 giây. `PAID`: báo thành công, tải lại thông tin thuê bao, bỏ chế độ chỉ đọc. `CANCELLED`: báo đã hủy và gọi API hủy. Quá 60 giây vẫn `PENDING`: báo đang chờ ngân hàng xác nhận, có nút kiểm tra lại.
+- Bảng lịch sử giao dịch trong trang `/subscription`: mã đơn, gói, chu kỳ, số tiền, trạng thái, thời điểm.
+
+**Tiêu chí nghiệm thu**
+
+Chạy trọn bước 5 của kịch bản demo trong SAAS_PLAN.md: hết hạn, chọn gói Pro, thanh toán, quay về thấy gói mở lại và ghi được dữ liệu.
+
+### WMS-23.6 [Backend] Kích hoạt doanh nghiệp qua email và đặt lại mật khẩu
+
+Người làm: Phương Anh. Ngày: 18/11. Jira: TASK-149. Phụ thuộc: WMS-23.1.
+
+**API**
+
+| API | Mô tả |
+| --- | --- |
+| `POST /api/auth/companies/register` (sửa) | Doanh nghiệp tạo ra ở trạng thái `PENDING`; gửi email chứa liên kết `{địa chỉ frontend}/activate?token=...` tới email đăng ký |
+| `POST /api/auth/companies/activate` | Body: `token`. Hợp lệ: doanh nghiệp thành `ACTIVE`, ghi `activated_at`. Sai, đã dùng hoặc quá 24 giờ: `400 TOKEN_INVALID` |
+| `POST /api/auth/companies/resend-activation` | Body: `email`. Luôn trả `200` dù email có tồn tại hay không. Mỗi email tối đa một lần mỗi phút |
+| `POST /api/auth/password/forgot` | Body: `email`. Luôn trả `200`. Nếu email thuộc một tài khoản đang bật thì gửi liên kết `{địa chỉ frontend}/reset-password?token=...`, hiệu lực 30 phút |
+| `POST /api/auth/password/reset` | Body: `token`, `newPassword`. Hợp lệ: đổi mật khẩu, vô hiệu mọi refresh token của tài khoản. Không hợp lệ: `400 TOKEN_INVALID` |
+
+**Quy tắc nghiệp vụ**
+
+- Mã trong liên kết sinh ngẫu nhiên, chỉ lưu bản băm, dùng một lần.
+- 30 ngày dùng thử vẫn tính từ lúc đăng ký.
+- Đăng nhập khi doanh nghiệp còn `PENDING` nhận `403 COMPANY_INACTIVE`.
+- auth-service không gửi mail trực tiếp: phát sự kiện qua RabbitMQ để notification-service gửi bằng `EmailService` đã có. Tên sự kiện và cấu trúc bổ sung vào `docs/MESSAGING.md` trong cùng Pull Request.
+- Môi trường không cấu hình SMTP: notification-service ghi liên kết ra log để nhóm test.
+- Kèm hai trang frontend nhỏ `/activate` (gọi API rồi báo kết quả) và `/reset-password` (form mật khẩu mới), và nối trang `/forgot-password` đã có với API.
+
+**Tiêu chí nghiệm thu**
+
+1. Đăng ký xong chưa đăng nhập được; bấm liên kết trong email thì đăng nhập được.
+2. Liên kết kích hoạt dùng lần hai nhận `TOKEN_INVALID`.
+3. Quên mật khẩu: nhận email, đặt mật khẩu mới, đăng nhập bằng mật khẩu mới được, mật khẩu cũ không còn dùng được.
+4. Nhập email không tồn tại ở form quên mật khẩu: vẫn hiện thông báo như bình thường.
+
+### WMS-24.1 [Backend] ai-service: khung dịch vụ AI
+
+Người làm: Toàn. Ngày: 11/11. Jira: TASK-151. Phụ thuộc: WMS-23.2.
+
+**Mô tả chức năng**
+
+- Service mới `ai-service` (cổng 8086) dùng Spring AI gọi Claude; có Dockerfile, khai báo trong docker-compose, job CI, route gateway `/api/ai/**`.
+- Khóa AI đọc từ biến môi trường, chỉ có trên máy chủ. Khi không có khóa, service chạy chế độ giả lập (`AI_MOCK=true`) trả kết quả mẫu để nhóm phát triển giao diện.
+- Mỗi lượt gọi AI kiểm tra và trừ hạn mức tháng của doanh nghiệp; hết lượt trả `PLAN_LIMIT_EXCEEDED` với `limit = AI_REQUESTS`. Lỗi do AI không phản hồi trong 60 giây không bị trừ lượt.
+- `GET /api/ai/health` và `GET /api/ai/usage` (số lượt đã dùng, giới hạn của tháng).
+
+**Tiêu chí nghiệm thu**
+
+`/api/ai/health` trả trạng thái sẵn sàng; gọi thử một câu hỏi nhận được trả lời; gọi quá hạn mức nhận đúng mã lỗi.
+
+### WMS-24.2 [Backend] Trích xuất tài liệu thành dữ liệu danh mục
+
+Người làm: Toàn. Ngày: 12/11. Jira: TASK-152. Phụ thuộc: WMS-24.1, WMS-22.4b.
+
+**API**
+
+| API | Mô tả |
+| --- | --- |
+| `POST /api/ai/extractions` | Dạng multipart: `file` (xlsx, xls, csv, pdf, png, jpg; tối đa 10 MB) và `dataType` (`PRODUCT`, `SUPPLIER`, `CUSTOMER`). Trả `extractionId`, `dataType`, danh sách cột và `rows`; mỗi dòng có `row`, `values`, `confidence` (0 đến 1 cho từng ô), `warnings`. Tối đa 200 dòng mỗi file. Tính một lượt AI |
+| `GET /api/ai/extractions/{id}` | Lấy lại kết quả trong vòng 1 giờ |
+| `POST /api/ai/extractions/{id}/import` | Body: `rows` đã được người dùng sửa và chọn. Gọi API nhập hàng loạt tương ứng của WMS-22.4b, trả nguyên kết quả theo dòng. Không tính lượt AI |
+
+**Quy tắc nghiệp vụ**
+
+- Các cột trả về khớp trường của API nhập hàng loạt (mục WMS-22.4b).
+- Không bao giờ tự nhập khi người dùng chưa xác nhận.
+- File không đọc được hoặc không có dữ liệu phù hợp: báo lỗi rõ ràng, không trừ lượt.
+- Vai trò: `PRODUCT` và `SUPPLIER` cho `ADMIN`, `WAREHOUSE_MANAGER`, `PURCHASING`; `CUSTOMER` cho `ADMIN`, `SALES`.
+
+**Tiêu chí nghiệm thu**
+
+File Excel 50 dòng có tiêu đề cột rõ ràng: trích xuất đúng trên 90% số ô, dưới 30 giây; bấm nhập xong thấy dữ liệu trong danh mục của đúng doanh nghiệp.
+
+### WMS-24.3 [Frontend] Màn hình Nhập dữ liệu bằng AI
+
+Người làm: Việt. Ngày: 16/11 đến 17/11. Jira: TASK-153. Phụ thuộc: WMS-24.2.
+
+**Mô tả chức năng**
+
+Trang `/ai-import` gồm bốn bước:
+
+1. Chọn loại dữ liệu (hàng hóa, nhà cung cấp, khách hàng) và tải file bằng kéo thả hoặc chọn file; kiểm tra định dạng và dung lượng trước khi gửi; hiển thị số lượt AI còn lại trong tháng.
+2. Chờ trích xuất, có trạng thái đang xử lý và nút hủy.
+3. Bảng xem trước sửa được từng ô; ô có `confidence` dưới 0,8 tô nền vàng; dòng có `warnings` có biểu tượng cảnh báo kèm lý do; cho phép bỏ chọn dòng, xóa dòng; hiện tổng số dòng sẽ nhập.
+4. Bấm nhập: hiện kết quả theo dòng (đã tạo, bỏ qua, lỗi kèm lý do), tổng kết ba con số, nút mở danh mục tương ứng và nút tải danh sách dòng lỗi.
+
+Lỗi `PLAN_LIMIT_EXCEEDED` dùng hộp thoại chung của WMS-23.4. Mục menu chỉ hiện với vai trò được phép.
+
+**Tiêu chí nghiệm thu**
+
+Chạy trọn bước 2 của kịch bản demo: tải file danh mục 50 dòng, sửa vài ô, nhập, mở danh mục thấy đủ hàng hóa.
+
+### WMS-24.4 [Backend] Trợ lý AI
+
+Người làm: Toàn. Ngày: 13/11. Jira: TASK-154. Phụ thuộc: WMS-24.1.
+
+**Mô tả chức năng**
+
+- `POST /api/ai/chat`: body `message`, `conversationId` (không bắt buộc); trả câu trả lời bằng tiếng Việt và `conversationId`. Lịch sử hội thoại giữ 1 giờ.
+- Trợ lý trả lời hai nhóm câu hỏi: hướng dẫn sử dụng (dựa trên tài liệu của hệ thống) và tra cứu dữ liệu (tồn kho theo SKU hoặc kho, trạng thái đơn mua, đơn bán theo số chứng từ).
+- Trợ lý chỉ đọc dữ liệu của doanh nghiệp đang đăng nhập và theo đúng quyền của người hỏi; không thực hiện thao tác ghi.
+- Mỗi câu hỏi tính một lượt AI.
+
+**Tiêu chí nghiệm thu**
+
+Hỏi "tạo kho thế nào" nhận hướng dẫn đúng các bước trên giao diện; hỏi tồn của một SKU nhận đúng số trong hệ thống; người dùng của B hỏi về SKU chỉ có ở A nhận câu trả lời là không tìm thấy.
+
+### WMS-25.1 [Backend] API key cho hệ thống ngoài
+
+Người làm: Toàn. Ngày: 17/11. Jira: TASK-156. Phụ thuộc: WMS-22.3.
+
+**Mô tả chức năng**
+
+- Bảng `api_keys` ở auth-service: `company_id`, `name`, `key_prefix` (8 ký tự đầu để nhận diện), `key_hash`, `last_used_at`, `revoked_at`, người tạo.
+- `POST /api/auth/api-keys` (`ADMIN`): body `name`; trả key đầy đủ đúng một lần. `GET /api/auth/api-keys`: danh sách không kèm key. `DELETE /api/auth/api-keys/{id}`: thu hồi.
+- Chỉ gói có `apiAccess` mới tạo được key (gói `FREE` nhận `PLAN_LIMIT_EXCEEDED` với `limit = API_ACCESS`). Mỗi doanh nghiệp tối đa 5 key đang hoạt động.
+- Gateway nhận header `X-Api-Key` thay cho JWT: tra key, gắn `X-Company-Id` và vai trò `INTEGRATION`. Vai trò này chỉ gọi được `GET` của hàng hóa, tồn kho, đơn hàng.
+- Key sai hoặc đã thu hồi: `401`. Thuê bao hết hạn hoặc đã về gói `FREE`: `403`. Giới hạn tốc độ tính theo key, mặc định 20 request mỗi giây, vượt thì `429`.
+- Trang `/settings/api-keys` cho `ADMIN`: tạo, sao chép key lúc vừa tạo, xem danh sách, thu hồi.
+
+**Tiêu chí nghiệm thu**
+
+Gọi `curl` với API key đọc được tồn kho của đúng doanh nghiệp; gọi `POST` bằng key bị từ chối; key đã thu hồi nhận `401`.
+
+### WMS-25.2 [Docs] Hướng dẫn tích hợp và Swagger công khai
+
+Người làm: Toàn. Ngày: 20/11. Jira: TASK-157. Phụ thuộc: WMS-25.1.
+
+Tài liệu `docs/INTEGRATION.md`: cách tạo API key, danh sách API được gọi, ví dụ `curl` cho hàng hóa, tồn kho, đơn hàng, bảng mã lỗi, giới hạn tốc độ. Swagger của các service truy cập được qua gateway (gộp WMS-21.1).
+
+### WMS-26.1 [Frontend] Rà soát giao diện toàn hệ thống
+
+Người làm: Toàn. Ngày: 18/11 đến 19/11. Jira: TASK-159. Phụ thuộc: mọi màn hình đã có.
+
+Toàn dùng thử toàn bộ hệ thống, ghi danh sách góp ý (bố cục, luồng thao tác, câu chữ, hiển thị trên điện thoại), sửa trực tiếp hoặc giao lại cho người phụ trách màn hình. Kết quả: danh sách góp ý đã xử lý kèm ảnh trước và sau.
+
+## 4. Ảnh hưởng tới phần đã làm
+
+| Phần đã có | Thay đổi sau khi tách doanh nghiệp |
+| --- | --- |
+| Mọi danh sách, tìm kiếm, báo cáo | Chỉ còn dữ liệu của doanh nghiệp đang đăng nhập |
+| Mã SKU, mã kho, mã đối tác, số chứng từ | Duy nhất trong một doanh nghiệp, không còn duy nhất toàn hệ thống |
+| Vai trò `ADMIN` | Là quản trị của một doanh nghiệp |
+| Test của các service | Phải đặt doanh nghiệp (header `X-Company-Id` hoặc `TenantContext`) trước khi gọi |
+| WebSocket | Kênh đổi sang dạng theo doanh nghiệp ở WMS-22.4c, Toàn sửa hook dùng chung |
+| Cache Redis (WMS-19.1) | Tên khóa phải có `companyId` |
+| Báo cáo WMS-15, WMS-16, WMS-17 | Bảng và truy vấn mới phải có `company_id` ngay từ đầu; truy vấn SQL gốc phải tự lọc |
+| Task nghiệp vụ làm từ 09/11 (WMS-10, 12, 13, 14) | Thực thể mới kế thừa `TenantEntity` ngay khi tạo |
+
+## 5. Điểm còn chờ chốt
+
+1. Giá gói Pro (499.000 đ mỗi tháng, 4.790.000 đ mỗi năm) đang lấy theo trang bảng giá, Toàn xác nhận trước ngày 10/11.
+2. Khóa PayOS và khóa AI do Toàn đặt trực tiếp vào `.env` trên máy chủ. Trước đó mọi người phát triển với `PAYOS_MOCK=true` và `AI_MOCK=true`.

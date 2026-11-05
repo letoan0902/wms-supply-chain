@@ -42,9 +42,5 @@ public record OrderCreatedEvent(
 
     public OrderCreatedEvent {
         items = items == null ? List.of() : List.copyOf(items);
-        if (orderType == null) {
-            orderType = (supplierId != null || (orderNumber != null && orderNumber.startsWith("PO")))
-                    ? OrderType.PURCHASE : OrderType.SALES;
-        }
     }
 }

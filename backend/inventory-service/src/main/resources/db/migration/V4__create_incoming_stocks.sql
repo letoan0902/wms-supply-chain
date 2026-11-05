@@ -1,4 +1,4 @@
--- V3__create_incoming_stocks.sql: Quản lý chỉ tiêu hàng đang trên đường về kho (Incoming Stock - WMS-09.2)
+-- V4__create_incoming_stocks.sql: Quản lý chỉ tiêu hàng đang trên đường về kho (Incoming Stock - WMS-09.2)
 -- Khi Đơn mua hàng (PO) được duyệt (APPROVED), hệ thống tự động ghi nhận lượng hàng chờ nhập vào kho tương ứng.
 
 CREATE TABLE incoming_stocks (

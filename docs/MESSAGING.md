@@ -256,7 +256,6 @@ Bên phát muốn gửi email thì dùng routing key `alert.*` khác `alert.low-
 ## 9. Việc tiếp theo
 
 - WMS-02.4 (làm ở PR frontend riêng, thư mục `frontend/src/features/realtime/`): giao diện nối `/ws-wms` bằng SockJS, gửi header `Authorization` trong frame CONNECT, SUBSCRIBE bốn topic ở mục 8.3, bỏ tin trùng theo `id`, lấy KPI ban đầu từ `GET /api/notifications/realtime/kpi`; `frontend/nginx.conf` có khối chuyển tiếp `/ws-wms` tới api-gateway (mục 8.1). Sau khi cả hai phần được merge cần thử trọn luồng trên máy chủ.
-- order-service: `PurchaseOrderEventListener` còn phát `order.created` bằng payload cũ khi duyệt PO, nên thông báo đơn mua chưa có mã đơn và loại đơn cho tới khi chuyển sang `OrderCreatedEvent` (WMS-09.2).
 - Gửi email cho `alert.low-stock` cần danh sách người nhận (ví dụ quản lý của kho); hiện cảnh báo này chỉ đẩy WebSocket (mục 8.5).
 - WMS-09.1, WMS-09.2, WMS-11.1, WMS-11.2: order-service chuyển sang `WmsEventPublisher.publishAfterCommit` với `OrderCreatedEvent`; inventory-service implement `OrderEventHandler` để cập nhật tồn chờ nhập và giữ hàng.
 - Khi hệ thống chạy nhiều doanh nghiệp (EPIC 10): thêm `companyId` vào từng record sự kiện; WebSocket tách topic theo doanh nghiệp (ví dụ `/topic/{companyId}/alerts`), interceptor chỉ cho SUBSCRIBE topic của `companyId` trong JWT, bộ đếm KPI tách khóa Redis theo `companyId`.

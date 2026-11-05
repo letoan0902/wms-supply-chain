@@ -72,13 +72,13 @@ public final class WmsEvents {
         /** inventory-service nhận order.created và order.dispatched để cập nhật tồn. */
         public static final String INVENTORY_ORDER_EVENTS = "inventory.order-events";
 
-        /** notification-service nhận mọi sự kiện đơn hàng (order.#) để thông báo. */
+        /** notification-service nhận mọi sự kiện đơn hàng (order.#) để đẩy thông báo WebSocket. */
         public static final String NOTIFICATION_ORDER_EVENTS = "notification.order-events";
 
-        /** notification-service nhận mọi sự kiện tồn kho (inventory.#). */
+        /** notification-service nhận mọi sự kiện tồn kho (inventory.#) để đẩy thông báo WebSocket. */
         public static final String NOTIFICATION_INVENTORY_EVENTS = "notification.inventory-events";
 
-        /** notification-service nhận cảnh báo (alert.#) để gửi email. */
+        /** notification-service nhận cảnh báo (alert.#): đẩy WebSocket (alert.low-stock) và gửi email. */
         public static final String NOTIFICATION_ALERTS = "notification.alerts";
 
         /** Danh sách mọi queue nghiệp vụ (không gồm queue dead-letter). */

@@ -87,10 +87,20 @@ class InventoryGatewayTest {
     }
 
     @Test
-    void getAtpReturnsZeroWhenNotFoundOrErrorOrNullId() {
+    void getAtpReturnsZeroWhenNotFoundOrNullId() {
         when(inventoryClient.getAtp(99L, 1L)).thenThrow(new FeignException.NotFound("not found", REQUEST, null, Map.of()));
 
         assertThat(gateway.getAtp(null, 1L).atpQuantity()).isZero();
         assertThat(gateway.getAtp(99L, 1L).atpQuantity()).isZero();
+    }
+
+    @Test
+    void getAtpThrowsServiceUnavailableOnNonNotFoundFeignErrors() {
+        when(inventoryClient.getAtp(98L, 1L))
+                .thenThrow(new FeignException.ServiceUnavailable("service down", REQUEST, null, Map.of()));
+
+        assertThatThrownBy(() -> gateway.getAtp(98L, 1L))
+                .isInstanceOf(ApiException.class)
+                .extracting(ex -> ((ApiException) ex).getErrorCode()).isEqualTo(ErrorCode.SERVICE_UNAVAILABLE);
     }
 }

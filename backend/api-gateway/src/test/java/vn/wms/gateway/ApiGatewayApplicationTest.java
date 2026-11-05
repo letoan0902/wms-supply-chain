@@ -5,10 +5,15 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.cloud.gateway.filter.ratelimit.KeyResolver;
 import org.springframework.cloud.gateway.filter.ratelimit.RateLimiter;
+import org.springframework.cloud.gateway.route.Route;
 import org.springframework.cloud.gateway.route.RouteLocator;
+import org.springframework.mock.http.server.reactive.MockServerHttpRequest;
+import org.springframework.mock.web.server.MockServerWebExchange;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.reactive.server.WebTestClient;
+import reactor.core.publisher.Mono;
 import vn.wms.gateway.ratelimit.UserOrIpKeyResolver;
+import vn.wms.gateway.security.GatewayJwtProperties;
 
 import java.util.List;
 
@@ -34,6 +39,9 @@ class ApiGatewayApplicationTest {
     @Autowired
     private RateLimiter<?> rateLimiter;
 
+    @Autowired
+    private GatewayJwtProperties jwtProperties;
+
     @Test
     void healthEndpointIsUp() {
         webTestClient.get().uri("/actuator/health")
@@ -47,7 +55,23 @@ class ApiGatewayApplicationTest {
         List<String> routeIds = routeLocator.getRoutes().map(route -> route.getId()).collectList().block();
 
         assertThat(routeIds).containsExactlyInAnyOrder(
-                "auth-service", "product-service", "inventory-service", "order-service", "notification-service");
+                "auth-service", "product-service", "inventory-service", "order-service", "notification-service",
+                "notification-websocket");
+    }
+
+    @Test
+    void webSocketRouteCoversRawAndSockJsHandshakePathsAndIsPublic() {
+        Route route = routeLocator.getRoutes().filter(candidate -> "notification-websocket".equals(candidate.getId()))
+                .blockFirst();
+
+        assertThat(route).isNotNull();
+        assertThat(route.getUri().toString()).isEqualTo("lb://notification-service");
+        for (String path : List.of("/ws-wms", "/ws-wms/info", "/ws-wms/123/abcdef/websocket")) {
+            MockServerWebExchange exchange = MockServerWebExchange.from(MockServerHttpRequest.get(path));
+            assertThat(Mono.from(route.getPredicate().apply(exchange)).block()).as(path).isTrue();
+        }
+        // Handshake không mang được Bearer header, JWT được kiểm tra ở frame STOMP CONNECT trong notification-service
+        assertThat(jwtProperties.publicPaths()).contains("/ws-wms/**");
     }
 
     @Test

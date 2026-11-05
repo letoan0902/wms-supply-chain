@@ -6,6 +6,8 @@ import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import PageLoading from '../components/PageLoading'
 import { clearAuth, getStoredUser } from '../utils/storage'
 import { logout } from '../features/auth/authApi'
+import NotificationBell from '../features/realtime/components/NotificationBell'
+import { useWebSocket } from '../features/realtime/useWebSocket'
 import { navigationItems } from './navigation'
 
 const { Header, Sider, Content } = Layout
@@ -23,6 +25,8 @@ export default function MainLayout() {
   // Màn hình hẹp (dưới breakpoint lg): sidebar thu gọn hoàn toàn và khi mở sẽ phủ lên nội dung
   const [isNarrowScreen, setIsNarrowScreen] = useState(false)
   const user = getStoredUser()
+  // Nối WebSocket nhận thông báo thời gian thực (MainLayout chỉ hiển thị sau khi đăng nhập)
+  useWebSocket()
 
   // Đường dẫn gốc của mục menu đang chọn: '/' giữ nguyên, '/products/12' thành '/products'
   const selectedKey = `/${pathname.split('/')[1]}`
@@ -97,21 +101,26 @@ export default function MainLayout() {
 
       <Layout>
         <Header
-          className="flex items-center justify-between"
+          className="flex items-center justify-between gap-3"
           style={{ background: '#fff', padding: '0 24px' }}
         >
-          <Typography.Title level={4} style={{ margin: 0 }}>
+          <Typography.Title level={4} ellipsis className="min-w-0" style={{ margin: 0 }}>
             {currentTitle ?? 'WMS Supply Chain'}
           </Typography.Title>
-          <Dropdown menu={{ items: userMenu }} placement="bottomRight">
-            <button
-              type="button"
-              className="flex cursor-pointer items-center gap-2 border-0 bg-transparent"
-            >
-              <Avatar size="small" icon={<UserOutlined />} />
-              <span>{user?.fullName ?? user?.username ?? 'Người dùng'}</span>
-            </button>
-          </Dropdown>
+          <div className="flex shrink-0 items-center gap-2 sm:gap-4">
+            <NotificationBell />
+            <Dropdown menu={{ items: userMenu }} placement="bottomRight">
+              <button
+                type="button"
+                className="flex cursor-pointer items-center gap-2 border-0 bg-transparent"
+              >
+                <Avatar size="small" icon={<UserOutlined />} />
+                <span className="hidden sm:inline">
+                  {user?.fullName ?? user?.username ?? 'Người dùng'}
+                </span>
+              </button>
+            </Dropdown>
+          </div>
         </Header>
 
         <Content className="p-4 md:p-6">

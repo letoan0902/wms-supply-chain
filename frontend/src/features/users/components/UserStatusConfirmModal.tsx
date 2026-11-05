@@ -28,7 +28,9 @@ export default function UserStatusConfirmModal({
   onConfirm,
   onCancel,
 }: Props) {
-  const [form] = Form.useForm()
+  const [form] = Form.useForm<{ reason: string }>()
+
+  const isLocking = !targetStatus
 
   useEffect(() => {
     if (open) {
@@ -43,14 +45,12 @@ export default function UserStatusConfirmModal({
 
   if (!user) return null
 
-  const isLocking = !targetStatus
-
   const handleOk = async () => {
     try {
       const values = await form.validateFields()
-      await onConfirm(user, targetStatus, values.reason || '')
+      await onConfirm(user, targetStatus, values.reason.trim())
     } catch {
-      // Validate error
+      // Form validation error
     }
   }
 

@@ -7,6 +7,8 @@ import jakarta.validation.constraints.NotNull;
  */
 public record UpdateUserStatusRequest(
         @NotNull(message = "Trạng thái kích hoạt không được để trống")
-        Boolean enabled
+        Boolean enabled,
+        @NotNull(message = "Vui lòng nhập lý do muốn thay đổi trạng thái")
+        String reasonChange
 ) {
 }

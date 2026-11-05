@@ -31,7 +31,7 @@ export default function AssignWarehousesModal({
   }
 
   const handleOk = async () => {
-    if (!user) return
+    if (!user || selectedIds.length === 0) return
     await onSubmit(user.id, selectedIds)
   }
 
@@ -65,6 +65,9 @@ export default function AssignWarehousesModal({
       onCancel={onCancel}
       confirmLoading={confirmLoading}
       okText="Lưu phân quyền"
+      okButtonProps={{
+        disabled: selectedIds.length === 0,
+      }}
       cancelText="Hủy"
       width={600}
       destroyOnClose
@@ -100,6 +103,16 @@ export default function AssignWarehousesModal({
           description="Người dùng chỉ được xem và thao tác trên Vị trí kệ, Tồn kho, Phiếu nhập kho, Phiếu xuất kho và Phiên kiểm kê thuộc đúng các nhà kho được tích chọn bên dưới."
           className="text-xs"
         />
+
+        {selectedIds.length === 0 && (
+          <Alert
+            type="warning"
+            showIcon
+            message="Chưa chọn nhà kho nào"
+            description="Quy định hệ thống yêu cầu nhân sự phải được gán ít nhất một nhà kho. Vui lòng chọn tối thiểu 1 kho bên dưới để có thể lưu."
+            className="text-xs"
+          />
+        )}
 
         {/* Checkbox select all */}
         <div className="flex items-center justify-between px-1">

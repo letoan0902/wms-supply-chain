@@ -37,6 +37,6 @@ export const navigationItems: NavigationItem[] = [
   { path: '/purchases', label: 'Mua hàng và nhập kho', icon: <ShoppingCartOutlined /> },
   { path: '/sales', label: 'Bán hàng và xuất kho', icon: <ShoppingOutlined />, sprint: 3 },
   { path: '/stocktakes', label: 'Kiểm kê', icon: <AuditOutlined />, sprint: 4 },
-  { path: '/reports', label: 'Báo cáo', icon: <BarChartOutlined />, sprint: 3 },
+  { path: '/reports', label: 'Báo cáo', icon: <BarChartOutlined /> },
   { path: '/users', label: 'Người dùng', icon: <TeamOutlined /> },
 ]

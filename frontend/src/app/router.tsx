@@ -36,6 +36,7 @@ export const router = createBrowserRouter([
     ),
   },
   {
+    path: '/',
     element: <ProtectedRoute />,
     children: [
       {
@@ -53,6 +54,10 @@ export const router = createBrowserRouter([
           { path: 'purchases', Component: lazy(() => import('../features/purchases/PurchasesPage')) },
           // Quản lý Người dùng & Phân quyền RBAC (FR01, FR02 - Sprint 2)
           { path: 'users', Component: lazy(() => import('../features/users/UsersPage')) },
+          // Báo cáo Nhập-Xuất-Tồn kho & Thống kê (UC-10 - SRS Mục 2.5)
+          { path: 'reports', Component: lazy(() => import('../pages/ReportsPage')) },
+          // Hồ sơ cá nhân & Đổi mật khẩu
+          { path: 'profile', Component: lazy(() => import('../features/profile/ProfilePage')) },
           ...placeholderRoutes,
           { path: '*', element: <NotFoundPage /> },
         ],

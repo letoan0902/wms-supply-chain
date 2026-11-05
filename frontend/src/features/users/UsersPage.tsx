@@ -1,5 +1,6 @@
-import { App, Breadcrumb, Typography } from 'antd'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { App, Breadcrumb, Button, Result, Typography } from 'antd'
+import { useCallback, useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import AssignWarehousesModal from './components/AssignWarehousesModal'
 import UserDetailDrawer from './components/UserDetailDrawer'
 import UserFormModal from './components/UserFormModal'
@@ -22,7 +23,9 @@ const { Title, Text } = Typography
 
 export default function UsersPage() {
   const { message } = App.useApp()
+  const navigate = useNavigate()
   const currentUser = getStoredUser()
+  const isAdmin = Boolean(currentUser?.roles?.includes('ADMIN'))
 
   // Danh sách users & phân trang
   const [users, setUsers] = useState<UserDetail[]>([])
@@ -40,6 +43,14 @@ export default function UsersPage() {
   const [warehouseFilter, setWarehouseFilter] = useState<number | undefined>(undefined)
   const [enabledFilter, setEnabledFilter] = useState<boolean | undefined>(undefined)
 
+  // Thống kê toàn hệ thống (Metrics)
+  const [metrics, setMetrics] = useState<UserMetrics>({
+    totalUsers: 0,
+    activeUsers: 0,
+    lockedUsers: 0,
+    warehouseOpsUsers: 0,
+  })
+
   // Modal State
   const [isFormOpen, setIsFormOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<UserDetail | null>(null)
@@ -52,35 +63,56 @@ export default function UsersPage() {
   const [isDetailOpen, setIsDetailOpen] = useState(false)
   const [viewingUser, setViewingUser] = useState<UserDetail | null>(null)
 
-  // Modal Xác nhận Trạng thái (Khóa / Mở khóa kèm Lý do)
+  // Modal Xác nhận Trạng thái (Khóa / Mở khóa)
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false)
   const [statusTargetUser, setStatusTargetUser] = useState<UserDetail | null>(null)
   const [statusTargetValue, setStatusTargetValue] = useState<boolean>(true)
   const [statusSubmitting, setStatusSubmitting] = useState(false)
 
-  // 1. Tải danh sách người dùng từ Backend (kết hợp bộ lọc & phân trang)
-  const loadUsers = useCallback(async () => {
+  // 1. Tải danh sách người dùng và các chỉ số toàn hệ thống từ Backend
+  const loadUsersAndMetrics = useCallback(async () => {
+    if (!isAdmin) return
     setLoading(true)
     try {
-      const data = await userApi.fetchUsers({
-        keyword: keyword.trim() || undefined,
-        role: roleFilter || undefined,
-        warehouseId: warehouseFilter,
-        enabled: enabledFilter,
-        page,
-        size: pageSize,
+      const [listData, activeRes, lockedRes, managerRes, staffRes] = await Promise.all([
+        userApi.fetchUsers({
+          keyword: keyword.trim() || undefined,
+          role: roleFilter || undefined,
+          warehouseId: warehouseFilter,
+          enabled: enabledFilter,
+          page,
+          size: pageSize,
+        }),
+        userApi.fetchUsers({ enabled: true, size: 1 }).catch(() => null),
+        userApi.fetchUsers({ enabled: false, size: 1 }).catch(() => null),
+        userApi.fetchUsers({ role: 'WAREHOUSE_MANAGER', size: 1 }).catch(() => null),
+        userApi.fetchUsers({ role: 'WAREHOUSE_STAFF', size: 1 }).catch(() => null),
+      ])
+
+      setUsers(listData?.content || [])
+      setTotal(listData?.totalElements || 0)
+
+      const activeTotal = activeRes?.totalElements ?? 0
+      const lockedTotal = lockedRes?.totalElements ?? 0
+      const opsTotal = (managerRes?.totalElements ?? 0) + (staffRes?.totalElements ?? 0)
+      const systemTotal = activeTotal + lockedTotal > 0 ? activeTotal + lockedTotal : (listData?.totalElements || 0)
+
+      setMetrics({
+        totalUsers: systemTotal,
+        activeUsers: activeTotal,
+        lockedUsers: lockedTotal,
+        warehouseOpsUsers: opsTotal,
       })
-      setUsers(data?.content || [])
-      setTotal(data?.totalElements || 0)
     } catch (err) {
       message.error(getApiErrorMessage(err, 'Không thể tải danh sách người dùng từ máy chủ'))
     } finally {
       setLoading(false)
     }
-  }, [keyword, roleFilter, warehouseFilter, enabledFilter, page, pageSize, message])
+  }, [isAdmin, keyword, roleFilter, warehouseFilter, enabledFilter, page, pageSize, message])
 
   // 2. Tải danh sách kho thực tế từ backend để hiển thị tên kho
   useEffect(() => {
+    if (!isAdmin) return
     let ignore = false
     const initWarehouses = async () => {
       try {
@@ -96,35 +128,36 @@ export default function UsersPage() {
     return () => {
       ignore = true
     }
-  }, [])
+  }, [isAdmin])
 
   // 3. Tải danh sách người dùng khi bộ lọc / phân trang thay đổi (có debounce nhẹ với keyword)
   useEffect(() => {
+    if (!isAdmin) return
     const timer = setTimeout(() => {
-      void loadUsers()
+      void loadUsersAndMetrics()
     }, 250)
     return () => clearTimeout(timer)
-  }, [loadUsers])
+  }, [isAdmin, loadUsersAndMetrics])
 
-  // 4. Tính toán Metrics thống kê
-  const metrics: UserMetrics = useMemo(() => {
-    const activeCount = users.filter((u) => u.enabled).length
-    const lockedCount = users.filter((u) => !u.enabled).length
-    const warehouseOpsCount = users.filter(
-      (u) =>
-        u.roles?.includes('WAREHOUSE_MANAGER') ||
-        u.roles?.includes('WAREHOUSE_STAFF')
-    ).length
+  // Nếu người dùng không có vai trò ADMIN: Chặn truy cập và hiển thị 403
+  if (!isAdmin) {
+    return (
+      <div className="p-8 bg-white rounded-xl shadow-xs border border-slate-200">
+        <Result
+          status="403"
+          title="403 - Quyền truy cập bị từ chối"
+          subTitle="Chức năng Quản lý Người dùng và Phân quyền chỉ dành riêng cho Quản trị viên (ADMIN). Vui lòng liên hệ quản trị hệ thống nếu bạn cần cấp quyền."
+          extra={
+            <Button type="primary" onClick={() => navigate('/')} className="bg-blue-600">
+              Quay lại Trang chủ
+            </Button>
+          }
+        />
+      </div>
+    )
+  }
 
-    return {
-      totalUsers: total || users.length,
-      activeUsers: activeCount,
-      lockedUsers: lockedCount,
-      warehouseOpsUsers: warehouseOpsCount,
-    }
-  }, [users, total])
-
-  // 5. Handlers
+  // 4. Handlers
   const handlePageChange = (newPage: number, newPageSize: number) => {
     setPage(newPage)
     setPageSize(newPageSize)
@@ -162,7 +195,7 @@ export default function UsersPage() {
         message.success('Tạo mới tài khoản người dùng thành công!')
       }
       setIsFormOpen(false)
-      void loadUsers()
+      void loadUsersAndMetrics()
     } catch (err) {
       message.error(getApiErrorMessage(err, 'Thao tác không thành công'))
     } finally {
@@ -170,14 +203,14 @@ export default function UsersPage() {
     }
   }
 
-  // Yêu cầu đổi trạng thái -> Mở Modal Confirm có ô nhập lý do
+  // Yêu cầu đổi trạng thái -> Mở Modal Confirm
   const handleRequestToggleStatus = (user: UserDetail, nextStatus: boolean) => {
     setStatusTargetUser(user)
     setStatusTargetValue(nextStatus)
     setIsStatusModalOpen(true)
   }
 
-  // Xác nhận đổi trạng thái từ Modal Confirm
+  // Xác nhận đổi trạng thái từ Modal Confirm (kèm lý do)
   const handleConfirmStatusChange = async (
     user: UserDetail,
     nextStatus: boolean,
@@ -185,14 +218,14 @@ export default function UsersPage() {
   ) => {
     setStatusSubmitting(true)
     try {
-      await userApi.updateUserStatus(user.id, nextStatus)
+      await userApi.updateUserStatus(user.id, nextStatus, reason)
       message.success(
         nextStatus
           ? `Đã mở khóa tài khoản @${user.username}`
-          : `Đã tạm khóa tài khoản @${user.username} (${reason})`
+          : `Đã tạm khóa tài khoản @${user.username}`
       )
       setIsStatusModalOpen(false)
-      void loadUsers()
+      void loadUsersAndMetrics()
     } catch (err) {
       message.error(getApiErrorMessage(err, 'Không thể thay đổi trạng thái tài khoản'))
     } finally {
@@ -215,7 +248,7 @@ export default function UsersPage() {
       await userApi.assignWarehouses(userId, warehouseIds)
       message.success('Cập nhật phân quyền kho thành công!')
       setIsAssignOpen(false)
-      void loadUsers()
+      void loadUsersAndMetrics()
     } catch (err) {
       message.error(getApiErrorMessage(err, 'Không thể cập nhật phân quyền kho'))
     } finally {
@@ -252,7 +285,7 @@ export default function UsersPage() {
         </div>
       </div>
 
-      {/* 4 Thẻ chỉ số tổng quan */}
+      {/* 4 Thẻ chỉ số tổng quan toàn hệ thống */}
       <UserMetricsCards metrics={metrics} loading={loading && users.length === 0} />
 
       {/* Bảng dữ liệu người dùng & Toolbar */}
@@ -291,10 +324,10 @@ export default function UsersPage() {
         onViewUser={handleViewUser}
         onAssignWarehouses={handleOpenAssignWarehouses}
         onRequestToggleStatus={handleRequestToggleStatus}
-        onRefresh={loadUsers}
+        onRefresh={loadUsersAndMetrics}
       />
 
-      {/* Modal Xác nhận Đổi trạng thái kèm Lý do */}
+      {/* Modal Xác nhận Đổi trạng thái */}
       <UserStatusConfirmModal
         open={isStatusModalOpen}
         user={statusTargetUser}

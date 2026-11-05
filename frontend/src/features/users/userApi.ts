@@ -33,8 +33,16 @@ export async function updateUser(id: number, payload: AdminUpdateUserPayload): P
   return res.data.data
 }
 
-export async function updateUserStatus(id: number, enabled: boolean): Promise<UserDetail> {
-  const res = await api.patch<ApiResponse<UserDetail>>(`/auth/users/${id}/status`, { enabled })
+export async function updateUserStatus(
+  id: number,
+  enabled: boolean,
+  reason?: string
+): Promise<UserDetail> {
+  const res = await api.patch<ApiResponse<UserDetail>>(`/auth/users/${id}/status`, {
+    enabled,
+    reason,
+    reasonChange: reason,
+  })
   return res.data.data
 }
 

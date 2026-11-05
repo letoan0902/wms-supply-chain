@@ -48,6 +48,19 @@ export function getStoredUser(): AuthUser | null {
   }
 }
 
+export function updateStoredUser(updates: Partial<AuthUser>): void {
+  try {
+    const current = getStoredUser()
+    if (current) {
+      const merged = { ...current, ...updates }
+      localStorage.setItem(USER_KEY, JSON.stringify(merged))
+      window.dispatchEvent(new Event('wms:user-updated'))
+    }
+  } catch {
+    // Bỏ qua
+  }
+}
+
 export function saveAuth(token: string, user: AuthUser, refreshToken?: string): void {
   try {
     localStorage.setItem(TOKEN_KEY, token)

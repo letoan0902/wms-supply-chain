@@ -17,38 +17,37 @@ export interface RoleConfigItem {
 }
 
 /**
- * Cấu hình hiển thị vai trò: sử dụng hệ màu công nghiệp hiện đại, độ tương phản cao,
- * tránh hoàn toàn các gam màu tím, tím than, tím ánh đen và xanh navi.
+ * Cấu hình nhãn tiếng Việt và màu sắc hiển thị cho từng vai trò trong hệ thống.
  */
 export const ROLE_CONFIG: Record<string, RoleConfigItem> = {
   ADMIN: {
     label: 'Quản trị hệ thống',
-    color: 'volcano', // Đỏ gạch
+    color: 'volcano',
     description: 'Toàn quyền cấu hình và quản trị hệ thống',
   },
   WAREHOUSE_MANAGER: {
     label: 'Quản lý kho',
-    color: 'blue', // Xanh công nghiệp
+    color: 'blue',
     description: 'Quản lý danh mục kho, vị trí kệ, duyệt đơn mua và điều chuyển',
   },
   WAREHOUSE_STAFF: {
     label: 'Nhân viên kho',
-    color: 'cyan', // Xanh mòng két
+    color: 'cyan',
     description: 'Thực hiện xuất nhập kho, quét mã vạch và kiểm đếm thực tế',
   },
   PURCHASING: {
     label: 'Nhân viên mua hàng',
-    color: 'orange', // Cam ấm
+    color: 'orange',
     description: 'Tạo đơn mua hàng (PO), theo dõi nhà cung cấp',
   },
   SALES: {
     label: 'Nhân viên bán hàng',
-    color: 'green', // Xanh lục tươi
+    color: 'green',
     description: 'Tạo đơn bán hàng (SO), theo dõi khách hàng và xuất kho',
   },
   ACCOUNTANT: {
     label: 'Kế toán',
-    color: 'gold', // Vàng hổ phách
+    color: 'gold',
     description: 'Quản lý công nợ, đối soát hóa đơn và duyệt kiểm kê',
   },
 }

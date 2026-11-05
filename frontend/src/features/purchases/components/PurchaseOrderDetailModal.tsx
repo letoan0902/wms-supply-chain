@@ -32,7 +32,8 @@ interface Props {
   order: PurchaseOrder | null
   onClose: () => void
   onOrderUpdated?: (updated: PurchaseOrder) => void
-  canManage?: boolean
+  canApprove?: boolean
+  canCancel?: boolean
 }
 
 export default function PurchaseOrderDetailModal({
@@ -40,7 +41,8 @@ export default function PurchaseOrderDetailModal({
   order,
   onClose,
   onOrderUpdated,
-  canManage = true,
+  canApprove = false,
+  canCancel = false,
 }: Props) {
   const { message } = App.useApp()
   const [actionLoading, setActionLoading] = useState(false)
@@ -59,7 +61,7 @@ export default function PurchaseOrderDetailModal({
     setActionLoading(true)
     try {
       const updated = await purchasesApi.approvePurchaseOrder(order.id)
-      message.success(`Phê duyệt đơn mua hàng "${order.poNumber}" thành công! Sự kiện đã được gửi sang kho để cập nhật hàng đang về.`)
+      message.success(`Phê duyệt đơn mua hàng "${order.poNumber}" thành công! Đã gửi sự kiện sang kho.`)
       onOrderUpdated?.(updated)
     } catch (err) {
       message.error(getApiErrorMessage(err, 'Lỗi khi phê duyệt đơn mua hàng'))
@@ -190,7 +192,7 @@ export default function PurchaseOrderDetailModal({
         footer={
           <div className="flex items-center justify-between">
             <div className="text-xs text-slate-500">
-              {isPending && canManage && (
+              {isPending && canApprove && (
                 <span className="text-amber-600 font-medium">
                   Đơn đang chờ phê duyệt từ cấp Quản lý kho / Mua hàng
                 </span>
@@ -200,7 +202,7 @@ export default function PurchaseOrderDetailModal({
             <Space>
               <Button onClick={onClose}>Đóng</Button>
 
-              {isCancellable && canManage && (
+              {isCancellable && canCancel && (
                 <Popconfirm
                   title="Xác nhận hủy đơn mua hàng?"
                   description={`Bạn có chắc muốn hủy đơn "${order.poNumber}"?`}
@@ -215,7 +217,7 @@ export default function PurchaseOrderDetailModal({
                 </Popconfirm>
               )}
 
-              {isPending && canManage && (
+              {isPending && canApprove && (
                 <>
                   <Button
                     danger

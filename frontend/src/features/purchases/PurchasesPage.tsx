@@ -56,10 +56,15 @@ const { Search } = Input
 export default function PurchasesPage() {
   const { message } = App.useApp()
   const currentUser = getStoredUser()
-  const canManage =
+  const canApprove =
     currentUser?.roles?.some((r) =>
       ['ADMIN', 'WAREHOUSE_MANAGER', 'PURCHASING'].includes(r)
-    ) ?? true
+    ) ?? false
+
+  const canCancel =
+    currentUser?.roles?.some((r) =>
+      ['ADMIN', 'PURCHASING'].includes(r)
+    ) ?? false
 
   // Tab active: 'list' | 'create'
   const [activeTab, setActiveTab] = useState<'list' | 'create'>('list')
@@ -220,7 +225,7 @@ export default function PurchasesPage() {
   const handleQuickApprove = async (order: PurchaseOrder) => {
     try {
       await purchasesApi.approvePurchaseOrder(order.id)
-      message.success(`Đã phê duyệt đơn mua "${order.poNumber}"! Hàng đang về đã được cập nhật.`)
+      message.success(`Đã phê duyệt đơn mua "${order.poNumber}"! Đã gửi sự kiện sang kho.`)
       reloadData()
     } catch (err) {
       message.error(getApiErrorMessage(err, 'Lỗi khi phê duyệt đơn mua hàng'))
@@ -245,17 +250,26 @@ export default function PurchasesPage() {
       const currentStatus =
         selectedStatusTab !== 'ALL' ? (selectedStatusTab as OrderStatus) : undefined
 
-      const data = await purchasesApi.fetchPurchaseOrders({
-        keyword,
-        supplierId: selectedSupplierId,
-        warehouseId: selectedWarehouseId,
-        status: currentStatus,
-        fromOrderDate: dateRange[0],
-        toOrderDate: dateRange[1],
-        page: 0,
-        size: 1000,
-      })
-      const exportList = data.content || []
+      let currentPage = 0
+      let isLast = false
+      let exportList: PurchaseOrder[] = []
+
+      while (!isLast) {
+        const data = await purchasesApi.fetchPurchaseOrders({
+          keyword,
+          supplierId: selectedSupplierId,
+          warehouseId: selectedWarehouseId,
+          status: currentStatus,
+          fromOrderDate: dateRange[0],
+          toOrderDate: dateRange[1],
+          page: currentPage,
+          size: 100,
+        })
+        const items = data.content || []
+        exportList = exportList.concat(items)
+        isLast = Boolean(data.last || items.length === 0 || currentPage >= (data.totalPages - 1))
+        currentPage++
+      }
       if (exportList.length === 0) {
         message.warning('Không có dữ liệu đơn mua hàng để xuất Excel')
         return
@@ -412,7 +426,7 @@ export default function PurchasesPage() {
               />
             </Tooltip>
 
-            {isPending && canManage && (
+            {isPending && canApprove && (
               <>
                 <Tooltip title="Phê duyệt đơn mua ngay">
                   <Popconfirm
@@ -447,7 +461,7 @@ export default function PurchasesPage() {
               </>
             )}
 
-            {isCancellable && canManage && (
+            {isCancellable && canCancel && (
               <Tooltip title="Hủy đơn mua">
                 <Popconfirm
                   title="Hủy đơn mua hàng?"
@@ -491,6 +505,7 @@ export default function PurchasesPage() {
       ),
     },
     { key: 'APPROVED', label: `Đã duyệt (${summary?.approvedOrders ?? 0})` },
+    { key: 'CONFIRMED', label: 'Đã xác nhận' },
     { key: 'DRAFT', label: `Bản nháp (${summary?.draftOrders ?? 0})` },
     { key: 'REJECTED', label: `Đã từ chối (${summary?.rejectedOrders ?? 0})` },
     { key: 'CANCELLED', label: `Đã hủy (${summary?.cancelledOrders ?? 0})` },
@@ -753,7 +768,8 @@ export default function PurchasesPage() {
           setSelectedOrder(updated)
           reloadData()
         }}
-        canManage={canManage}
+        canApprove={canApprove}
+        canCancel={canCancel}
       />
 
       {/* Modal Từ chối phê duyệt nhanh */}

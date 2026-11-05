@@ -11,7 +11,7 @@
 # để không lộ ra mạng LAN; chỉ frontend (80) và api-gateway (8080) mở ra bên ngoài.
 #
 # Thứ tự khởi động (depends_on kèm healthcheck):
-#   mysql / redis / rabbitmq -> config-server -> discovery-server
+#   mysql / redis / rabbitmq (-> rabbitmq-init nạp topology RabbitMQ) -> config-server -> discovery-server
 #   -> auth / product / inventory / order / notification, api-gateway -> frontend
 # ============================================================================
 
@@ -31,6 +31,8 @@ x-backend-env: &backend-env
   EUREKA_URL: http://discovery-server:8761/eureka
   REDIS_HOST: redis
   RABBITMQ_HOST: rabbitmq
+  RABBITMQ_USERNAME: ${RABBITMQ_USERNAME:-guest}
+  RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-guest}
   JWT_SECRET: ${JWT_SECRET:?Thiếu JWT_SECRET trong file .env}
 
 # Thông tin kết nối CSDL (mỗi service chỉ dùng schema của riêng mình, xem DB_URL)
@@ -53,6 +55,8 @@ x-depends-on-core: &depends-on-core
     condition: service_healthy
   rabbitmq:
     condition: service_healthy
+  rabbitmq-init:
+    condition: service_completed_successfully
   config-server:
     condition: service_healthy
   discovery-server:
@@ -179,6 +183,9 @@ services:
       dockerfile: api-gateway/Dockerfile
     environment:
       <<: *backend-env
+      # Kiểm tra JWT tại gateway: mặc định tắt ở máy phát triển, đặt GATEWAY_JWT_ENABLED=true trong .env để thử
+      # phân quyền theo kho (WMS-04.2). notification-service dùng chung công tắc này cho WebSocket /ws-wms.
+      GATEWAY_JWT_ENABLED: ${GATEWAY_JWT_ENABLED:-false}
     depends_on:
       redis:
         condition: service_healthy

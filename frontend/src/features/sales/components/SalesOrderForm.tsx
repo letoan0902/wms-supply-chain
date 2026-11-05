@@ -41,6 +41,7 @@ import type {
   OrderStatus,
   SalesOrder,
   SalesOrderItemPayload,
+  StockAtpResponse,
 } from '../types'
 import CustomerCreditAlert from './CustomerCreditAlert'
 import SalesOrderItemsTable from './SalesOrderItemsTable'
@@ -182,8 +183,8 @@ export default function SalesOrderForm({
           size: 50,
         })
         setCustomers(res.content || [])
-      } catch (err) {
-        console.error('Lỗi tìm kiếm khách hàng', err)
+      } catch {
+        setCreditInfo(null)
       } finally {
         setLoadingCustomers(false)
       }
@@ -205,8 +206,8 @@ export default function SalesOrderForm({
           size: 50,
         })
         setProducts(res.content || [])
-      } catch (err) {
-        console.error('Lỗi tìm kiếm sản phẩm', err)
+      } catch {
+        setCreditInfo(null)
       } finally {
         setLoadingProducts(false)
       }
@@ -235,8 +236,8 @@ export default function SalesOrderForm({
           orderTotals.grandTotal
         )
         setCreditInfo(res)
-      } catch (err) {
-        console.error('Lỗi kiểm tra hạn mức công nợ khách hàng', err)
+      } catch {
+        setCreditInfo(null)
       } finally {
         setLoadingCredit(false)
       }
@@ -270,10 +271,23 @@ export default function SalesOrderForm({
 
   const refreshAllItemsAtp = useCallback(
     async (warehouseId?: number) => {
-      const updated = await Promise.all(
-        items.map(async (it) => {
-          if (!it.productId) return it
-          const atp = await fetchAtpForProduct(it.productId, warehouseId)
+      const currentItems = items.filter((it) => Boolean(it.productId))
+      if (currentItems.length === 0) return
+
+      const atpMap = new Map<number, StockAtpResponse>()
+      await Promise.all(
+        currentItems.map(async (it) => {
+          if (it.productId && !atpMap.has(it.productId)) {
+            const atp = await fetchAtpForProduct(it.productId, warehouseId)
+            atpMap.set(it.productId, atp)
+          }
+        })
+      )
+
+      setItems((prev) =>
+        prev.map((it) => {
+          if (!it.productId || !atpMap.has(it.productId)) return it
+          const atp = atpMap.get(it.productId)!
           return {
             ...it,
             onHandQuantity: atp.onHandQuantity,
@@ -282,7 +296,6 @@ export default function SalesOrderForm({
           }
         })
       )
-      setItems(updated)
     },
     [items, fetchAtpForProduct]
   )
@@ -496,9 +509,7 @@ export default function SalesOrderForm({
                   onSearch={handleSearchCustomer}
                   onChange={(val) => {
                     setSelectedCustomerId(val)
-                    if (!val) {
-                      setCreditInfo(null)
-                    }
+                    setCreditInfo(null)
                     const cust = customers.find((c) => c.id === val)
                     if (cust && cust.address && !form.getFieldValue('deliveryAddress')) {
                       form.setFieldValue('deliveryAddress', cust.address)

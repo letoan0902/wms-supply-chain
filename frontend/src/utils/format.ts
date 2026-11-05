@@ -15,3 +15,22 @@ export function formatCurrency(value: number): string {
 export function formatNumber(value: number): string {
   return numberFormatter.format(value)
 }
+
+/** Định dạng ngày giờ theo kiểu Việt Nam, ví dụ: 24/10/2026 14:30 */
+export function formatDateTime(isoString?: string | null): string {
+  if (!isoString) return '—'
+  try {
+    const d = new Date(isoString)
+    if (isNaN(d.getTime())) return '—'
+    return new Intl.DateTimeFormat('vi-VN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    }).format(d)
+  } catch {
+    return '—'
+  }
+}
+

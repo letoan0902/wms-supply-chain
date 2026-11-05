@@ -249,7 +249,7 @@ class UserApplicationTest extends BaseIntegrationTest {
         mockMvc.perform(patch("/api/auth/users/" + staff.getId() + "/status")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(Map.of("enabled", false))))
+                        .content(objectMapper.writeValueAsString(Map.of("enabled", false, "reasonChange", "Khóa thử nghiệm"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.enabled").value(false));
 
@@ -264,7 +264,7 @@ class UserApplicationTest extends BaseIntegrationTest {
         mockMvc.perform(patch("/api/auth/users/" + staff.getId() + "/status")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(Map.of("enabled", true))))
+                        .content(objectMapper.writeValueAsString(Map.of("enabled", true, "reasonChange", "Mở khóa thử nghiệm"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.enabled").value(true));
 
@@ -321,7 +321,7 @@ class UserApplicationTest extends BaseIntegrationTest {
         mockMvc.perform(patch("/api/auth/users/" + admin.getId() + "/status")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(Map.of("enabled", false))))
+                        .content(objectMapper.writeValueAsString(Map.of("enabled", false, "reasonChange", "Tự khóa"))))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("không được phép tự khóa")));
 
@@ -375,7 +375,7 @@ class UserApplicationTest extends BaseIntegrationTest {
         mockMvc.perform(patch("/api/auth/users/" + admin2.getId() + "/status")
                         .header("Authorization", "Bearer " + adminToken)
                         .contentType(MediaType.APPLICATION_JSON)
-                        .content(objectMapper.writeValueAsString(Map.of("enabled", false))))
+                        .content(objectMapper.writeValueAsString(Map.of("enabled", false, "reasonChange", "Khóa admin phụ"))))
                 .andExpect(status().isOk());
 
         // Hiện tại chỉ còn 1 admin active ("admin"). Thử gỡ quyền ADMIN của admin -> bị chặn

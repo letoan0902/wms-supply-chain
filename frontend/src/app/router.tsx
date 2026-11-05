@@ -9,6 +9,7 @@ import { navigationItems } from './navigation'
 
 const LoginPage = lazy(() => import('../features/auth/LoginPage'))
 const ForgotPasswordPage = lazy(() => import('../features/auth/ForgotPasswordPage'))
+const LandingPage = lazy(() => import('../features/landing/LandingPage'))
 
 // Các chức năng chưa phát triển dùng trang giữ chỗ, thay bằng trang thật khi hoàn thành
 const placeholderRoutes = navigationItems
@@ -19,6 +20,22 @@ const placeholderRoutes = navigationItems
   }))
 
 export const router = createBrowserRouter([
+  {
+    path: '/landing',
+    element: (
+      <Suspense fallback={<PageLoading fullScreen tip="Đang tải trang giới thiệu..." />}>
+        <LandingPage />
+      </Suspense>
+    ),
+  },
+  {
+    path: '/pricing',
+    element: (
+      <Suspense fallback={<PageLoading fullScreen tip="Đang tải bảng giá dịch vụ..." />}>
+        <LandingPage />
+      </Suspense>
+    ),
+  },
   {
     path: '/login',
     element: (

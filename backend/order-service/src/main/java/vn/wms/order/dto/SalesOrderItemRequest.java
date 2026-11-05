@@ -13,7 +13,8 @@ import java.math.BigDecimal;
  * DTO yêu cầu cho từng dòng sản phẩm trong đơn bán hàng (SO Item) (FR15 - WMS-11.1).
  */
 public record SalesOrderItemRequest(
-        @Schema(description = "ID sản phẩm (nếu đã có trong danh mục)", example = "1")
+        @NotNull(message = "ID sản phẩm không được để trống")
+        @Schema(description = "ID sản phẩm trong danh mục", example = "1")
         Long productId,
 
         @NotBlank(message = "Mã SKU không được để trống")

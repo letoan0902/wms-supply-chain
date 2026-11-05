@@ -1,15 +1,18 @@
 import { api } from '../../services/api'
 import type { ApiResponse, PageResponse } from '../../types/api'
 import type {
+  CreateCustomerPayload,
   Customer,
   CustomerCreditCheckResponse,
+  CustomerDebtSummary,
   CustomerQueryParams,
   CustomerTransaction,
   RecordCustomerTransactionPayload,
+  UpdateCustomerPayload,
 } from './types'
 
 /**
- * Gọi API danh sách khách hàng có phân trang & tìm kiếm.
+ * Gọi API danh sách khách hàng có phân trang & tìm kiếm (FR14).
  */
 export async function fetchCustomers(
   params: CustomerQueryParams = {}
@@ -52,6 +55,40 @@ export async function fetchCustomerById(customerId: number): Promise<Customer> {
 }
 
 /**
+ * Chi tiết một khách hàng theo Mã code duy nhất.
+ */
+export async function fetchCustomerByCode(code: string): Promise<Customer> {
+  const res = await api.get<ApiResponse<Customer>>(`/orders/customers/code/${code}`)
+  return res.data.data
+}
+
+/**
+ * Thêm mới hồ sơ khách hàng / đại lý & cấu hình hạn mức nợ (FR14).
+ */
+export async function createCustomer(payload: CreateCustomerPayload): Promise<Customer> {
+  const res = await api.post<ApiResponse<Customer>>('/orders/customers', payload)
+  return res.data.data
+}
+
+/**
+ * Cập nhật hồ sơ khách hàng / đại lý & hạn mức nợ (FR14).
+ */
+export async function updateCustomer(
+  id: number,
+  payload: UpdateCustomerPayload
+): Promise<Customer> {
+  const res = await api.put<ApiResponse<Customer>>(`/orders/customers/${id}`, payload)
+  return res.data.data
+}
+
+/**
+ * Xóa mềm khách hàng (chuyển sang ngưng hoạt động active = false).
+ */
+export async function deleteCustomer(id: number): Promise<void> {
+  await api.delete<ApiResponse<void>>(`/orders/customers/${id}`)
+}
+
+/**
  * Lấy lịch sử giao dịch công nợ & Hóa đơn gần đây của khách hàng (FR14, FR18).
  */
 export async function fetchCustomerTransactions(
@@ -81,5 +118,13 @@ export async function recordCustomerTransaction(
     `/orders/customers/${customerId}/transactions`,
     payload
   )
+  return res.data.data
+}
+
+/**
+ * Báo cáo tổng hợp tình hình công nợ toàn bộ khách hàng (FR14).
+ */
+export async function fetchCustomerSummary(): Promise<CustomerDebtSummary> {
+  const res = await api.get<ApiResponse<CustomerDebtSummary>>('/orders/customers/summary')
   return res.data.data
 }

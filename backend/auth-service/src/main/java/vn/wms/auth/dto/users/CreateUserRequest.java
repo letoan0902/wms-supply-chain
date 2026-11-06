@@ -32,6 +32,11 @@ public record CreateUserRequest(
         @NotEmpty(message = "Người dùng phải có ít nhất một vai trò")
         Set<String> roles,
 
-        Set<Long> warehouseIds
+        Set<Long> warehouseIds,
+
+        Long companyId
 ) {
+    public CreateUserRequest(String username, String email, String password, String fullName, Set<String> roles, Set<Long> warehouseIds) {
+        this(username, email, password, fullName, roles, warehouseIds, null);
+    }
 }

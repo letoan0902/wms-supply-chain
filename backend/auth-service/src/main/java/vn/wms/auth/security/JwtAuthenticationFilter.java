@@ -13,7 +13,6 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
-import vn.wms.auth.entity.User;
 import vn.wms.common.constant.Roles;
 
 import java.io.IOException;
@@ -23,9 +22,6 @@ import java.util.List;
  * Đọc header Authorization dạng Bearer, nếu token hợp lệ thì đặt Authentication vào SecurityContext.
  * Token sai/hết hạn KHÔNG ném lỗi ở đây: request đi tiếp như chưa đăng nhập, endpoint nào yêu cầu xác thực
  * sẽ trả 401 qua AuthenticationEntryPoint.
- *
- * <p>Không gắn @Component để tránh Spring Boot đăng ký thêm lần nữa như một servlet filter độc lập;
- * bộ lọc được tạo và thêm vào chuỗi bảo mật trong SecurityConfig.
  */
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
@@ -48,17 +44,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             try {
                 Claims claims = jwtService.parse(header.substring(BEARER_PREFIX.length()), redisTemplate);
                 Long userId = claims.get("userId", Long.class);
+                Long companyId = claims.get("companyId", Long.class);
                 String username = claims.getSubject();
                 List<SimpleGrantedAuthority> authorities = jwtService.rolesOf(claims).stream()
                         .map(role -> new SimpleGrantedAuthority(Roles.toAuthority(role)))
                         .toList();
-                // Khởi tạo/Dựng UserPrinciple trực tiếp mà k cần query lại DB
-                // Định danh chủ thể - người dùng đang thực hiện request
-                UserPrincipal userPrincipal = new UserPrincipal(userId, username, authorities);
 
-                // Đại diện cho danh tính và quyền hạn của 1 người dùng trong hệ thống
-                // credentials - bằng chứng xác thực (thường là mật khẩu/token, ở đây truyển null vì đã xác thực token hoanf tất)
-                // Collection<? extends GrantedAuthority> authorities — "Người dùng có quyền làm gì?"
+                UserPrincipal userPrincipal = new UserPrincipal(userId, username, companyId, authorities);
                 UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(userPrincipal, null, authorities);
                 SecurityContextHolder.getContext().setAuthentication(authenticationToken);
 

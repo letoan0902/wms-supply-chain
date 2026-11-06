@@ -16,6 +16,8 @@ import vn.wms.auth.dto.auth.RefreshTokenResponse;
 import vn.wms.auth.dto.auth.RegisterRequest;
 import vn.wms.auth.dto.auth.RegisterResponse;
 import vn.wms.auth.dto.users.UserInfoResponse;
+import vn.wms.auth.company.entity.Company;
+import vn.wms.auth.company.repository.CompanyRepository;
 import vn.wms.auth.entity.Role;
 import vn.wms.auth.entity.User;
 import vn.wms.auth.repository.RoleRepository;
@@ -47,6 +49,7 @@ public class AuthService {
     private final RedisTemplate<String, String> redisTemplate;
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
+    private final CompanyRepository companyRepository;
     private final PasswordEncoder passwordEncoder;
 
     public AuthService(JwtService jwtService,
@@ -54,12 +57,14 @@ public class AuthService {
                        RedisTemplate<String, String> redisTemplate,
                        UserRepository userRepository,
                        RoleRepository roleRepository,
+                       CompanyRepository companyRepository,
                        PasswordEncoder passwordEncoder) {
         this.jwtService = jwtService;
         this.devLogin = devLogin;
         this.redisTemplate = redisTemplate;
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
+        this.companyRepository = companyRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -107,12 +112,26 @@ public class AuthService {
                 .map(Role::getName)
                 .toList();
 
-        // 6. Tạo Access Token (kèm warehouseIds) & Refresh Token
+        // 6. Kiểm tra trạng thái doanh nghiệp (nếu có)
+        String companyCode = null;
+        String companyName = null;
+        if (userLogin.getCompanyId() != null) {
+            Company company = companyRepository.findById(userLogin.getCompanyId()).orElse(null);
+            if (company != null) {
+                if ("SUSPENDED".equalsIgnoreCase(company.getStatus())) {
+                    throw ApiException.forbidden("Tài khoản doanh nghiệp của bạn đang bị tạm ngưng hoạt động. Vui lòng liên hệ quản trị viên.");
+                }
+                companyCode = company.getCode();
+                companyName = company.getName();
+            }
+        }
+
+        // 7. Tạo Access Token (kèm companyId và warehouseIds) & Refresh Token
         String accessToken = jwtService.generateAccessToken(
-                userLogin.getId(), userLogin.getUsername(), roles, userLogin.getWarehouseIds());
+                userLogin.getId(), userLogin.getUsername(), userLogin.getCompanyId(), roles, userLogin.getWarehouseIds());
         String refreshToken = jwtService.generateRefreshToken(userLogin.getUsername());
 
-        // 7. Lưu Refresh Token vào Redis với TTL
+        // 8. Lưu Refresh Token vào Redis với TTL
         String key = "refresh:" + userLogin.getUsername();
         redisTemplate.opsForValue().set(key, refreshToken,
                 Duration.ofMinutes(jwtService.getRefreshTokenMinutes()));
@@ -123,7 +142,10 @@ public class AuthService {
                 TOKEN_TYPE,
                 jwtService.getAccessTokenMinutes() * 60L, // expiresIn (giây)
                 userLogin.getUsername(),
-                roles);
+                roles,
+                userLogin.getCompanyId(),
+                companyCode,
+                companyName);
     }
 
     private void checkLocks(String clientIp, String username) {
@@ -264,9 +286,9 @@ public class AuthService {
                 .map(Role::getName)
                 .toList();
 
-        // 4. Phát hành Access Token mới (kèm warehouseIds)
+        // 4. Phát hành Access Token mới (kèm companyId và warehouseIds)
         String newAccessToken = jwtService.generateAccessToken(
-                user.getId(), user.getUsername(), roles, user.getWarehouseIds());
+                user.getId(), user.getUsername(), user.getCompanyId(), roles, user.getWarehouseIds());
 
         // 5. Xoay vòng Refresh Token (Refresh Token Rotation - RTR) để nâng cao bảo mật
         String newRefreshToken = jwtService.generateRefreshToken(user.getUsername());

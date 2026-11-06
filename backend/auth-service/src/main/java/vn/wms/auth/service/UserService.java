@@ -143,6 +143,7 @@ public class UserService {
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.setEnabled(true);
         user.setRoles(roles);
+        user.setCompanyId(request.companyId());
 
         if (request.warehouseIds() != null) {
             user.setWarehouseIds(new HashSet<>(request.warehouseIds()));
@@ -309,6 +310,7 @@ public class UserService {
                 user.isEnabled(),
                 roles,
                 warehouseIds,
+                user.getCompanyId(),
                 user.getCreatedAt(),
                 user.getUpdatedAt()
         );

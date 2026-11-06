@@ -70,6 +70,7 @@ export default function AssignWarehousesModal({
       }}
       cancelText="Hủy"
       width={600}
+      style={{ top: 20 }}
       destroyOnClose
     >
       <div className="mt-3 flex flex-col gap-3">

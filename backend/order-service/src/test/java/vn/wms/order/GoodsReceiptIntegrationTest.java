@@ -28,6 +28,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasSize;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -360,5 +361,103 @@ class GoodsReceiptIntegrationTest {
                 .andExpect(jsonPath("$.data.completedGrn").isNumber())
                 .andExpect(jsonPath("$.data.totalAcceptedQuantity").isNumber())
                 .andExpect(jsonPath("$.data.totalRejectedQuantity").isNumber());
+    }
+
+    @Test
+    @DisplayName("Từ chối lập GRN nếu đơn mua PO chưa được gán warehouseId -> Báo lỗi 400 (WMS-10.2)")
+    void createGrn_whenPoHasNoWarehouseId_returnsBadRequest() throws Exception {
+        Supplier supplier = createSampleSupplier("NCC-NO-WH", "NCC Không Kho");
+        PurchaseOrder po = createSampleApprovedPo("PO-20261106-NOWH", supplier);
+        po.setWarehouseId(null);
+        po.setWarehouseName(null);
+        purchaseOrderRepository.save(po);
+
+        CreateGrnRequest req = new CreateGrnRequest(
+                po.getId(),
+                LocalDate.now(),
+                "Thử lập phiếu khi chưa có kho",
+                List.of(new CreateGrnItemRequest(po.getItems().get(0).getId(), BigDecimal.TEN, BigDecimal.ZERO, null, null, null, null, null, null, null))
+        );
+
+        mockMvc.perform(post("/api/orders/goods-receipt-notes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("kho nhận hàng")));
+    }
+
+    @Test
+    @DisplayName("Từ chối lập GRN khi hạn sử dụng (expDate) trước ngày sản xuất (mfgDate) -> Báo lỗi 400 (WMS-10.2)")
+    void createGrn_whenExpDateBeforeMfgDate_returnsBadRequest() throws Exception {
+        Supplier supplier = createSampleSupplier("NCC-DATE-01", "NCC Kiểm tra Date");
+        PurchaseOrder po = createSampleApprovedPo("PO-20261106-DATE1", supplier);
+
+        CreateGrnRequest req = new CreateGrnRequest(
+                po.getId(),
+                LocalDate.now(),
+                "Nhập sai mfg và exp",
+                List.of(new CreateGrnItemRequest(
+                        po.getItems().get(0).getId(),
+                        BigDecimal.TEN,
+                        BigDecimal.ZERO,
+                        null,
+                        "LOT-DATE-01",
+                        LocalDate.of(2026, 12, 1), // Mfg
+                        LocalDate.of(2026, 11, 1), // Exp < Mfg
+                        null, null, null
+                ))
+        );
+
+        mockMvc.perform(post("/api/orders/goods-receipt-notes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("không được trước ngày sản xuất")));
+    }
+
+    @Test
+    @DisplayName("Từ chối lập GRN khi hàng đã hết hạn sử dụng tính đến ngày nhận (expDate <= receiptDate) -> Báo lỗi 400 (WMS-10.2)")
+    void createGrn_whenProductAlreadyExpired_returnsBadRequest() throws Exception {
+        Supplier supplier = createSampleSupplier("NCC-DATE-02", "NCC Hàng Quá Hạn");
+        PurchaseOrder po = createSampleApprovedPo("PO-20261106-DATE2", supplier);
+
+        CreateGrnRequest req = new CreateGrnRequest(
+                po.getId(),
+                LocalDate.of(2026, 11, 6),
+                "Hàng đã hết hạn",
+                List.of(new CreateGrnItemRequest(
+                        po.getItems().get(0).getId(),
+                        BigDecimal.TEN,
+                        BigDecimal.ZERO,
+                        null,
+                        "LOT-EXPIRED-01",
+                        LocalDate.of(2026, 1, 1),
+                        LocalDate.of(2026, 11, 5), // Hết hạn hôm qua
+                        null, null, null
+                ))
+        );
+
+        mockMvc.perform(post("/api/orders/goods-receipt-notes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("đã hết hạn sử dụng")));
+    }
+
+    @Test
+    @DisplayName("Chặn xóa đơn mua hàng (PO) khi đơn đang ở trạng thái PARTIALLY_RECEIVED -> Báo lỗi 400 (WMS-10.2)")
+    void deletePurchaseOrder_whenPartiallyReceived_isBlocked() throws Exception {
+        Supplier supplier = createSampleSupplier("NCC-PART-DEL", "NCC Đơn Dở Dang");
+        PurchaseOrder po = createSampleApprovedPo("PO-20261106-PARTDEL", supplier);
+        po.setStatus(OrderStatus.PARTIALLY_RECEIVED);
+        purchaseOrderRepository.save(po);
+
+        mockMvc.perform(delete("/api/orders/purchase/{id}", po.getId()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success").value(false))
+                .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("Không thể xóa đơn mua hàng")));
     }
 }

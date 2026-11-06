@@ -178,8 +178,9 @@ public class PurchaseOrderService {
     @Transactional
     public void delete(Long id) {
         PurchaseOrder po = findOrder(id);
-        if (po.getStatus() == OrderStatus.APPROVED || po.getStatus() == OrderStatus.CONFIRMED || po.getStatus() == OrderStatus.COMPLETED) {
-            throw ApiException.badRequest("Không thể xóa đơn mua hàng đã được phê duyệt hoặc đang thực hiện!");
+        if (po.getStatus() == OrderStatus.APPROVED || po.getStatus() == OrderStatus.CONFIRMED
+                || po.getStatus() == OrderStatus.PARTIALLY_RECEIVED || po.getStatus() == OrderStatus.COMPLETED) {
+            throw ApiException.badRequest("Không thể xóa đơn mua hàng đã được phê duyệt hoặc đang trong quá trình nhập kho (trạng thái: " + po.getStatus() + ")!");
         }
         purchaseOrderRepository.delete(po);
     }
@@ -285,6 +286,8 @@ public class PurchaseOrderService {
         long approved = purchaseOrderRepository.countByStatus(OrderStatus.APPROVED);
         long rejected = purchaseOrderRepository.countByStatus(OrderStatus.REJECTED);
         long cancelled = purchaseOrderRepository.countByStatus(OrderStatus.CANCELLED);
+        long partiallyReceived = purchaseOrderRepository.countByStatus(OrderStatus.PARTIALLY_RECEIVED);
+        long completed = purchaseOrderRepository.countByStatus(OrderStatus.COMPLETED);
         BigDecimal totalApprovedAmount = purchaseOrderRepository.sumTotalAmountByStatus(OrderStatus.APPROVED);
 
         return new PurchaseOrderSummaryResponse(
@@ -294,6 +297,8 @@ public class PurchaseOrderService {
                 approved,
                 rejected,
                 cancelled,
+                partiallyReceived,
+                completed,
                 totalApprovedAmount != null ? totalApprovedAmount : BigDecimal.ZERO
         );
     }

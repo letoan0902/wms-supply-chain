@@ -1,7 +1,21 @@
-import { LogoutOutlined, UserOutlined } from '@ant-design/icons'
-import { Avatar, Dropdown, Layout, Menu, Typography } from 'antd'
+import {
+  DownOutlined,
+  EditOutlined,
+  IdcardOutlined,
+  KeyOutlined,
+  LogoutOutlined,
+  UserOutlined,
+} from '@ant-design/icons'
+import {
+  Dropdown,
+  Layout,
+  Menu,
+  Modal,
+  Tag,
+  Typography,
+} from 'antd'
 import type { MenuProps } from 'antd'
-import { Suspense, useState } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import PageLoading from '../components/PageLoading'
 import { clearAuth, getStoredUser } from '../utils/storage'
@@ -9,14 +23,9 @@ import { logout } from '../features/auth/authApi'
 import NotificationBell from '../features/realtime/components/NotificationBell'
 import { useWebSocket } from '../features/realtime/useWebSocket'
 import { navigationItems } from './navigation'
+import { ROLE_CONFIG } from '../features/users/types'
 
 const { Header, Sider, Content } = Layout
-
-const menuItems: MenuProps['items'] = navigationItems.map((item) => ({
-  key: item.path,
-  icon: item.icon,
-  label: item.label,
-}))
 
 export default function MainLayout() {
   const navigate = useNavigate()
@@ -24,7 +33,29 @@ export default function MainLayout() {
   const [collapsed, setCollapsed] = useState(false)
   // Màn hình hẹp (dưới breakpoint lg): sidebar thu gọn hoàn toàn và khi mở sẽ phủ lên nội dung
   const [isNarrowScreen, setIsNarrowScreen] = useState(false)
-  const user = getStoredUser()
+  const [user, setUser] = useState(() => getStoredUser())
+  const [logoutModalOpen, setLogoutModalOpen] = useState(false)
+  const [logoutLoading, setLogoutLoading] = useState(false)
+
+  // Theo đặc tả phân quyền SRS 2.5: Giữ nguyên tất cả các mục trên thanh Sidebar
+  // để người dùng nắm rõ cấu trúc tính năng. Nếu không có quyền, màn hình đích sẽ hiển thị thông báo 403.
+  const menuItems: MenuProps['items'] = navigationItems.map((item) => ({
+    key: item.path,
+    icon: item.icon,
+    label: item.label,
+  }))
+
+  // Lắng nghe sự kiện khi người dùng cập nhật hồ sơ cá nhân để sync ngay lập tức lên Header
+  useEffect(() => {
+    const handleUserUpdate = () => {
+      setUser(getStoredUser())
+    }
+    window.addEventListener('wms:user-updated', handleUserUpdate)
+    return () => {
+      window.removeEventListener('wms:user-updated', handleUserUpdate)
+    }
+  }, [])
+
   // Nối WebSocket nhận thông báo thời gian thực (MainLayout chỉ hiển thị sau khi đăng nhập)
   useWebSocket()
 
@@ -32,23 +63,74 @@ export default function MainLayout() {
   const selectedKey = `/${pathname.split('/')[1]}`
   const currentTitle = navigationItems.find((item) => item.path === selectedKey)?.label
 
+  // Xử lý đăng xuất thực tế
   const handleLogout = async () => {
+    setLogoutLoading(true)
     try {
       await logout()
     } catch {
       // Bỏ qua lỗi nếu token đã hết hạn hoặc không kết nối được máy chủ
     } finally {
+      setLogoutLoading(false)
+      setLogoutModalOpen(false)
       clearAuth()
       navigate('/login', { replace: true })
     }
   }
 
+  const displayName = user?.fullName || user?.username || 'Người dùng'
+  const initial = displayName.charAt(0).toUpperCase()
+
+  // Dropdown menu options cho tài khoản người dùng
   const userMenu: MenuProps['items'] = [
     {
+      key: 'user-header',
+      type: 'group',
+      label: (
+        <div className="py-1 px-1">
+          <div className="font-semibold text-gray-900 text-sm">{displayName}</div>
+          <div className="text-xs text-gray-500 font-mono">@{user?.username}</div>
+          {user?.roles && user.roles.length > 0 && (
+            <div className="flex flex-wrap gap-1 mt-1.5">
+              {user.roles.map((r) => {
+                const cfg = ROLE_CONFIG[r] || { label: r, color: 'default' }
+                return (
+                  <Tag key={r} color={cfg.color} className="text-[11px] py-0 px-1.5 font-normal">
+                    {cfg.label}
+                  </Tag>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      ),
+    },
+    { type: 'divider' },
+    {
+      key: 'profile-info',
+      icon: <IdcardOutlined className="text-gray-500" />,
+      label: 'Thông tin tài khoản',
+      onClick: () => navigate('/profile?tab=info'),
+    },
+    {
+      key: 'profile-edit',
+      icon: <EditOutlined className="text-gray-500" />,
+      label: 'Cập nhật thông tin',
+      onClick: () => navigate('/profile?tab=edit'),
+    },
+    {
+      key: 'profile-password',
+      icon: <KeyOutlined className="text-gray-500" />,
+      label: 'Đổi mật khẩu',
+      onClick: () => navigate('/profile?tab=password'),
+    },
+    { type: 'divider' },
+    {
       key: 'logout',
-      icon: <LogoutOutlined />,
-      label: 'Đăng xuất',
-      onClick: handleLogout,
+      icon: <LogoutOutlined className="text-red-500" />,
+      label: <span className="text-red-600 font-medium">Đăng xuất</span>,
+      className: 'hover:!bg-red-50 hover:!text-red-600 transition-colors',
+      onClick: () => setLogoutModalOpen(true),
     },
   ]
 
@@ -69,8 +151,9 @@ export default function MainLayout() {
         }
       >
         <div
-          className={`flex h-16 items-center px-4 transition-all duration-200 ${collapsed ? 'justify-center' : 'gap-3'
-            }`}
+          className={`flex h-16 items-center px-4 transition-all duration-200 ${
+            collapsed ? 'justify-center' : 'gap-3'
+          }`}
         >
           <img
             src="/logo.png"
@@ -109,15 +192,24 @@ export default function MainLayout() {
           </Typography.Title>
           <div className="flex shrink-0 items-center gap-2 sm:gap-4">
             <NotificationBell />
-            <Dropdown menu={{ items: userMenu }} placement="bottomRight">
+            {/* User profile trigger */}
+            <Dropdown menu={{ items: userMenu }} placement="bottomRight" trigger={['click']}>
               <button
                 type="button"
-                className="flex cursor-pointer items-center gap-2 border-0 bg-transparent"
+                className="flex cursor-pointer items-center gap-2.5 border-0 bg-transparent px-2.5 py-1.5 rounded-lg hover:bg-slate-100/70 transition-colors select-none text-left"
               >
-                <Avatar size="small" icon={<UserOutlined />} />
-                <span className="hidden sm:inline">
-                  {user?.fullName ?? user?.username ?? 'Người dùng'}
-                </span>
+                <div className="w-8 h-8 rounded-full border border-slate-200 bg-transparent flex items-center justify-center text-xs font-semibold text-slate-700 shrink-0">
+                  {initial || <UserOutlined className="text-slate-400" />}
+                </div>
+                <div className="hidden sm:flex flex-col">
+                  <span className="text-xs font-semibold text-gray-800 leading-tight">
+                    {displayName}
+                  </span>
+                  <span className="text-[10px] text-gray-400 font-mono leading-tight">
+                    @{user?.username}
+                  </span>
+                </div>
+                <DownOutlined className="text-[10px] text-gray-400 ml-0.5" />
               </button>
             </Dropdown>
           </div>
@@ -129,6 +221,39 @@ export default function MainLayout() {
           </Suspense>
         </Content>
       </Layout>
+
+      {/* Modal Xác nhận Đăng xuất */}
+      <Modal
+        title={
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-full bg-red-50 text-red-600 flex items-center justify-center shrink-0">
+              <LogoutOutlined className="text-base" />
+            </div>
+            <div>
+              <div className="text-base font-semibold text-gray-900">
+                Xác nhận đăng xuất
+              </div>
+              <div className="text-xs text-gray-500 font-normal">
+                Kết thúc phiên làm việc trên hệ thống
+              </div>
+            </div>
+          </div>
+        }
+        open={logoutModalOpen}
+        onOk={handleLogout}
+        onCancel={() => setLogoutModalOpen(false)}
+        confirmLoading={logoutLoading}
+        okText="Đăng xuất"
+        okButtonProps={{ danger: true }}
+        cancelText="Hủy bỏ"
+        width={440}
+        destroyOnClose
+      >
+        <div className="py-2 text-sm text-gray-600">
+          Bạn có chắc chắn muốn đăng xuất khỏi tài khoản{' '}
+          <strong className="text-gray-900">@{user?.username}</strong>? Mọi tác vụ hoặc thay đổi chưa lưu có thể bị mất.
+        </div>
+      </Modal>
     </Layout>
   )
 }

@@ -5,12 +5,15 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import vn.wms.inventory.entity.BinLocation;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
 public interface BinLocationRepository extends JpaRepository<BinLocation, Long> {
 
     List<BinLocation> findByWarehouseIdOrderByZoneAscRackAscBinAsc(Long warehouseId);
+
+    List<BinLocation> findByWarehouseIdInOrderByZoneAscRackAscBinAsc(Collection<Long> warehouseIds);
 
     List<BinLocation> findByWarehouseIdAndZoneOrderByRackAscBinAsc(Long warehouseId, String zone);
 
@@ -25,6 +28,8 @@ public interface BinLocationRepository extends JpaRepository<BinLocation, Long> 
     boolean existsByWarehouseId(Long warehouseId);
 
     long countByWarehouseId(Long warehouseId);
+
+    long countByWarehouseIdIn(Collection<Long> warehouseIds);
 
     long countByWarehouseIdAndActive(Long warehouseId, boolean active);
 

@@ -2,7 +2,10 @@ package vn.wms.inventory.service;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import vn.wms.common.constant.Roles;
 import vn.wms.common.exception.ApiException;
+import vn.wms.common.security.CurrentUser;
+import vn.wms.common.security.UserContext;
 import vn.wms.inventory.dto.CreateWarehouseRequest;
 import vn.wms.inventory.dto.UpdateWarehouseRequest;
 import vn.wms.inventory.dto.WarehouseResponse;
@@ -14,6 +17,8 @@ import vn.wms.inventory.repository.WarehouseRepository;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
+import java.util.Set;
 
 /**
  * Xử lý nghiệp vụ danh mục đa kho & giám sát sức chứa kho (WMS-05).
@@ -41,16 +46,29 @@ public class WarehouseService {
     @Transactional(readOnly = true)
     public List<WarehouseResponse> listWarehouses(String keyword, Boolean active) {
         List<Warehouse> warehouses;
-        if (keyword != null && !keyword.trim().isEmpty()) {
-            warehouses = warehouseRepository.findByNameContainingIgnoreCaseOrCodeContainingIgnoreCaseOrderByCodeAsc(
-                    keyword.trim(), keyword.trim());
+        Optional<CurrentUser> userOpt = UserContext.getCurrentUser();
+
+        if (userOpt.isPresent() && !UserContext.isGlobalScope(userOpt.get())) {
+            Set<Long> userWarehouseIds = userOpt.get().warehouseIds();
+            if (userWarehouseIds.isEmpty()) {
+                throw ApiException.forbidden("Tài khoản chưa được phân quyền phụ trách bất kỳ kho nào");
+            }
+            warehouses = warehouseRepository.findByIdInOrderByCodeAsc(userWarehouseIds);
         } else if (Boolean.TRUE.equals(active)) {
             warehouses = warehouseRepository.findByActiveTrueOrderByCodeAsc();
         } else {
             warehouses = warehouseRepository.findAllByOrderByCodeAsc();
         }
 
-        if (active != null && (keyword != null && !keyword.trim().isEmpty())) {
+        if (keyword != null && !keyword.trim().isEmpty()) {
+            String kw = keyword.trim().toLowerCase();
+            warehouses = warehouses.stream()
+                    .filter(w -> (w.getName() != null && w.getName().toLowerCase().contains(kw))
+                            || (w.getCode() != null && w.getCode().toLowerCase().contains(kw)))
+                    .toList();
+        }
+
+        if (active != null) {
             warehouses = warehouses.stream().filter(w -> w.isActive() == active).toList();
         }
 
@@ -62,6 +80,7 @@ public class WarehouseService {
      */
     @Transactional(readOnly = true)
     public WarehouseResponse getWarehouseById(Long id) {
+        checkWarehouseAccess(id);
         Warehouse warehouse = warehouseRepository.findById(id)
                 .orElseThrow(() -> ApiException.notFound("Không tìm thấy kho có ID: " + id));
         return toResponseWithStats(warehouse);
@@ -72,16 +91,44 @@ public class WarehouseService {
      */
     @Transactional(readOnly = true)
     public WarehouseSummaryResponse getSummaryMetrics() {
-        List<Warehouse> allWarehouses = warehouseRepository.findAll();
-        long totalWarehouses = allWarehouses.size();
-        long activeWarehouses = allWarehouses.stream().filter(Warehouse::isActive).count();
+        Optional<CurrentUser> userOpt = UserContext.getCurrentUser();
+        List<Warehouse> warehouses;
+        Set<Long> scopedWarehouseIds = null;
 
-        long totalCapacity = allWarehouses.stream()
+        if (userOpt.isPresent() && !UserContext.isGlobalScope(userOpt.get())) {
+            scopedWarehouseIds = userOpt.get().warehouseIds();
+            if (scopedWarehouseIds.isEmpty()) {
+                throw ApiException.forbidden("Tài khoản chưa được phân quyền phụ trách bất kỳ kho nào");
+            }
+            warehouses = warehouseRepository.findByIdInOrderByCodeAsc(scopedWarehouseIds);
+        } else {
+            warehouses = warehouseRepository.findAll();
+        }
+
+        long totalWarehouses = warehouses.size();
+        long activeWarehouses = warehouses.stream().filter(Warehouse::isActive).count();
+
+        long totalCapacity = warehouses.stream()
                 .mapToLong(w -> w.getCapacity() != null ? w.getCapacity() : 0)
                 .sum();
 
-        long totalLocations = binLocationRepository.count();
-        long occupiedLocations = stockItemRepository.countTotalOccupiedLocations();
+        long totalLocations;
+        long occupiedLocations;
+        long totalProducts;
+        BigDecimal totalStockQuantity;
+
+        if (scopedWarehouseIds != null) {
+            totalLocations = binLocationRepository.countByWarehouseIdIn(scopedWarehouseIds);
+            occupiedLocations = stockItemRepository.countOccupiedLocationsByWarehouseIds(scopedWarehouseIds);
+            totalProducts = stockItemRepository.countDistinctActiveProductsByWarehouseIds(scopedWarehouseIds);
+            totalStockQuantity = stockItemRepository.sumQuantityByWarehouseIds(scopedWarehouseIds);
+        } else {
+            totalLocations = binLocationRepository.count();
+            occupiedLocations = stockItemRepository.countTotalOccupiedLocations();
+            totalProducts = stockItemRepository.countDistinctActiveProducts();
+            totalStockQuantity = stockItemRepository.sumTotalQuantity();
+        }
+
         long availableLocations = Math.max(0, totalLocations - occupiedLocations);
 
         double overallUtilizationRate = 0.0;
@@ -90,9 +137,6 @@ public class WarehouseService {
         } else if (totalLocations > 0) {
             overallUtilizationRate = Math.round(((double) occupiedLocations / totalLocations) * 1000.0) / 10.0;
         }
-
-        long totalProducts = stockItemRepository.countDistinctActiveProducts();
-        BigDecimal totalStockQuantity = stockItemRepository.sumTotalQuantity();
 
         return new WarehouseSummaryResponse(
                 totalWarehouses,
@@ -112,6 +156,12 @@ public class WarehouseService {
      */
     @Transactional
     public WarehouseResponse createWarehouse(CreateWarehouseRequest request) {
+        UserContext.getCurrentUser().ifPresent(user -> {
+            if (!user.hasRole(Roles.ADMIN)) {
+                throw ApiException.forbidden("Chỉ Quản trị viên (ADMIN) mới có quyền tạo kho hàng mới");
+            }
+        });
+
         String cleanCode = request.code().trim().toUpperCase();
         if (warehouseRepository.existsByCode(cleanCode)) {
             throw ApiException.conflict("Mã kho đã tồn tại: " + cleanCode);
@@ -135,6 +185,7 @@ public class WarehouseService {
      */
     @Transactional
     public WarehouseResponse updateWarehouse(Long id, UpdateWarehouseRequest request) {
+        checkWarehouseWriteAccess(id);
         Warehouse warehouse = warehouseRepository.findById(id)
                 .orElseThrow(() -> ApiException.notFound("Không tìm thấy kho có ID: " + id));
 
@@ -158,6 +209,7 @@ public class WarehouseService {
      */
     @Transactional
     public WarehouseResponse toggleWarehouseStatus(Long id, boolean active) {
+        checkWarehouseWriteAccess(id);
         Warehouse warehouse = warehouseRepository.findById(id)
                 .orElseThrow(() -> ApiException.notFound("Không tìm thấy kho có ID: " + id));
 
@@ -175,6 +227,12 @@ public class WarehouseService {
      */
     @Transactional
     public void deleteWarehouse(Long id) {
+        UserContext.getCurrentUser().ifPresent(user -> {
+            if (!user.hasRole(Roles.ADMIN)) {
+                throw ApiException.forbidden("Chỉ Quản trị viên (ADMIN) mới có quyền xóa kho hàng");
+            }
+        });
+        checkWarehouseWriteAccess(id);
         Warehouse warehouse = warehouseRepository.findById(id)
                 .orElseThrow(() -> ApiException.notFound("Không tìm thấy kho có ID: " + id));
 
@@ -187,6 +245,32 @@ public class WarehouseService {
         }
 
         warehouseRepository.delete(warehouse);
+    }
+
+    /**
+     * Kiểm tra quyền đọc dữ liệu kho:
+     * - ADMIN và ACCOUNTANT được xem toàn bộ kho (Global Read Scope).
+     * - WAREHOUSE_MANAGER và WAREHOUSE_STAFF chỉ được xem kho được phân công.
+     * - Khi không có header X-User-Name (gọi nội bộ dev/mock test), hệ thống cho phép bỏ qua (fail-open dev).
+     */
+    private void checkWarehouseAccess(Long warehouseId) {
+        UserContext.getCurrentUser().ifPresent(user -> {
+            if (!UserContext.isGlobalScope(user) && !user.warehouseIds().contains(warehouseId)) {
+                throw ApiException.forbidden("Bạn không có quyền thao tác trên kho ID: " + warehouseId);
+            }
+        });
+    }
+
+    /**
+     * Kiểm tra quyền ghi dữ liệu kho (sửa kho, đổi trạng thái kho, xóa kho):
+     * - Chỉ ADMIN hoặc WAREHOUSE_MANAGER phụ trách kho mới có quyền ghi.
+     * - ACCOUNTANT chỉ có quyền đọc báo cáo, bị từ chối thao tác ghi.
+     * - Khi không có header X-User-Name (gọi nội bộ dev/mock test), cho phép bỏ qua (fail-open dev).
+     */
+    private void checkWarehouseWriteAccess(Long warehouseId) {
+        UserContext.getCurrentUser().ifPresent(user -> {
+            UserContext.requireWarehouseWriteAccess(user, warehouseId);
+        });
     }
 
     private WarehouseResponse toResponseWithStats(Warehouse warehouse) {

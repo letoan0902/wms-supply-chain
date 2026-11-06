@@ -10,6 +10,7 @@ import {
   ShoppingOutlined,
   SwapOutlined,
   TeamOutlined,
+  UsergroupAddOutlined,
 } from '@ant-design/icons'
 import type { ReactNode } from 'react'
 
@@ -32,11 +33,12 @@ export const navigationItems: NavigationItem[] = [
   { path: '/products', label: 'Danh mục hàng hóa', icon: <AppstoreOutlined /> },
   { path: '/warehouses', label: 'Kho và vị trí', icon: <ContainerOutlined /> },
   { path: '/suppliers', label: 'Nhà cung cấp', icon: <ShopOutlined /> },
+  { path: '/customers', label: 'Khách hàng', icon: <UsergroupAddOutlined /> },
   { path: '/inventory', label: 'Tồn kho', icon: <DatabaseOutlined />, sprint: 3 },
   { path: '/transfers', label: 'Điều chuyển', icon: <SwapOutlined />, sprint: 3 },
   { path: '/purchases', label: 'Mua hàng và nhập kho', icon: <ShoppingCartOutlined /> },
-  { path: '/sales', label: 'Bán hàng và xuất kho', icon: <ShoppingOutlined />, sprint: 3 },
+  { path: '/sales', label: 'Bán hàng và xuất kho', icon: <ShoppingOutlined /> },
   { path: '/stocktakes', label: 'Kiểm kê', icon: <AuditOutlined />, sprint: 4 },
-  { path: '/reports', label: 'Báo cáo', icon: <BarChartOutlined />, sprint: 3 },
-  { path: '/users', label: 'Người dùng', icon: <TeamOutlined />, sprint: 2 },
+  { path: '/reports', label: 'Báo cáo', icon: <BarChartOutlined /> },
+  { path: '/users', label: 'Người dùng', icon: <TeamOutlined /> },
 ]

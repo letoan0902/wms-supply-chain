@@ -280,4 +280,111 @@ class StockPessimisticLockTest {
         StockItem reloaded = stockItemRepository.findById(stockItem.getId()).orElseThrow();
         assertThat(reloaded.getQuantity()).isEqualByComparingTo(new BigDecimal("55.000"));
     }
+
+    @Test
+    @DisplayName("Xuất kho không gắn đơn không được làm giảm lượng giữ chỗ của đơn khác trên cùng vị trí")
+    void testManualDeductionKeepsReservationOfOtherOrder() {
+        StockItem stockItem = newStockItem(binLocation, "100.000", "30.000");
+        StockReservation reservation = newReservation(5001L, stockItem, "30.000");
+
+        DeductStockRequest request = new DeductStockRequest(
+                null, null, warehouse.getId(), "ADJUSTMENT", "Điều chỉnh giảm tồn",
+                List.of(new DeductStockItemRequest(testProductId, "SKU-TEST-01", new BigDecimal("20.000"), binLocation.getId(), null))
+        );
+        stockDeductionService.deductStock(request, "tester");
+
+        StockItem reloaded = stockItemRepository.findById(stockItem.getId()).orElseThrow();
+        assertThat(reloaded.getQuantity()).isEqualByComparingTo(new BigDecimal("80.000"));
+        // Phần giữ cho đơn 5001 phải còn nguyên, nếu không tồn khả dụng ATP bị tính dư
+        assertThat(reloaded.getReservedQuantity()).isEqualByComparingTo(new BigDecimal("30.000"));
+        StockReservation reloadedRes = stockReservationRepository.findById(reservation.getId()).orElseThrow();
+        assertThat(reloadedRes.getStatus()).isEqualTo("ACTIVE");
+        assertThat(reloadedRes.getReservedQuantity()).isEqualByComparingTo(new BigDecimal("30.000"));
+    }
+
+    @Test
+    @DisplayName("Xuất từ vị trí khác vị trí đã giữ chỗ: trả lại đúng phần giữ của đơn, không đụng phần giữ của đơn khác")
+    void testDispatchFromAnotherBinReleasesOnlyOwnReservation() {
+        BinLocation secondBin = new BinLocation();
+        secondBin.setWarehouse(warehouse);
+        secondBin.setCode("WH-PESS-01-A-01-02");
+        secondBin.setZone("A");
+        secondBin.setRack("01");
+        secondBin.setBin("02");
+        secondBin.setActive(true);
+        secondBin = binLocationRepository.save(secondBin);
+
+        // Vị trí thứ nhất không ai giữ chỗ; vị trí thứ hai giữ 20 cho đơn 5002 và 10 cho đơn 5003
+        StockItem first = newStockItem(binLocation, "50.000", "0.000");
+        StockItem second = newStockItem(secondBin, "50.000", "30.000");
+        StockReservation own = newReservation(5002L, second, "20.000");
+        StockReservation other = newReservation(5003L, second, "10.000");
+
+        DeductStockRequest request = new DeductStockRequest(
+                5002L, "SO-5002", warehouse.getId(), "SALES_DISPATCH", "Xuất đơn 5002",
+                List.of(new DeductStockItemRequest(testProductId, "SKU-TEST-01", new BigDecimal("20.000"), null, null))
+        );
+        stockDeductionService.deductStock(request, "operator");
+
+        StockItem firstReloaded = stockItemRepository.findById(first.getId()).orElseThrow();
+        StockItem secondReloaded = stockItemRepository.findById(second.getId()).orElseThrow();
+        // Hàng được lấy ở vị trí thứ nhất (ID nhỏ hơn)
+        assertThat(firstReloaded.getQuantity()).isEqualByComparingTo(new BigDecimal("30.000"));
+        assertThat(firstReloaded.getReservedQuantity()).isEqualByComparingTo(BigDecimal.ZERO);
+        // Vị trí thứ hai: tồn giữ nguyên, chỉ trả lại 20 của đơn 5002, còn 10 của đơn 5003
+        assertThat(secondReloaded.getQuantity()).isEqualByComparingTo(new BigDecimal("50.000"));
+        assertThat(secondReloaded.getReservedQuantity()).isEqualByComparingTo(new BigDecimal("10.000"));
+        assertThat(stockReservationRepository.findById(own.getId()).orElseThrow().getStatus()).isEqualTo("FULFILLED");
+        assertThat(stockReservationRepository.findById(other.getId()).orElseThrow().getStatus()).isEqualTo("ACTIVE");
+    }
+
+    @Test
+    @DisplayName("Handler order.dispatched: lần xử lý lỗi không bị coi là đã xử lý, lần thử lại vẫn trừ tồn; giao lại sau khi thành công thì bỏ qua")
+    void testDispatchStockHandler_RetryAfterFailureThenIdempotent() {
+        StockItem stockItem = newStockItem(binLocation, "5.000", "0.000");
+        OrderDispatchedEvent event = new OrderDispatchedEvent(
+                4002L, "SO-20261106-4002", OrderType.SALES, warehouse.getId(), "warehouse_keeper", Instant.now(),
+                List.of(new OrderLine(testProductId, "SKU-TEST-01", "Sản phẩm test", new BigDecimal("25.000"), "Hộp", BigDecimal.valueOf(100000)))
+        );
+
+        // Lần 1: tồn chỉ có 5 nên thất bại, tồn giữ nguyên
+        assertThatThrownBy(() -> dispatchStockHandler.onOrderDispatched(event, "msg-dispatch-retry"))
+                .isInstanceOf(ApiException.class);
+        assertThat(stockItemRepository.findById(stockItem.getId()).orElseThrow().getQuantity())
+                .isEqualByComparingTo(new BigDecimal("5.000"));
+
+        // Bổ sung hàng rồi RabbitMQ giao lại đúng message đó: phải trừ được
+        StockItem refill = stockItemRepository.findById(stockItem.getId()).orElseThrow();
+        refill.setQuantity(new BigDecimal("80.000"));
+        stockItemRepository.save(refill);
+        dispatchStockHandler.onOrderDispatched(event, "msg-dispatch-retry");
+        assertThat(stockItemRepository.findById(stockItem.getId()).orElseThrow().getQuantity())
+                .isEqualByComparingTo(new BigDecimal("55.000"));
+
+        // Giao lại lần nữa sau khi đã thành công: không trừ hai lần
+        dispatchStockHandler.onOrderDispatched(event, "msg-dispatch-retry");
+        assertThat(stockItemRepository.findById(stockItem.getId()).orElseThrow().getQuantity())
+                .isEqualByComparingTo(new BigDecimal("55.000"));
+    }
+
+    private StockItem newStockItem(BinLocation bin, String quantity, String reserved) {
+        StockItem stockItem = new StockItem();
+        stockItem.setProductId(testProductId);
+        stockItem.setBinLocation(bin);
+        stockItem.setQuantity(new BigDecimal(quantity));
+        stockItem.setReservedQuantity(new BigDecimal(reserved));
+        return stockItemRepository.save(stockItem);
+    }
+
+    private StockReservation newReservation(Long orderId, StockItem stockItem, String quantity) {
+        StockReservation reservation = new StockReservation();
+        reservation.setOrderId(orderId);
+        reservation.setOrderNumber("SO-" + orderId);
+        reservation.setProductId(testProductId);
+        reservation.setStockItem(stockItem);
+        reservation.setWarehouseId(warehouse.getId());
+        reservation.setReservedQuantity(new BigDecimal(quantity));
+        reservation.setStatus("ACTIVE");
+        return stockReservationRepository.save(reservation);
+    }
 }

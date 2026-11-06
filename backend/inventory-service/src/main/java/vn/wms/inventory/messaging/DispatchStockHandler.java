@@ -85,6 +85,10 @@ public class DispatchStockHandler implements OrderEventHandler {
             log.info("Đã hoàn tất trừ tồn kho với Khóa bi quan cho đơn xuất {}", event.orderNumber());
         } catch (Exception ex) {
             log.error("Lỗi khi trừ tồn kho cho đơn xuất {}: {}", event.orderNumber(), ex.getMessage(), ex);
+            // Chưa trừ được thì bỏ đánh dấu đã xử lý, nếu không lần thử lại sẽ bị coi là trùng và bị bỏ qua
+            if (messageId != null && !messageId.isBlank()) {
+                processedMessageIds.remove(messageId);
+            }
             // Ném lỗi để RabbitMQ retry theo cấu hình retry / dead-letter
             throw ex;
         }

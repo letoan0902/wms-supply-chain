@@ -129,17 +129,18 @@ public class StockDeductionService {
                 grandTotalDeducted = grandTotalDeducted.add(requiredQty);
             }
 
+            // Đơn đã xuất đủ sản phẩm này: phần giữ chỗ của đơn còn nằm ở vị trí khác (do xuất từ vị trí
+            // không trùng vị trí đã giữ) phải được trả lại, nếu không Reserved ở các vị trí đó bị treo vĩnh viễn.
+            if (request.orderId() != null) {
+                releaseLeftoverReservations(request.orderId(), productId);
+            }
+
             // Tính tồn kho sau khi trừ để phát sự kiện
             BigDecimal afterStockTotal = beforeStockTotal.subtract(requiredQty).max(BigDecimal.ZERO);
             publishInventoryUpdated(warehouse.getId(), productId, itemReq.skuCode(),
                     beforeStockTotal, afterStockTotal,
                     request.reason() != null ? request.reason() : "SALES_DISPATCH",
                     request.orderNumber(), now);
-        }
-
-        // Nếu xuất theo đơn hàng SO có giữ hàng ảo trước đó, cập nhật trạng thái bản ghi giữ chỗ còn lại
-        if (request.orderId() != null) {
-            fulfillRemainingReservations(request.orderId());
         }
 
         log.info("Hoàn tất trừ tồn kho với Khóa bi quan. Đơn: {}, Tổng số lượng đã xuất: {}",
@@ -276,40 +277,56 @@ public class StockDeductionService {
     }
 
     /**
-     * Xử lý giải phóng / hoàn tất lượng giữ hàng ảo (Soft Reservation) khi xuất kho thực tế.
+     * Hoàn tất phần giữ hàng ảo (Soft Reservation) của chính đơn đang xuất tại một vị trí.
+     * Reserved của vị trí chỉ giảm đúng bằng phần giữ chỗ của đơn này được dùng tới: xuất kho không gắn đơn
+     * (điều chỉnh, điều chuyển) hoặc xuất từ vị trí mà đơn không giữ chỗ thì Reserved giữ nguyên, vì phần đó
+     * đang giữ cho đơn khác.
      */
     private BigDecimal processReservationFulfillment(Long orderId, StockItem stockItem, BigDecimal deductedAmount) {
         BigDecimal currentReserved = stockItem.getReservedQuantity() != null ? stockItem.getReservedQuantity() : BigDecimal.ZERO;
+        BigDecimal fulfilled = BigDecimal.ZERO;
 
         if (orderId != null) {
+            BigDecimal remaining = deductedAmount;
             List<StockReservation> reservations = stockReservationRepository
                     .findByStockItemIdAndStatus(stockItem.getId(), "ACTIVE");
 
             for (StockReservation res : reservations) {
-                if (orderId.equals(res.getOrderId())) {
-                    BigDecimal resQty = res.getReservedQuantity();
-                    if (resQty.compareTo(deductedAmount) <= 0) {
-                        res.setStatus("FULFILLED");
-                    } else {
-                        res.setReservedQuantity(resQty.subtract(deductedAmount));
-                    }
-                    stockReservationRepository.save(res);
+                if (!orderId.equals(res.getOrderId()) || remaining.compareTo(BigDecimal.ZERO) <= 0) {
+                    continue;
                 }
+                BigDecimal resQty = res.getReservedQuantity();
+                BigDecimal used = resQty.min(remaining);
+                if (used.compareTo(resQty) >= 0) {
+                    res.setStatus("FULFILLED");
+                } else {
+                    res.setReservedQuantity(resQty.subtract(used));
+                }
+                stockReservationRepository.save(res);
+                fulfilled = fulfilled.add(used);
+                remaining = remaining.subtract(used);
             }
         }
 
-        // Giảm ReservedQuantity trên StockItem không được âm
-        BigDecimal newReserved = currentReserved.subtract(deductedAmount).max(BigDecimal.ZERO);
+        BigDecimal newReserved = currentReserved.subtract(fulfilled).max(BigDecimal.ZERO);
         stockItem.setReservedQuantity(newReserved);
         return newReserved;
     }
 
     /**
-     * Chuyển toàn bộ các bản ghi giữ hàng còn lại của đơn hàng sang trạng thái FULFILLED.
+     * Trả lại phần giữ chỗ còn ACTIVE của một đơn cho một sản phẩm sau khi sản phẩm đó đã xuất đủ:
+     * khóa vị trí liên quan, giảm Reserved đúng bằng lượng đang giữ rồi chuyển bản ghi sang FULFILLED.
+     * Sản phẩm khác của cùng đơn chưa xuất thì vẫn giữ chỗ.
      */
-    private void fulfillRemainingReservations(Long orderId) {
-        List<StockReservation> activeList = stockReservationRepository.findByOrderIdAndStatus(orderId, "ACTIVE");
-        for (StockReservation res : activeList) {
+    private void releaseLeftoverReservations(Long orderId, Long productId) {
+        List<StockReservation> leftovers = stockReservationRepository
+                .findByOrderIdAndProductIdAndStatus(orderId, productId, "ACTIVE");
+        for (StockReservation res : leftovers) {
+            stockItemRepository.findByIdWithPessimisticLock(res.getStockItem().getId()).ifPresent(item -> {
+                BigDecimal reserved = item.getReservedQuantity() != null ? item.getReservedQuantity() : BigDecimal.ZERO;
+                item.setReservedQuantity(reserved.subtract(res.getReservedQuantity()).max(BigDecimal.ZERO));
+                stockItemRepository.save(item);
+            });
             res.setStatus("FULFILLED");
             stockReservationRepository.save(res);
         }

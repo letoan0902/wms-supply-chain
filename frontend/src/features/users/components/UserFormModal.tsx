@@ -1,4 +1,4 @@
-import { Form, Input, Modal, Select, Switch, Typography } from 'antd'
+import { Form, Input, Modal, Select, Typography } from 'antd'
 import { useEffect } from 'react'
 import {
   ROLE_CONFIG,

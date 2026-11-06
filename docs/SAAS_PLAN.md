@@ -2,6 +2,8 @@
 
 Phiên bản chốt ngày 03/11/2026 (Toàn duyệt), bổ sung vào Master Plan v2 thành v3. Nguyên tắc: hạn chót 23/11/2026 giữ nguyên, không làm thứ 7 và chủ nhật, mỗi ngày làm việc mỗi người có ít nhất một commit, chỉ giao việc mới từ ngày 04/11 trở đi (không sửa các việc đã qua), thanh toán qua PayOS, phần giao diện sẽ do Toàn rà soát và chỉnh lại ở tuần cuối theo góp ý của chính mình.
 
+Đặc tả chi tiết từng task (dữ liệu, API, quy tắc nghiệp vụ, tiêu chí nghiệm thu) nằm ở [SAAS_SPEC.md](SAAS_SPEC.md).
+
 ## 1. Mục tiêu và câu chuyện demo
 
 Từ phần mềm nội bộ cho một doanh nghiệp, hệ thống trở thành nền tảng mà nhiều doanh nghiệp tự đăng ký và dùng chung, dữ liệu tách biệt hoàn toàn, có gói dùng thử 30 ngày và gói trả phí, có AI giúp doanh nghiệp đưa dữ liệu cũ vào hệ thống nhanh và có trợ lý hướng dẫn sử dụng.

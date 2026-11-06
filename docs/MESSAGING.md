@@ -49,7 +49,7 @@ Nội dung message là JSON (Jackson). Payload của mỗi routing key là một
 | `inventory.updated` | `InventoryUpdatedEvent` | `warehouseId`, `productId`, `skuCode`, `quantityBefore`, `quantityAfter`, `reason`, `referenceNumber`, `updatedAt` |
 | `alert.low-stock` | `LowStockAlertEvent` | `warehouseId`, `warehouseName`, `productId`, `skuCode`, `productName`, `quantityOnHand`, `minimumQuantity`, `detectedAt` |
 
-Thông tin kỹ thuật không nằm trong payload mà ở thuộc tính message do `WmsEventPublisher` gắn: `messageId` (UUID, consumer dùng để bỏ qua message giao lại), `timestamp`, header `x-wms-event` (trùng routing key) và `x-wms-source` (tên service phát). Thời gian ghi dạng ISO 8601 UTC, ví dụ `2026-11-04T08:00:00Z` (xem nguyên tắc idempotent trong [ARCHITECTURE.md](ARCHITECTURE.md)).
+Thông tin kỹ thuật không nằm trong payload mà ở thuộc tính message do `WmsEventPublisher` gắn: `messageId` (UUID, consumer dùng để bỏ qua message giao lại), `timestamp`, header `x-wms-event` (trùng routing key), `x-wms-source` (tên service phát) và `x-wms-company-id` (ID doanh nghiệp phát sinh sự kiện, bên nhận dùng để đặt lại ngữ cảnh doanh nghiệp trước khi xử lý, xem [MULTI_TENANT.md](MULTI_TENANT.md)). Thời gian ghi dạng ISO 8601 UTC, ví dụ `2026-11-04T08:00:00Z` (xem nguyên tắc idempotent trong [ARCHITECTURE.md](ARCHITECTURE.md)).
 
 ## 4. Dead-letter
 
@@ -100,7 +100,7 @@ Module `common` tự cấu hình hai thứ cho mọi service có `spring-boot-st
 | Bean | Lớp | Vai trò |
 | --- | --- | --- |
 | `MessageConverter` | `WmsMessagingAutoConfiguration` | `Jackson2JsonMessageConverter` dùng `ObjectMapper` của Spring Boot: gửi và nhận JSON, kiểu đích lấy từ tham số của `@RabbitListener` (không phụ thuộc header `__TypeId__` của bên gửi). Service tự khai báo `MessageConverter` riêng thì bean này lùi lại |
-| `WmsEventPublisher` | `WmsEventPublisherAutoConfiguration` | Gửi lên `wms.events` kèm `messageId`, `timestamp`, header `x-wms-event`, `x-wms-source`; có `publishAfterCommit` để chỉ gửi khi transaction đã commit |
+| `WmsEventPublisher` | `WmsEventPublisherAutoConfiguration` | Gửi lên `wms.events` kèm `messageId`, `timestamp`, header `x-wms-event`, `x-wms-source`, `x-wms-company-id`; có `publishAfterCommit` để chỉ gửi khi transaction đã commit |
 
 ### 7.1. Phát sự kiện (producer)
 

@@ -128,6 +128,15 @@ một HTTP status và thông báo mặc định bằng tiếng Việt. Frontend 
 | `CONFLICT` | 409 | Dữ liệu bị xung đột hoặc đã tồn tại (ví dụ trùng mã SKU) |
 | `UNSUPPORTED_MEDIA_TYPE` | 415 | Định dạng nội dung không được hỗ trợ |
 | `INTERNAL_ERROR` | 500 | Lỗi hệ thống không xác định |
+| `SERVICE_UNAVAILABLE` | 503 | Dịch vụ phụ thuộc chưa sẵn sàng |
+| `COMPANY_REQUIRED` | 403 | Request tới service nghiệp vụ không xác định được doanh nghiệp |
+| `COMPANY_INACTIVE` | 403 | Doanh nghiệp chưa kích hoạt qua email hoặc đang bị tạm khóa |
+| `SUBSCRIPTION_EXPIRED` | 403 | Gọi API ghi khi gói dịch vụ đã hết hạn |
+| `PLAN_LIMIT_EXCEEDED` | 403 | Tạo mới vượt giới hạn của gói; `data` gồm `limit`, `current`, `max`, `plan` |
+| `PAYMENT_INVALID` | 400 | Webhook thanh toán sai chữ ký, sai số tiền hoặc mã đơn không tồn tại |
+| `TOKEN_INVALID` | 400 | Mã kích hoạt hoặc mã đặt lại mật khẩu sai, đã dùng hoặc hết hạn |
+
+Sáu mã từ `COMPANY_REQUIRED` trở xuống thuộc mô hình SaaS đa doanh nghiệp, mô tả chi tiết ở [SAAS_SPEC.md](SAAS_SPEC.md) mục 2.4 và [MULTI_TENANT.md](MULTI_TENANT.md).
 
 Quy tắc:
 

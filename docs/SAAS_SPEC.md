@@ -73,11 +73,11 @@ Gateway luôn xóa các header trên nếu chúng do trình duyệt gửi lên, 
 
 1. Mọi bảng nghiệp vụ có cột `company_id BIGINT NOT NULL`. Bảng mới tạo từ ngày 09/11 trở đi (điều chuyển, kiểm kê, phiếu nhập, phiếu xuất, báo cáo) phải có cột này ngay từ đầu.
 2. `company_id` được gán tự động khi thêm mới và tự động thêm vào điều kiện lọc của mọi truy vấn. Không nhận `company_id` từ phía client.
-3. Truy cập bản ghi của doanh nghiệp khác bằng ID trả `404 NOT_FOUND` như thể bản ghi không tồn tại, không trả 403.
+3. Truy cập bản ghi của doanh nghiệp khác bằng ID trả `404 NOT_FOUND` như thể bản ghi không tồn tại, không trả 403. Trong code, `findById` với ID của doanh nghiệp khác ném lỗi `NOT_FOUND` chứ không trả rỗng (chi tiết ở `docs/MULTI_TENANT.md`, mục 3).
 4. Mọi ràng buộc duy nhất theo mã đổi thành duy nhất trong một doanh nghiệp: `(company_id, mã)`. Hai doanh nghiệp được phép dùng trùng mã SKU, mã kho, mã đối tác, số chứng từ.
 5. Ngoại lệ: tên đăng nhập và email của tài khoản duy nhất trên toàn hệ thống, vì đăng nhập chỉ cần tên đăng nhập và mật khẩu.
 6. Truy vấn SQL gốc (native query) không được lọc tự động, phải tự thêm điều kiện `company_id`.
-7. Sự kiện RabbitMQ luôn mang `companyId`. Bên nhận đặt lại ngữ cảnh doanh nghiệp trước khi đọc, ghi dữ liệu.
+7. Sự kiện RabbitMQ luôn mang doanh nghiệp trong header `x-wms-company-id` (do `WmsEventPublisher` gắn). Bên nhận được đặt lại ngữ cảnh doanh nghiệp trước khi đọc, ghi dữ liệu.
 8. Khóa Redis của dữ liệu nghiệp vụ (cache, bộ đếm, KPI) phải có `companyId` trong tên khóa.
 9. Dữ liệu đang có trên máy chủ được gán cho doanh nghiệp có `id = 1` trong migration.
 10. Mỗi service có ít nhất một bài test cách ly: tạo dữ liệu cho hai doanh nghiệp, kiểm tra bên này không đọc, sửa, xóa được dữ liệu bên kia.
@@ -177,20 +177,22 @@ Module `common` cung cấp sẵn cơ chế tách dữ liệu để mỗi service
 **Mô tả chức năng**
 
 - `TenantContext`: giữ ID doanh nghiệp của request đang xử lý; có hàm lấy bắt buộc, thiếu thì ném `COMPANY_REQUIRED`; có hàm chạy một đoạn code dưới danh nghĩa một doanh nghiệp cho tác vụ nền.
-- Bộ lọc HTTP đọc header `X-Company-Id`, đặt vào `TenantContext` và xóa khi xử lý xong. Request tới API nghiệp vụ mà thiếu header trả `403 COMPANY_REQUIRED`. Không áp dụng cho `/actuator/**`, Swagger và các đường dẫn khai báo công khai.
-- Khi chạy máy cá nhân với `GATEWAY_JWT_ENABLED=false`, service dùng doanh nghiệp mặc định cấu hình ở `app.tenant.default-company-id` (mặc định 1) để không ai bị chặn lúc phát triển. Trên máy chủ không đặt giá trị này.
-- Lớp cha `TenantEntity` (kế thừa `AuditableEntity`) có cột `company_id` dùng `@TenantId` của Hibernate: tự gán khi thêm mới, tự lọc khi đọc, sửa, xóa.
-- `WmsEventPublisher` tự gắn `companyId` vào sự kiện; có tiện ích để `@RabbitListener` đặt lại ngữ cảnh doanh nghiệp từ sự kiện.
+- Bộ lọc HTTP đọc header `X-Company-Id`, đặt vào `TenantContext` và xóa khi xử lý xong. Service nào đã chuyển sang `TenantEntity` thì bật `app.tenant.required=true`: từ đó request tới API nghiệp vụ mà thiếu header trả `403 COMPANY_REQUIRED`. Mặc định là tắt để service chưa chuyển đổi chạy như cũ. Không áp dụng cho `/actuator/**`, Swagger và các đường dẫn khai báo công khai.
+- Khi chạy máy cá nhân với `GATEWAY_JWT_ENABLED=false`, service dùng doanh nghiệp mặc định cấu hình ở `app.tenant.default-company-id` (docker-compose của môi trường phát triển đặt là 1) để không ai bị chặn lúc phát triển. Trên máy chủ không đặt giá trị này.
+- Lớp cha `TenantEntity` (kế thừa `AuditableEntity`) có cột `company_id` dùng `@TenantId` của Hibernate: tự gán khi thêm mới, tự lọc trong mọi truy vấn JPQL, Criteria và phương thức truy vấn của repository.
+- Hibernate không lọc khi tải theo khóa chính, nên `TenantEntity` tự chặn: `findById`, `deleteById`, `save` một đối tượng mang ID của doanh nghiệp khác ném lỗi `NOT_FOUND` (API trả 404), không trả rỗng. Kiểm tra tồn tại thì dùng `existsById`.
+- `WmsEventPublisher` tự gắn header `x-wms-company-id` vào sự kiện; trước mỗi phương thức `@RabbitListener`, ngữ cảnh doanh nghiệp được đặt lại từ header đó, service không phải viết thêm gì.
 - Interceptor cho OpenFeign chuyển tiếp `X-Company-Id` và các header người dùng.
 - Thêm các mã lỗi ở mục 2.4 vào `ErrorCode`.
 - Tài liệu `docs/MULTI_TENANT.md`: các bước chuyển một service, mẫu migration, mẫu test cách ly.
 
 **Tiêu chí nghiệm thu**
 
-1. Test trong `common`: có dữ liệu của hai doanh nghiệp, truy vấn dưới doanh nghiệp A chỉ trả dữ liệu của A; tìm theo ID một bản ghi của B trả rỗng; thêm mới dưới A thì bản ghi mang `company_id` của A.
-2. Request thiếu `X-Company-Id` nhận `403 COMPANY_REQUIRED`.
-3. Sự kiện phát ra có `companyId`; listener nhận sự kiện của doanh nghiệp 2 thì ghi dữ liệu vào doanh nghiệp 2.
-4. Toàn bộ test hiện có của năm service vẫn chạy được.
+1. Test trong `common`: có dữ liệu của hai doanh nghiệp, truy vấn dưới doanh nghiệp A chỉ trả dữ liệu của A; tìm, sửa, xóa theo ID một bản ghi của B bị từ chối với `NOT_FOUND`; thêm mới dưới A thì bản ghi mang `company_id` của A.
+2. Khi chưa xác định doanh nghiệp: truy vấn không trả dòng nào, lưu bị từ chối với `COMPANY_REQUIRED`.
+3. Với `app.tenant.required=true`, request thiếu `X-Company-Id` nhận `403 COMPANY_REQUIRED`.
+4. Sự kiện phát ra mang doanh nghiệp; listener nhận sự kiện của doanh nghiệp 2 thì ghi dữ liệu vào doanh nghiệp 2.
+5. Toàn bộ test hiện có của năm service vẫn chạy được.
 
 ### WMS-22.2 [Backend] auth-service: doanh nghiệp, tài khoản thuộc doanh nghiệp, JWT mang companyId
 

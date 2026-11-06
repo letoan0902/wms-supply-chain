@@ -9,6 +9,7 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.Assert;
+import vn.wms.common.tenant.TenantContext;
 
 import java.util.Date;
 import java.util.UUID;
@@ -17,7 +18,8 @@ import java.util.UUID;
  * Phát sự kiện nghiệp vụ lên exchange {@link WmsEvents#EXCHANGE} dưới dạng JSON.
  *
  * <p>Mỗi message được gắn {@code messageId} (UUID, consumer dùng để chống xử lý trùng), {@code timestamp},
- * header {@value #HEADER_EVENT_TYPE} (chính là routing key) và {@value #HEADER_SOURCE} (tên service phát).
+ * header {@value #HEADER_EVENT_TYPE} (chính là routing key), {@value #HEADER_SOURCE} (tên service phát) và
+ * {@value #HEADER_COMPANY_ID} (doanh nghiệp trong {@link TenantContext} lúc phát, nếu có).
  * Payload nên là một record trong gói {@code vn.wms.common.messaging.event} để service nhận đọc được bằng cùng kiểu.
  *
  * <p>Trong phương thức {@code @Transactional} hãy dùng {@link #publishAfterCommit}: sự kiện chỉ đi khi dữ liệu
@@ -30,6 +32,8 @@ public class WmsEventPublisher {
     public static final String HEADER_EVENT_TYPE = "x-wms-event";
     /** Header chứa tên service phát sự kiện, ví dụ {@code order-service}. */
     public static final String HEADER_SOURCE = "x-wms-source";
+    /** Header chứa ID doanh nghiệp phát sinh sự kiện; bên nhận dùng để đặt lại ngữ cảnh doanh nghiệp. */
+    public static final String HEADER_COMPANY_ID = "x-wms-company-id";
 
     private static final Logger log = LoggerFactory.getLogger(WmsEventPublisher.class);
 
@@ -50,6 +54,10 @@ public class WmsEventPublisher {
      * @return messageId đã gắn vào message
      */
     public String publish(String routingKey, Object event) {
+        return publish(routingKey, event, TenantContext.getCompanyId());
+    }
+
+    private String publish(String routingKey, Object event, Long companyId) {
         Assert.hasText(routingKey, "routingKey không được rỗng");
         Assert.notNull(event, "event không được null");
         String messageId = UUID.randomUUID().toString();
@@ -61,6 +69,9 @@ public class WmsEventPublisher {
             properties.setHeader(HEADER_EVENT_TYPE, routingKey);
             if (source != null && !source.isBlank()) {
                 properties.setHeader(HEADER_SOURCE, source);
+            }
+            if (companyId != null) {
+                properties.setHeader(HEADER_COMPANY_ID, companyId);
             }
             return message;
         });
@@ -80,11 +91,13 @@ public class WmsEventPublisher {
             publish(routingKey, event);
             return;
         }
+        // Ghi nhận doanh nghiệp ngay lúc đăng ký, không phụ thuộc ngữ cảnh của luồng tại thời điểm commit.
+        Long companyId = TenantContext.getCompanyId();
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override
             public void afterCommit() {
                 try {
-                    publish(routingKey, event);
+                    publish(routingKey, event, companyId);
                 } catch (AmqpException ex) {
                     log.error("Không gửi được sự kiện {} sau khi commit, dữ liệu đã lưu nhưng service khác chưa nhận: {}",
                             routingKey, ex.getMessage());

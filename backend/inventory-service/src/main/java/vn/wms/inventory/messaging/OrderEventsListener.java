@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 import vn.wms.common.messaging.WmsEvents;
 import vn.wms.common.messaging.event.OrderCreatedEvent;
 import vn.wms.common.messaging.event.OrderDispatchedEvent;
+import vn.wms.common.messaging.event.OrderReceivedEvent;
 import vn.wms.common.tenant.TenantContext;
 import vn.wms.common.tenant.TenantMessagePostProcessor;
 
@@ -73,6 +74,12 @@ public class OrderEventsListener {
                     log.info("Nhận {} cho đơn {} (messageId={}, companyId={}), chuyển cho {} handler",
                             routingKey, event.orderNumber(), messageId, TenantContext.getCompanyId(), handlers.size());
                     handlers.forEach(handler -> handler.onOrderDispatched(event, messageId));
+                }
+                case WmsEvents.RoutingKeys.ORDER_RECEIVED -> {
+                    OrderReceivedEvent event = read(message, OrderReceivedEvent.class);
+                    log.info("Nhận {} cho phiếu nhập {} (PO {}, messageId={}, companyId={}), chuyển cho {} handler",
+                            routingKey, event.grnNumber(), event.poNumber(), messageId, TenantContext.getCompanyId(), handlers.size());
+                    handlers.forEach(handler -> handler.onOrderReceived(event, messageId));
                 }
                 default -> log.warn("Bỏ qua sự kiện chưa hỗ trợ: routingKey='{}' messageId={}", routingKey, messageId);
             }

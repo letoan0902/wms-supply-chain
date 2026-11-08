@@ -221,4 +221,11 @@ public interface StockItemRepository extends JpaRepository<StockItem, Long> {
 
     @Query("SELECT COALESCE(SUM(s.quantity), 0) FROM StockItem s WHERE (:warehouseId IS NULL OR s.binLocation.warehouse.id = :warehouseId)")
     BigDecimal sumQuantityInLots(@Param("warehouseId") Long warehouseId);
+
+    @Query("SELECT s FROM StockItem s WHERE s.binLocation.id = :binLocationId AND s.productId = :productId AND " +
+           "((:lotNo IS NULL AND s.lotNo IS NULL) OR s.lotNo = :lotNo)")
+    Optional<StockItem> findByBinLocationIdAndProductIdAndLotNo(
+            @Param("binLocationId") Long binLocationId,
+            @Param("productId") Long productId,
+            @Param("lotNo") String lotNo);
 }

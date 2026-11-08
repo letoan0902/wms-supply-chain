@@ -69,7 +69,11 @@ class WmsEventsDefinitionsTest {
     @Test
     void businessQueuesAreBoundToEventExchangeWithExpectedKeys() {
         assertThat(bindingKeys(WmsEvents.EXCHANGE, WmsEvents.Queues.INVENTORY_ORDER_EVENTS))
-                .containsExactlyInAnyOrder(WmsEvents.RoutingKeys.ORDER_CREATED, WmsEvents.RoutingKeys.ORDER_DISPATCHED);
+                .containsExactlyInAnyOrder(
+                        WmsEvents.RoutingKeys.ORDER_CREATED,
+                        WmsEvents.RoutingKeys.ORDER_DISPATCHED,
+                        WmsEvents.RoutingKeys.ORDER_RECEIVED
+                );
         assertThat(bindingKeys(WmsEvents.EXCHANGE, WmsEvents.Queues.NOTIFICATION_ORDER_EVENTS))
                 .containsExactly(WmsEvents.RoutingKeys.ORDER_ALL);
         assertThat(bindingKeys(WmsEvents.EXCHANGE, WmsEvents.Queues.NOTIFICATION_INVENTORY_EVENTS))

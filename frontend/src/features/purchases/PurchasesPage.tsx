@@ -1,8 +1,10 @@
 import {
+  BarcodeOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
   ExclamationCircleOutlined,
   EyeOutlined,
+  FileDoneOutlined,
   FileExcelOutlined,
   FileTextOutlined,
   PlusOutlined,
@@ -41,6 +43,8 @@ import type { Warehouse } from '../warehouses/types'
 import PurchaseOrderDetailModal from './components/PurchaseOrderDetailModal'
 import PurchaseOrderForm from './components/PurchaseOrderForm'
 import RejectPurchaseOrderModal from './components/RejectPurchaseOrderModal'
+import GoodsReceiptTable from './components/GoodsReceiptTable'
+import SmartGoodsReceiptForm from './components/SmartGoodsReceiptForm'
 import * as purchasesApi from './purchasesApi'
 import { STATUS_CONFIG } from './statusConfig'
 import type {
@@ -66,9 +70,11 @@ export default function PurchasesPage() {
       ['ADMIN', 'PURCHASING'].includes(r)
     ) ?? false
 
-  // Tab active: 'list' | 'create'
-  const [activeTab, setActiveTab] = useState<'list' | 'create'>('list')
+  // Tab active: 'list' | 'create' | 'grn' | 'create-grn'
+  const [activeTab, setActiveTab] = useState<'list' | 'create' | 'grn' | 'create-grn'>('list')
   const [formKey, setFormKey] = useState(0)
+  const [grnFormKey, setGrnFormKey] = useState(0)
+  const [selectedPoIdForGrn, setSelectedPoIdForGrn] = useState<number | undefined>(undefined)
 
   // Sub-filter tab theo trạng thái đơn hàng: 'ALL' | OrderStatus
   const [selectedStatusTab, setSelectedStatusTab] = useState<string>('ALL')
@@ -219,6 +225,12 @@ export default function PurchasesPage() {
   const handleOpenCreateTab = () => {
     setFormKey((k) => k + 1)
     setActiveTab('create')
+  }
+
+  const handleOpenCreateGrnTab = (poId?: number) => {
+    setSelectedPoIdForGrn(poId)
+    setGrnFormKey((k) => k + 1)
+    setActiveTab('create-grn')
   }
 
   // Phê duyệt nhanh đơn mua từ bảng
@@ -426,6 +438,17 @@ export default function PurchasesPage() {
               />
             </Tooltip>
 
+            {(r.status === 'APPROVED' || r.status === 'PARTIALLY_RECEIVED') && (
+              <Tooltip title="Lập phiếu nhập kho cho đơn này">
+                <Button
+                  size="small"
+                  type="text"
+                  icon={<BarcodeOutlined className="text-emerald-600" />}
+                  onClick={() => handleOpenCreateGrnTab(r.id)}
+                />
+              </Tooltip>
+            )}
+
             {isPending && canApprove && (
               <>
                 <Tooltip title="Phê duyệt đơn mua ngay">
@@ -505,6 +528,7 @@ export default function PurchasesPage() {
       ),
     },
     { key: 'APPROVED', label: `Đã duyệt (${summary?.approvedOrders ?? 0})` },
+    { key: 'PARTIALLY_RECEIVED', label: 'Nhập dở dang' },
     { key: 'CONFIRMED', label: 'Đã xác nhận' },
     { key: 'DRAFT', label: `Bản nháp (${summary?.draftOrders ?? 0})` },
     { key: 'REJECTED', label: `Đã từ chối (${summary?.rejectedOrders ?? 0})` },
@@ -541,6 +565,15 @@ export default function PurchasesPage() {
             loading={loading || loadingSummary}
           >
             Làm mới
+          </Button>
+
+          <Button
+            type="primary"
+            icon={<BarcodeOutlined />}
+            onClick={() => handleOpenCreateGrnTab()}
+            className="bg-emerald-600 hover:bg-emerald-700 font-semibold"
+          >
+            Nhập kho thông minh
           </Button>
 
           <Button
@@ -736,6 +769,20 @@ export default function PurchasesPage() {
             ),
           },
           {
+            key: 'grn',
+            label: (
+              <span className="flex items-center gap-1.5 px-1 font-medium text-emerald-700">
+                <FileDoneOutlined />
+                <span>Phiếu nhập kho (GRN List - WMS-10.1)</span>
+              </span>
+            ),
+            children: (
+              <Card variant="borderless" className="shadow-2xs">
+                <GoodsReceiptTable onOpenCreateGrn={handleOpenCreateGrnTab} />
+              </Card>
+            ),
+          },
+          {
             key: 'create',
             label: (
               <span className="flex items-center gap-1.5 px-1 text-blue-600 font-semibold">
@@ -749,6 +796,28 @@ export default function PurchasesPage() {
                   key={formKey}
                   onSuccess={handleCreateSuccess}
                   onCancel={() => setActiveTab('list')}
+                />
+              </Card>
+            ),
+          },
+          {
+            key: 'create-grn',
+            label: (
+              <span className="flex items-center gap-1.5 px-1 text-emerald-600 font-semibold">
+                <BarcodeOutlined />
+                <span>Nhập kho thông minh (Súng bắn mã - WMS-10.4)</span>
+              </span>
+            ),
+            children: (
+              <Card variant="borderless" className="shadow-2xs">
+                <SmartGoodsReceiptForm
+                  key={grnFormKey}
+                  initialPoId={selectedPoIdForGrn}
+                  onSuccess={() => {
+                    reloadData()
+                    setActiveTab('grn')
+                  }}
+                  onCancel={() => setActiveTab('grn')}
                 />
               </Card>
             ),
@@ -768,6 +837,7 @@ export default function PurchasesPage() {
           setSelectedOrder(updated)
           reloadData()
         }}
+        onOpenCreateGrn={handleOpenCreateGrnTab}
         canApprove={canApprove}
         canCancel={canCancel}
       />

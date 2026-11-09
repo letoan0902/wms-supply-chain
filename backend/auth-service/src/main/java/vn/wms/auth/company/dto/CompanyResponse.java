@@ -4,6 +4,7 @@ import vn.wms.auth.company.entity.Company;
 
 import java.time.Instant;
 
+/** Thông tin đầy đủ doanh nghiệp của người đang đăng nhập (GET /api/auth/company). */
 public record CompanyResponse(
         Long id,
         String code,
@@ -27,7 +28,7 @@ public record CompanyResponse(
                 company.getEmail(),
                 company.getPhone(),
                 company.getAddress(),
-                company.getStatus(),
+                company.getStatus() != null ? company.getStatus().name() : null,
                 company.getCreatedAt()
         );
     }

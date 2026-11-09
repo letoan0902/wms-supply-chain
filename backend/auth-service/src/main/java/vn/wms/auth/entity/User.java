@@ -11,10 +11,12 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.JoinTable;
 import jakarta.persistence.ManyToMany;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import vn.wms.auth.company.entity.Company;
 import vn.wms.common.persistence.AuditableEntity;
 
 import java.util.HashSet;
@@ -35,8 +37,10 @@ public class User extends AuditableEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "company_id")
-    private Long companyId;
+    /** Doanh nghiệp sở hữu tài khoản. Bắt buộc và không đổi được sau khi tạo. */
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "company_id", nullable = false, updatable = false)
+    private Company company;
 
     @Column(nullable = false, unique = true, length = 50)
     private String username;
@@ -66,6 +70,11 @@ public class User extends AuditableEntity {
             joinColumns = @JoinColumn(name = "user_id"))
     @Column(name = "warehouse_id", nullable = false)
     private Set<Long> warehouseIds = new HashSet<>();
+
+    /** ID doanh nghiệp của tài khoản, đọc từ proxy mà không phải tải bản ghi companies. */
+    public Long getCompanyId() {
+        return company != null ? company.getId() : null;
+    }
 
     public void setRoles(Set<Role> roles) {
         this.roles = (roles != null) ? new HashSet<>(roles) : new HashSet<>();

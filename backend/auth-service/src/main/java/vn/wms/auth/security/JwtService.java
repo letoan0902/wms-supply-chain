@@ -21,8 +21,8 @@ import java.util.UUID;
  * trường JWT_SECRET).
  *
  * <p>
- * Claim sử dụng: sub = tên đăng nhập, roles = danh sách vai trò, companyId = ID công ty (nếu có),
- * warehouseIds = danh sách kho, iss, iat, exp.
+ * Claim sử dụng: sub = tên đăng nhập, userId, roles = danh sách vai trò, warehouseIds = danh sách kho,
+ * companyId = ID doanh nghiệp, companyCode = mã doanh nghiệp, type, iss, iat, exp.
  */
 @Service
 public class JwtService {

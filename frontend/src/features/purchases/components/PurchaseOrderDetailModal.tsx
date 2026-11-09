@@ -1,4 +1,5 @@
 import {
+  BarcodeOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
   ExclamationCircleOutlined,
@@ -32,6 +33,7 @@ interface Props {
   order: PurchaseOrder | null
   onClose: () => void
   onOrderUpdated?: (updated: PurchaseOrder) => void
+  onOpenCreateGrn?: (poId: number) => void
   canApprove?: boolean
   canCancel?: boolean
 }
@@ -41,6 +43,7 @@ export default function PurchaseOrderDetailModal({
   order,
   onClose,
   onOrderUpdated,
+  onOpenCreateGrn,
   canApprove = false,
   canCancel = false,
 }: Props) {
@@ -201,6 +204,20 @@ export default function PurchaseOrderDetailModal({
 
             <Space>
               <Button onClick={onClose}>Đóng</Button>
+
+              {onOpenCreateGrn && (order.status === 'APPROVED' || order.status === 'PARTIALLY_RECEIVED') && (
+                <Button
+                  type="primary"
+                  icon={<BarcodeOutlined />}
+                  onClick={() => {
+                    onClose()
+                    onOpenCreateGrn(order.id)
+                  }}
+                  className="bg-emerald-600 hover:bg-emerald-700 font-semibold"
+                >
+                  Lập phiếu nhập kho
+                </Button>
+              )}
 
               {isCancellable && canCancel && (
                 <Popconfirm

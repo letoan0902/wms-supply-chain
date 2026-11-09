@@ -10,6 +10,7 @@ import java.util.Set;
 
 /**
  * DTO tạo mới người dùng dành cho Quản trị viên (Admin).
+ * Không có trường doanh nghiệp: tài khoản mới luôn thuộc doanh nghiệp của ADMIN đang tạo.
  */
 public record CreateUserRequest(
         @NotBlank(message = "Tên đăng nhập không được để trống")
@@ -32,11 +33,6 @@ public record CreateUserRequest(
         @NotEmpty(message = "Người dùng phải có ít nhất một vai trò")
         Set<String> roles,
 
-        Set<Long> warehouseIds,
-
-        Long companyId
+        Set<Long> warehouseIds
 ) {
-    public CreateUserRequest(String username, String email, String password, String fullName, Set<String> roles, Set<Long> warehouseIds) {
-        this(username, email, password, fullName, roles, warehouseIds, null);
-    }
 }

@@ -16,6 +16,7 @@ import vn.wms.auth.dto.auth.RefreshTokenResponse;
 import vn.wms.auth.dto.auth.RegisterRequest;
 import vn.wms.auth.dto.auth.RegisterResponse;
 import vn.wms.auth.dto.users.UserInfoResponse;
+import vn.wms.auth.company.dto.CompanySummary;
 import vn.wms.auth.company.entity.Company;
 import vn.wms.auth.company.repository.CompanyRepository;
 import vn.wms.auth.entity.Role;
@@ -23,6 +24,8 @@ import vn.wms.auth.entity.User;
 import vn.wms.auth.repository.RoleRepository;
 import vn.wms.auth.repository.UserRepository;
 import vn.wms.auth.security.JwtService;
+import vn.wms.auth.security.UserPrincipal;
+import vn.wms.common.api.ErrorCode;
 import vn.wms.auth.subscription.entity.Subscription;
 import vn.wms.auth.subscription.repository.SubscriptionRepository;
 import vn.wms.auth.subscription.service.SubscriptionService;
@@ -114,6 +117,9 @@ public class AuthService {
             throw ApiException.unauthorized("Tài khoản đã bị khóa hoặc ngừng kích hoạt");
         }
 
+        // 3b. Doanh nghiệp của tài khoản phải đang hoạt động (ACTIVE)
+        Company company = requireActiveCompany(userLogin);
+
         // 4. Đăng nhập thành công -> Reset bộ đếm số lần nhập sai của cả IP và Tài khoản
         resetFailedAttempts(clientIp, canonicalUsername);
 
@@ -153,7 +159,7 @@ public class AuthService {
                 userLogin.getId(), userLogin.getUsername(), userLogin.getCompanyId(), plan, roles, userLogin.getWarehouseIds());
         String refreshToken = jwtService.generateRefreshToken(userLogin.getUsername());
 
-        // 8. Lưu Refresh Token vào Redis với TTL
+        // 7. Lưu Refresh Token vào Redis với TTL
         String key = "refresh:" + userLogin.getUsername();
         redisTemplate.opsForValue().set(key, refreshToken,
                 Duration.ofMinutes(jwtService.getRefreshTokenMinutes()));

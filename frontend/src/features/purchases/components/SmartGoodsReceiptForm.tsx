@@ -1,8 +1,10 @@
 import {
   BarcodeOutlined,
+  CalendarOutlined,
   CameraOutlined,
   CheckCircleOutlined,
   ClearOutlined,
+  EnvironmentOutlined,
   ExclamationCircleOutlined,
   FastForwardOutlined,
   InboxOutlined,
@@ -38,6 +40,7 @@ import { formatCurrency, formatNumber } from '../../../utils/format'
 import { playErrorBeep, playSuccessBeep, playWarningBeep } from '../../../utils/sound'
 import * as warehouseApi from '../../warehouses/warehouseApi'
 import type { BinLocation } from '../../warehouses/types'
+import * as productApi from '../../products/productApi'
 import * as grnApi from '../grnApi'
 import type {
   CreateGrnItemRequest,
@@ -48,6 +51,10 @@ import type {
 import * as purchasesApi from '../purchasesApi'
 import type { PurchaseOrder } from '../types'
 import BarcodeCameraScanner from './BarcodeCameraScanner'
+import LotExpiryPutawayModal, {
+  type LotExpiryPutawayFormData,
+  type LotExpiryPutawayModalItem,
+} from './LotExpiryPutawayModal'
 
 const { Title, Text } = Typography
 
@@ -63,6 +70,8 @@ export interface ReceiptItemRow {
   unitPrice: number
   isCompleted: boolean
   barcode?: string
+  manageByLot?: boolean
+  manageByExpiration?: boolean
   // Editable fields for this GRN
   acceptedQuantity: number
   rejectedQuantity: number
@@ -113,6 +122,10 @@ export default function SmartGoodsReceiptForm({
   const [lastScannedSku, setLastScannedSku] = useState<string | null>(null)
   const [isCameraModalOpen, setIsCameraModalOpen] = useState(false)
   const barcodeInputRef = useRef<InputRef>(null)
+
+  // Modal Nhập thông tin Lô hàng & Hạn sử dụng (WMS-10.5)
+  const [lotModalItem, setLotModalItem] = useState<LotExpiryPutawayModalItem | null>(null)
+  const [isLotModalOpen, setIsLotModalOpen] = useState(false)
 
   // Tự động focus vào ô quét mã ngay khi vào form hoặc khi đổi PO
   useEffect(() => {
@@ -169,36 +182,46 @@ export default function SmartGoodsReceiptForm({
     const loadPoData = async () => {
       setLoadingProgress(true)
       try {
-        const progress = await grnApi.fetchPoReceiptProgress(selectedPoId)
+        const [progress, productsRes] = await Promise.all([
+          grnApi.fetchPoReceiptProgress(selectedPoId),
+          productApi.fetchProducts({ size: 200 }).catch(() => null),
+        ])
         if (ignore) return
 
         setPoProgress(progress)
 
+        const productMap = new Map((productsRes?.content || []).map((p) => [p.id, p]))
+
         // Khởi tạo các dòng hàng
-        const initialRows: ReceiptItemRow[] = (progress.items || []).map((it) => ({
-          poItemId: it.poItemId,
-          productId: it.productId,
-          skuCode: it.skuCode,
-          productName: it.productName,
-          uom: it.uom,
-          orderedQuantity: it.orderedQuantity,
-          receivedQuantity: it.receivedQuantity,
-          remainingQuantity: it.remainingQuantity,
-          unitPrice: it.unitPrice,
-          isCompleted: it.isCompleted,
-          barcode: it.barcode,
-          // Đợt nhập hiện tại: mặc định 0, chờ quét mã hoặc chỉnh tay
-          acceptedQuantity: 0,
-          rejectedQuantity: 0,
-          rejectedReason: '',
-          // Số lô, ngày SX, hạn dùng để trống: chỉ gửi khi người dùng tự nhập
-          batchNumber: '',
-          mfgDate: undefined,
-          expDate: undefined,
-          locationId: undefined,
-          locationCode: undefined,
-          note: '',
-        }))
+        const initialRows: ReceiptItemRow[] = (progress.items || []).map((it) => {
+          const prod = productMap.get(it.productId)
+          return {
+            poItemId: it.poItemId,
+            productId: it.productId,
+            skuCode: it.skuCode,
+            productName: it.productName,
+            uom: it.uom,
+            orderedQuantity: it.orderedQuantity,
+            receivedQuantity: it.receivedQuantity,
+            remainingQuantity: it.remainingQuantity,
+            unitPrice: it.unitPrice,
+            isCompleted: it.isCompleted,
+            barcode: it.barcode || prod?.barcode,
+            manageByLot: Boolean(prod?.manageByLot),
+            manageByExpiration: Boolean(prod?.manageByExpiration),
+            // Đợt nhập hiện tại: mặc định 0, chờ quét mã hoặc chỉnh tay
+            acceptedQuantity: 0,
+            rejectedQuantity: 0,
+            rejectedReason: '',
+            // Số lô, ngày SX, hạn dùng để trống: chỉ gửi khi người dùng tự nhập
+            batchNumber: '',
+            mfgDate: undefined,
+            expDate: undefined,
+            locationId: undefined,
+            locationCode: undefined,
+            note: '',
+          }
+        })
 
         setItems(initialRows)
 
@@ -365,6 +388,44 @@ export default function SmartGoodsReceiptForm({
     )
   }
 
+  // Mở modal nhập thông tin Lô hàng, Hạn dùng & Vị trí cất hàng (WMS-10.5)
+  const handleOpenLotModal = (index: number) => {
+    const target = items[index]
+    if (!target) return
+    setLotModalItem({
+      index,
+      productId: target.productId,
+      skuCode: target.skuCode,
+      productName: target.productName,
+      uom: target.uom,
+      acceptedQuantity: target.acceptedQuantity,
+      batchNumber: target.batchNumber,
+      mfgDate: target.mfgDate,
+      expDate: target.expDate,
+      locationId: target.locationId,
+      locationCode: target.locationCode,
+      note: target.note,
+      manageByLot: target.manageByLot,
+      manageByExpiration: target.manageByExpiration,
+    })
+    setIsLotModalOpen(true)
+  }
+
+  // Lưu thông tin từ Modal Lô & HSD (WMS-10.5)
+  const handleSaveLotModal = (index: number, data: LotExpiryPutawayFormData) => {
+    updateItemFields(index, {
+      batchNumber: data.batchNumber,
+      mfgDate: data.mfgDate,
+      expDate: data.expDate,
+      locationId: data.locationId,
+      locationCode: data.locationCode,
+      note: data.note || '',
+    })
+    setIsLotModalOpen(false)
+    message.success('Đã cập nhật thông tin Lô hàng, Hạn dùng & Vị trí cất hàng!')
+    barcodeInputRef.current?.focus()
+  }
+
   // Tính toán tổng số lượng và giá trị
   const totalAccepted = items.reduce((sum, it) => sum + (it.acceptedQuantity || 0), 0)
   const totalRejected = items.reduce((sum, it) => sum + (it.rejectedQuantity || 0), 0)
@@ -393,6 +454,48 @@ export default function SmartGoodsReceiptForm({
         playErrorBeep()
         message.warning(`Vui lòng nhập lý do từ chối/hỏng cho SKU "${it.skuCode}"!`)
         return
+      }
+    }
+
+    // WMS-10.5: Kiểm tra thông tin Lô & HSD đối với các mặt hàng có cờ quản lý date / lot
+    for (let i = 0; i < items.length; i++) {
+      const it = items[i]
+      if (it.acceptedQuantity > 0) {
+        const isDateManaged = Boolean(it.manageByExpiration || it.manageByLot)
+        if (isDateManaged) {
+          if (!it.batchNumber?.trim()) {
+            playErrorBeep()
+            message.error(
+              `Mặt hàng "${it.productName}" (${it.skuCode}) yêu cầu quản lý Số lô. Vui lòng nhập thông tin Lô!`
+            )
+            handleOpenLotModal(i)
+            return
+          }
+          if (it.manageByExpiration && !it.expDate) {
+            playErrorBeep()
+            message.error(
+              `Mặt hàng "${it.productName}" (${it.skuCode}) yêu cầu quản lý Hạn sử dụng. Vui lòng nhập Hạn dùng!`
+            )
+            handleOpenLotModal(i)
+            return
+          }
+        }
+        if (it.expDate && it.mfgDate && dayjs(it.expDate).isBefore(dayjs(it.mfgDate))) {
+          playErrorBeep()
+          message.error(
+            `Hạn sử dụng không được trước ngày sản xuất (SKU: ${it.skuCode})!`
+          )
+          handleOpenLotModal(i)
+          return
+        }
+        if (it.expDate && dayjs(it.expDate).isBefore(dayjs(receiptDate || undefined), 'day')) {
+          playErrorBeep()
+          message.error(
+            `Hạn sử dụng của lô "${it.batchNumber || it.skuCode}" đã quá hạn so với ngày nhập kho (${dayjs(receiptDate).format('DD/MM/YYYY')})!`
+          )
+          handleOpenLotModal(i)
+          return
+        }
       }
     }
 
@@ -466,6 +569,20 @@ export default function SmartGoodsReceiptForm({
               </span>
               <span>ĐVT: {r.uom}</span>
             </div>
+            {(r.manageByExpiration || r.manageByLot) && (
+              <div className="flex items-center gap-1 mt-1">
+                {r.manageByExpiration && (
+                  <Tag color="purple" className="text-[10px] m-0">
+                    Quản lý Date
+                  </Tag>
+                )}
+                {r.manageByLot && (
+                  <Tag color="cyan" className="text-[10px] m-0">
+                    Quản lý Lô
+                  </Tag>
+                )}
+              </div>
+            )}
           </div>
         )
       },
@@ -571,80 +688,103 @@ export default function SmartGoodsReceiptForm({
       ),
     },
     {
-      title: 'Quản lý Lô & HSD (WMS-10.2)',
-      width: 230,
+      title: 'Quản lý Lô & HSD (WMS-10.5)',
+      width: 250,
       render: (_, r, idx) => {
+        const isDateManaged = Boolean(r.manageByExpiration || r.manageByLot)
+        const isMissingRequired =
+          isDateManaged &&
+          r.acceptedQuantity > 0 &&
+          (!r.batchNumber?.trim() || (r.manageByExpiration && !r.expDate))
         const isExpired = r.expDate && dayjs(r.expDate).isBefore(dayjs(), 'day')
+
         return (
           <div className="space-y-1.5 text-xs">
-            <Input
+            <Button
               size="small"
-              placeholder="Số lô (Batch No)"
-              value={r.batchNumber}
-              onChange={(e) => handleItemFieldChange(idx, 'batchNumber', e.target.value)}
-              addonBefore="Lô:"
-              className="font-mono text-xs"
-            />
-            <div className="grid grid-cols-2 gap-1">
-              <div>
-                <span className="text-[10px] text-slate-500 block">Ngày SX:</span>
-                <DatePicker
-                  size="small"
-                  format="DD/MM/YYYY"
-                  value={r.mfgDate ? dayjs(r.mfgDate) : null}
-                  onChange={(d) =>
-                    handleItemFieldChange(idx, 'mfgDate', d ? d.format('YYYY-MM-DD') : undefined)
-                  }
-                  className="w-full text-[11px]"
-                />
-              </div>
-              <div>
-                <span className="text-[10px] text-slate-500 block">Hạn dùng:</span>
-                <DatePicker
-                  size="small"
-                  format="DD/MM/YYYY"
-                  value={r.expDate ? dayjs(r.expDate) : null}
-                  onChange={(d) =>
-                    handleItemFieldChange(idx, 'expDate', d ? d.format('YYYY-MM-DD') : undefined)
-                  }
-                  className="w-full text-[11px]"
-                />
-              </div>
+              type={isMissingRequired ? 'primary' : 'default'}
+              danger={isMissingRequired}
+              icon={<CalendarOutlined />}
+              onClick={() => handleOpenLotModal(idx)}
+              className="w-full text-xs font-semibold flex items-center justify-center gap-1 shadow-2xs"
+            >
+              {isMissingRequired
+                ? '⚠️ Nhập Lô & HSD ngay *'
+                : r.batchNumber || r.expDate
+                ? 'Sửa Lô / HSD / Vị trí'
+                : 'Nhập Lô & HSD (Modal)'}
+            </Button>
+
+            <div className="flex flex-wrap items-center gap-1">
+              {r.batchNumber ? (
+                <Tag color="blue" className="font-mono text-[11px] m-0">
+                  Lô: {r.batchNumber}
+                </Tag>
+              ) : isDateManaged ? (
+                <Tag color="default" className="text-[10px] m-0 text-slate-400">
+                  Chưa có lô
+                </Tag>
+              ) : null}
+
+              {r.expDate ? (
+                <Tag color={isExpired ? 'error' : 'purple'} className="text-[11px] m-0">
+                  HSD: {dayjs(r.expDate).format('DD/MM/YYYY')}
+                </Tag>
+              ) : isDateManaged ? (
+                <Tag color="default" className="text-[10px] m-0 text-slate-400">
+                  Chưa có HSD
+                </Tag>
+              ) : null}
             </div>
+
             {isExpired && (
               <Tag color="error" className="m-0 text-[10px] flex items-center gap-1">
                 <WarningOutlined /> Lô đã hết hạn!
               </Tag>
+            )}
+            {isMissingRequired && (
+              <div className="text-[10px] text-rose-600 font-medium">
+                * Bắt buộc nhập Lô & HSD khi nhận hàng
+              </div>
             )}
           </div>
         )
       },
     },
     {
-      title: 'Vị trí cất hàng (Bin)',
-      width: 170,
+      title: 'Vị trí cất hàng (Putaway Bin)',
+      width: 200,
       render: (_, r, idx) => (
-        <Select
-          size="small"
-          placeholder="Chọn vị trí ô/kệ"
-          value={r.locationId}
-          onChange={(val, opt) => {
-            // Cập nhật đồng thời ID và mã vị trí trong một lần để không mất locationId
-            const label = (opt as { label?: string } | undefined)?.label
-            updateItemFields(idx, {
-              locationId: val ?? undefined,
-              locationCode: val != null && label ? label : undefined,
-            })
-          }}
-          allowClear
-          showSearch
-          loading={loadingBins}
-          className="w-full text-xs"
-          options={binLocations.map((b) => ({
-            value: b.id,
-            label: b.code,
-          }))}
-        />
+        <div className="space-y-1">
+          <Select
+            size="small"
+            placeholder="Chọn vị trí ô/kệ"
+            value={r.locationId}
+            onChange={(val, opt) => {
+              const label = (opt as { label?: string } | undefined)?.label
+              updateItemFields(idx, {
+                locationId: val ?? undefined,
+                locationCode: val != null && label ? label : undefined,
+              })
+            }}
+            allowClear
+            showSearch
+            loading={loadingBins}
+            className="w-full text-xs"
+            options={binLocations.map((b) => ({
+              value: b.id,
+              label: `${b.code} (Khu ${b.zone || '-'})`,
+            }))}
+          />
+          {r.locationCode && (
+            <div className="text-[11px] text-emerald-700 flex items-center gap-1">
+              <EnvironmentOutlined />
+              <span>
+                Ô lưu cất: <strong>{r.locationCode}</strong>
+              </span>
+            </div>
+          )}
+        </div>
       ),
     },
   ]
@@ -910,6 +1050,19 @@ export default function SmartGoodsReceiptForm({
           </Button>
         </Space>
       </div>
+
+      {/* Modal Nhập Lô, Hạn sử dụng & Gán vị trí cất hàng (WMS-10.5) */}
+      <LotExpiryPutawayModal
+        open={isLotModalOpen}
+        item={lotModalItem}
+        binLocations={binLocations}
+        receiptDate={receiptDate}
+        onClose={() => {
+          setIsLotModalOpen(false)
+          barcodeInputRef.current?.focus()
+        }}
+        onSave={handleSaveLotModal}
+      />
 
       {/* Modal Camera Quét Barcode (html5-qrcode) */}
       <BarcodeCameraScanner

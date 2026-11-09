@@ -18,15 +18,16 @@ public class UserPrincipal implements UserDetails {
     private final String username;
     /** ID doanh nghiệp của người dùng, đọc từ claim companyId của access token. */
     private final Long companyId;
+    /** Gói thuê bao của doanh nghiệp. */
     private final String plan;
     private final Collection<? extends GrantedAuthority> authorities;
 
-    public UserPrincipal(Long id, String username, Collection<? extends GrantedAuthority> authorities) {
-        this(id, username, null, null, authorities);
-    }
-
     public UserPrincipal(Long id, String username, Long companyId, Collection<? extends GrantedAuthority> authorities) {
         this(id, username, companyId, null, authorities);
+    }
+
+    public UserPrincipal(Long id, String username, Collection<? extends GrantedAuthority> authorities) {
+        this(id, username, null, null, authorities);
     }
 
     /**

@@ -193,6 +193,7 @@ public abstract class BaseIntegrationTest {
         // Hai doanh nghiệp mẫu với ID cố định như migration V4; MERGE đưa trạng thái về ACTIVE mỗi lần chạy
         companyA = upsertCompany(1L, "CTY000001", "Công ty mẫu A");
         companyB = upsertCompany(2L, "CTY000002", "Công ty mẫu B");
+        jdbcTemplate.execute("ALTER TABLE companies ALTER COLUMN id RESTART WITH (SELECT COALESCE(MAX(id), 0) + 1 FROM companies)");
 
         // Seed tài khoản admin
         if (userRepository.findByUsername("admin").isEmpty()) {

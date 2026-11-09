@@ -87,7 +87,7 @@ public class SubscriptionIntegrationTest extends BaseIntegrationTest {
                         .content(objectMapper.writeValueAsString(loginReq)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.data.companyId").value(companyId))
+                .andExpect(jsonPath("$.data.company.id").value(companyId))
                 .andExpect(jsonPath("$.data.subscription.plan").value("TRIAL"))
                 .andReturn().getResponse().getContentAsString();
 

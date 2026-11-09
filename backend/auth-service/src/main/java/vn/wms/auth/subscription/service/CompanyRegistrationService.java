@@ -6,6 +6,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.wms.auth.company.entity.Company;
+import vn.wms.auth.company.entity.CompanyStatus;
 import vn.wms.auth.company.repository.CompanyRepository;
 import vn.wms.auth.entity.Role;
 import vn.wms.auth.entity.User;
@@ -56,8 +57,8 @@ public class CompanyRegistrationService {
         company.setTaxCode(request.getTaxCode() != null && !request.getTaxCode().isBlank() ? request.getTaxCode().trim() : null);
         company.setPhone(request.getPhone() != null && !request.getPhone().isBlank() ? request.getPhone().trim() : null);
         company.setEmail(email);
-        company.setStatus("ACTIVE");
-        company.setCode("PENDING"); // Tạm thời để lấy id sinh code CTYxxxxxx
+        company.setStatus(CompanyStatus.ACTIVE);
+        company.setCode("TMP" + System.currentTimeMillis() % 1000000000L); // Mã tạm thời duy nhất
         company = companyRepository.save(company);
 
         String generatedCode = String.format("CTY%06d", company.getId());
@@ -74,7 +75,7 @@ public class CompanyRegistrationService {
         adminUser.setFullName(request.getFullName().trim());
         adminUser.setPasswordHash(passwordEncoder.encode(request.getPassword()));
         adminUser.setEnabled(true);
-        adminUser.setCompanyId(company.getId());
+        adminUser.setCompany(company);
         adminUser.setRoles(Set.of(adminRole));
         adminUser = userRepository.save(adminUser);
 
@@ -88,7 +89,7 @@ public class CompanyRegistrationService {
                         .id(company.getId())
                         .code(company.getCode())
                         .name(company.getName())
-                        .status(company.getStatus())
+                        .status(company.getStatus().name())
                         .build())
                 .admin(CompanyRegistrationResponse.AdminDto.builder()
                         .username(adminUser.getUsername())

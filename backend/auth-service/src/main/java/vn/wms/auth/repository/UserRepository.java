@@ -31,7 +31,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
             "WHERE r.name = 'ADMIN' AND u.enabled = true AND u.company.id = :companyId")
     long countActiveAdmins(@Param("companyId") Long companyId);
 
-    long countByCompanyIdAndEnabledTrue(Long companyId);
+    @Query("SELECT COUNT(u) FROM User u WHERE u.company.id = :companyId AND u.enabled = true")
+    long countByCompanyIdAndEnabledTrue(@Param("companyId") Long companyId);
 
     @Query(value = "SELECT DISTINCT u FROM User u " +
             "LEFT JOIN u.roles r " +

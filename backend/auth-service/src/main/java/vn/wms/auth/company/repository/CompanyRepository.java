@@ -10,4 +10,8 @@ import java.util.Optional;
 public interface CompanyRepository extends JpaRepository<Company, Long> {
 
     Optional<Company> findByCode(String code);
+
+    boolean existsByCode(String code);
+
+    boolean existsByTaxCode(String taxCode);
 }

@@ -89,7 +89,7 @@ export default function MainLayout() {
       label: (
         <div className="py-1 px-1">
           <div className="font-semibold text-gray-900 text-sm">{displayName}</div>
-          <div className="text-xs text-gray-500 font-mono">@{user?.username}</div>
+          <div className="text-xs text-gray-500 font-mono">{user?.username}</div>
           {user?.roles && user.roles.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-1.5">
               {user.roles.map((r) => {
@@ -251,7 +251,7 @@ export default function MainLayout() {
       >
         <div className="py-2 text-sm text-gray-600">
           Bạn có chắc chắn muốn đăng xuất khỏi tài khoản{' '}
-          <strong className="text-gray-900">@{user?.username}</strong>? Mọi tác vụ hoặc thay đổi chưa lưu có thể bị mất.
+          <strong className="text-gray-900">{user?.username}</strong>? Mọi tác vụ hoặc thay đổi chưa lưu có thể bị mất.
         </div>
       </Modal>
     </Layout>

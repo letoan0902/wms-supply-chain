@@ -12,10 +12,13 @@ import vn.wms.auth.dto.users.CreateUserRequest;
 import vn.wms.auth.dto.users.UpdateProfileRequest;
 import vn.wms.auth.dto.users.UserDetailResponse;
 import vn.wms.auth.dto.users.UserProfileResponse;
+import vn.wms.auth.company.entity.Company;
+import vn.wms.auth.company.repository.CompanyRepository;
 import vn.wms.auth.entity.Role;
 import vn.wms.auth.entity.User;
 import vn.wms.auth.repository.RoleRepository;
 import vn.wms.auth.repository.UserRepository;
+import vn.wms.common.api.ErrorCode;
 import vn.wms.common.api.PageResponse;
 import vn.wms.common.constant.Roles;
 import vn.wms.common.exception.ApiException;
@@ -30,13 +33,16 @@ public class UserService {
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
+    private final CompanyRepository companyRepository;
     private final PasswordEncoder passwordEncoder;
 
     public UserService(UserRepository userRepository,
                        RoleRepository roleRepository,
+                       CompanyRepository companyRepository,
                        PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
+        this.companyRepository = companyRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -100,32 +106,37 @@ public class UserService {
 
     // ==========================================
     // 2. NGHIỆP VỤ QUẢN TRỊ NGƯỜI DÙNG & PHÂN QUYỀN KHO (ADMIN)
+    // Mọi hàm nhận companyId của ADMIN đang đăng nhập (từ JWT) và chỉ thao tác trong doanh nghiệp đó.
     // ==========================================
 
     /**
-     * Lấy danh sách người dùng có lọc và phân trang.
+     * Lấy danh sách người dùng của doanh nghiệp, có lọc và phân trang.
      */
     @Transactional(readOnly = true)
     public PageResponse<UserDetailResponse> getUsers(
-            String keyword, String role, Long warehouseId, Boolean enabled, Pageable pageable) {
-        Page<User> page = userRepository.searchUsers(keyword, role, warehouseId, enabled, pageable);
+            Long companyId, String keyword, String role, Long warehouseId, Boolean enabled, Pageable pageable) {
+        Page<User> page = userRepository.searchUsers(companyId, keyword, role, warehouseId, enabled, pageable);
         return PageResponse.from(page.map(this::mapToUserDetailResponse));
     }
 
     /**
-     * Lấy thông tin chi tiết của một người dùng theo ID.
+     * Lấy thông tin chi tiết của một người dùng theo ID trong doanh nghiệp.
      */
     @Transactional(readOnly = true)
-    public UserDetailResponse getUserById(Long id) {
-        User user = findUserById(id);
+    public UserDetailResponse getUserById(Long id, Long companyId) {
+        User user = findUserById(id, companyId);
         return mapToUserDetailResponse(user);
     }
 
     /**
-     * Quản trị viên tạo mới người dùng và phân quyền kho.
+     * Quản trị viên tạo mới người dùng và phân quyền kho. Tài khoản mới luôn thuộc doanh nghiệp của ADMIN đang tạo.
      */
     @Transactional
-    public UserDetailResponse createUser(CreateUserRequest request) {
+    public UserDetailResponse createUser(CreateUserRequest request, Long companyId) {
+        Company company = companyRepository.findById(companyId)
+                .orElseThrow(() -> new ApiException(ErrorCode.COMPANY_REQUIRED,
+                        "Không tìm thấy doanh nghiệp của tài khoản đang đăng nhập"));
+
         if (userRepository.existsByUsername(request.username())) {
             throw ApiException.conflict("Tên đăng nhập '" + request.username() + "' đã tồn tại");
         }
@@ -143,6 +154,7 @@ public class UserService {
         user.setPasswordHash(passwordEncoder.encode(request.password()));
         user.setEnabled(true);
         user.setRoles(roles);
+        user.setCompany(company);
 
         if (request.warehouseIds() != null) {
             user.setWarehouseIds(new HashSet<>(request.warehouseIds()));
@@ -156,13 +168,9 @@ public class UserService {
      * Quản trị viên cập nhật thông tin người dùng, vai trò và phân quyền kho.
      */
     @Transactional
-    public UserDetailResponse updateUser(Long id, AdminUpdateUserRequest request) {
-        return updateUser(id, request, null);
-    }
-
-    @Transactional
-    public UserDetailResponse updateUser(Long id, AdminUpdateUserRequest request, String currentAdminUsername) {
-        User user = findUserById(id);
+    public UserDetailResponse updateUser(Long id, AdminUpdateUserRequest request, String currentAdminUsername,
+                                         Long companyId) {
+        User user = findUserById(id, companyId);
         boolean isCurrentlyAdmin = user.getRoles() != null && user.getRoles().stream().anyMatch(r -> "ADMIN".equalsIgnoreCase(r.getName()));
 
         // Chặn admin tự khóa mình hoặc khóa admin cuối cùng qua updateUser
@@ -170,8 +178,8 @@ public class UserService {
             if (currentAdminUsername != null && user.getUsername().equalsIgnoreCase(currentAdminUsername)) {
                 throw ApiException.badRequest("Quản trị viên không được phép tự khóa tài khoản của chính mình");
             }
-            if (isCurrentlyAdmin && userRepository.countActiveAdmins() <= 1) {
-                throw ApiException.badRequest("Không thể khóa quản trị viên duy nhất còn đang hoạt động trong hệ thống");
+            if (isCurrentlyAdmin && userRepository.countActiveAdmins(companyId) <= 1) {
+                throw ApiException.badRequest("Không thể khóa quản trị viên duy nhất còn đang hoạt động của doanh nghiệp");
             }
         }
 
@@ -180,8 +188,8 @@ public class UserService {
             if (currentAdminUsername != null && user.getUsername().equalsIgnoreCase(currentAdminUsername)) {
                 throw ApiException.badRequest("Quản trị viên không được phép tự gỡ vai trò ADMIN của chính mình");
             }
-            if (userRepository.countActiveAdmins() <= 1) {
-                throw ApiException.badRequest("Không thể gỡ vai trò ADMIN của quản trị viên duy nhất trong hệ thống");
+            if (userRepository.countActiveAdmins(companyId) <= 1) {
+                throw ApiException.badRequest("Không thể gỡ vai trò ADMIN của quản trị viên duy nhất của doanh nghiệp");
             }
         }
 
@@ -211,8 +219,8 @@ public class UserService {
      * Phân quyền danh sách kho cho người dùng.
      */
     @Transactional
-    public UserDetailResponse assignWarehouses(Long id, Set<Long> warehouseIds) {
-        User user = findUserById(id);
+    public UserDetailResponse assignWarehouses(Long id, Set<Long> warehouseIds, Long companyId) {
+        User user = findUserById(id, companyId);
         user.setWarehouseIds(warehouseIds != null ? new HashSet<>(warehouseIds) : new HashSet<>());
         User updated = userRepository.save(user);
         return mapToUserDetailResponse(updated);
@@ -222,21 +230,17 @@ public class UserService {
      * Khóa hoặc mở khóa tài khoản người dùng.
      */
     @Transactional
-    public UserDetailResponse updateUserStatus(Long id, boolean enabled) {
-        return updateUserStatus(id, enabled, null);
-    }
-
-    @Transactional
-    public UserDetailResponse updateUserStatus(Long id, boolean enabled, String currentAdminUsername) {
-        User user = findUserById(id);
+    public UserDetailResponse updateUserStatus(Long id, boolean enabled, String currentAdminUsername,
+                                               Long companyId) {
+        User user = findUserById(id, companyId);
 
         if (!enabled && user.isEnabled()) {
             if (currentAdminUsername != null && user.getUsername().equalsIgnoreCase(currentAdminUsername)) {
                 throw ApiException.badRequest("Quản trị viên không được phép tự khóa tài khoản của chính mình");
             }
             boolean isCurrentlyAdmin = user.getRoles() != null && user.getRoles().stream().anyMatch(r -> "ADMIN".equalsIgnoreCase(r.getName()));
-            if (isCurrentlyAdmin && userRepository.countActiveAdmins() <= 1) {
-                throw ApiException.badRequest("Không thể khóa quản trị viên duy nhất còn đang hoạt động trong hệ thống");
+            if (isCurrentlyAdmin && userRepository.countActiveAdmins(companyId) <= 1) {
+                throw ApiException.badRequest("Không thể khóa quản trị viên duy nhất còn đang hoạt động của doanh nghiệp");
             }
         }
 
@@ -254,8 +258,9 @@ public class UserService {
                 .orElseThrow(() -> ApiException.notFound("Không tìm thấy người dùng '" + username + "'"));
     }
 
-    private User findUserById(Long id) {
-        return userRepository.findById(id)
+    /** Tìm người dùng theo ID trong doanh nghiệp; người dùng của doanh nghiệp khác trả 404 như không tồn tại. */
+    private User findUserById(Long id, Long companyId) {
+        return userRepository.findByIdAndCompanyId(id, companyId)
                 .orElseThrow(() -> ApiException.notFound("Không tìm thấy người dùng với ID " + id));
     }
 
@@ -309,6 +314,7 @@ public class UserService {
                 user.isEnabled(),
                 roles,
                 warehouseIds,
+                user.getCompanyId(),
                 user.getCreatedAt(),
                 user.getUpdatedAt()
         );

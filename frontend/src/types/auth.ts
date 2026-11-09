@@ -12,6 +12,13 @@ export interface AuthUser {
   warehouseIds?: number[]
 }
 
+/** Doanh nghiệp của người dùng, trả trong `company` của kết quả đăng nhập và của GET /api/auth/me. */
+export interface CompanySummary {
+  id: number
+  code: string
+  name: string
+}
+
 /** Dữ liệu trả về trong `data` của POST /api/auth/login (vn.wms.auth.dto.LoginResponse). */
 export interface LoginResult {
   accessToken: string
@@ -21,6 +28,7 @@ export interface LoginResult {
   expiresIn: number
   username: string
   roles: string[]
+  company?: CompanySummary
 }
 
 /** Payload yêu cầu làm mới Access Token. */

@@ -45,12 +45,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 Claims claims = jwtService.parse(header.substring(BEARER_PREFIX.length()), redisTemplate);
                 Long userId = claims.get("userId", Long.class);
                 Long companyId = claims.get("companyId", Long.class);
+                String plan = jwtService.planOf(claims);
                 String username = claims.getSubject();
                 List<SimpleGrantedAuthority> authorities = jwtService.rolesOf(claims).stream()
                         .map(role -> new SimpleGrantedAuthority(Roles.toAuthority(role)))
                         .toList();
 
-                UserPrincipal userPrincipal = new UserPrincipal(userId, username, companyId, authorities);
+                UserPrincipal userPrincipal = new UserPrincipal(userId, username, companyId, plan, authorities);
                 UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(userPrincipal, null, authorities);
                 SecurityContextHolder.getContext().setAuthentication(authenticationToken);
 

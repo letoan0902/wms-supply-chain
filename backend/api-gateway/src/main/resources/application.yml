@@ -45,7 +45,7 @@ spring:
         - id: auth-service
           uri: lb://auth-service
           predicates:
-            - Path=/api/auth/**,/api/users/**
+            - Path=/api/auth/**,/api/users/**,/api/companies/**
         - id: product-service
           uri: lb://product-service
           predicates:
@@ -91,6 +91,8 @@ gateway:
     public-paths:
       - /api/auth/login
       - /api/auth/refresh
+      - /api/auth/companies/register
+      - /api/auth/plans
       - /actuator/**
       # Handshake WebSocket từ trình duyệt không mang được header Bearer; notification-service kiểm tra JWT ở frame STOMP CONNECT.
       - /ws-wms/**

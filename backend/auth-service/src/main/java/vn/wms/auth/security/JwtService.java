@@ -30,6 +30,7 @@ public class JwtService {
     public static final String CLAIM_ROLES = "roles";
     public static final String CLAIM_WAREHOUSE_IDS = "warehouseIds";
     public static final String CLAIM_COMPANY_ID = "companyId";
+    public static final String CLAIM_PLAN = "plan";
     private static final int MIN_SECRET_BYTES = 32;
 
     private final JwtProperties properties;
@@ -63,6 +64,13 @@ public class JwtService {
      * Tạo Access Token đầy đủ thông tin định danh: userId, username, companyId, roles, warehouseIds.
      */
     public String generateAccessToken(Long userId, String username, Long companyId, Collection<String> roles, Collection<Long> warehouseIds) {
+        return generateAccessToken(userId, username, companyId, null, roles, warehouseIds);
+    }
+
+    /**
+     * Tạo Access Token đầy đủ thông tin định danh kèm gói thuê bao: userId, username, companyId, plan, roles, warehouseIds.
+     */
+    public String generateAccessToken(Long userId, String username, Long companyId, String plan, Collection<String> roles, Collection<Long> warehouseIds) {
         Instant now = Instant.now();
         var builder = Jwts.builder()
                 .issuer(properties.issuer())
@@ -74,6 +82,9 @@ public class JwtService {
 
         if (companyId != null) {
             builder.claim(CLAIM_COMPANY_ID, companyId);
+        }
+        if (plan != null) {
+            builder.claim(CLAIM_PLAN, plan);
         }
 
         return builder.issuedAt(Date.from(now))
@@ -138,6 +149,11 @@ public class JwtService {
     /** Lấy companyId từ claims. */
     public Long companyIdOf(Claims claims) {
         return claims.get(CLAIM_COMPANY_ID, Long.class);
+    }
+
+    /** Lấy plan từ claims. */
+    public String planOf(Claims claims) {
+        return claims.get(CLAIM_PLAN, String.class);
     }
 
     /** Lấy danh sách vai trò từ claims. */

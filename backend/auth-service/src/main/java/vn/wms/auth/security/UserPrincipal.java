@@ -14,10 +14,15 @@ public class UserPrincipal implements UserDetails {
     private final Long id;
     private final String username;
     private final Long companyId;
+    private final String plan;
     private final Collection<? extends GrantedAuthority> authorities;
 
     public UserPrincipal(Long id, String username, Collection<? extends GrantedAuthority> authorities) {
-        this(id, username, null, authorities);
+        this(id, username, null, null, authorities);
+    }
+
+    public UserPrincipal(Long id, String username, Long companyId, Collection<? extends GrantedAuthority> authorities) {
+        this(id, username, companyId, null, authorities);
     }
 
     @Override

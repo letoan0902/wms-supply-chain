@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.http.MediaType;
@@ -18,8 +19,11 @@ import vn.wms.auth.entity.User;
 import vn.wms.auth.repository.RoleRepository;
 import vn.wms.auth.repository.UserRepository;
 import vn.wms.auth.security.JwtService;
+import vn.wms.auth.subscription.entity.Plan;
+import vn.wms.auth.subscription.repository.PlanRepository;
 import vn.wms.common.constant.Roles;
 
+import java.math.BigDecimal;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
@@ -56,6 +60,9 @@ public abstract class BaseIntegrationTest {
     protected RoleRepository roleRepository;
 
     @Autowired
+    protected PlanRepository planRepository;
+
+    @Autowired
     protected PasswordEncoder passwordEncoder;
 
     @MockBean(name = "redisTemplate")
@@ -64,13 +71,31 @@ public abstract class BaseIntegrationTest {
     @MockBean
     protected ValueOperations<String, String> valueOperations;
 
+    @MockBean
+    protected HashOperations<String, Object, Object> hashOperations;
+
     protected final Map<String, String> mockRedisStore = new HashMap<>();
+    protected final Map<String, Map<String, String>> mockRedisHashMap = new HashMap<>();
 
     @BeforeEach
     void setUp() {
         mockRedisStore.clear();
+        mockRedisHashMap.clear();
 
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+
+        doAnswer(invocation -> {
+            String key = invocation.getArgument(0);
+            Map<String, String> m = invocation.getArgument(1);
+            mockRedisHashMap.computeIfAbsent(key, k -> new HashMap<>()).putAll(m);
+            return null;
+        }).when(hashOperations).putAll(anyString(), any());
+
+        when(hashOperations.entries(anyString())).thenAnswer(invocation -> {
+            String key = invocation.getArgument(0);
+            return mockRedisHashMap.getOrDefault(key, Map.of());
+        });
 
         when(redisTemplate.hasKey(anyString())).thenAnswer(invocation -> {
             String key = invocation.getArgument(0);
@@ -101,6 +126,32 @@ public abstract class BaseIntegrationTest {
             mockRedisStore.put(key, String.valueOf(count));
             return count;
         });
+
+        // Khởi tạo các gói dịch vụ chuẩn nếu chưa có
+        if (planRepository.findById("FREE").isEmpty()) {
+            planRepository.save(Plan.builder()
+                    .code("FREE").name("Khởi Đầu")
+                    .priceMonthly(BigDecimal.ZERO).priceYearly(BigDecimal.ZERO)
+                    .maxUsers(3).maxWarehouses(1).maxSkus(200).maxAiRequests(20)
+                    .apiAccess(false).trialDays(0)
+                    .build());
+        }
+        if (planRepository.findById("TRIAL").isEmpty()) {
+            planRepository.save(Plan.builder()
+                    .code("TRIAL").name("Dùng Thử")
+                    .priceMonthly(BigDecimal.ZERO).priceYearly(BigDecimal.ZERO)
+                    .maxUsers(50).maxWarehouses(20).maxSkus(-1).maxAiRequests(500)
+                    .apiAccess(true).trialDays(30)
+                    .build());
+        }
+        if (planRepository.findById("PRO").isEmpty()) {
+            planRepository.save(Plan.builder()
+                    .code("PRO").name("Chuyên Nghiệp")
+                    .priceMonthly(new BigDecimal("499000.00")).priceYearly(new BigDecimal("4790000.00"))
+                    .maxUsers(50).maxWarehouses(20).maxSkus(-1).maxAiRequests(500)
+                    .apiAccess(true).trialDays(0)
+                    .build());
+        }
 
         // Khởi tạo các vai trò chuẩn của hệ thống
         for (String roleName : Roles.ALL) {

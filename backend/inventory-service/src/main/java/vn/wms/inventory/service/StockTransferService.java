@@ -2,12 +2,16 @@ package vn.wms.inventory.service;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.wms.common.exception.ApiException;
+import vn.wms.common.messaging.WmsEventPublisher;
+import vn.wms.common.messaging.WmsEvents;
+import vn.wms.common.messaging.event.InventoryUpdatedEvent;
 import vn.wms.common.security.CurrentUser;
 import vn.wms.common.security.UserContext;
 import vn.wms.inventory.dto.CreateStockTransferItemRequest;
@@ -15,15 +19,19 @@ import vn.wms.inventory.dto.CreateStockTransferRequest;
 import vn.wms.inventory.dto.DeductStockItemRequest;
 import vn.wms.inventory.dto.DeductStockRequest;
 import vn.wms.inventory.dto.DeductStockResponse;
+import vn.wms.inventory.dto.ReceiveStockTransferItemRequest;
+import vn.wms.inventory.dto.ReceiveStockTransferRequest;
 import vn.wms.inventory.dto.StockAtpResponse;
 import vn.wms.inventory.dto.StockTransferResponse;
 import vn.wms.inventory.dto.UpdateStockTransferRequest;
 import vn.wms.inventory.entity.BinLocation;
+import vn.wms.inventory.entity.StockItem;
 import vn.wms.inventory.entity.StockTransfer;
 import vn.wms.inventory.entity.StockTransferItem;
 import vn.wms.inventory.entity.StockTransferStatus;
 import vn.wms.inventory.entity.Warehouse;
 import vn.wms.inventory.repository.BinLocationRepository;
+import vn.wms.inventory.repository.StockItemRepository;
 import vn.wms.inventory.repository.StockTransferItemRepository;
 import vn.wms.inventory.repository.StockTransferRepository;
 import vn.wms.inventory.repository.WarehouseRepository;
@@ -33,12 +41,15 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
- * Xử lý nghiệp vụ điều chuyển hàng hóa nội bộ giữa các kho (FR08 - WMS-13.1).
+ * Xử lý nghiệp vụ điều chuyển hàng hóa nội bộ giữa các kho (FR08 - WMS-13.1, WMS-13.2).
  */
 @Service
 public class StockTransferService {
@@ -49,14 +60,19 @@ public class StockTransferService {
     private final StockTransferItemRepository stockTransferItemRepository;
     private final WarehouseRepository warehouseRepository;
     private final BinLocationRepository binLocationRepository;
+    private final StockItemRepository stockItemRepository;
     private final StockService stockService;
     private final StockDeductionService stockDeductionService;
+
+    @Autowired(required = false)
+    private WmsEventPublisher wmsEventPublisher;
 
     public StockTransferService(
             StockTransferRepository stockTransferRepository,
             StockTransferItemRepository stockTransferItemRepository,
             WarehouseRepository warehouseRepository,
             BinLocationRepository binLocationRepository,
+            StockItemRepository stockItemRepository,
             StockService stockService,
             StockDeductionService stockDeductionService
     ) {
@@ -64,8 +80,13 @@ public class StockTransferService {
         this.stockTransferItemRepository = stockTransferItemRepository;
         this.warehouseRepository = warehouseRepository;
         this.binLocationRepository = binLocationRepository;
+        this.stockItemRepository = stockItemRepository;
         this.stockService = stockService;
         this.stockDeductionService = stockDeductionService;
+    }
+
+    public void setWmsEventPublisher(WmsEventPublisher wmsEventPublisher) {
+        this.wmsEventPublisher = wmsEventPublisher;
     }
 
     /**
@@ -345,6 +366,186 @@ public class StockTransferService {
         StockTransfer dispatched = stockTransferRepository.save(transfer);
         log.info("Lệnh điều chuyển {} đã chuyển sang trạng thái IN_TRANSIT", dispatched.getTransferNumber());
         return StockTransferResponse.from(dispatched);
+    }
+
+    /**
+     * Xác nhận nhận hàng tại kho đích và xử lý biên bản tổn thất (WMS-13.2 - FR08).
+     * <p>
+     * Thao tác này kích hoạt:
+     * 1. Xác thực trạng thái lệnh điều chuyển phải là IN_TRANSIT.
+     * 2. Phân quyền truy cập ghi tại kho nhận đích.
+     * 3. Kiểm đếm toàn bộ mặt hàng; ghi nhận số lượng thực nhận (receivedQuantity), số lượng thiếu/hỏng (damagedQuantity).
+     * 4. Khóa bi quan và tăng tồn kho OnHand tại kho đích cho từng sản phẩm tại vị trí ô/kệ tương ứng.
+     * 5. Xác định trạng thái cuối cùng:
+     *    - COMPLETED nếu nhận đủ toàn bộ và không có hàng thiếu/hỏng.
+     *    - PARTIAL_RECEIVED nếu có hàng hư hỏng hoặc nhận thiếu so với số xuất, kèm biên bản sự cố.
+     * 6. Phát sự kiện {@code inventory.updated} ("TRANSFER_IN") cho từng SKU nhận tại kho đích.
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public StockTransferResponse receiveTransfer(Long id, ReceiveStockTransferRequest request) {
+        if (request == null || request.items() == null || request.items().isEmpty()) {
+            throw ApiException.badRequest("Danh sách mặt hàng nhận không được để trống");
+        }
+
+        StockTransfer transfer = findTransferOrThrow(id);
+
+        if (transfer.getStatus() != StockTransferStatus.IN_TRANSIT) {
+            throw ApiException.badRequest("Chỉ có thể nhận hàng đối với lệnh điều chuyển ở trạng thái IN_TRANSIT (hiện tại: " + transfer.getStatus() + ")");
+        }
+
+        checkWarehouseWriteAccess(transfer.getDestinationWarehouse().getId());
+
+        String currentUser = UserContext.getCurrentUser()
+                .map(CurrentUser::username)
+                .orElse("SYSTEM");
+
+        Map<Long, StockTransferItem> transferItemMap = transfer.getItems().stream()
+                .collect(Collectors.toMap(StockTransferItem::getId, item -> item));
+
+        // 1. Kiểm tra tính đầy đủ và không trùng lặp của toàn bộ danh sách mặt hàng trước khi ghi dữ liệu
+        Set<Long> requestItemIds = new HashSet<>();
+        for (ReceiveStockTransferItemRequest itemReq : request.items()) {
+            if (!transferItemMap.containsKey(itemReq.itemId())) {
+                throw ApiException.badRequest("Mặt hàng có ID " + itemReq.itemId() + " không thuộc lệnh điều chuyển này");
+            }
+            if (!requestItemIds.add(itemReq.itemId())) {
+                throw ApiException.badRequest("Mặt hàng ID " + itemReq.itemId() + " bị trùng lặp trong yêu cầu nhận hàng");
+            }
+        }
+
+        if (requestItemIds.size() < transfer.getItems().size()) {
+            throw ApiException.badRequest("Cần kiểm đếm và xác nhận toàn bộ danh sách mặt hàng trong lệnh điều chuyển");
+        }
+
+        boolean hasDiscrepancy = false;
+
+        for (ReceiveStockTransferItemRequest itemReq : request.items()) {
+            StockTransferItem item = transferItemMap.get(itemReq.itemId());
+
+            BigDecimal receivedQty = itemReq.receivedQuantity();
+            if (receivedQty == null || receivedQty.compareTo(BigDecimal.ZERO) < 0) {
+                throw ApiException.badRequest("Số lượng thực nhận của sản phẩm " + item.getSkuCode() + " không được âm");
+            }
+
+            BigDecimal damagedQty = itemReq.damagedQuantityOrDefault();
+            if (damagedQty.compareTo(BigDecimal.ZERO) < 0) {
+                throw ApiException.badRequest("Số lượng thiếu/hỏng của sản phẩm " + item.getSkuCode() + " không được âm");
+            }
+
+            BigDecimal transferredQty = item.getTransferredQuantity();
+            BigDecimal totalAccounted = receivedQty.add(damagedQty);
+
+            if (totalAccounted.compareTo(transferredQty) > 0) {
+                throw ApiException.badRequest(String.format(
+                        "Tổng số lượng thực nhận (%s) và thiếu/hỏng (%s) vượt quá số lượng đã xuất chuyển (%s) cho sản phẩm '%s'",
+                        receivedQty, damagedQty, transferredQty, item.getSkuCode()));
+            }
+
+            // Có sự cố nếu phát hiện hư hỏng hoặc số thực nhận nhỏ hơn số đã xuất
+            if (damagedQty.compareTo(BigDecimal.ZERO) > 0 || receivedQty.compareTo(transferredQty) < 0) {
+                hasDiscrepancy = true;
+            }
+
+            BinLocation destBinLocation = null;
+            if (receivedQty.compareTo(BigDecimal.ZERO) > 0) {
+                if (itemReq.destinationBinLocationId() == null) {
+                    throw ApiException.badRequest("Vui lòng chọn vị trí ô/kệ tại kho đích cho sản phẩm " + item.getSkuCode());
+                }
+                destBinLocation = binLocationRepository.findById(itemReq.destinationBinLocationId())
+                        .orElseThrow(() -> ApiException.notFound("Không tìm thấy vị trí ô/kệ có ID: " + itemReq.destinationBinLocationId()));
+
+                if (!destBinLocation.getWarehouse().getId().equals(transfer.getDestinationWarehouse().getId())) {
+                    throw ApiException.badRequest(String.format(
+                            "Vị trí '%s' không thuộc kho đích '%s'",
+                            destBinLocation.getCode(), transfer.getDestinationWarehouse().getCode()));
+                }
+                if (!destBinLocation.isActive()) {
+                    throw ApiException.badRequest("Vị trí '" + destBinLocation.getCode() + "' hiện đang bị khóa hoặc ngừng hoạt động");
+                }
+
+                // Cập nhật tăng tồn kho OnHand tại kho đích với Khóa bi quan
+                List<StockItem> existingItems = stockItemRepository
+                        .findAllByBinLocationIdAndProductIdWithPessimisticLock(destBinLocation.getId(), item.getProductId());
+
+                StockItem destStockItem;
+                BigDecimal beforeQty;
+                if (!existingItems.isEmpty()) {
+                    destStockItem = existingItems.get(0);
+                    beforeQty = destStockItem.getQuantity() != null ? destStockItem.getQuantity() : BigDecimal.ZERO;
+                    destStockItem.setQuantity(beforeQty.add(receivedQty));
+                } else {
+                    destStockItem = new StockItem();
+                    destStockItem.setBinLocation(destBinLocation);
+                    destStockItem.setProductId(item.getProductId());
+                    destStockItem.setQuantity(receivedQty);
+                    destStockItem.setReservedQuantity(BigDecimal.ZERO);
+                    destStockItem.setLocked(false);
+                    beforeQty = BigDecimal.ZERO;
+                }
+                StockItem savedItem = stockItemRepository.save(destStockItem);
+                BigDecimal afterQty = (savedItem != null && savedItem.getQuantity() != null)
+                        ? savedItem.getQuantity()
+                        : destStockItem.getQuantity();
+
+                // Phát sự kiện inventory.updated cho SKU tại kho đích
+                publishInventoryUpdated(
+                        transfer.getDestinationWarehouse().getId(),
+                        item.getProductId(),
+                        item.getSkuCode(),
+                        beforeQty,
+                        afterQty,
+                        "TRANSFER_IN",
+                        transfer.getTransferNumber(),
+                        Instant.now()
+                );
+            }
+
+            item.setReceivedQuantity(receivedQty);
+            item.setDamagedQuantity(damagedQty);
+            item.setDestinationBinLocation(destBinLocation);
+            if (itemReq.notes() != null && !itemReq.notes().trim().isEmpty()) {
+                item.setNotes(itemReq.notes().trim());
+            }
+        }
+
+        // Cập nhật thông tin nhận hàng trên lệnh điều chuyển
+        transfer.setReceivedBy(currentUser);
+        transfer.setReceivedAt(Instant.now());
+        if (request.notes() != null && !request.notes().trim().isEmpty()) {
+            String existingNotes = transfer.getNotes() != null ? transfer.getNotes() + " | " : "";
+            transfer.setNotes(existingNotes + "Biên bản nhận hàng: " + request.notes().trim());
+        }
+
+        transfer.setStatus(hasDiscrepancy ? StockTransferStatus.PARTIAL_RECEIVED : StockTransferStatus.COMPLETED);
+
+        StockTransfer saved = stockTransferRepository.save(transfer);
+        log.info("Lệnh điều chuyển {} đã nhận hàng thành công với trạng thái: {}",
+                saved.getTransferNumber(), saved.getStatus());
+
+        return StockTransferResponse.from(saved);
+    }
+
+    private void publishInventoryUpdated(
+            Long warehouseId,
+            Long productId,
+            String skuCode,
+            BigDecimal beforeQty,
+            BigDecimal afterQty,
+            String reason,
+            String referenceNumber,
+            Instant now
+    ) {
+        if (wmsEventPublisher != null) {
+            try {
+                InventoryUpdatedEvent event = new InventoryUpdatedEvent(
+                        warehouseId, productId, skuCode, beforeQty, afterQty, reason, referenceNumber, now
+                );
+                wmsEventPublisher.publishAfterCommit(WmsEvents.RoutingKeys.INVENTORY_UPDATED, event);
+                log.debug("Đã phát sự kiện inventory.updated cho sản phẩm {} tại kho {}", productId, warehouseId);
+            } catch (Exception ex) {
+                log.warn("Không thể phát sự kiện inventory.updated cho SKU {}: {}", skuCode, ex.getMessage());
+            }
+        }
     }
 
     private void validateItem(CreateStockTransferItemRequest itemReq, Warehouse sourceWarehouse) {

@@ -21,6 +21,8 @@ public interface StockItemRepository extends JpaRepository<StockItem, Long> {
 
     List<StockItem> findByBinLocationId(Long binLocationId);
 
+    List<StockItem> findByBinLocationIdAndProductId(Long binLocationId, Long productId);
+
     @Query("SELECT COUNT(s) > 0 FROM StockItem s WHERE s.binLocation.warehouse.id = :warehouseId AND s.quantity > 0")
     boolean existsActiveStockByWarehouseId(@Param("warehouseId") Long warehouseId);
 
@@ -103,6 +105,15 @@ public interface StockItemRepository extends JpaRepository<StockItem, Long> {
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT s FROM StockItem s WHERE s.binLocation.id = :binLocationId AND s.productId = :productId")
     Optional<StockItem> findByBinLocationIdAndProductIdWithPessimisticLock(
+            @Param("binLocationId") Long binLocationId,
+            @Param("productId") Long productId);
+
+    /**
+     * Khóa bi quan danh sách các bản ghi StockItem tại một vị trí ô/kệ cụ thể của một sản phẩm.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT s FROM StockItem s WHERE s.binLocation.id = :binLocationId AND s.productId = :productId ORDER BY s.id ASC")
+    List<StockItem> findAllByBinLocationIdAndProductIdWithPessimisticLock(
             @Param("binLocationId") Long binLocationId,
             @Param("productId") Long productId);
 

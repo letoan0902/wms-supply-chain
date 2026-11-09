@@ -8,18 +8,23 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import vn.wms.common.exception.ApiException;
+import vn.wms.common.messaging.WmsEventPublisher;
 import vn.wms.inventory.dto.CreateStockTransferItemRequest;
 import vn.wms.inventory.dto.CreateStockTransferRequest;
 import vn.wms.inventory.dto.DeductStockResponse;
+import vn.wms.inventory.dto.ReceiveStockTransferItemRequest;
+import vn.wms.inventory.dto.ReceiveStockTransferRequest;
 import vn.wms.inventory.dto.StockAtpResponse;
 import vn.wms.inventory.dto.StockTransferResponse;
 import vn.wms.inventory.dto.UpdateStockTransferRequest;
 import vn.wms.inventory.entity.BinLocation;
+import vn.wms.inventory.entity.StockItem;
 import vn.wms.inventory.entity.StockTransfer;
 import vn.wms.inventory.entity.StockTransferItem;
 import vn.wms.inventory.entity.StockTransferStatus;
 import vn.wms.inventory.entity.Warehouse;
 import vn.wms.inventory.repository.BinLocationRepository;
+import vn.wms.inventory.repository.StockItemRepository;
 import vn.wms.inventory.repository.StockTransferItemRepository;
 import vn.wms.inventory.repository.StockTransferRepository;
 import vn.wms.inventory.repository.WarehouseRepository;
@@ -55,10 +60,16 @@ class StockTransferServiceTest {
     private BinLocationRepository binLocationRepository;
 
     @Mock
+    private StockItemRepository stockItemRepository;
+
+    @Mock
     private StockService stockService;
 
     @Mock
     private StockDeductionService stockDeductionService;
+
+    @Mock
+    private WmsEventPublisher wmsEventPublisher;
 
     @InjectMocks
     private StockTransferService stockTransferService;
@@ -66,6 +77,7 @@ class StockTransferServiceTest {
     private Warehouse warehouseSource;
     private Warehouse warehouseDest;
     private BinLocation binSource;
+    private BinLocation binDest;
 
     @BeforeEach
     void setUp() {
@@ -77,6 +89,9 @@ class StockTransferServiceTest {
 
         binSource = new BinLocation(warehouseSource, "ZA", "R01", "B01", new BigDecimal("1000.00"));
         binSource.setId(10L);
+
+        binDest = new BinLocation(warehouseDest, "ZB", "R02", "B02", new BigDecimal("1000.00"));
+        binDest.setId(20L);
     }
 
     @Test
@@ -270,6 +285,223 @@ class StockTransferServiceTest {
         assertThatThrownBy(() -> stockTransferService.dispatchTransfer(100L))
                 .isInstanceOf(ApiException.class)
                 .hasMessageContaining("Chỉ có thể duyệt xuất chuyển đối với lệnh ở trạng thái DRAFT");
+    }
+
+    @Test
+    @DisplayName("Nhận hàng tại kho đích thành công đủ 100%, không hư hỏng -> chuyển sang trạng thái COMPLETED (WMS-13.2)")
+    void receiveTransfer_Success_Completed() {
+        StockTransfer transfer = StockTransfer.builder()
+                .id(100L)
+                .transferNumber("TRF-20261110-0001")
+                .sourceWarehouse(warehouseSource)
+                .destinationWarehouse(warehouseDest)
+                .status(StockTransferStatus.IN_TRANSIT)
+                .items(new ArrayList<>())
+                .build();
+
+        StockTransferItem item = StockTransferItem.builder()
+                .id(1001L)
+                .transfer(transfer)
+                .productId(501L)
+                .skuCode("SKU-01")
+                .quantity(new BigDecimal("20.000"))
+                .transferredQuantity(new BigDecimal("20.000"))
+                .receivedQuantity(BigDecimal.ZERO)
+                .damagedQuantity(BigDecimal.ZERO)
+                .build();
+        transfer.addItem(item);
+
+        ReceiveStockTransferItemRequest itemReq = new ReceiveStockTransferItemRequest(
+                1001L, new BigDecimal("20.000"), BigDecimal.ZERO, binDest.getId(), "Nhận đủ nguyên vẹn"
+        );
+        ReceiveStockTransferRequest request = new ReceiveStockTransferRequest(
+                List.of(itemReq), "Biên bản giao nhận nguyên đai nguyên kiện"
+        );
+
+        when(stockTransferRepository.findById(100L)).thenReturn(Optional.of(transfer));
+        when(binLocationRepository.findById(binDest.getId())).thenReturn(Optional.of(binDest));
+        when(stockItemRepository.findAllByBinLocationIdAndProductIdWithPessimisticLock(binDest.getId(), 501L))
+                .thenReturn(List.of());
+        when(stockItemRepository.save(any(StockItem.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(stockTransferRepository.save(any(StockTransfer.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        StockTransferResponse response = stockTransferService.receiveTransfer(100L, request);
+
+        assertThat(response.status()).isEqualTo(StockTransferStatus.COMPLETED);
+        assertThat(response.totalReceivedQuantity()).isEqualByComparingTo(new BigDecimal("20.000"));
+        assertThat(response.receivedBy()).isNotNull();
+        assertThat(response.receivedAt()).isNotNull();
+        assertThat(response.notes()).contains("Biên bản nhận hàng: Biên bản giao nhận nguyên đai nguyên kiện");
+        assertThat(response.items().get(0).receivedQuantity()).isEqualByComparingTo(new BigDecimal("20.000"));
+        assertThat(response.items().get(0).damagedQuantity()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(response.items().get(0).destinationBinLocationCode()).isEqualTo(binDest.getCode());
+        verify(stockItemRepository).save(any(StockItem.class));
+    }
+
+    @Test
+    @DisplayName("Nhận hàng tại kho đích có hư hỏng/thiếu -> chuyển sang trạng thái PARTIAL_RECEIVED kèm biên bản (WMS-13.2)")
+    void receiveTransfer_Success_PartialReceivedWithDamagedItems() {
+        StockTransfer transfer = StockTransfer.builder()
+                .id(100L)
+                .transferNumber("TRF-20261110-0001")
+                .sourceWarehouse(warehouseSource)
+                .destinationWarehouse(warehouseDest)
+                .status(StockTransferStatus.IN_TRANSIT)
+                .items(new ArrayList<>())
+                .build();
+
+        StockTransferItem item = StockTransferItem.builder()
+                .id(1001L)
+                .transfer(transfer)
+                .productId(501L)
+                .skuCode("SKU-01")
+                .quantity(new BigDecimal("20.000"))
+                .transferredQuantity(new BigDecimal("20.000"))
+                .receivedQuantity(BigDecimal.ZERO)
+                .damagedQuantity(BigDecimal.ZERO)
+                .build();
+        transfer.addItem(item);
+
+        // Thực nhận 15, hư hỏng 5 do va đập
+        ReceiveStockTransferItemRequest itemReq = new ReceiveStockTransferItemRequest(
+                1001L, new BigDecimal("15.000"), new BigDecimal("5.000"), binDest.getId(), "5 hộp bẹp vỡ nát"
+        );
+        ReceiveStockTransferRequest request = new ReceiveStockTransferRequest(
+                List.of(itemReq), "Có lập biên bản bất thường tổn thất hàng hóa"
+        );
+
+        when(stockTransferRepository.findById(100L)).thenReturn(Optional.of(transfer));
+        when(binLocationRepository.findById(binDest.getId())).thenReturn(Optional.of(binDest));
+        when(stockItemRepository.findAllByBinLocationIdAndProductIdWithPessimisticLock(binDest.getId(), 501L))
+                .thenReturn(List.of());
+        when(stockItemRepository.save(any(StockItem.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(stockTransferRepository.save(any(StockTransfer.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        StockTransferResponse response = stockTransferService.receiveTransfer(100L, request);
+
+        assertThat(response.status()).isEqualTo(StockTransferStatus.PARTIAL_RECEIVED);
+        assertThat(response.totalReceivedQuantity()).isEqualByComparingTo(new BigDecimal("15.000"));
+        assertThat(response.notes()).contains("Biên bản nhận hàng: Có lập biên bản bất thường");
+        assertThat(response.items().get(0).receivedQuantity()).isEqualByComparingTo(new BigDecimal("15.000"));
+        assertThat(response.items().get(0).damagedQuantity()).isEqualByComparingTo(new BigDecimal("5.000"));
+        assertThat(response.items().get(0).notes()).isEqualTo("5 hộp bẹp vỡ nát");
+    }
+
+    @Test
+    @DisplayName("Từ chối nhận hàng khi lệnh điều chuyển chưa ở trạng thái IN_TRANSIT (WMS-13.2)")
+    void receiveTransfer_ThrowsWhenNotInTransit() {
+        StockTransfer transfer = StockTransfer.builder()
+                .id(100L)
+                .status(StockTransferStatus.DRAFT)
+                .sourceWarehouse(warehouseSource)
+                .destinationWarehouse(warehouseDest)
+                .build();
+
+        ReceiveStockTransferRequest request = new ReceiveStockTransferRequest(
+                List.of(new ReceiveStockTransferItemRequest(1L, BigDecimal.TEN, BigDecimal.ZERO, 20L, null)), null
+        );
+
+        when(stockTransferRepository.findById(100L)).thenReturn(Optional.of(transfer));
+
+        assertThatThrownBy(() -> stockTransferService.receiveTransfer(100L, request))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("Chỉ có thể nhận hàng đối với lệnh điều chuyển ở trạng thái IN_TRANSIT");
+    }
+
+    @Test
+    @DisplayName("Từ chối nhận hàng khi vị trí ô/kệ không thuộc kho đích (WMS-13.2)")
+    void receiveTransfer_ThrowsWhenDestinationBinMismatch() {
+        StockTransfer transfer = StockTransfer.builder()
+                .id(100L)
+                .sourceWarehouse(warehouseSource)
+                .destinationWarehouse(warehouseDest)
+                .status(StockTransferStatus.IN_TRANSIT)
+                .items(new ArrayList<>())
+                .build();
+
+        StockTransferItem item = StockTransferItem.builder()
+                .id(1001L)
+                .transfer(transfer)
+                .productId(501L)
+                .skuCode("SKU-01")
+                .transferredQuantity(new BigDecimal("10.000"))
+                .build();
+        transfer.addItem(item);
+
+        // Vị trí binSource thuộc warehouseSource chứ không thuộc warehouseDest
+        ReceiveStockTransferItemRequest itemReq = new ReceiveStockTransferItemRequest(
+                1001L, new BigDecimal("10.000"), BigDecimal.ZERO, binSource.getId(), null
+        );
+        ReceiveStockTransferRequest request = new ReceiveStockTransferRequest(List.of(itemReq), null);
+
+        when(stockTransferRepository.findById(100L)).thenReturn(Optional.of(transfer));
+        when(binLocationRepository.findById(binSource.getId())).thenReturn(Optional.of(binSource));
+
+        assertThatThrownBy(() -> stockTransferService.receiveTransfer(100L, request))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("không thuộc kho đích");
+    }
+
+    @Test
+    @DisplayName("Từ chối nhận hàng khi tổng số lượng thực nhận và thiếu hỏng vượt quá số lượng đã xuất (WMS-13.2)")
+    void receiveTransfer_ThrowsWhenTotalAccountedExceedsTransferred() {
+        StockTransfer transfer = StockTransfer.builder()
+                .id(100L)
+                .sourceWarehouse(warehouseSource)
+                .destinationWarehouse(warehouseDest)
+                .status(StockTransferStatus.IN_TRANSIT)
+                .items(new ArrayList<>())
+                .build();
+
+        StockTransferItem item = StockTransferItem.builder()
+                .id(1001L)
+                .transfer(transfer)
+                .productId(501L)
+                .skuCode("SKU-01")
+                .transferredQuantity(new BigDecimal("10.000"))
+                .build();
+        transfer.addItem(item);
+
+        // Xuất 10 nhưng nhận 12
+        ReceiveStockTransferItemRequest itemReq = new ReceiveStockTransferItemRequest(
+                1001L, new BigDecimal("12.000"), BigDecimal.ZERO, binDest.getId(), null
+        );
+        ReceiveStockTransferRequest request = new ReceiveStockTransferRequest(List.of(itemReq), null);
+
+        when(stockTransferRepository.findById(100L)).thenReturn(Optional.of(transfer));
+
+        assertThatThrownBy(() -> stockTransferService.receiveTransfer(100L, request))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("vượt quá số lượng đã xuất chuyển");
+    }
+
+    @Test
+    @DisplayName("Từ chối nhận hàng khi chưa kiểm đếm đủ toàn bộ các mặt hàng trong lệnh (WMS-13.2)")
+    void receiveTransfer_ThrowsWhenMissingItemsInRequest() {
+        StockTransfer transfer = StockTransfer.builder()
+                .id(100L)
+                .sourceWarehouse(warehouseSource)
+                .destinationWarehouse(warehouseDest)
+                .status(StockTransferStatus.IN_TRANSIT)
+                .items(new ArrayList<>())
+                .build();
+
+        StockTransferItem item1 = StockTransferItem.builder().id(1001L).transfer(transfer).productId(501L).skuCode("SKU-01").transferredQuantity(BigDecimal.TEN).build();
+        StockTransferItem item2 = StockTransferItem.builder().id(1002L).transfer(transfer).productId(502L).skuCode("SKU-02").transferredQuantity(BigDecimal.TEN).build();
+        transfer.addItem(item1);
+        transfer.addItem(item2);
+
+        // Request chỉ có item1, thiếu item2
+        ReceiveStockTransferItemRequest itemReq = new ReceiveStockTransferItemRequest(
+                1001L, BigDecimal.TEN, BigDecimal.ZERO, binDest.getId(), null
+        );
+        ReceiveStockTransferRequest request = new ReceiveStockTransferRequest(List.of(itemReq), null);
+
+        when(stockTransferRepository.findById(100L)).thenReturn(Optional.of(transfer));
+
+        assertThatThrownBy(() -> stockTransferService.receiveTransfer(100L, request))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("Cần kiểm đếm và xác nhận toàn bộ danh sách mặt hàng");
     }
 }
 

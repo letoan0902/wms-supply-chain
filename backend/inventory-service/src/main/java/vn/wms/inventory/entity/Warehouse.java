@@ -6,26 +6,29 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import vn.wms.common.persistence.AuditableEntity;
+import vn.wms.common.tenant.TenantEntity;
 
 /**
  * Kho hàng (Warehouse) - Quản lý danh mục đa kho, sức chứa và liên hệ (WMS-05).
+ * Kế thừa TenantEntity để phân tách theo doanh nghiệp (WMS-22.4a).
  */
 @Entity
-@Table(name = "warehouses")
+@Table(name = "warehouses", uniqueConstraints = @UniqueConstraint(
+        name = "uk_warehouses_company_code", columnNames = {"company_id", "code"}))
 @Getter
 @Setter
 @NoArgsConstructor
-public class Warehouse extends AuditableEntity {
+public class Warehouse extends TenantEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 30)
+    @Column(nullable = false, length = 30)
     private String code;
 
     @Column(nullable = false, length = 150)

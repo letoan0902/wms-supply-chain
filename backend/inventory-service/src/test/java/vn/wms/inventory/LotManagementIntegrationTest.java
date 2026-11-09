@@ -1,6 +1,7 @@
 package vn.wms.inventory;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -12,6 +13,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 import vn.wms.common.exception.ApiException;
+import vn.wms.common.tenant.TenantContext;
 import vn.wms.inventory.dto.DeductStockItemRequest;
 import vn.wms.inventory.dto.DeductStockRequest;
 import vn.wms.inventory.dto.DeductStockResponse;
@@ -78,6 +80,7 @@ class LotManagementIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        TenantContext.setCompanyId(1L);
         inventoryLotRepository.deleteAll();
         stockItemRepository.deleteAll();
         binLocationRepository.deleteAll();
@@ -106,6 +109,11 @@ class LotManagementIntegrationTest {
         bin2.setBin("02");
         bin2.setActive(true);
         bin2 = binLocationRepository.save(bin2);
+    }
+
+    @AfterEach
+    void tearDown() {
+        TenantContext.clear();
     }
 
     @Test

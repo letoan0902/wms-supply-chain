@@ -12,19 +12,22 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import vn.wms.common.persistence.AuditableEntity;
+import vn.wms.common.tenant.TenantEntity;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 
-/** Tồn kho của một sản phẩm tại một vị trí (theo lô nếu có). */
+/**
+ * Tồn kho của một sản phẩm tại một vị trí (theo lô nếu có).
+ * Kế thừa TenantEntity để phân tách theo doanh nghiệp (WMS-22.4a).
+ */
 @Entity
 @Table(name = "stock_items")
 @Getter
 @Setter
 @NoArgsConstructor
-public class StockItem extends AuditableEntity {
+public class StockItem extends TenantEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

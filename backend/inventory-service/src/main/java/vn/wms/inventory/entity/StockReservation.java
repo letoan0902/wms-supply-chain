@@ -12,19 +12,20 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import vn.wms.common.persistence.AuditableEntity;
+import vn.wms.common.tenant.TenantEntity;
 
 import java.math.BigDecimal;
 
 /**
  * Bản ghi giữ hàng ảo (Soft Reservation) cho đơn bán hàng (FR16 - WMS-11.2).
+ * Kế thừa TenantEntity để phân tách theo doanh nghiệp (WMS-22.4a).
  */
 @Entity
 @Table(name = "stock_reservations")
 @Getter
 @Setter
 @NoArgsConstructor
-public class StockReservation extends AuditableEntity {
+public class StockReservation extends TenantEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

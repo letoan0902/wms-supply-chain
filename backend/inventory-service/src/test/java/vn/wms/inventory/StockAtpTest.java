@@ -1,6 +1,7 @@
 package vn.wms.inventory;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -11,6 +12,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
+import vn.wms.common.tenant.TenantContext;
 import vn.wms.inventory.dto.BatchAtpRequest;
 import vn.wms.inventory.entity.BinLocation;
 import vn.wms.inventory.entity.StockItem;
@@ -56,6 +58,7 @@ class StockAtpTest {
 
     @BeforeEach
     void setUp() {
+        TenantContext.setCompanyId(1L);
         warehouse1 = new Warehouse();
         warehouse1.setCode("WH-ATP-01");
         warehouse1.setName("Kho Hà Nội");
@@ -85,6 +88,11 @@ class StockAtpTest {
         bin2.setBin("01");
         bin2.setActive(true);
         bin2 = binLocationRepository.save(bin2);
+    }
+
+    @AfterEach
+    void tearDown() {
+        TenantContext.clear();
     }
 
     @Test

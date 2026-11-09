@@ -59,7 +59,8 @@ public class GoodsReceiptService {
             throw ApiException.badRequest("ID đơn mua hàng (PO) không được để trống");
         }
 
-        PurchaseOrder po = purchaseOrderRepository.findById(request.poId())
+        // Khóa bi quan (SELECT ... FOR UPDATE) trên đơn mua hàng để chống race condition khi 2 phiếu nhập tạo đồng thời
+        PurchaseOrder po = purchaseOrderRepository.findByIdForUpdate(request.poId())
                 .orElseThrow(() -> ApiException.notFound("Không tìm thấy đơn mua hàng với ID: " + request.poId()));
 
         // 1. Kiểm tra trạng thái đơn mua hàng: Chỉ cho phép nhập khi APPROVED hoặc PARTIALLY_RECEIVED
@@ -79,6 +80,10 @@ public class GoodsReceiptService {
         Map<Long, PurchaseOrderItem> poItemMap = po.getItems().stream()
                 .collect(Collectors.toMap(PurchaseOrderItem::getId, Function.identity()));
 
+        if (po.getWarehouseId() == null) {
+            throw ApiException.badRequest("Đơn mua hàng #" + po.getPoNumber() + " chưa được chỉ định kho nhận hàng (warehouseId), không thể lập phiếu nhập");
+        }
+
         LocalDate receiptDate = request.receiptDate() != null ? request.receiptDate() : LocalDate.now();
 
         GoodsReceiptNote grn = new GoodsReceiptNote();
@@ -87,7 +92,7 @@ public class GoodsReceiptService {
         grn.setPoNumber(po.getPoNumber());
         grn.setSupplier(po.getSupplier());
         grn.setSupplierName(po.getSupplier() != null ? po.getSupplier().getName() : null);
-        grn.setWarehouseId(po.getWarehouseId() != null ? po.getWarehouseId() : 0L);
+        grn.setWarehouseId(po.getWarehouseId());
         grn.setWarehouseName(po.getWarehouseName());
         grn.setStatus(GoodsReceiptStatus.COMPLETED);
         grn.setReceiptDate(receiptDate);
@@ -128,6 +133,22 @@ public class GoodsReceiptService {
                         + ") vượt quá số lượng còn lại cần nhập trên PO (" + remaining + ")!");
             }
 
+            // Quản lý Lô & Hạn sử dụng (WMS-10.2 - FR12): Kiểm tra tính hợp lệ của Số lô, Ngày SX & Hạn dùng
+            String batchNumber = itemReq.batchNumber() != null ? itemReq.batchNumber().trim() : null;
+            if (batchNumber != null && batchNumber.length() > 50) {
+                throw ApiException.badRequest("Số lô (batchNumber) của mặt hàng " + poItem.getSkuCode() + " vượt quá độ dài tối đa 50 ký tự");
+            }
+
+            if (itemReq.mfgDate() != null && itemReq.expDate() != null && itemReq.expDate().isBefore(itemReq.mfgDate())) {
+                throw ApiException.badRequest("Hạn sử dụng (" + itemReq.expDate() + ") không được trước ngày sản xuất ("
+                        + itemReq.mfgDate() + ") của sản phẩm " + poItem.getSkuCode());
+            }
+
+            if (itemReq.expDate() != null && !itemReq.expDate().isAfter(receiptDate)) {
+                throw ApiException.badRequest("Lô hàng '" + (batchNumber != null ? batchNumber : poItem.getSkuCode())
+                        + "' đã hết hạn sử dụng (" + itemReq.expDate() + ") tính đến ngày nhận hàng (" + receiptDate + "), không thể nhập kho đạt chuẩn");
+            }
+
             BigDecimal unitPrice = poItem.getUnitPrice() != null ? poItem.getUnitPrice() : BigDecimal.ZERO;
             BigDecimal lineTotal = accepted.multiply(unitPrice).setScale(2, RoundingMode.HALF_UP);
 
@@ -145,7 +166,7 @@ public class GoodsReceiptService {
             grnItem.setLineTotal(lineTotal);
             grnItem.setRejectedReason(rejected.compareTo(BigDecimal.ZERO) > 0 && itemReq.rejectedReason() != null
                     ? itemReq.rejectedReason().trim() : null);
-            grnItem.setBatchNumber(itemReq.batchNumber() != null ? itemReq.batchNumber().trim() : null);
+            grnItem.setBatchNumber(batchNumber);
             grnItem.setMfgDate(itemReq.mfgDate());
             grnItem.setExpDate(itemReq.expDate());
             grnItem.setLocationId(itemReq.locationId());

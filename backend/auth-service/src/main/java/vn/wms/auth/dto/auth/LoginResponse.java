@@ -1,5 +1,7 @@
 package vn.wms.auth.dto.auth;
 
+import vn.wms.auth.company.dto.CompanySummary;
+
 import java.util.List;
 
 /**
@@ -11,6 +13,7 @@ import java.util.List;
  * @param expiresIn    thời gian sống của access token (giây)
  * @param username     tên đăng nhập
  * @param roles        danh sách vai trò của người dùng
+ * @param company      doanh nghiệp của người dùng: id, code, name
  */
 public record LoginResponse(
         String accessToken,
@@ -18,9 +21,14 @@ public record LoginResponse(
         String tokenType,
         long expiresIn,
         String username,
-        List<String> roles) {
+        List<String> roles,
+        CompanySummary company) {
+
+    public LoginResponse(String accessToken, String refreshToken, String tokenType, long expiresIn, String username, List<String> roles) {
+        this(accessToken, refreshToken, tokenType, expiresIn, username, roles, null);
+    }
 
     public LoginResponse(String accessToken, String tokenType, long expiresIn, String username, List<String> roles) {
-        this(accessToken, null, tokenType, expiresIn, username, roles);
+        this(accessToken, null, tokenType, expiresIn, username, roles, null);
     }
 }

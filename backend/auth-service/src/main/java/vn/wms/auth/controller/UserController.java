@@ -11,6 +11,7 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import vn.wms.auth.dto.users.*;
+import vn.wms.auth.security.UserPrincipal;
 import vn.wms.auth.service.UserService;
 import vn.wms.common.api.ApiResponse;
 import vn.wms.common.api.PageResponse;
@@ -59,23 +60,26 @@ public class UserController {
             @RequestParam(required = false) String role,
             @RequestParam(required = false) Long warehouseId,
             @RequestParam(required = false) Boolean enabled,
-            @PageableDefault(size = 10, sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
-        return ApiResponse.ok(userService.getUsers(keyword, role, warehouseId, enabled, pageable));
+            @PageableDefault(size = 10, sort = "id", direction = Sort.Direction.DESC) Pageable pageable,
+            Authentication authentication) {
+        return ApiResponse.ok(userService.getUsers(
+                UserPrincipal.requireCompanyId(authentication), keyword, role, warehouseId, enabled, pageable));
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Admin: Xem chi tiết một người dùng")
-    public ApiResponse<UserDetailResponse> getUserById(@PathVariable Long id) {
-        return ApiResponse.ok(userService.getUserById(id));
+    public ApiResponse<UserDetailResponse> getUserById(@PathVariable Long id, Authentication authentication) {
+        return ApiResponse.ok(userService.getUserById(id, UserPrincipal.requireCompanyId(authentication)));
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Admin: Tạo người dùng mới và phân quyền kho")
-    public ApiResponse<UserDetailResponse> createUser(@Valid @RequestBody CreateUserRequest request) {
-        return ApiResponse.ok(userService.createUser(request));
+    public ApiResponse<UserDetailResponse> createUser(@Valid @RequestBody CreateUserRequest request,
+                                                      Authentication authentication) {
+        return ApiResponse.ok(userService.createUser(request, UserPrincipal.requireCompanyId(authentication)));
     }
 
     @PutMapping("/{id}")
@@ -85,7 +89,8 @@ public class UserController {
             @PathVariable Long id,
             @Valid @RequestBody AdminUpdateUserRequest request,
             Authentication authentication) {
-        return ApiResponse.ok(userService.updateUser(id, request, authentication.getName()));
+        return ApiResponse.ok(userService.updateUser(id, request, authentication.getName(),
+                UserPrincipal.requireCompanyId(authentication)));
     }
 
     @PutMapping("/{id}/warehouses")
@@ -93,8 +98,10 @@ public class UserController {
     @Operation(summary = "Admin: Phân quyền kho cho người dùng")
     public ApiResponse<UserDetailResponse> assignWarehouses(
             @PathVariable Long id,
-            @Valid @RequestBody AssignWarehousesRequest request) {
-        return ApiResponse.ok(userService.assignWarehouses(id, request.warehouseIds()));
+            @Valid @RequestBody AssignWarehousesRequest request,
+            Authentication authentication) {
+        return ApiResponse.ok(userService.assignWarehouses(id, request.warehouseIds(),
+                UserPrincipal.requireCompanyId(authentication)));
     }
 
     @PatchMapping("/{id}/status")
@@ -104,6 +111,7 @@ public class UserController {
             @PathVariable Long id,
             @Valid @RequestBody UpdateUserStatusRequest request,
             Authentication authentication) {
-        return ApiResponse.ok(userService.updateUserStatus(id, request.enabled(), authentication.getName()));
+        return ApiResponse.ok(userService.updateUserStatus(id, request.enabled(), authentication.getName(),
+                UserPrincipal.requireCompanyId(authentication)));
     }
 }

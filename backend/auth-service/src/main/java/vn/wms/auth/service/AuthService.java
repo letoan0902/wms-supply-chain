@@ -16,11 +16,16 @@ import vn.wms.auth.dto.auth.RefreshTokenResponse;
 import vn.wms.auth.dto.auth.RegisterRequest;
 import vn.wms.auth.dto.auth.RegisterResponse;
 import vn.wms.auth.dto.users.UserInfoResponse;
+import vn.wms.auth.company.dto.CompanySummary;
+import vn.wms.auth.company.entity.Company;
+import vn.wms.auth.company.repository.CompanyRepository;
 import vn.wms.auth.entity.Role;
 import vn.wms.auth.entity.User;
 import vn.wms.auth.repository.RoleRepository;
 import vn.wms.auth.repository.UserRepository;
 import vn.wms.auth.security.JwtService;
+import vn.wms.auth.security.UserPrincipal;
+import vn.wms.common.api.ErrorCode;
 import vn.wms.common.constant.Roles;
 import vn.wms.common.exception.ApiException;
 
@@ -47,6 +52,7 @@ public class AuthService {
     private final RedisTemplate<String, String> redisTemplate;
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
+    private final CompanyRepository companyRepository;
     private final PasswordEncoder passwordEncoder;
 
     public AuthService(JwtService jwtService,
@@ -54,12 +60,14 @@ public class AuthService {
                        RedisTemplate<String, String> redisTemplate,
                        UserRepository userRepository,
                        RoleRepository roleRepository,
+                       CompanyRepository companyRepository,
                        PasswordEncoder passwordEncoder) {
         this.jwtService = jwtService;
         this.devLogin = devLogin;
         this.redisTemplate = redisTemplate;
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
+        this.companyRepository = companyRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -99,6 +107,9 @@ public class AuthService {
             throw ApiException.unauthorized("Tài khoản đã bị khóa hoặc ngừng kích hoạt");
         }
 
+        // 3b. Doanh nghiệp của tài khoản phải đang hoạt động (ACTIVE)
+        Company company = requireActiveCompany(userLogin);
+
         // 4. Đăng nhập thành công -> Reset bộ đếm số lần nhập sai của cả IP và Tài khoản
         resetFailedAttempts(clientIp, canonicalUsername);
 
@@ -107,9 +118,10 @@ public class AuthService {
                 .map(Role::getName)
                 .toList();
 
-        // 6. Tạo Access Token (kèm warehouseIds) & Refresh Token
+        // 6. Tạo Access Token (kèm companyId, companyCode và warehouseIds) & Refresh Token
         String accessToken = jwtService.generateAccessToken(
-                userLogin.getId(), userLogin.getUsername(), roles, userLogin.getWarehouseIds());
+                userLogin.getId(), userLogin.getUsername(), company.getId(), company.getCode(),
+                roles, userLogin.getWarehouseIds());
         String refreshToken = jwtService.generateRefreshToken(userLogin.getUsername());
 
         // 7. Lưu Refresh Token vào Redis với TTL
@@ -123,7 +135,21 @@ public class AuthService {
                 TOKEN_TYPE,
                 jwtService.getAccessTokenMinutes() * 60L, // expiresIn (giây)
                 userLogin.getUsername(),
-                roles);
+                roles,
+                CompanySummary.from(company));
+    }
+
+    /**
+     * Trả doanh nghiệp của tài khoản nếu đang ACTIVE; doanh nghiệp chưa kích hoạt, bị tạm khóa
+     * hoặc không tồn tại thì từ chối với 403 COMPANY_INACTIVE.
+     */
+    private Company requireActiveCompany(User user) {
+        Company company = user.getCompany();
+        if (company == null || !company.isActive()) {
+            throw new ApiException(ErrorCode.COMPANY_INACTIVE,
+                    "Doanh nghiệp của tài khoản chưa được kích hoạt hoặc đang bị tạm khóa. Vui lòng liên hệ quản trị viên của doanh nghiệp.");
+        }
+        return company;
     }
 
     private void checkLocks(String clientIp, String username) {
@@ -260,13 +286,17 @@ public class AuthService {
             throw ApiException.unauthorized("Tài khoản đã bị khóa hoặc ngừng kích hoạt");
         }
 
+        // Doanh nghiệp đọc lại từ cơ sở dữ liệu, phải đang ACTIVE
+        Company company = requireActiveCompany(user);
+
         List<String> roles = user.getRoles().stream()
                 .map(Role::getName)
                 .toList();
 
-        // 4. Phát hành Access Token mới (kèm warehouseIds)
+        // 4. Phát hành Access Token mới (kèm companyId, companyCode và warehouseIds)
         String newAccessToken = jwtService.generateAccessToken(
-                user.getId(), user.getUsername(), roles, user.getWarehouseIds());
+                user.getId(), user.getUsername(), company.getId(), company.getCode(),
+                roles, user.getWarehouseIds());
 
         // 5. Xoay vòng Refresh Token (Refresh Token Rotation - RTR) để nâng cao bảo mật
         String newRefreshToken = jwtService.generateRefreshToken(user.getUsername());
@@ -282,10 +312,15 @@ public class AuthService {
     }
 
     /**
-     * Tạo mới tài khoản người dùng (chỉ dành cho Admin / IT).
+     * Tạo mới tài khoản người dùng (chỉ dành cho Admin). Tài khoản mới luôn thuộc doanh nghiệp
+     * của ADMIN đang tạo (companyId lấy từ JWT), không nhận doanh nghiệp từ body.
      */
     @Transactional
-    public RegisterResponse register(RegisterRequest request) {
+    public RegisterResponse register(RegisterRequest request, Long companyId) {
+        Company company = companyRepository.findById(companyId)
+                .orElseThrow(() -> new ApiException(ErrorCode.COMPANY_REQUIRED,
+                        "Không tìm thấy doanh nghiệp của tài khoản đang đăng nhập"));
+
         // 1. Kiểm tra trùng lặp tên đăng nhập
         if (userRepository.existsByUsername(request.username())) {
             throw ApiException.conflict("Tên đăng nhập '" + request.username() + "' đã tồn tại");
@@ -318,6 +353,7 @@ public class AuthService {
         newUser.setFullName(request.fullName());
         newUser.setEnabled(true);
         newUser.setRoles(assignedRoles);
+        newUser.setCompany(company);
 
         // 6. Lưu vào DB
         User savedUser = userRepository.save(newUser);
@@ -342,6 +378,7 @@ public class AuthService {
      * Thông tin người dùng hiện tại, dựng từ Authentication mà
      * JwtAuthenticationFilter đã đặt.
      */
+    @Transactional(readOnly = true)
     public UserInfoResponse currentUser(Authentication authentication) {
         if (authentication == null || !authentication.isAuthenticated()) {
             throw ApiException.unauthorized("Chưa đăng nhập");
@@ -350,7 +387,13 @@ public class AuthService {
                 .map(authority -> authority.getAuthority())
                 .map(AuthService::stripRolePrefix)
                 .toList();
-        return new UserInfoResponse(authentication.getName(), roles);
+        CompanySummary company = null;
+        if (authentication.getPrincipal() instanceof UserPrincipal principal && principal.getCompanyId() != null) {
+            company = companyRepository.findById(principal.getCompanyId())
+                    .map(CompanySummary::from)
+                    .orElse(null);
+        }
+        return new UserInfoResponse(authentication.getName(), roles, company);
     }
 
     private static boolean constantTimeEquals(String expected, String actual) {

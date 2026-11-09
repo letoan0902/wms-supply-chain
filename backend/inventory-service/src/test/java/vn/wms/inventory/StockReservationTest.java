@@ -1,5 +1,6 @@
 package vn.wms.inventory;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -12,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import vn.wms.common.messaging.event.OrderCreatedEvent;
 import vn.wms.common.messaging.event.OrderLine;
 import vn.wms.common.messaging.event.OrderType;
+import vn.wms.common.tenant.TenantContext;
 import vn.wms.inventory.dto.StockAtpResponse;
 import vn.wms.inventory.entity.BinLocation;
 import vn.wms.inventory.entity.StockItem;
@@ -72,6 +74,7 @@ class StockReservationTest {
 
     @BeforeEach
     void setUp() {
+        TenantContext.setCompanyId(1L);
         warehouse = new Warehouse();
         warehouse.setCode("WH-RES-01");
         warehouse.setName("Kho Giữ Hàng Tân Bình");
@@ -94,6 +97,11 @@ class StockReservationTest {
         stockItem.setQuantity(new BigDecimal("100.000"));
         stockItem.setReservedQuantity(BigDecimal.ZERO);
         stockItem = stockItemRepository.save(stockItem);
+    }
+
+    @AfterEach
+    void tearDown() {
+        TenantContext.clear();
     }
 
     @Test

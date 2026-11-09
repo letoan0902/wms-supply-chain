@@ -4,7 +4,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.wms.common.exception.ApiException;
@@ -251,10 +250,10 @@ public class LotService {
     }
 
     /**
-     * Tự động quét và khóa tất cả các lô hàng đã hết hạn sử dụng (Exp Date <= hôm nay).
-     * Được kích hoạt tự động theo lịch định kỳ mỗi ngày vào lúc 01:00 AM hoặc gọi qua REST API.
+     * Tự động quét và khóa tất cả các lô hàng đã hết hạn sử dụng (Exp Date <= hôm nay) của doanh nghiệp hiện tại.
+     * Được gọi qua REST API (doanh nghiệp của người gọi) hoặc bởi {@link ExpiredLotScheduler} lúc 01:00 AM mỗi ngày,
+     * khi đó scheduler đặt doanh nghiệp bằng TenantContext.runAs trước khi transaction này mở.
      */
-    @Scheduled(cron = "0 0 1 * * ?")
     @Transactional
     public AutoLockResponse autoLockExpiredLots() {
         LocalDate today = LocalDate.now();

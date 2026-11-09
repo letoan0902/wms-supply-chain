@@ -23,6 +23,7 @@ export async function fetchCustomers(
       type: params.type,
       active: params.active,
       debtLocked: params.debtLocked,
+      overLimit: params.overLimit,
       page: params.page ?? 0,
       size: params.size ?? 50,
     },

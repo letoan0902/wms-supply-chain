@@ -22,6 +22,7 @@
 #   5. notification-service: truyền CORS_ALLOWED_ORIGINS và GATEWAY_JWT_ENABLED (mặc định true) cho hub WebSocket /ws-wms,
 #      để chỉ trang https://<DOMAIN> mở được kết nối và frame STOMP CONNECT phải mang JWT hợp lệ (JWT_SECRET đã có sẵn
 #      qua x-backend-env của file gốc).
+#   6. inventory-service: đặt TENANT_DEFAULT_COMPANY_ID rỗng, bỏ doanh nghiệp mặc định chỉ dành cho môi trường phát triển.
 #
 # Yêu cầu Docker Compose v2.24.4 trở lên vì file dùng hai thẻ YAML của Compose:
 #   !reset      xóa giá trị kế thừa từ file gốc (hỗ trợ từ v2.24.0)
@@ -133,6 +134,14 @@ services:
     environment:
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-https://${DOMAIN:-wms.toanmarket.me}}
       GATEWAY_JWT_ENABLED: ${GATEWAY_JWT_ENABLED:-true}
+      TENANT_DEFAULT_COMPANY_ID: ""
+
+  # --------------------------------------------------------------------------
+  # inventory-service: file gốc đặt TENANT_DEFAULT_COMPANY_ID mặc định 1 cho môi trường phát triển.
+  # --------------------------------------------------------------------------
+  inventory-service:
+    environment:
+      # Ghi đè thành rỗng: trên máy chủ request không có doanh nghiệp phải bị từ chối (403), không được ngầm coi là doanh nghiệp 1.
       TENANT_DEFAULT_COMPANY_ID: ""
 
 volumes:

@@ -35,6 +35,11 @@ export const STATUS_CONFIG: Record<OrderStatus, StatusConfigItem> = {
     color: 'success',
     icon: <CheckCircleOutlined />,
   },
+  PARTIALLY_RECEIVED: {
+    label: 'Nhập một phần',
+    color: 'cyan',
+    icon: <SyncOutlined />,
+  },
   REJECTED: {
     label: 'Đã từ chối',
     color: 'error',

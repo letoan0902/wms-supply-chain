@@ -41,11 +41,14 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
            "       OR LOWER(COALESCE(c.contactName, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))) " +
            "  AND (:type IS NULL OR c.customerType = :type) " +
            "  AND (:active IS NULL OR c.active = :active) " +
-           "  AND (:debtLocked IS NULL OR c.debtLocked = :debtLocked)")
+           "  AND (:debtLocked IS NULL OR c.debtLocked = :debtLocked) " +
+           "  AND (:overLimit IS NULL OR (:overLimit = true AND c.creditLimit > 0 AND c.currentDebt > c.creditLimit) " +
+           "                          OR (:overLimit = false AND (c.creditLimit <= 0 OR c.currentDebt <= c.creditLimit)))")
     Page<Customer> search(@Param("keyword") String keyword,
                           @Param("type") CustomerType type,
                           @Param("active") Boolean active,
                           @Param("debtLocked") Boolean debtLocked,
+                          @Param("overLimit") Boolean overLimit,
                           Pageable pageable);
 
     @Query("SELECT COALESCE(SUM(c.currentDebt), 0) FROM Customer c WHERE c.active = true")

@@ -159,6 +159,14 @@ public interface StockItemRepository extends JpaRepository<StockItem, Long> {
     List<StockItem> findExpiredUnlockedLots(@Param("today") LocalDate today);
 
     /**
+     * Danh sách mọi doanh nghiệp đang có tồn kho hoặc lô hàng, dùng cho tác vụ định kỳ chạy lần lượt từng doanh nghiệp.
+     * Cố ý dùng SQL gốc để KHÔNG bị lọc theo doanh nghiệp hiện tại (luồng @Scheduled không có doanh nghiệp).
+     * Chỉ trả về ID doanh nghiệp, không trả dữ liệu nghiệp vụ.
+     */
+    @Query(value = "SELECT company_id FROM stock_items UNION SELECT company_id FROM inventory_lots", nativeQuery = true)
+    List<Long> findAllCompanyIds();
+
+    /**
      * Tìm các lô hàng cận hạn sử dụng (trong vòng N ngày tới).
      */
     @Query("SELECT s FROM StockItem s " +

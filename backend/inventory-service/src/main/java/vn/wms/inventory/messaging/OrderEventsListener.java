@@ -52,8 +52,13 @@ public class OrderEventsListener {
 
         try {
             if (!TenantContext.isSet()) {
-                log.warn("Bỏ qua sự kiện vì thiếu thông tin doanh nghiệp (x-wms-company-id): routingKey='{}' messageId={}", routingKey, messageId);
-                return;
+                // Không được bỏ qua (ack) vì message sẽ mất hẳn: từ chối không đẩy lại queue để broker chuyển sang
+                // wms.dlx -> wms.dead-letter, người vận hành xem lại và phát lại khi đã bổ sung doanh nghiệp.
+                log.warn("Từ chối sự kiện thiếu thông tin doanh nghiệp (x-wms-company-id), chuyển dead-letter: routingKey='{}' messageId={}",
+                        routingKey, messageId);
+                throw new AmqpRejectAndDontRequeueException(
+                        "Sự kiện thiếu thông tin doanh nghiệp (header x-wms-company-id), routingKey='" + routingKey
+                                + "', messageId=" + messageId + ": không xử lý được, chuyển dead-letter");
             }
 
             switch (routingKey) {

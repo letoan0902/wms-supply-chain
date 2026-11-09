@@ -15,7 +15,11 @@ public record UserDetailResponse(
         boolean enabled,
         List<String> roles,
         Set<Long> warehouseIds,
+        Long companyId,
         Instant createdAt,
         Instant updatedAt
 ) {
+    public UserDetailResponse(Long id, String username, String email, String fullName, boolean enabled, List<String> roles, Set<Long> warehouseIds, Instant createdAt, Instant updatedAt) {
+        this(id, username, email, fullName, enabled, roles, warehouseIds, null, createdAt, updatedAt);
+    }
 }

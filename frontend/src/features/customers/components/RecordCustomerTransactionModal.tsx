@@ -34,8 +34,8 @@ const TRANSACTION_TYPES: { value: CustomerTransactionType; label: string; desc: 
   },
   {
     value: 'ADJUSTMENT',
-    label: 'Điều chỉnh số dư (+/- Nợ)',
-    desc: 'Điều chỉnh số dư công nợ theo biên bản đối soát định kỳ',
+    label: 'Điều chỉnh số dư (+ Nợ)',
+    desc: 'Điều chỉnh tăng số dư công nợ theo biên bản đối soát định kỳ',
   },
 ]
 
@@ -157,16 +157,19 @@ export default function RecordCustomerTransactionModal({
               validator(_, value) {
                 const type = getFieldValue('type')
                 const currentDebt = customer?.currentDebt ?? 0
-                if (
-                  (type === 'PAYMENT' || type === 'RETURN') &&
-                  currentDebt > 0 &&
-                  value > currentDebt
-                ) {
-                  return Promise.reject(
-                    new Error(
-                      `Số tiền (${formatCurrency(value)}) không được lớn hơn công nợ hiện tại (${formatCurrency(currentDebt)})`
+                if (type === 'PAYMENT' || type === 'RETURN') {
+                  if (currentDebt <= 0) {
+                    return Promise.reject(
+                      new Error('Khách hàng hiện không có nợ (công nợ = 0 đ), không thể lập phiếu thu tiền!')
                     )
-                  )
+                  }
+                  if (value > currentDebt) {
+                    return Promise.reject(
+                      new Error(
+                        `Số tiền (${formatCurrency(value)}) không được lớn hơn công nợ hiện tại (${formatCurrency(currentDebt)})`
+                      )
+                    )
+                  }
                 }
                 return Promise.resolve()
               },
@@ -191,9 +194,9 @@ export default function RecordCustomerTransactionModal({
         <Form.Item
           name="referenceCode"
           label={<span className="font-medium text-gray-700">Mã chứng từ / Hóa đơn tham chiếu</span>}
-          rules={[{ max: 100, message: 'Tối đa 100 ký tự' }]}
+          rules={[{ max: 50, message: 'Mã chứng từ tối đa 50 ký tự' }]}
         >
-          <Input placeholder="VD: PT-20261105-183000..." />
+          <Input maxLength={50} placeholder="VD: PT-20261105-183000..." />
         </Form.Item>
 
         <Form.Item

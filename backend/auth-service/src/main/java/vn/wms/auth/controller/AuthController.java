@@ -17,6 +17,7 @@ import vn.wms.auth.dto.auth.RefreshTokenResponse;
 import vn.wms.auth.dto.auth.RegisterRequest;
 import vn.wms.auth.dto.auth.RegisterResponse;
 import vn.wms.auth.dto.users.UserInfoResponse;
+import vn.wms.auth.security.UserPrincipal;
 import vn.wms.auth.service.AuthService;
 import vn.wms.common.api.ApiResponse;
 import vn.wms.common.exception.ApiException;
@@ -56,9 +57,10 @@ public class AuthController {
 
     @PostMapping("/register")
     @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Tạo mới tài khoản người dùng (chỉ ADMIN có quyền thực hiện)")
-    public ApiResponse<RegisterResponse> register(@Valid @RequestBody RegisterRequest request) {
-        return ApiResponse.ok(authService.register(request));
+    @Operation(summary = "Tạo mới tài khoản người dùng (chỉ ADMIN), tài khoản thuộc doanh nghiệp của ADMIN đang tạo")
+    public ApiResponse<RegisterResponse> register(@Valid @RequestBody RegisterRequest request,
+                                                  Authentication authentication) {
+        return ApiResponse.ok(authService.register(request, UserPrincipal.requireCompanyId(authentication)));
     }
 
     @GetMapping("/me")

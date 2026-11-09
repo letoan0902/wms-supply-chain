@@ -12,7 +12,7 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import vn.wms.common.persistence.AuditableEntity;
+import vn.wms.common.tenant.TenantEntity;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -21,13 +21,14 @@ import java.time.temporal.ChronoUnit;
 /**
  * Bảng inventory_lots: Lưu trữ chi tiết từng Lô hàng (Số lô, Mfg Date, Exp Date)
  * theo Vị trí ô/kệ lưu trữ (Bin ID) để phục vụ xuất FIFO/FEFO và khóa lô hết hạn (WMS-10.2 - FR12).
+ * Kế thừa TenantEntity để phân tách theo doanh nghiệp (WMS-22.4a).
  */
 @Entity
 @Table(name = "inventory_lots")
 @Getter
 @Setter
 @NoArgsConstructor
-public class InventoryLot extends AuditableEntity {
+public class InventoryLot extends TenantEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

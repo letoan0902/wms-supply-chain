@@ -23,3 +23,8 @@ spring:
 eureka:
   client:
     enabled: false
+
+app:
+  tenant:
+    required: true
+    default-company-id: 1

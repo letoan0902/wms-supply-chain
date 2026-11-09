@@ -9,27 +9,30 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import vn.wms.common.persistence.AuditableEntity;
+import vn.wms.common.tenant.TenantEntity;
 
 import java.math.BigDecimal;
 
 /**
  * Quản lý chỉ tiêu hàng đang trên đường về kho (Incoming Stock - WMS-09.2).
  * Được tự động tạo khi Đơn mua hàng (PO) được phê duyệt (APPROVED) và sẽ được trừ dần khi thực hiện nhập kho (GRN - WMS-10.3).
+ * Kế thừa TenantEntity để phân tách theo doanh nghiệp (WMS-22.4a).
  */
 @Entity
-@Table(name = "incoming_stocks")
+@Table(name = "incoming_stocks", uniqueConstraints = @UniqueConstraint(
+        name = "uk_incoming_order_product", columnNames = {"order_id", "product_id"}))
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class IncomingStock extends AuditableEntity {
+public class IncomingStock extends TenantEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

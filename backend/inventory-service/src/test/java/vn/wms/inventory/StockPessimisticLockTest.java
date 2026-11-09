@@ -1,5 +1,6 @@
 package vn.wms.inventory;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -12,6 +13,7 @@ import vn.wms.common.exception.ApiException;
 import vn.wms.common.messaging.event.OrderDispatchedEvent;
 import vn.wms.common.messaging.event.OrderLine;
 import vn.wms.common.messaging.event.OrderType;
+import vn.wms.common.tenant.TenantContext;
 import vn.wms.inventory.dto.DeductStockItemRequest;
 import vn.wms.inventory.dto.DeductStockRequest;
 import vn.wms.inventory.dto.DeductStockResponse;
@@ -68,6 +70,7 @@ class StockPessimisticLockTest {
 
     @BeforeEach
     void setUp() {
+        TenantContext.setCompanyId(1L);
         stockReservationRepository.deleteAll();
         stockItemRepository.deleteAll();
         binLocationRepository.deleteAll();
@@ -87,6 +90,11 @@ class StockPessimisticLockTest {
         binLocation.setBin("01");
         binLocation.setActive(true);
         binLocation = binLocationRepository.save(binLocation);
+    }
+
+    @AfterEach
+    void tearDown() {
+        TenantContext.clear();
     }
 
     @Test
@@ -214,6 +222,7 @@ class StockPessimisticLockTest {
         for (int i = 0; i < numberOfThreads; i++) {
             final long orderId = 3000L + i;
             executorService.submit(() -> {
+                TenantContext.setCompanyId(1L);
                 try {
                     startLatch.await(); // Đợi cả 2 luồng cùng xuất phát đồng thời
                     DeductStockRequest request = new DeductStockRequest(
@@ -233,6 +242,7 @@ class StockPessimisticLockTest {
                     failCount.incrementAndGet();
                     errorMessages.add(e.toString());
                 } finally {
+                    TenantContext.clear();
                     finishLatch.countDown();
                 }
             });

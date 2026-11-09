@@ -240,6 +240,7 @@ services:
     environment:
       <<: [*backend-env, *db-credentials]
       DB_URL: jdbc:mysql://mysql:3306/inventory_db
+      TENANT_DEFAULT_COMPANY_ID: ${TENANT_DEFAULT_COMPANY_ID:-1}
     depends_on: *depends-on-core
     ports:
       - "127.0.0.1:8083:8083"

@@ -227,6 +227,7 @@ Mỗi tài khoản thuộc đúng một doanh nghiệp. Đăng nhập xong hệ 
 | `POST /api/auth/register`, `POST /api/users` | Tài khoản mới luôn thuộc doanh nghiệp của `ADMIN` đang tạo; không nhận `companyId` từ body |
 | `GET /api/users` và các API `/api/users/{id}/**` | Chỉ liệt kê và thao tác trên tài khoản cùng doanh nghiệp. ID của tài khoản thuộc doanh nghiệp khác trả `404` |
 | `GET /api/auth/company` (mới) | Mọi tài khoản đã đăng nhập xem thông tin doanh nghiệp của mình: `id`, `code`, `name`, `taxCode`, `email`, `phone`, `address`, `status`, `createdAt` |
+| `PUT /api/auth/company` (mới) | `ADMIN` sửa `name`, `taxCode`, `phone`, `address` của chính doanh nghiệp mình; không sửa được mã, trạng thái hay doanh nghiệp khác |
 
 Kết quả đăng nhập sau khi sửa (phần `data`):
 

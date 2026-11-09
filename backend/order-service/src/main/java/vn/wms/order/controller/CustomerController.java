@@ -8,6 +8,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -47,36 +48,42 @@ public class CustomerController {
     }
 
     @GetMapping
-    @Operation(summary = "Danh sách khách hàng có phân trang, tìm kiếm và lọc theo loại / trạng thái")
+    @Operation(summary = "Danh sách khách hàng có phân trang, tìm kiếm và lọc theo loại / trạng thái / vượt hạn mức")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SALES', 'ACCOUNTANT', 'WAREHOUSE_MANAGER')")
     public ApiResponse<PageResponse<CustomerResponse>> list(
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) CustomerType type,
             @RequestParam(required = false) Boolean active,
             @RequestParam(required = false) Boolean debtLocked,
+            @RequestParam(required = false) Boolean overLimit,
             @ParameterObject @PageableDefault(sort = "id") Pageable pageable) {
-        return ApiResponse.ok(customerService.list(keyword, type, active, debtLocked, pageable));
+        return ApiResponse.ok(customerService.list(keyword, type, active, debtLocked, overLimit, pageable));
     }
 
     @GetMapping("/summary")
     @Operation(summary = "Báo cáo tổng quan công nợ & tình hình khách hàng")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SALES', 'ACCOUNTANT', 'WAREHOUSE_MANAGER')")
     public ApiResponse<CustomerDebtSummaryResponse> getDebtSummary() {
         return ApiResponse.ok(customerService.getDebtSummary());
     }
 
     @GetMapping("/{id}")
     @Operation(summary = "Chi tiết hồ sơ khách hàng theo ID")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SALES', 'ACCOUNTANT', 'WAREHOUSE_MANAGER')")
     public ApiResponse<CustomerResponse> getById(@PathVariable Long id) {
         return ApiResponse.ok(customerService.getById(id));
     }
 
     @GetMapping("/code/{code}")
     @Operation(summary = "Chi tiết hồ sơ khách hàng theo Mã")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SALES', 'ACCOUNTANT', 'WAREHOUSE_MANAGER')")
     public ApiResponse<CustomerResponse> getByCode(@PathVariable String code) {
         return ApiResponse.ok(customerService.getByCode(code));
     }
 
     @GetMapping("/{id}/credit-check")
     @Operation(summary = "Kiểm tra hạn mức công nợ (Credit Check) trước khi tạo / duyệt đơn bán hàng (FR14)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SALES', 'ACCOUNTANT', 'WAREHOUSE_MANAGER')")
     public ApiResponse<CustomerCreditCheckResponse> checkCredit(
             @PathVariable Long id,
             @RequestParam(required = false) BigDecimal orderAmount) {
@@ -85,6 +92,7 @@ public class CustomerController {
 
     @PostMapping
     @Operation(summary = "Tạo mới hồ sơ khách hàng / đại lý")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SALES', 'ACCOUNTANT')")
     public ResponseEntity<ApiResponse<CustomerResponse>> create(@Valid @RequestBody CreateCustomerRequest request) {
         CustomerResponse created = customerService.create(request);
         return ResponseEntity
@@ -94,6 +102,7 @@ public class CustomerController {
 
     @PutMapping("/{id}")
     @Operation(summary = "Cập nhật hồ sơ khách hàng / đại lý theo ID")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SALES', 'ACCOUNTANT')")
     public ApiResponse<CustomerResponse> update(
             @PathVariable Long id,
             @Valid @RequestBody UpdateCustomerRequest request) {
@@ -102,6 +111,7 @@ public class CustomerController {
 
     @DeleteMapping("/{id}")
     @Operation(summary = "Xóa mềm khách hàng (chuyển sang ngưng hoạt động)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SALES', 'ACCOUNTANT')")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         customerService.delete(id);
         return ApiResponse.ok();
@@ -109,6 +119,7 @@ public class CustomerController {
 
     @GetMapping("/{id}/transactions")
     @Operation(summary = "Lịch sử biến động công nợ của khách hàng")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SALES', 'ACCOUNTANT', 'WAREHOUSE_MANAGER')")
     public ApiResponse<PageResponse<CustomerTransactionResponse>> listTransactions(
             @PathVariable Long id,
             @ParameterObject @PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
@@ -117,6 +128,7 @@ public class CustomerController {
 
     @PostMapping("/{id}/transactions")
     @Operation(summary = "Ghi nhận phát sinh giao dịch công nợ với khách hàng (Bán hàng, Thanh toán, Trả hàng, Điều chỉnh)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
     public ResponseEntity<ApiResponse<CustomerTransactionResponse>> recordTransaction(
             @PathVariable Long id,
             @Valid @RequestBody RecordCustomerTransactionRequest request) {

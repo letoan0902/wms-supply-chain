@@ -48,6 +48,7 @@ export interface CustomerQueryParams {
   type?: CustomerType
   active?: boolean
   debtLocked?: boolean
+  overLimit?: boolean
   page?: number
   size?: number
 }

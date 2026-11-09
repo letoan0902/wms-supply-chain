@@ -38,12 +38,12 @@ public class CustomerService {
     }
 
     /**
-     * Danh sách khách hàng có phân trang, tìm kiếm và lọc theo loại (Sỉ/Lẻ), trạng thái hoạt động / khóa nợ.
+     * Danh sách khách hàng có phân trang, tìm kiếm và lọc theo loại (Sỉ/Lẻ), trạng thái hoạt động / khóa nợ / vượt hạn mức.
      */
     @Transactional(readOnly = true)
-    public PageResponse<CustomerResponse> list(String keyword, CustomerType type, Boolean active, Boolean debtLocked, Pageable pageable) {
+    public PageResponse<CustomerResponse> list(String keyword, CustomerType type, Boolean active, Boolean debtLocked, Boolean overLimit, Pageable pageable) {
         String trimmed = (keyword != null && !keyword.isBlank()) ? keyword.trim() : null;
-        return PageResponse.from(customerRepository.search(trimmed, type, active, debtLocked, pageable)
+        return PageResponse.from(customerRepository.search(trimmed, type, active, debtLocked, overLimit, pageable)
                 .map(CustomerResponse::from));
     }
 
@@ -334,7 +334,16 @@ public class CustomerService {
 
         switch (request.type()) {
             case SALES_INVOICE -> newDebt = current.add(request.amount());
-            case PAYMENT, RETURN -> newDebt = current.subtract(request.amount());
+            case PAYMENT -> {
+                if (current.compareTo(BigDecimal.ZERO) <= 0) {
+                    throw ApiException.badRequest("Khách hàng '" + customer.getName() + "' hiện không có dư nợ, không thể lập phiếu thu tiền!");
+                }
+                if (request.amount().compareTo(current) > 0) {
+                    throw ApiException.badRequest("Số tiền thu không được vượt quá số nợ hiện tại (" + current + " đ) của khách hàng!");
+                }
+                newDebt = current.subtract(request.amount());
+            }
+            case RETURN -> newDebt = current.subtract(request.amount());
             case ADJUSTMENT -> newDebt = current.add(request.amount());
             default -> throw ApiException.badRequest("Loại giao dịch không hỗ trợ: " + request.type());
         }

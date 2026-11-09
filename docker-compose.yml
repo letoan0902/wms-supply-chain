@@ -186,6 +186,8 @@ services:
       # Kiểm tra JWT tại gateway: mặc định tắt ở máy phát triển, đặt GATEWAY_JWT_ENABLED=true trong .env để thử
       # phân quyền theo kho (WMS-04.2). notification-service dùng chung công tắc này cho WebSocket /ws-wms.
       GATEWAY_JWT_ENABLED: ${GATEWAY_JWT_ENABLED:-false}
+      # Khi bật kiểm tra JWT: token không có claim companyId bị trả 401 để người dùng đăng nhập lại (WMS-22.3).
+      GATEWAY_COMPANY_REQUIRED: ${GATEWAY_COMPANY_REQUIRED:-true}
     depends_on:
       redis:
         condition: service_healthy
@@ -225,6 +227,9 @@ services:
     environment:
       <<: [*backend-env, *db-credentials]
       DB_URL: jdbc:mysql://mysql:3306/product_db
+      # Doanh nghiệp dùng khi request không có X-Company-Id (gateway tắt kiểm tra JWT hoặc gọi thẳng service).
+      # Chỉ dành cho máy phát triển; deploy/docker-compose.prod.yml đặt lại thành rỗng (docs/MULTI_TENANT.md).
+      TENANT_DEFAULT_COMPANY_ID: ${TENANT_DEFAULT_COMPANY_ID:-1}
     depends_on: *depends-on-core
     ports:
       - "127.0.0.1:8082:8082"
@@ -256,6 +261,9 @@ services:
     environment:
       <<: [*backend-env, *db-credentials]
       DB_URL: jdbc:mysql://mysql:3306/order_db
+      # Doanh nghiệp dùng khi request không có X-Company-Id (gateway tắt kiểm tra JWT hoặc gọi thẳng service).
+      # Chỉ dành cho máy phát triển; deploy/docker-compose.prod.yml đặt lại thành rỗng (docs/MULTI_TENANT.md).
+      TENANT_DEFAULT_COMPANY_ID: ${TENANT_DEFAULT_COMPANY_ID:-1}
     depends_on: *depends-on-core
     ports:
       - "127.0.0.1:8084:8084"
@@ -280,6 +288,8 @@ services:
       GATEWAY_JWT_ENABLED: ${GATEWAY_JWT_ENABLED:-false}
       # Origin được mở WebSocket: Vite dev server và frontend chạy trong compose (http://localhost, cổng 80).
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-http://localhost:5173,http://localhost}
+      # Doanh nghiệp mặc định cho máy phát triển, xem ghi chú ở product-service.
+      TENANT_DEFAULT_COMPANY_ID: ${TENANT_DEFAULT_COMPANY_ID:-1}
     depends_on: *depends-on-core
     ports:
       - "127.0.0.1:8085:8085"

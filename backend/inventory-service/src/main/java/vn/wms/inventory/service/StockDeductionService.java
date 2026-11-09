@@ -179,6 +179,24 @@ public class StockDeductionService {
         }
 
         StockItem stockItem = stockItemOpt.get();
+
+        // KHÓA LÔ HÀNG (WMS-10.2 - FR12): Chặn xuất kho nếu lô đang bị khóa hoặc đã hết hạn sử dụng
+        if (stockItem.isLocked()) {
+            throw ApiException.badRequest(String.format(
+                    "Lô hàng %s tại vị trí %s đang bị khóa (%s), không được phép xuất kho",
+                    stockItem.getLotNo() != null ? "'" + stockItem.getLotNo() + "'" : "",
+                    stockItem.getBinLocation().getCode(),
+                    stockItem.getLockedReason() != null ? stockItem.getLockedReason() : "Đã khóa"));
+        }
+
+        if (stockItem.isExpired(java.time.LocalDate.now())) {
+            throw ApiException.badRequest(String.format(
+                    "Lô hàng %s tại vị trí %s đã hết hạn sử dụng (%s), tự động chặn không cho phép xuất kho",
+                    stockItem.getLotNo() != null ? "'" + stockItem.getLotNo() + "'" : "",
+                    stockItem.getBinLocation().getCode(),
+                    stockItem.getExpDate()));
+        }
+
         BigDecimal currentQty = stockItem.getQuantity();
 
         // CHỐNG ÂM KHO: Nếu số lượng hiện có nhỏ hơn số lượng yêu cầu xuất -> Ném lỗi từ chối ngay lập tức

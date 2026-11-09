@@ -1,4 +1,4 @@
--- V5__multi_tenant_company_id.sql: Phân tách dữ liệu theo doanh nghiệp (Multi-tenant) cho inventory-service (WMS-22.4a)
+-- V6__multi_tenant_company_id.sql: Phân tách dữ liệu theo doanh nghiệp (Multi-tenant) cho inventory-service (WMS-22.4a)
 -- Thêm cột company_id cho các bảng nghiệp vụ, gán dữ liệu hiện có về Doanh nghiệp mẫu A (company_id = 1),
 -- đổi ràng buộc duy nhất mã kho và mã vị trí theo (company_id, code),
 -- và bổ sung các index bắt đầu bằng company_id cho các cột hay lọc.
@@ -46,4 +46,13 @@ UPDATE incoming_stocks SET company_id = 1 WHERE company_id IS NULL;
 ALTER TABLE incoming_stocks MODIFY company_id BIGINT NOT NULL;
 
 CREATE INDEX idx_incoming_stocks_company ON incoming_stocks (company_id);
+
+-- 6. Bảng lô hàng theo vị trí ô/kệ (inventory_lots, tạo ở V5)
+ALTER TABLE inventory_lots ADD COLUMN company_id BIGINT NULL;
+UPDATE inventory_lots l JOIN bin_locations b ON l.bin_location_id = b.id SET l.company_id = b.company_id WHERE l.company_id IS NULL;
+UPDATE inventory_lots SET company_id = 1 WHERE company_id IS NULL;
+ALTER TABLE inventory_lots MODIFY company_id BIGINT NOT NULL;
+
+CREATE INDEX idx_inventory_lots_company ON inventory_lots (company_id);
+CREATE INDEX idx_inventory_lots_company_product ON inventory_lots (company_id, product_id);
 

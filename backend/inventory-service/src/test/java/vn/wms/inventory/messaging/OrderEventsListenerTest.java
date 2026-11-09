@@ -20,6 +20,7 @@ import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -95,17 +96,48 @@ class OrderEventsListenerTest {
     }
 
     @Test
-    void ignoresMessageWithoutCompanyIdWhenContextNotSet() {
+    void rejectsMessageWithoutCompanyIdToDeadLetterInsteadOfDroppingIt() throws Exception {
+        OrderCreatedEvent event = new OrderCreatedEvent(1L, "PO-20261104-0001", OrderType.PURCHASE, "APPROVED", 10L,
+                null, 5L, "Kho Hà Nội", new BigDecimal("1200000.00"), "purchasing", Instant.now(), items);
         MessageProperties properties = new MessageProperties();
         properties.setContentType(MessageProperties.CONTENT_TYPE_JSON);
         properties.setReceivedRoutingKey(WmsEvents.RoutingKeys.ORDER_CREATED);
         properties.setMessageId("msg-no-tenant");
-        Message msg = new Message("{}".getBytes(StandardCharsets.UTF_8), properties);
+        Message msg = new Message(objectMapper.writeValueAsBytes(event), properties);
 
         TenantContext.clear();
-        listener.onMessage(msg);
 
+        // Ném AmqpRejectAndDontRequeueException để broker chuyển message sang wms.dlx thay vì ack rồi bỏ mất
+        assertThatThrownBy(() -> listener.onMessage(msg))
+                .isInstanceOf(AmqpRejectAndDontRequeueException.class)
+                .hasMessageContaining("thiếu thông tin doanh nghiệp")
+                .hasMessageContaining("msg-no-tenant");
         verifyNoInteractions(handler);
+        assertThat(TenantContext.isSet()).isFalse();
+    }
+
+    @Test
+    void usesCompanyIdFromHeaderAndClearsContextAfterwards() throws Exception {
+        OrderCreatedEvent event = new OrderCreatedEvent(1L, "PO-20261104-0001", OrderType.PURCHASE, "APPROVED", 10L,
+                null, 5L, "Kho Hà Nội", new BigDecimal("1200000.00"), "purchasing", Instant.now(), items);
+        Long[] companySeenByHandler = new Long[1];
+        OrderEventHandler capturing = new OrderEventHandler() {
+            @Override
+            public void onOrderCreated(OrderCreatedEvent e, String messageId) {
+                companySeenByHandler[0] = TenantContext.getCompanyId();
+            }
+
+            @Override
+            public void onOrderDispatched(OrderDispatchedEvent e, String messageId) {
+            }
+        };
+        OrderEventsListener withCapturing = new OrderEventsListener(objectMapper, List.of(capturing));
+
+        TenantContext.clear();
+        withCapturing.onMessage(message(objectMapper.writeValueAsBytes(event), WmsEvents.RoutingKeys.ORDER_CREATED, "msg-7"));
+
+        assertThat(companySeenByHandler[0]).isEqualTo(1L);
+        assertThat(TenantContext.isSet()).isFalse();
     }
 
     private static Message message(byte[] body, String routingKey, String messageId) {

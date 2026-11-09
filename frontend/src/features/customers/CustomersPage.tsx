@@ -60,14 +60,14 @@ export default function CustomersPage() {
   const currentUser = getStoredUser()
   const userRoles = currentUser?.roles ?? []
   const canCreate = userRoles.some((r) =>
-    ['ADMIN', 'SALES', 'WAREHOUSE_MANAGER', 'MANAGER'].includes(r)
+    ['ADMIN', 'SALES', 'WAREHOUSE_MANAGER'].includes(r)
   )
   const canEdit = userRoles.some((r) =>
-    ['ADMIN', 'SALES', 'WAREHOUSE_MANAGER', 'MANAGER'].includes(r)
+    ['ADMIN', 'SALES', 'WAREHOUSE_MANAGER'].includes(r)
   )
-  const canDelete = userRoles.some((r) => ['ADMIN', 'MANAGER'].includes(r))
+  const canDelete = userRoles.some((r) => ['ADMIN'].includes(r))
   const canToggleLock = userRoles.some((r) =>
-    ['ADMIN', 'ACCOUNTANT', 'MANAGER', 'SALES'].includes(r)
+    ['ADMIN', 'ACCOUNTANT', 'SALES'].includes(r)
   )
   const canRecordTransaction = userRoles.some((r) =>
     ['ADMIN', 'ACCOUNTANT', 'SALES'].includes(r)
@@ -118,19 +118,13 @@ export default function CustomersPage() {
           type: customerType,
           active,
           debtLocked,
+          overLimit: filterOverLimit ? true : undefined,
           page,
           size: pageSize,
         })
         if (!ignore) {
-          let list = data.content || []
-          // Nếu người dùng chọn lọc riêng vượt hạn mức nợ
-          if (filterOverLimit) {
-            list = list.filter(
-              (c) => c.creditLimit > 0 && c.currentDebt > c.creditLimit
-            )
-          }
-          setCustomers(list)
-          setTotal(filterOverLimit ? list.length : data.totalElements || 0)
+          setCustomers(data.content || [])
+          setTotal(data.totalElements || 0)
         }
       } catch (err) {
         if (!ignore) {
@@ -295,6 +289,7 @@ export default function CustomersPage() {
           type: customerType,
           active,
           debtLocked,
+          overLimit: filterOverLimit ? true : undefined,
           page: currentPage,
           size: exportPageSize,
         })
@@ -720,7 +715,11 @@ export default function CustomersPage() {
             <Input.Search
               placeholder="Tìm theo Mã, Tên, Số điện thoại..."
               value={keyword}
-              onChange={(e) => setKeyword(e.target.value)}
+              onChange={(e) => {
+                setKeyword(e.target.value)
+                setPage(0)
+              }}
+              onSearch={() => setPage(0)}
               allowClear
             />
           </Col>

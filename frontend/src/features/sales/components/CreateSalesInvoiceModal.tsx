@@ -121,6 +121,8 @@ export default function CreateSalesInvoiceModal({
           .catch(() => {
             if (!ignore) setHasExistingInvoice(false)
           })
+      } else {
+        setHasExistingInvoice(false)
       }
 
       return () => {
@@ -155,6 +157,8 @@ export default function CreateSalesInvoiceModal({
           : 'Ghi nhận thanh toán (PAID)'
 
       message.success(`${actionName} thành công cho mã chứng từ "${values.referenceCode}"!`)
+      setCreditInfo(null)
+      setHasExistingInvoice(false)
       onSuccess?.()
       onClose()
     } catch (err) {

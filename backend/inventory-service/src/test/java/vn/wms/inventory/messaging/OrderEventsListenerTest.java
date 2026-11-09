@@ -2,15 +2,18 @@ package vn.wms.inventory.messaging;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.amqp.AmqpRejectAndDontRequeueException;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.core.MessageProperties;
+import vn.wms.common.messaging.WmsEventPublisher;
 import vn.wms.common.messaging.WmsEvents;
 import vn.wms.common.messaging.event.OrderCreatedEvent;
 import vn.wms.common.messaging.event.OrderDispatchedEvent;
 import vn.wms.common.messaging.event.OrderLine;
 import vn.wms.common.messaging.event.OrderType;
+import vn.wms.common.tenant.TenantContext;
 
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
@@ -34,6 +37,11 @@ class OrderEventsListenerTest {
 
     private final List<OrderLine> items = List.of(
             new OrderLine(100L, "SKU-001", "Thùng carton 60x40", new BigDecimal("50"), "cái", new BigDecimal("24000.00")));
+
+    @AfterEach
+    void tearDown() {
+        TenantContext.clear();
+    }
 
     @Test
     void dispatchesOrderCreatedToHandlers() throws Exception {
@@ -86,11 +94,26 @@ class OrderEventsListenerTest {
                 .doesNotThrowAnyException();
     }
 
+    @Test
+    void ignoresMessageWithoutCompanyIdWhenContextNotSet() {
+        MessageProperties properties = new MessageProperties();
+        properties.setContentType(MessageProperties.CONTENT_TYPE_JSON);
+        properties.setReceivedRoutingKey(WmsEvents.RoutingKeys.ORDER_CREATED);
+        properties.setMessageId("msg-no-tenant");
+        Message msg = new Message("{}".getBytes(StandardCharsets.UTF_8), properties);
+
+        TenantContext.clear();
+        listener.onMessage(msg);
+
+        verifyNoInteractions(handler);
+    }
+
     private static Message message(byte[] body, String routingKey, String messageId) {
         MessageProperties properties = new MessageProperties();
         properties.setContentType(MessageProperties.CONTENT_TYPE_JSON);
         properties.setReceivedRoutingKey(routingKey);
         properties.setMessageId(messageId);
+        properties.setHeader(WmsEventPublisher.HEADER_COMPANY_ID, 1L);
         return new Message(body, properties);
     }
 }

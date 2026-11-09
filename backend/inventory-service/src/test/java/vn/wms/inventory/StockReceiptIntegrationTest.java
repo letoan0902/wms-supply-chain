@@ -1,5 +1,6 @@
 package vn.wms.inventory;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -9,6 +10,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.transaction.annotation.Transactional;
 import vn.wms.common.messaging.event.OrderReceivedEvent;
 import vn.wms.common.messaging.event.ReceivedItemLine;
+import vn.wms.common.tenant.TenantContext;
 import vn.wms.inventory.dto.StockAtpResponse;
 import vn.wms.inventory.entity.BinLocation;
 import vn.wms.inventory.entity.IncomingStock;
@@ -61,6 +63,7 @@ class StockReceiptIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        TenantContext.setCompanyId(1L);
         warehouse = new Warehouse();
         warehouse.setCode("WH-RECEIPT-01");
         warehouse.setName("Kho Nhập Hàng Test");
@@ -76,6 +79,11 @@ class StockReceiptIntegrationTest {
         binLocation.setActive(true);
         binLocation.setStatus("AVAILABLE");
         binLocation = binLocationRepository.save(binLocation);
+    }
+
+    @AfterEach
+    void tearDown() {
+        TenantContext.clear();
     }
 
     @Test

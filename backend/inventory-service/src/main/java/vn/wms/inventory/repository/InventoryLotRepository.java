@@ -19,6 +19,9 @@ public interface InventoryLotRepository extends JpaRepository<InventoryLot, Long
     Optional<InventoryLot> findByLotNumberAndBinLocationIdAndProductId(
             String lotNumber, Long binLocationId, Long productId);
 
+    Optional<InventoryLot> findByCompanyIdAndLotNumberAndBinLocationIdAndProductId(
+            Long companyId, String lotNumber, Long binLocationId, Long productId);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT l FROM InventoryLot l WHERE l.id = :id")
     Optional<InventoryLot> findByIdWithLock(@Param("id") Long id);
@@ -26,7 +29,7 @@ public interface InventoryLotRepository extends JpaRepository<InventoryLot, Long
     /**
      * Xuất kho theo thuật toán FEFO (First-Expired, First-Out):
      * Khóa bi quan và sắp xếp lô theo hạn dùng tăng dần (expDate ASC), không có hạn dùng thì xếp theo FIFO (id ASC).
-     * Tự động loại trừ các lô đang bị khóa hoặc đã hết hạn sử dụng.
+     * Tự động loại trừ các lô đang bị khóa hoặc đã hết hạn sử dụng (so với ngày truyền vào từ Java).
      */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT l FROM InventoryLot l " +
@@ -34,11 +37,12 @@ public interface InventoryLotRepository extends JpaRepository<InventoryLot, Long
            "  AND l.binLocation.warehouse.id = :warehouseId " +
            "  AND l.quantity > 0 " +
            "  AND l.locked = false " +
-           "  AND (l.expDate IS NULL OR l.expDate > CURRENT_DATE) " +
+           "  AND (l.expDate IS NULL OR l.expDate > :today) " +
            "ORDER BY CASE WHEN l.expDate IS NULL THEN 1 ELSE 0 END ASC, l.expDate ASC, l.id ASC")
     List<InventoryLot> findAvailableLotsByFefo(
             @Param("productId") Long productId,
-            @Param("warehouseId") Long warehouseId);
+            @Param("warehouseId") Long warehouseId,
+            @Param("today") LocalDate today);
 
     /**
      * Tìm tất cả các lô hàng đã hết hạn sử dụng (expDate <= today) nhưng chưa bị khóa.
@@ -52,8 +56,11 @@ public interface InventoryLotRepository extends JpaRepository<InventoryLot, Long
 
     /**
      * Tìm các lô hàng cận hạn sử dụng trong N ngày tới.
+     * Sử dụng JOIN FETCH cho binLocation và warehouse để chống lỗi N+1 queries.
      */
     @Query("SELECT l FROM InventoryLot l " +
+           "LEFT JOIN FETCH l.binLocation b " +
+           "LEFT JOIN FETCH b.warehouse w " +
            "WHERE l.expDate IS NOT NULL " +
            "  AND l.expDate > :today " +
            "  AND l.expDate <= :cutoffDate " +
@@ -66,8 +73,20 @@ public interface InventoryLotRepository extends JpaRepository<InventoryLot, Long
 
     /**
      * Tìm kiếm và phân trang danh sách các lô hàng (inventory_lots).
+     * Sử dụng JOIN FETCH cho binLocation và warehouse để nạp dữ liệu một lần, loại bỏ hoàn toàn N+1 queries.
      */
-    @Query("SELECT l FROM InventoryLot l " +
+    @Query(value = "SELECT l FROM InventoryLot l " +
+           "LEFT JOIN FETCH l.binLocation b " +
+           "LEFT JOIN FETCH b.warehouse w " +
+           "WHERE (:warehouseId IS NULL OR b.warehouse.id = :warehouseId) " +
+           "  AND (:productId IS NULL OR l.productId = :productId) " +
+           "  AND (:lotNumber IS NULL OR :lotNumber = '' OR LOWER(l.lotNumber) LIKE LOWER(CONCAT('%', :lotNumber, '%'))) " +
+           "  AND (:locked IS NULL OR l.locked = :locked) " +
+           "  AND (:hasStock IS NULL OR (:hasStock = true AND l.quantity > 0) OR (:hasStock = false AND l.quantity = 0)) " +
+           "  AND (:isExpired IS NULL OR (:isExpired = true AND l.expDate IS NOT NULL AND l.expDate <= :today) " +
+           "                          OR (:isExpired = false AND (l.expDate IS NULL OR l.expDate > :today))) " +
+           "  AND (:isExpiringSoon IS NULL OR (:isExpiringSoon = true AND l.expDate IS NOT NULL AND l.expDate > :today AND l.expDate <= :cutoffDate))",
+           countQuery = "SELECT COUNT(l) FROM InventoryLot l " +
            "WHERE (:warehouseId IS NULL OR l.binLocation.warehouse.id = :warehouseId) " +
            "  AND (:productId IS NULL OR l.productId = :productId) " +
            "  AND (:lotNumber IS NULL OR :lotNumber = '' OR LOWER(l.lotNumber) LIKE LOWER(CONCAT('%', :lotNumber, '%'))) " +

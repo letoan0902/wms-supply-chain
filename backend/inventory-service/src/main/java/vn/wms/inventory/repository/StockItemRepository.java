@@ -55,18 +55,21 @@ public interface StockItemRepository extends JpaRepository<StockItem, Long> {
            "WHERE s.productId = :productId " +
            "  AND (s.quantity - s.reservedQuantity) > 0 " +
            "  AND s.locked = false " +
-           "  AND (s.expDate IS NULL OR s.expDate > CURRENT_DATE) " +
+           "  AND (s.expDate IS NULL OR s.expDate > :today) " +
            "ORDER BY CASE WHEN s.expDate IS NULL THEN 1 ELSE 0 END ASC, s.expDate ASC, s.id ASC")
-    List<StockItem> findAvailableStockItemsByProductId(@Param("productId") Long productId);
+    List<StockItem> findAvailableStockItemsByProductId(@Param("productId") Long productId, @Param("today") LocalDate today);
 
     @Query("SELECT s FROM StockItem s " +
            "WHERE s.productId = :productId " +
            "  AND s.binLocation.warehouse.id = :warehouseId " +
            "  AND (s.quantity - s.reservedQuantity) > 0 " +
            "  AND s.locked = false " +
-           "  AND (s.expDate IS NULL OR s.expDate > CURRENT_DATE) " +
+           "  AND (s.expDate IS NULL OR s.expDate > :today) " +
            "ORDER BY CASE WHEN s.expDate IS NULL THEN 1 ELSE 0 END ASC, s.expDate ASC, s.id ASC")
-    List<StockItem> findAvailableStockItemsByProductIdAndWarehouseId(@Param("productId") Long productId, @Param("warehouseId") Long warehouseId);
+    List<StockItem> findAvailableStockItemsByProductIdAndWarehouseId(
+            @Param("productId") Long productId,
+            @Param("warehouseId") Long warehouseId,
+            @Param("today") LocalDate today);
 
     @Query("SELECT s.binLocation.id, COUNT(s.id), COALESCE(SUM(s.quantity), 0) FROM StockItem s WHERE s.binLocation.warehouse.id = :warehouseId GROUP BY s.binLocation.id")
     List<Object[]> findStockStatsByWarehouseId(@Param("warehouseId") Long warehouseId);
@@ -74,17 +77,39 @@ public interface StockItemRepository extends JpaRepository<StockItem, Long> {
     @Query("SELECT s.binLocation.id, COUNT(s.id), COALESCE(SUM(s.quantity), 0) FROM StockItem s WHERE s.binLocation.warehouse.id IN :warehouseIds GROUP BY s.binLocation.id")
     List<Object[]> findStockStatsByWarehouseIds(@Param("warehouseIds") Collection<Long> warehouseIds);
 
-    @Query("SELECT COALESCE(SUM(s.quantity), 0), COALESCE(SUM(s.reservedQuantity), 0) FROM StockItem s WHERE s.productId = :productId")
-    List<Object[]> getStockTotalsByProductId(@Param("productId") Long productId);
+    @Query("SELECT COALESCE(SUM(s.quantity), 0), COALESCE(SUM(s.reservedQuantity), 0) FROM StockItem s " +
+           "WHERE s.productId = :productId " +
+           "  AND s.locked = false " +
+           "  AND (s.expDate IS NULL OR s.expDate > :today)")
+    List<Object[]> getStockTotalsByProductId(@Param("productId") Long productId, @Param("today") LocalDate today);
 
-    @Query("SELECT COALESCE(SUM(s.quantity), 0), COALESCE(SUM(s.reservedQuantity), 0) FROM StockItem s WHERE s.productId = :productId AND s.binLocation.warehouse.id = :warehouseId")
-    List<Object[]> getStockTotalsByProductIdAndWarehouseId(@Param("productId") Long productId, @Param("warehouseId") Long warehouseId);
+    @Query("SELECT COALESCE(SUM(s.quantity), 0), COALESCE(SUM(s.reservedQuantity), 0) FROM StockItem s " +
+           "WHERE s.productId = :productId " +
+           "  AND s.binLocation.warehouse.id = :warehouseId " +
+           "  AND s.locked = false " +
+           "  AND (s.expDate IS NULL OR s.expDate > :today)")
+    List<Object[]> getStockTotalsByProductIdAndWarehouseId(
+            @Param("productId") Long productId,
+            @Param("warehouseId") Long warehouseId,
+            @Param("today") LocalDate today);
 
-    @Query("SELECT s.productId, COALESCE(SUM(s.quantity), 0), COALESCE(SUM(s.reservedQuantity), 0) FROM StockItem s WHERE s.productId IN :productIds GROUP BY s.productId")
-    List<Object[]> getBatchStockTotalsByProductIds(@Param("productIds") List<Long> productIds);
+    @Query("SELECT s.productId, COALESCE(SUM(s.quantity), 0), COALESCE(SUM(s.reservedQuantity), 0) FROM StockItem s " +
+           "WHERE s.productId IN :productIds " +
+           "  AND s.locked = false " +
+           "  AND (s.expDate IS NULL OR s.expDate > :today) " +
+           "GROUP BY s.productId")
+    List<Object[]> getBatchStockTotalsByProductIds(@Param("productIds") List<Long> productIds, @Param("today") LocalDate today);
 
-    @Query("SELECT s.productId, COALESCE(SUM(s.quantity), 0), COALESCE(SUM(s.reservedQuantity), 0) FROM StockItem s WHERE s.productId IN :productIds AND s.binLocation.warehouse.id = :warehouseId GROUP BY s.productId")
-    List<Object[]> getBatchStockTotalsByProductIdsAndWarehouseId(@Param("productIds") List<Long> productIds, @Param("warehouseId") Long warehouseId);
+    @Query("SELECT s.productId, COALESCE(SUM(s.quantity), 0), COALESCE(SUM(s.reservedQuantity), 0) FROM StockItem s " +
+           "WHERE s.productId IN :productIds " +
+           "  AND s.binLocation.warehouse.id = :warehouseId " +
+           "  AND s.locked = false " +
+           "  AND (s.expDate IS NULL OR s.expDate > :today) " +
+           "GROUP BY s.productId")
+    List<Object[]> getBatchStockTotalsByProductIdsAndWarehouseId(
+            @Param("productIds") List<Long> productIds,
+            @Param("warehouseId") Long warehouseId,
+            @Param("today") LocalDate today);
 
     // =========================================================================================
     // KHÓA BI QUAN (PESSIMISTIC LOCKING) & THUẬT TOÁN XUẤT FEFO/FIFO CHỐNG ÂM KHO (WMS-12.2, WMS-10.2)
@@ -119,11 +144,12 @@ public interface StockItemRepository extends JpaRepository<StockItem, Long> {
            "  AND s.binLocation.warehouse.id = :warehouseId " +
            "  AND s.quantity > 0 " +
            "  AND s.locked = false " +
-           "  AND (s.expDate IS NULL OR s.expDate > CURRENT_DATE) " +
+           "  AND (s.expDate IS NULL OR s.expDate > :today) " +
            "ORDER BY CASE WHEN s.expDate IS NULL THEN 1 ELSE 0 END ASC, s.expDate ASC, s.id ASC")
     List<StockItem> findAvailableStockItemsByProductIdAndWarehouseIdWithPessimisticLock(
             @Param("productId") Long productId,
-            @Param("warehouseId") Long warehouseId);
+            @Param("warehouseId") Long warehouseId,
+            @Param("today") LocalDate today);
 
     /**
      * Khóa bi quan trên toàn bộ các bản ghi StockItem còn tồn thực tế của một sản phẩm trên toàn hệ thống (FEFO/FIFO).
@@ -133,9 +159,11 @@ public interface StockItemRepository extends JpaRepository<StockItem, Long> {
            "WHERE s.productId = :productId " +
            "  AND s.quantity > 0 " +
            "  AND s.locked = false " +
-           "  AND (s.expDate IS NULL OR s.expDate > CURRENT_DATE) " +
+           "  AND (s.expDate IS NULL OR s.expDate > :today) " +
            "ORDER BY CASE WHEN s.expDate IS NULL THEN 1 ELSE 0 END ASC, s.expDate ASC, s.id ASC")
-    List<StockItem> findAvailableStockItemsByProductIdWithPessimisticLock(@Param("productId") Long productId);
+    List<StockItem> findAvailableStockItemsByProductIdWithPessimisticLock(
+            @Param("productId") Long productId,
+            @Param("today") LocalDate today);
 
     /**
      * Khóa bi quan theo danh sách ID StockItem.
@@ -168,8 +196,11 @@ public interface StockItemRepository extends JpaRepository<StockItem, Long> {
 
     /**
      * Tìm các lô hàng cận hạn sử dụng (trong vòng N ngày tới).
+     * Sử dụng JOIN FETCH cho binLocation và warehouse để tránh N+1 queries.
      */
     @Query("SELECT s FROM StockItem s " +
+           "LEFT JOIN FETCH s.binLocation b " +
+           "LEFT JOIN FETCH b.warehouse w " +
            "WHERE s.expDate IS NOT NULL " +
            "  AND s.expDate > :today " +
            "  AND s.expDate <= :cutoffDate " +
@@ -182,8 +213,20 @@ public interface StockItemRepository extends JpaRepository<StockItem, Long> {
 
     /**
      * Tìm kiếm và phân trang danh sách lô hàng theo kho, sản phẩm, mã lô, trạng thái khóa, hạn dùng.
+     * Sử dụng JOIN FETCH cho binLocation và warehouse để nạp dữ liệu một lần, loại bỏ hoàn toàn N+1 queries.
      */
-    @Query("SELECT s FROM StockItem s " +
+    @Query(value = "SELECT s FROM StockItem s " +
+           "LEFT JOIN FETCH s.binLocation b " +
+           "LEFT JOIN FETCH b.warehouse w " +
+           "WHERE (:warehouseId IS NULL OR b.warehouse.id = :warehouseId) " +
+           "  AND (:productId IS NULL OR s.productId = :productId) " +
+           "  AND (:lotNo IS NULL OR :lotNo = '' OR LOWER(COALESCE(s.lotNo, '')) LIKE LOWER(CONCAT('%', :lotNo, '%'))) " +
+           "  AND (:locked IS NULL OR s.locked = :locked) " +
+           "  AND (:hasStock IS NULL OR (:hasStock = true AND s.quantity > 0) OR (:hasStock = false AND s.quantity = 0)) " +
+           "  AND (:isExpired IS NULL OR (:isExpired = true AND s.expDate IS NOT NULL AND s.expDate <= :today) " +
+           "                          OR (:isExpired = false AND (s.expDate IS NULL OR s.expDate > :today))) " +
+           "  AND (:isExpiringSoon IS NULL OR (:isExpiringSoon = true AND s.expDate IS NOT NULL AND s.expDate > :today AND s.expDate <= :cutoffDate))",
+           countQuery = "SELECT COUNT(s) FROM StockItem s " +
            "WHERE (:warehouseId IS NULL OR s.binLocation.warehouse.id = :warehouseId) " +
            "  AND (:productId IS NULL OR s.productId = :productId) " +
            "  AND (:lotNo IS NULL OR :lotNo = '' OR LOWER(COALESCE(s.lotNo, '')) LIKE LOWER(CONCAT('%', :lotNo, '%'))) " +

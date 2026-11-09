@@ -159,7 +159,9 @@ public class GoodsReceiptService {
                         + itemReq.mfgDate() + ") của sản phẩm " + poItem.getSkuCode());
             }
 
-            if (itemReq.expDate() != null && !itemReq.expDate().isAfter(receiptDate)) {
+            // Chỉ chặn hàng hết hạn khi có số lượng đạt chuẩn (accepted > 0).
+            // Nếu accepted = 0 (toàn bộ rejected), cho phép ghi nhận phiếu nhập để lưu vết hàng hết hạn bị trả lại/từ chối nhận.
+            if (accepted.compareTo(BigDecimal.ZERO) > 0 && itemReq.expDate() != null && !itemReq.expDate().isAfter(receiptDate)) {
                 throw ApiException.badRequest("Lô hàng '" + (batchNumber != null ? batchNumber : poItem.getSkuCode())
                         + "' đã hết hạn sử dụng (" + itemReq.expDate() + ") tính đến ngày nhận hàng (" + receiptDate + "), không thể nhập kho đạt chuẩn");
             }

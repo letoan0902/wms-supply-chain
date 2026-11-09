@@ -174,9 +174,6 @@ export default function SmartGoodsReceiptForm({
 
         setPoProgress(progress)
 
-        // Tự động sinh số lô mặc định theo ngày: LOT-YYYYMMDD
-        const defaultLot = `LOT-${dayjs().format('YYYYMMDD')}`
-
         // Khởi tạo các dòng hàng
         const initialRows: ReceiptItemRow[] = (progress.items || []).map((it) => ({
           poItemId: it.poItemId,
@@ -194,9 +191,10 @@ export default function SmartGoodsReceiptForm({
           acceptedQuantity: 0,
           rejectedQuantity: 0,
           rejectedReason: '',
-          batchNumber: defaultLot,
-          mfgDate: dayjs().format('YYYY-MM-DD'),
-          expDate: dayjs().add(1, 'year').format('YYYY-MM-DD'),
+          // Số lô, ngày SX, hạn dùng để trống: chỉ gửi khi người dùng tự nhập
+          batchNumber: '',
+          mfgDate: undefined,
+          expDate: undefined,
           locationId: undefined,
           locationCode: undefined,
           note: '',
@@ -282,13 +280,14 @@ export default function SmartGoodsReceiptForm({
       playSuccessBeep()
     }
 
-    // Cập nhật tăng số lượng
-    const updated = [...items]
-    updated[targetIndex] = {
-      ...targetItem,
-      acceptedQuantity: newAccepted,
-    }
-    setItems(updated)
+    // Cập nhật tăng số lượng theo state mới nhất để hai lần quét liên tiếp không bị mất
+    setItems((prev) =>
+      prev.map((it) =>
+        it.poItemId === targetItem.poItemId
+          ? { ...it, acceptedQuantity: it.acceptedQuantity + scanStep }
+          : it
+      )
+    )
 
     // Hiệu ứng highlight dòng sản phẩm vừa quét
     setLastScannedSku(targetItem.skuCode)
@@ -314,12 +313,13 @@ export default function SmartGoodsReceiptForm({
   // Điền nhanh toàn bộ số lượng còn lại
   const handleFillAllRemaining = () => {
     if (items.length === 0) return
-    const updated = items.map((it) => ({
-      ...it,
-      acceptedQuantity: Math.max(0, it.remainingQuantity),
-      rejectedQuantity: 0,
-    }))
-    setItems(updated)
+    setItems((prev) =>
+      prev.map((it) => ({
+        ...it,
+        acceptedQuantity: Math.max(0, it.remainingQuantity),
+        rejectedQuantity: 0,
+      }))
+    )
     playSuccessBeep()
     message.success('Đã điền nhanh toàn bộ số lượng còn lại của đơn hàng!')
     barcodeInputRef.current?.focus()
@@ -327,35 +327,42 @@ export default function SmartGoodsReceiptForm({
 
   // Đặt lại toàn bộ số lượng đã quét
   const handleResetScan = () => {
-    const updated = items.map((it) => ({
-      ...it,
-      acceptedQuantity: 0,
-      rejectedQuantity: 0,
-    }))
-    setItems(updated)
+    setItems((prev) =>
+      prev.map((it) => ({
+        ...it,
+        acceptedQuantity: 0,
+        rejectedQuantity: 0,
+      }))
+    )
     message.info('Đã đặt lại số lượng quét về 0.')
     barcodeInputRef.current?.focus()
   }
 
-  // Thay đổi số lượng thủ công trên từng dòng
-  const handleItemFieldChange = (
+  // Cập nhật một hoặc nhiều trường của một dòng dựa trên state mới nhất (tránh ghi đè lẫn nhau)
+  const updateItemFields = (index: number, patch: Partial<ReceiptItemRow>) => {
+    setItems((prev) =>
+      prev.map((it, i) => (i === index ? { ...it, ...patch } : it))
+    )
+  }
+
+  // Thay đổi giá trị thủ công trên từng dòng
+  const handleItemFieldChange = <K extends keyof ReceiptItemRow>(
     index: number,
-    field: keyof ReceiptItemRow,
-    value: unknown
+    field: K,
+    value: ReceiptItemRow[K]
   ) => {
-    const updated = [...items]
-    updated[index] = {
-      ...updated[index],
-      [field]: value,
-    }
-    setItems(updated)
+    updateItemFields(index, { [field]: value } as Partial<ReceiptItemRow>)
   }
 
   // Tăng / giảm số lượng đạt bằng nút
   const handleAdjustAccepted = (index: number, delta: number) => {
-    const it = items[index]
-    const nextVal = Math.max(0, it.acceptedQuantity + delta)
-    handleItemFieldChange(index, 'acceptedQuantity', nextVal)
+    setItems((prev) =>
+      prev.map((it, i) =>
+        i === index
+          ? { ...it, acceptedQuantity: Math.max(0, it.acceptedQuantity + delta) }
+          : it
+      )
+    )
   }
 
   // Tính toán tổng số lượng và giá trị
@@ -586,7 +593,7 @@ export default function SmartGoodsReceiptForm({
                   format="DD/MM/YYYY"
                   value={r.mfgDate ? dayjs(r.mfgDate) : null}
                   onChange={(d) =>
-                    handleItemFieldChange(idx, 'mfgDate', d ? d.format('YYYY-MM-DD') : '')
+                    handleItemFieldChange(idx, 'mfgDate', d ? d.format('YYYY-MM-DD') : undefined)
                   }
                   className="w-full text-[11px]"
                 />
@@ -598,7 +605,7 @@ export default function SmartGoodsReceiptForm({
                   format="DD/MM/YYYY"
                   value={r.expDate ? dayjs(r.expDate) : null}
                   onChange={(d) =>
-                    handleItemFieldChange(idx, 'expDate', d ? d.format('YYYY-MM-DD') : '')
+                    handleItemFieldChange(idx, 'expDate', d ? d.format('YYYY-MM-DD') : undefined)
                   }
                   className="w-full text-[11px]"
                 />
@@ -622,12 +629,12 @@ export default function SmartGoodsReceiptForm({
           placeholder="Chọn vị trí ô/kệ"
           value={r.locationId}
           onChange={(val, opt) => {
-            handleItemFieldChange(idx, 'locationId', val)
-            handleItemFieldChange(
-              idx,
-              'locationCode',
-              (opt as { label?: string })?.label || ''
-            )
+            // Cập nhật đồng thời ID và mã vị trí trong một lần để không mất locationId
+            const label = (opt as { label?: string } | undefined)?.label
+            updateItemFields(idx, {
+              locationId: val ?? undefined,
+              locationCode: val != null && label ? label : undefined,
+            })
           }}
           allowClear
           showSearch

@@ -17,14 +17,6 @@ export async function createGoodsReceipt(payload: CreateGrnRequest): Promise<Grn
 }
 
 /**
- * Xác nhận hoàn tất phiếu nhập kho đang ở trạng thái DRAFT.
- */
-export async function confirmGoodsReceipt(grnId: number): Promise<GrnResponse> {
-  const res = await api.post<ApiResponse<GrnResponse>>(`/orders/goods-receipt-notes/${grnId}/confirm`)
-  return res.data.data
-}
-
-/**
  * Lấy danh sách phiếu nhập kho có phân trang & tìm kiếm đa tiêu chí.
  */
 export async function fetchGoodsReceipts(

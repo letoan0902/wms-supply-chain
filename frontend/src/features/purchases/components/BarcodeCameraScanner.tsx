@@ -20,26 +20,66 @@ export default function BarcodeCameraScanner({
   const [isScanning, setIsScanning] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [lastScanned, setLastScanned] = useState<string | null>(null)
+  const lastScannedRef = useRef<string | null>(null)
   const lastScannedTimeRef = useRef<number>(0)
+
+  // Luôn gọi hàm onScan mới nhất của component cha mà không phải khởi động lại camera
+  const onScanRef = useRef(onScan)
+  useEffect(() => {
+    onScanRef.current = onScan
+  }, [onScan])
 
   const elementId = 'html5-qrcode-reader'
 
+  // Bật camera khi mở hộp thoại, tắt camera khi đóng; chỉ phụ thuộc vào `open`
   useEffect(() => {
     if (!open) {
       return
     }
 
-    let isMounted = true
+    let cancelled = false
+    let startPending = false
+    let scanner: Html5Qrcode | null = null
+
+    // Dừng và giải phóng đúng phiên bản scanner của lần chạy effect này
+    const stopScanner = (instance: Html5Qrcode) => {
+      if (scannerRef.current === instance) {
+        scannerRef.current = null
+      }
+      if (instance.isScanning) {
+        instance
+          .stop()
+          .then(() => {
+            try {
+              instance.clear()
+            } catch (err) {
+              console.debug('Lỗi khi giải phóng camera:', err)
+            }
+          })
+          .catch((err) => {
+            console.debug('Lỗi khi dừng camera:', err)
+          })
+      } else {
+        try {
+          instance.clear()
+        } catch (err) {
+          console.debug('Lỗi khi giải phóng camera:', err)
+        }
+      }
+    }
 
     // Khởi tạo Html5Qrcode sau khi Modal DOM đã mount
     const timer = setTimeout(() => {
+      if (cancelled) return
       setErrorMsg(null)
       setLastScanned(null)
+      lastScannedRef.current = null
+      lastScannedTimeRef.current = 0
       const container = document.getElementById(elementId)
-      if (!container || !isMounted) return
+      if (!container) return
 
       try {
-        const scanner = new Html5Qrcode(elementId, {
+        const instance = new Html5Qrcode(elementId, {
           formatsToSupport: [
             Html5QrcodeSupportedFormats.CODE_128,
             Html5QrcodeSupportedFormats.EAN_13,
@@ -51,7 +91,8 @@ export default function BarcodeCameraScanner({
           ],
           verbose: false,
         })
-        scannerRef.current = scanner
+        scanner = instance
+        scannerRef.current = instance
 
         const config = {
           fps: 15,
@@ -59,39 +100,49 @@ export default function BarcodeCameraScanner({
           aspectRatio: 1.777778,
         }
 
-        scanner
+        startPending = true
+        instance
           .start(
             { facingMode: 'environment' },
             config,
             (decodedText) => {
+              if (cancelled) return
               const now = Date.now()
               // Chống quét trùng lặp cùng 1 mã trong vòng 800ms
               if (
-                decodedText === lastScanned &&
+                decodedText === lastScannedRef.current &&
                 now - lastScannedTimeRef.current < 800
               ) {
                 return
               }
+              lastScannedRef.current = decodedText
               lastScannedTimeRef.current = now
               setLastScanned(decodedText)
-              onScan(decodedText)
+              onScanRef.current(decodedText)
             },
             () => {
               // Bỏ qua lỗi khung hình không có mã
             }
           )
           .then(() => {
-            if (isMounted) {
-              setIsScanning(true)
+            startPending = false
+            if (cancelled) {
+              // Hộp thoại đã đóng trong lúc chờ cấp quyền camera: tắt camera ngay
+              stopScanner(instance)
+              return
             }
+            setIsScanning(true)
           })
           .catch((err) => {
-            if (isMounted) {
-              console.error('Không thể bật camera quét mã:', err)
-              setErrorMsg(
-                'Không thể khởi động camera. Vui lòng cấp quyền truy cập Camera cho trình duyệt hoặc sử dụng Súng bắn mã vạch USB.'
-              )
+            startPending = false
+            if (cancelled) {
+              stopScanner(instance)
+              return
             }
+            console.error('Không thể bật camera quét mã:', err)
+            setErrorMsg(
+              'Không thể khởi động camera. Vui lòng cấp quyền truy cập Camera cho trình duyệt hoặc sử dụng Súng bắn mã vạch USB.'
+            )
           })
       } catch (err) {
         console.error('Lỗi khởi tạo Html5Qrcode:', err)
@@ -100,44 +151,25 @@ export default function BarcodeCameraScanner({
     }, 200)
 
     return () => {
-      isMounted = false
+      cancelled = true
       clearTimeout(timer)
-      if (scannerRef.current) {
-        if (scannerRef.current.isScanning) {
-          scannerRef.current
-            .stop()
-            .then(() => {
-              scannerRef.current?.clear()
-              scannerRef.current = null
-            })
-            .catch((err) => {
-              console.debug('Lỗi khi dừng camera:', err)
-              scannerRef.current = null
-            })
+      if (scanner) {
+        if (startPending) {
+          // start() chưa xong: bỏ tham chiếu, việc tắt camera do nhánh then/catch ở trên đảm nhận
+          if (scannerRef.current === scanner) {
+            scannerRef.current = null
+          }
         } else {
-          scannerRef.current.clear()
-          scannerRef.current = null
+          stopScanner(scanner)
         }
       }
       setIsScanning(false)
     }
-  }, [open, onScan, lastScanned])
+  }, [open])
 
+  // Việc tắt camera do phần dọn dẹp của effect đảm nhận khi `open` chuyển sang false
   const handleClose = () => {
-    if (scannerRef.current && scannerRef.current.isScanning) {
-      scannerRef.current
-        .stop()
-        .then(() => {
-          scannerRef.current?.clear()
-          scannerRef.current = null
-          onClose()
-        })
-        .catch(() => {
-          onClose()
-        })
-    } else {
-      onClose()
-    }
+    onClose()
   }
 
   return (

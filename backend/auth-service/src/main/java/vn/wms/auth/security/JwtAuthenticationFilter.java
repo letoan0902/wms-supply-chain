@@ -44,7 +44,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             try {
                 Claims claims = jwtService.parse(header.substring(BEARER_PREFIX.length()), redisTemplate);
                 Long userId = claims.get("userId", Long.class);
-                Long companyId = claims.get("companyId", Long.class);
+                Long companyId = jwtService.companyIdOf(claims);
                 String username = claims.getSubject();
                 List<SimpleGrantedAuthority> authorities = jwtService.rolesOf(claims).stream()
                         .map(role -> new SimpleGrantedAuthority(Roles.toAuthority(role)))

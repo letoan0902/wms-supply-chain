@@ -21,8 +21,8 @@ import java.util.UUID;
  * trường JWT_SECRET).
  *
  * <p>
- * Claim sử dụng: sub = tên đăng nhập, roles = danh sách vai trò, companyId = ID công ty (nếu có),
- * warehouseIds = danh sách kho, iss, iat, exp.
+ * Claim sử dụng: sub = tên đăng nhập, userId, roles = danh sách vai trò, warehouseIds = danh sách kho,
+ * companyId = ID doanh nghiệp, companyCode = mã doanh nghiệp, type, iss, iat, exp.
  */
 @Service
 public class JwtService {
@@ -30,6 +30,7 @@ public class JwtService {
     public static final String CLAIM_ROLES = "roles";
     public static final String CLAIM_WAREHOUSE_IDS = "warehouseIds";
     public static final String CLAIM_COMPANY_ID = "companyId";
+    public static final String CLAIM_COMPANY_CODE = "companyCode";
     private static final int MIN_SECRET_BYTES = 32;
 
     private final JwtProperties properties;
@@ -46,23 +47,31 @@ public class JwtService {
     }
 
     /**
-     * Tạo Access Token cho người dùng không kèm kho hay công ty.
+     * Tạo Access Token cho người dùng không kèm kho hay doanh nghiệp (tương thích ngược).
      */
     public String generateAccessToken(Long userId, String username, Collection<String> roles) {
-        return generateAccessToken(userId, username, null, roles, Collections.emptyList());
+        return generateAccessToken(userId, username, null, null, roles, Collections.emptyList());
     }
 
     /**
-     * Tạo Access Token cho người dùng kèm danh sách kho (tương thích ngược).
+     * Tạo Access Token cho người dùng kèm danh sách kho, không kèm doanh nghiệp (tương thích ngược).
      */
     public String generateAccessToken(Long userId, String username, Collection<String> roles, Collection<Long> warehouseIds) {
-        return generateAccessToken(userId, username, null, roles, warehouseIds);
+        return generateAccessToken(userId, username, null, null, roles, warehouseIds);
     }
 
     /**
-     * Tạo Access Token đầy đủ thông tin định danh: userId, username, companyId, roles, warehouseIds.
+     * Tạo Access Token kèm companyId nhưng không kèm mã doanh nghiệp (tương thích ngược).
      */
     public String generateAccessToken(Long userId, String username, Long companyId, Collection<String> roles, Collection<Long> warehouseIds) {
+        return generateAccessToken(userId, username, companyId, null, roles, warehouseIds);
+    }
+
+    /**
+     * Tạo Access Token đầy đủ: userId, username, companyId, companyCode, roles, warehouseIds, type = ACCESS.
+     */
+    public String generateAccessToken(Long userId, String username, Long companyId, String companyCode,
+                                      Collection<String> roles, Collection<Long> warehouseIds) {
         Instant now = Instant.now();
         var builder = Jwts.builder()
                 .issuer(properties.issuer())
@@ -74,6 +83,9 @@ public class JwtService {
 
         if (companyId != null) {
             builder.claim(CLAIM_COMPANY_ID, companyId);
+        }
+        if (companyCode != null) {
+            builder.claim(CLAIM_COMPANY_CODE, companyCode);
         }
 
         return builder.issuedAt(Date.from(now))
@@ -135,9 +147,18 @@ public class JwtService {
         return claims.getSubject();
     }
 
-    /** Lấy companyId từ claims. */
+    /** Lấy companyId từ claims, không có thì trả null. */
     public Long companyIdOf(Claims claims) {
-        return claims.get(CLAIM_COMPANY_ID, Long.class);
+        Object value = claims.get(CLAIM_COMPANY_ID);
+        if (value == null) {
+            return null;
+        }
+        return value instanceof Number n ? n.longValue() : Long.parseLong(value.toString());
+    }
+
+    /** Lấy mã doanh nghiệp từ claims, không có thì trả null. */
+    public String companyCodeOf(Claims claims) {
+        return claims.get(CLAIM_COMPANY_CODE, String.class);
     }
 
     /** Lấy danh sách vai trò từ claims. */

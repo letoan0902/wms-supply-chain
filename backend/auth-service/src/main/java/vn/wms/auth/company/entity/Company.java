@@ -2,6 +2,8 @@ package vn.wms.auth.company.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -9,10 +11,15 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import vn.wms.common.persistence.AuditableEntity;
 
+import java.time.Instant;
+
 /**
- * Thực thể Doanh nghiệp (Company / Tenant) sử dụng nền tảng SaaS.
+ * Doanh nghiệp (khách hàng của nền tảng). Mỗi tài khoản thuộc đúng một doanh nghiệp.
+ * Bảng này không dùng TenantEntity: auth-service lọc tường minh theo companyId của người đang đăng nhập.
  */
 @Entity
 @Table(name = "companies")
@@ -25,13 +32,14 @@ public class Company extends AuditableEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 50)
+    /** Mã doanh nghiệp dạng CTY cộng 6 chữ số theo id, ví dụ CTY000001. */
+    @Column(nullable = false, unique = true, length = 30)
     private String code;
 
     @Column(nullable = false, length = 150)
     private String name;
 
-    @Column(name = "tax_code", unique = true, length = 30)
+    @Column(name = "tax_code", length = 30)
     private String taxCode;
 
     @Column(length = 100)
@@ -43,6 +51,16 @@ public class Company extends AuditableEntity {
     @Column(length = 255)
     private String address;
 
+    @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR)
     @Column(nullable = false, length = 20)
-    private String status = "ACTIVE";
+    private CompanyStatus status = CompanyStatus.ACTIVE;
+
+    @Column(name = "activated_at")
+    private Instant activatedAt;
+
+    /** Doanh nghiệp đang hoạt động (đăng nhập và làm mới token được). */
+    public boolean isActive() {
+        return status == CompanyStatus.ACTIVE;
+    }
 }

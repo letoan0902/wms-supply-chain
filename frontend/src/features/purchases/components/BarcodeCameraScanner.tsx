@@ -30,11 +30,11 @@ export default function BarcodeCameraScanner({
     }
 
     let isMounted = true
-    setErrorMsg(null)
-    setLastScanned(null)
 
     // Khởi tạo Html5Qrcode sau khi Modal DOM đã mount
     const timer = setTimeout(() => {
+      setErrorMsg(null)
+      setLastScanned(null)
       const container = document.getElementById(elementId)
       if (!container || !isMounted) return
 

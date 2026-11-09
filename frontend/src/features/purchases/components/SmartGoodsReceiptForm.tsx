@@ -122,6 +122,15 @@ export default function SmartGoodsReceiptForm({
     return () => clearTimeout(focusTimer)
   }, [selectedPoId])
 
+  const handleSelectPo = (val?: number) => {
+    setSelectedPoId(val)
+    if (!val) {
+      setPoProgress(null)
+      setItems([])
+      setBinLocations([])
+    }
+  }
+
   // Tải danh sách đơn PO đủ điều kiện nhập kho
   useEffect(() => {
     let ignore = false
@@ -153,9 +162,6 @@ export default function SmartGoodsReceiptForm({
   // Tải tiến độ nhập của PO được chọn
   useEffect(() => {
     if (!selectedPoId) {
-      setPoProgress(null)
-      setItems([])
-      setBinLocations([])
       return
     }
 
@@ -674,7 +680,7 @@ export default function SmartGoodsReceiptForm({
             <Select
               placeholder="Chọn PO đã duyệt hoặc đang nhập dở..."
               value={selectedPoId}
-              onChange={(val) => setSelectedPoId(val)}
+              onChange={(val) => handleSelectPo(val)}
               loading={loadingPos}
               showSearch
               filterOption={(input, opt) =>

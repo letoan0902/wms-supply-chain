@@ -121,8 +121,6 @@ export default function CreateSalesInvoiceModal({
           .catch(() => {
             if (!ignore) setHasExistingInvoice(false)
           })
-      } else {
-        setHasExistingInvoice(false)
       }
 
       return () => {

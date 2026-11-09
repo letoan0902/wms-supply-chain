@@ -293,11 +293,11 @@ Người làm: Toàn (phối hợp Linh). Ngày: 09/11. Jira: TASK-135. Phụ th
 
 **Mô tả chức năng**
 
-- Gateway đọc claim `companyId` trong JWT và gắn header `X-Company-Id` cho service phía sau. Token hợp lệ nhưng không có `companyId` (token cấp trước khi nâng cấp) trả `401` để giao diện buộc đăng nhập lại.
+- Gateway đọc claim `companyId` trong JWT và gắn header `X-Company-Id` cho service phía sau. Token hợp lệ nhưng không có `companyId` (token cấp trước khi nâng cấp) trả `401` để giao diện buộc đăng nhập lại; công tắc `GATEWAY_COMPANY_REQUIRED` (mặc định bật) chỉ để tắt tạm khi auth-service chưa cấp claim này.
 - Gateway xóa `X-Company-Id`, `X-Plan` và các header `X-User-*` do client tự gửi trước khi gắn giá trị thật.
 - Bổ sung đường dẫn công khai cho các API không cần đăng nhập của WMS-23: đăng ký, kích hoạt, quên và đặt lại mật khẩu, danh sách gói, webhook PayOS.
-- Áp `TenantEntity` vào thực thể kho của inventory-service làm mẫu để Linh làm tiếp các bảng còn lại ở WMS-22.4a.
-- Test tích hợp hai doanh nghiệp đi qua gateway.
+- Phần áp `TenantEntity` vào inventory-service do Linh làm trọn trong WMS-22.4a (PR #53); task này lo phần cấu hình để các service chưa chuyển đổi vẫn phát sự kiện và gọi sang inventory-service kèm doanh nghiệp: doanh nghiệp mặc định ở máy phát triển cho order-service, product-service, notification-service, và để rỗng trên máy chủ.
+- Test của gateway cho hai doanh nghiệp: mỗi token nhận đúng `X-Company-Id` của mình, header giả mạo bị thay thế, token thiếu `companyId` bị từ chối.
 
 **Tiêu chí nghiệm thu**
 

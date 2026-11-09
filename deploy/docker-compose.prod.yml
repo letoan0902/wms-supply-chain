@@ -105,10 +105,24 @@ services:
       # đồng thời gateway gắn X-User-Name để các service ghi người tạo và người sửa. Mặc định trong application.yml của
       # api-gateway là false (chỉ phù hợp khi phát triển), nên production phải bật ở đây.
       GATEWAY_JWT_ENABLED: ${GATEWAY_JWT_ENABLED:-true}
+      # Token không có claim companyId (cấp trước khi có mô hình nhiều doanh nghiệp) bị trả 401 để đăng nhập lại.
+      GATEWAY_COMPANY_REQUIRED: ${GATEWAY_COMPANY_REQUIRED:-true}
       # Giới hạn tốc độ (token bucket trên Redis). Giá trị mặc định giữ đồng bộ với application.yml của api-gateway.
       RATE_LIMIT_ENABLED: ${RATE_LIMIT_ENABLED:-true}
       RATE_LIMIT_REPLENISH_RATE: ${RATE_LIMIT_REPLENISH_RATE:-20}
       RATE_LIMIT_BURST_CAPACITY: ${RATE_LIMIT_BURST_CAPACITY:-40}
+
+  # --------------------------------------------------------------------------
+  # Doanh nghiệp mặc định: file compose gốc đặt TENANT_DEFAULT_COMPANY_ID=1 cho máy phát triển. Trên máy chủ phải để
+  # rỗng, để request không xác định được doanh nghiệp bị từ chối thay vì lặng lẽ rơi vào doanh nghiệp 1.
+  # --------------------------------------------------------------------------
+  product-service:
+    environment:
+      TENANT_DEFAULT_COMPANY_ID: ""
+
+  order-service:
+    environment:
+      TENANT_DEFAULT_COMPANY_ID: ""
 
   # --------------------------------------------------------------------------
   # notification-service: hub WebSocket /ws-wms (WMS-02.3). Gateway để /ws-wms/** là đường dẫn công khai vì handshake
@@ -119,6 +133,7 @@ services:
     environment:
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-https://${DOMAIN:-wms.toanmarket.me}}
       GATEWAY_JWT_ENABLED: ${GATEWAY_JWT_ENABLED:-true}
+      TENANT_DEFAULT_COMPANY_ID: ""
 
 volumes:
   caddy_data:

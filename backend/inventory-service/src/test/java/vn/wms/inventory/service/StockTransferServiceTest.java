@@ -34,6 +34,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -247,6 +248,12 @@ class StockTransferServiceTest {
         assertThat(response.transferDate()).isNotNull();
         assertThat(response.totalTransferredQuantity()).isEqualByComparingTo(new BigDecimal("25.000"));
         verify(stockDeductionService).deductStock(any(), anyString());
+        // Không truyền ID phiếu điều chuyển làm orderId (orderId là ID đơn bán), mã phiếu vẫn là số chứng từ tham chiếu
+        verify(stockDeductionService).deductStock(
+                argThat(req -> req.orderId() == null
+                        && "TRF-20261110-0001".equals(req.orderNumber())
+                        && "TRANSFER_OUT".equals(req.reason())),
+                anyString());
     }
 
     @Test

@@ -315,8 +315,11 @@ public class StockTransferService {
             ));
         }
 
+        // orderId để null: StockDeductionService coi orderId là ID đơn bán (SO) và sẽ hoàn tất/trả giữ chỗ ACTIVE
+        // của đơn có ID đó. ID phiếu điều chuyển và ID đơn bán là hai dãy số độc lập, truyền ID phiếu sẽ xóa nhầm
+        // giữ chỗ của đơn bán trùng số. Mã phiếu điều chuyển vẫn được ghi làm số chứng từ tham chiếu.
         DeductStockRequest deductRequest = new DeductStockRequest(
-                transfer.getId(),
+                null,
                 transfer.getTransferNumber(),
                 transfer.getSourceWarehouse().getId(),
                 "TRANSFER_OUT",

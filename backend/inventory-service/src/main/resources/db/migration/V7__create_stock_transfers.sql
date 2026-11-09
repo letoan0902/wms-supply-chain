@@ -1,4 +1,4 @@
--- V6__create_stock_transfers.sql: Quản lý điều chuyển hàng hóa nội bộ giữa các kho (WMS-13.1 - FR08)
+-- V7__create_stock_transfers.sql: Quản lý điều chuyển hàng hóa nội bộ giữa các kho (WMS-13.1 - FR08)
 -- Hỗ trợ theo dõi luồng điều chuyển từ DRAFT -> IN_TRANSIT -> COMPLETED / PARTIAL_RECEIVED.
 -- Bảng kế thừa thiết kế đa doanh nghiệp (company_id) ngay từ đầu.
 

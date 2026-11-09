@@ -16,9 +16,11 @@ import vn.wms.inventory.dto.CreateStockTransferItemRequest;
 import vn.wms.inventory.dto.CreateStockTransferRequest;
 import vn.wms.inventory.entity.BinLocation;
 import vn.wms.inventory.entity.StockItem;
+import vn.wms.inventory.entity.StockReservation;
 import vn.wms.inventory.entity.Warehouse;
 import vn.wms.inventory.repository.BinLocationRepository;
 import vn.wms.inventory.repository.StockItemRepository;
+import vn.wms.inventory.repository.StockReservationRepository;
 import vn.wms.inventory.repository.StockTransferItemRepository;
 import vn.wms.inventory.repository.StockTransferRepository;
 import vn.wms.inventory.repository.WarehouseRepository;
@@ -61,6 +63,9 @@ class StockTransferIntegrationTest {
 
     @Autowired
     private StockItemRepository stockItemRepository;
+
+    @Autowired
+    private StockReservationRepository stockReservationRepository;
 
     @Autowired
     private StockTransferRepository stockTransferRepository;
@@ -110,6 +115,7 @@ class StockTransferIntegrationTest {
         TenantContext.runAs(COMPANY_A, () -> {
             stockTransferItemRepository.deleteAll();
             stockTransferRepository.deleteAll();
+            stockReservationRepository.deleteAll();
             stockItemRepository.deleteAll();
             binLocationRepository.deleteAll();
             warehouseRepository.deleteAll();
@@ -117,6 +123,7 @@ class StockTransferIntegrationTest {
         TenantContext.runAs(COMPANY_B, () -> {
             stockTransferItemRepository.deleteAll();
             stockTransferRepository.deleteAll();
+            stockReservationRepository.deleteAll();
             stockItemRepository.deleteAll();
             binLocationRepository.deleteAll();
             warehouseRepository.deleteAll();
@@ -179,6 +186,58 @@ class StockTransferIntegrationTest {
                         .filter(s -> s.getProductId().equals(testProductId))
                         .findFirst().orElseThrow());
         assertThat(reloadedStock.getQuantity()).isEqualByComparingTo(new BigDecimal("70.000"));
+    }
+
+    @Test
+    @DisplayName("Duyệt xuất lệnh điều chuyển không đụng tới giữ chỗ của đơn bán có ID trùng ID phiếu điều chuyển")
+    void dispatchTransfer_DoesNotTouchSalesOrderReservationWithSameId() throws Exception {
+        CreateStockTransferItemRequest itemRequest = new CreateStockTransferItemRequest(
+                testProductId, "SKU-TEST-6001", "Dầu gội Clear", "Chai", binSource.getId(), new BigDecimal("30.000"), null
+        );
+        CreateStockTransferRequest createRequest = new CreateStockTransferRequest(
+                warehouseSource.getId(), warehouseDest.getId(), Instant.now(), "Lệnh trùng số với đơn bán", List.of(itemRequest)
+        );
+
+        String createRes = mockMvc.perform(post("/api/inventory/transfers")
+                        .header("X-Company-Id", COMPANY_A)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(createRequest)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        Long transferId = objectMapper.readTree(createRes).path("data").path("id").asLong();
+
+        // Đơn bán có orderId trùng ID phiếu điều chuyển đang giữ chỗ 20 cái cùng sản phẩm, cùng dòng tồn kho
+        Long reservationId = TenantContext.callAs(COMPANY_A, () -> {
+            StockItem stockItem = stockItemRepository.findByBinLocationId(binSource.getId()).get(0);
+            stockItem.setReservedQuantity(new BigDecimal("20.000"));
+            stockItem = stockItemRepository.save(stockItem);
+
+            StockReservation reservation = new StockReservation();
+            reservation.setOrderId(transferId);
+            reservation.setOrderNumber("SO-20261109-0001");
+            reservation.setProductId(testProductId);
+            reservation.setStockItem(stockItem);
+            reservation.setWarehouseId(warehouseSource.getId());
+            reservation.setReservedQuantity(new BigDecimal("20.000"));
+            reservation.setStatus("ACTIVE");
+            return stockReservationRepository.save(reservation).getId();
+        });
+
+        mockMvc.perform(post("/api/inventory/transfers/" + transferId + "/dispatch")
+                        .header("X-Company-Id", COMPANY_A))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status", is("IN_TRANSIT")));
+
+        // Giữ chỗ của đơn bán vẫn ACTIVE, đủ 20 cái; Reserved của dòng tồn kho không đổi, chỉ OnHand giảm 30
+        StockReservation reservationAfter = TenantContext.callAs(COMPANY_A,
+                () -> stockReservationRepository.findById(reservationId).orElseThrow());
+        assertThat(reservationAfter.getStatus()).isEqualTo("ACTIVE");
+        assertThat(reservationAfter.getReservedQuantity()).isEqualByComparingTo(new BigDecimal("20.000"));
+
+        StockItem stockAfter = TenantContext.callAs(COMPANY_A,
+                () -> stockItemRepository.findByBinLocationId(binSource.getId()).get(0));
+        assertThat(stockAfter.getReservedQuantity()).isEqualByComparingTo(new BigDecimal("20.000"));
+        assertThat(stockAfter.getQuantity()).isEqualByComparingTo(new BigDecimal("70.000"));
     }
 
     @Test

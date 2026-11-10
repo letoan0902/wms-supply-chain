@@ -6,6 +6,7 @@ import jakarta.validation.Valid;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -59,9 +60,10 @@ public class LotController {
     @GetMapping("/summary")
     @Operation(summary = "Thống kê tổng quan tình trạng các lô hàng (tổng số, hoạt động, cận hạn, hết hạn, bị khóa)")
     public ApiResponse<LotSummaryResponse> getSummary(
-            @RequestParam(required = false) Long warehouseId
+            @RequestParam(required = false) Long warehouseId,
+            @RequestParam(required = false, defaultValue = "30") Integer expiringDays
     ) {
-        return ApiResponse.ok(lotService.getSummary(warehouseId));
+        return ApiResponse.ok(lotService.getSummary(warehouseId, expiringDays));
     }
 
     @GetMapping("/expiring-soon")
@@ -74,6 +76,7 @@ public class LotController {
     }
 
     @PutMapping("/{id}/lock")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER')")
     @Operation(summary = "Khóa lô hàng thủ công (phong tỏa kiểm định, lỗi chất lượng...)")
     public ApiResponse<LotResponse> lockLot(
             @PathVariable Long id,
@@ -84,6 +87,7 @@ public class LotController {
     }
 
     @PutMapping("/{id}/unlock")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER')")
     @Operation(summary = "Mở khóa lô hàng (chỉ cho phép khi lô hàng chưa hết hạn sử dụng)")
     public ApiResponse<LotResponse> unlockLot(
             @PathVariable Long id,
@@ -93,6 +97,7 @@ public class LotController {
     }
 
     @PostMapping("/auto-lock-expired")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER')")
     @Operation(summary = "Kích hoạt quét và tự động khóa các lô hàng đã hết hạn sử dụng (Exp Date <= hôm nay)")
     public ApiResponse<AutoLockResponse> triggerAutoLockExpired() {
         return ApiResponse.ok(lotService.autoLockExpiredLots());

@@ -448,6 +448,37 @@ class GoodsReceiptIntegrationTest {
     }
 
     @Test
+    @DisplayName("Cho phép lập GRN khi hàng hết hạn sử dụng nhưng số lượng đạt bằng 0 (accepted = 0, rejected > 0) để lưu vết hàng bị từ chối/trả lại")
+    void createGrn_whenProductExpiredButAcceptedZero_allowsCreationForReturns() throws Exception {
+        Supplier supplier = createSampleSupplier("NCC-DATE-03", "NCC Hàng Trả Lại");
+        PurchaseOrder po = createSampleApprovedPo("PO-20261106-DATE3", supplier);
+
+        CreateGrnRequest req = new CreateGrnRequest(
+                po.getId(),
+                LocalDate.of(2026, 11, 6),
+                "Hàng giao bị hết hạn nên từ chối toàn bộ",
+                List.of(new CreateGrnItemRequest(
+                        po.getItems().get(0).getId(),
+                        BigDecimal.ZERO, // Accepted = 0
+                        BigDecimal.TEN,  // Rejected = 10
+                        "Hàng đã hết hạn sử dụng",
+                        "LOT-EXPIRED-RETURN",
+                        LocalDate.of(2026, 1, 1),
+                        LocalDate.of(2026, 11, 5), // Đã hết hạn
+                        null, null, null
+                ))
+        );
+
+        mockMvc.perform(post("/api/orders/goods-receipt-notes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.success").value(true))
+                .andExpect(jsonPath("$.data.totalAcceptedQuantity").value(0))
+                .andExpect(jsonPath("$.data.totalRejectedQuantity").value(10));
+    }
+
+    @Test
     @DisplayName("Chặn xóa đơn mua hàng (PO) khi đơn đang ở trạng thái PARTIALLY_RECEIVED -> Báo lỗi 400 (WMS-10.2)")
     void deletePurchaseOrder_whenPartiallyReceived_isBlocked() throws Exception {
         Supplier supplier = createSampleSupplier("NCC-PART-DEL", "NCC Đơn Dở Dang");

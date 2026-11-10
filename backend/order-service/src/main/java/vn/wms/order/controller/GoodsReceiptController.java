@@ -57,6 +57,15 @@ public class GoodsReceiptController {
                 .body(ApiResponse.ok(created));
     }
 
+    @PostMapping("/{id}/confirm")
+    @Operation(summary = "Xác nhận hoàn tất phiếu nhập kho GRN, chuyển PO sang Completed và sinh Hóa đơn mua hàng (FR11, FR13 - WMS-10.3)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF')")
+    public ApiResponse<GrnResponse> confirm(
+            @PathVariable Long id,
+            @RequestHeader(value = "X-User-Name", required = false) String confirmedBy) {
+        return ApiResponse.ok(goodsReceiptService.confirm(id, confirmedBy));
+    }
+
     @GetMapping
     @Operation(summary = "Danh sách phiếu nhập kho có phân trang, tìm kiếm và lọc đa tiêu chí")
     @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'PURCHASING', 'ACCOUNTANT')")

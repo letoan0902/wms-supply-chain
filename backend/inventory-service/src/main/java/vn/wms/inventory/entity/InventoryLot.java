@@ -9,6 +9,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -24,7 +25,9 @@ import java.time.temporal.ChronoUnit;
  * Kế thừa TenantEntity để phân tách theo doanh nghiệp (WMS-22.4a).
  */
 @Entity
-@Table(name = "inventory_lots")
+@Table(name = "inventory_lots", uniqueConstraints = {
+        @UniqueConstraint(name = "uk_inventory_lots_company_lot_bin_product", columnNames = {"company_id", "lot_number", "bin_location_id", "product_id"})
+})
 @Getter
 @Setter
 @NoArgsConstructor

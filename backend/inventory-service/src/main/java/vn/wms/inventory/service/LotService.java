@@ -7,6 +7,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.wms.common.exception.ApiException;
+import vn.wms.common.security.UserContext;
 import vn.wms.inventory.dto.AutoLockResponse;
 import vn.wms.inventory.dto.LockLotRequest;
 import vn.wms.inventory.dto.LotResponse;
@@ -100,11 +101,13 @@ public class LotService {
 
     /**
      * Báo cáo thống kê tổng quan tình trạng các lô hàng theo kho hoặc toàn hệ thống.
+     * Sử dụng tham số expiringDays (mặc định 30 ngày) để xác định lô cận hạn.
      */
     @Transactional(readOnly = true)
-    public LotSummaryResponse getSummary(Long warehouseId) {
+    public LotSummaryResponse getSummary(Long warehouseId, Integer expiringDays) {
         LocalDate today = LocalDate.now();
-        LocalDate cutoffDate = today.plusDays(30);
+        int days = (expiringDays != null && expiringDays > 0) ? expiringDays : 30;
+        LocalDate cutoffDate = today.plusDays(days);
 
         if (inventoryLotRepository.count() > 0) {
             long totalLots = inventoryLotRepository.countTotalLots(warehouseId);
@@ -141,6 +144,11 @@ public class LotService {
         );
     }
 
+    @Transactional(readOnly = true)
+    public LotSummaryResponse getSummary(Long warehouseId) {
+        return getSummary(warehouseId, 30);
+    }
+
     /**
      * Lấy danh sách các lô hàng cận hạn sử dụng trong N ngày tới.
      */
@@ -174,6 +182,7 @@ public class LotService {
 
     /**
      * Khóa lô hàng thủ công (ví dụ nghi ngờ lỗi chất lượng, phong tỏa kiểm định, hoặc hư hỏng).
+     * Kiểm tra quyền quản lý kho của người thực hiện và đồng bộ trạng thái khóa giữa inventory_lots và stock_items.
      */
     @Transactional
     public LotResponse lockLot(Long id, LockLotRequest request, String username) {
@@ -183,9 +192,25 @@ public class LotService {
         Optional<InventoryLot> lotOpt = inventoryLotRepository.findByIdWithLock(id);
         if (lotOpt.isPresent()) {
             InventoryLot lot = lotOpt.get();
+            Long warehouseId = (lot.getBinLocation() != null && lot.getBinLocation().getWarehouse() != null)
+                    ? lot.getBinLocation().getWarehouse().getId() : null;
+            checkWarehouseWriteAccess(warehouseId);
+
             lot.setLocked(true);
             lot.setLockedReason(reason);
             InventoryLot saved = inventoryLotRepository.save(lot);
+
+            // Đồng bộ trạng thái khóa sang bảng stock_items tương ứng để chặn triệt để khi xuất kho
+            if (lot.getBinLocation() != null && lot.getLotNumber() != null) {
+                stockItemRepository.findByBinLocationIdAndProductIdAndLotNo(
+                        lot.getBinLocation().getId(), lot.getProductId(), lot.getLotNumber())
+                        .ifPresent(stockItem -> {
+                            stockItem.setLocked(true);
+                            stockItem.setLockedReason(reason);
+                            stockItemRepository.save(stockItem);
+                        });
+            }
+
             log.warn("Đã khóa lô hàng (inventory_lots) ID: {}, Lô số: {} bởi {}. Lý do: {}",
                     saved.getId(), saved.getLotNumber(), username, saved.getLockedReason());
             return LotResponse.from(saved, LocalDate.now());
@@ -194,10 +219,25 @@ public class LotService {
         StockItem stockItem = stockItemRepository.findByIdWithPessimisticLock(id)
                 .orElseThrow(() -> ApiException.notFound("Không tìm thấy bản ghi lô hàng tồn kho với ID: " + id));
 
+        Long warehouseId = (stockItem.getBinLocation() != null && stockItem.getBinLocation().getWarehouse() != null)
+                ? stockItem.getBinLocation().getWarehouse().getId() : null;
+        checkWarehouseWriteAccess(warehouseId);
+
         stockItem.setLocked(true);
         stockItem.setLockedReason(reason);
-
         StockItem saved = stockItemRepository.save(stockItem);
+
+        // Đồng bộ trạng thái khóa sang bảng inventory_lots tương ứng
+        if (stockItem.getBinLocation() != null && stockItem.getLotNo() != null) {
+            inventoryLotRepository.findByLotNumberAndBinLocationIdAndProductId(
+                    stockItem.getLotNo(), stockItem.getBinLocation().getId(), stockItem.getProductId())
+                    .ifPresent(lot -> {
+                        lot.setLocked(true);
+                        lot.setLockedReason(reason);
+                        inventoryLotRepository.save(lot);
+                    });
+        }
+
         log.warn("Đã khóa lô hàng (stock_items) ID: {}, Lô số: {}, Vị trí: {} bởi {}. Lý do: {}",
                 saved.getId(), saved.getLotNo(),
                 saved.getBinLocation() != null ? saved.getBinLocation().getCode() : "N/A",
@@ -209,12 +249,17 @@ public class LotService {
     /**
      * Mở khóa lô hàng.
      * Chặn mở khóa nếu lô hàng đã hết hạn sử dụng.
+     * Kiểm tra quyền quản lý kho và đồng bộ trạng thái mở khóa giữa inventory_lots và stock_items.
      */
     @Transactional
     public LotResponse unlockLot(Long id, String username) {
         Optional<InventoryLot> lotOpt = inventoryLotRepository.findByIdWithLock(id);
         if (lotOpt.isPresent()) {
             InventoryLot lot = lotOpt.get();
+            Long warehouseId = (lot.getBinLocation() != null && lot.getBinLocation().getWarehouse() != null)
+                    ? lot.getBinLocation().getWarehouse().getId() : null;
+            checkWarehouseWriteAccess(warehouseId);
+
             if (lot.isExpired(LocalDate.now())) {
                 throw ApiException.badRequest(String.format(
                         "Không thể mở khóa lô hàng '%s' vì đã hết hạn sử dụng (Exp Date: %s)!",
@@ -224,6 +269,18 @@ public class LotService {
             lot.setLocked(false);
             lot.setLockedReason(null);
             InventoryLot saved = inventoryLotRepository.save(lot);
+
+            // Đồng bộ mở khóa sang bảng stock_items tương ứng
+            if (lot.getBinLocation() != null && lot.getLotNumber() != null) {
+                stockItemRepository.findByBinLocationIdAndProductIdAndLotNo(
+                        lot.getBinLocation().getId(), lot.getProductId(), lot.getLotNumber())
+                        .ifPresent(stockItem -> {
+                            stockItem.setLocked(false);
+                            stockItem.setLockedReason(null);
+                            stockItemRepository.save(stockItem);
+                        });
+            }
+
             log.info("Đã mở khóa lô hàng (inventory_lots) ID: {}, Lô số: {} bởi {}",
                     saved.getId(), saved.getLotNumber(), username);
             return LotResponse.from(saved, LocalDate.now());
@@ -231,6 +288,10 @@ public class LotService {
 
         StockItem stockItem = stockItemRepository.findByIdWithPessimisticLock(id)
                 .orElseThrow(() -> ApiException.notFound("Không tìm thấy bản ghi lô hàng tồn kho với ID: " + id));
+
+        Long warehouseId = (stockItem.getBinLocation() != null && stockItem.getBinLocation().getWarehouse() != null)
+                ? stockItem.getBinLocation().getWarehouse().getId() : null;
+        checkWarehouseWriteAccess(warehouseId);
 
         if (stockItem.isExpired(LocalDate.now())) {
             throw ApiException.badRequest(String.format(
@@ -241,12 +302,29 @@ public class LotService {
 
         stockItem.setLocked(false);
         stockItem.setLockedReason(null);
-
         StockItem saved = stockItemRepository.save(stockItem);
+
+        // Đồng bộ mở khóa sang bảng inventory_lots tương ứng
+        if (stockItem.getBinLocation() != null && stockItem.getLotNo() != null) {
+            inventoryLotRepository.findByLotNumberAndBinLocationIdAndProductId(
+                    stockItem.getLotNo(), stockItem.getBinLocation().getId(), stockItem.getProductId())
+                    .ifPresent(lot -> {
+                        lot.setLocked(false);
+                        lot.setLockedReason(null);
+                        inventoryLotRepository.save(lot);
+                    });
+        }
+
         log.info("Đã mở khóa lô hàng (stock_items) ID: {}, Lô số: {} bởi {}",
                 saved.getId(), saved.getLotNo(), username);
 
         return LotResponse.from(saved, LocalDate.now());
+    }
+
+    private void checkWarehouseWriteAccess(Long warehouseId) {
+        UserContext.getCurrentUser().ifPresent(user -> {
+            UserContext.requireWarehouseWriteAccess(user, warehouseId);
+        });
     }
 
     /**

@@ -1,6 +1,8 @@
 package vn.wms.inventory.repository;
 
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -14,6 +16,17 @@ import java.util.Optional;
 public interface IncomingStockRepository extends JpaRepository<IncomingStock, Long> {
 
     Optional<IncomingStock> findByOrderIdAndProductId(Long orderId, Long productId);
+
+    /** Khóa bi quan dòng hàng đang về của PO khi nhập kho (WMS-10.3), chống hai phiếu nhập trừ đè nhau. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT i FROM IncomingStock i WHERE i.orderId = :orderId AND i.productId = :productId ORDER BY i.id ASC")
+    List<IncomingStock> findByOrderIdAndProductIdForUpdate(@Param("orderId") Long orderId, @Param("productId") Long productId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT i FROM IncomingStock i WHERE i.warehouse.id = :warehouseId AND i.productId = :productId " +
+           "AND i.status = :status ORDER BY i.id ASC")
+    List<IncomingStock> findByWarehouseIdAndProductIdAndStatusForUpdate(
+            @Param("warehouseId") Long warehouseId, @Param("productId") Long productId, @Param("status") String status);
 
     List<IncomingStock> findByWarehouseIdAndStatus(Long warehouseId, String status);
 

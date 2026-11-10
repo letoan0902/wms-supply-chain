@@ -437,7 +437,7 @@ Một doanh nghiệp mới tự đăng ký được mà không cần ai tạo h�
 | --- | --- | --- |
 | `POST /api/auth/companies/register` | Công khai | Body: `companyName` (2 đến 150 ký tự), `taxCode`, `phone` (không bắt buộc), `fullName`, `username`, `email`, `password` (quy tắc như tạo tài khoản hiện nay). Trong một giao dịch: tạo doanh nghiệp, tài khoản `ADMIN` đầu tiên, thuê bao `TRIAL` với `trial_ends_at` bằng thời điểm đăng ký cộng 30 ngày. Trả `201` với `company`, `admin`, `subscription`. Không trả token; giao diện chuyển sang trang đăng nhập |
 | `GET /api/auth/plans` | Công khai | Danh sách gói, giá và giới hạn |
-| `GET /api/auth/subscription` | Mọi tài khoản | `plan`, `planName`, `status`, `trialEndsAt`, `expiresAt`, `daysRemaining`, `readOnly`, `limits`, `usage` (`users`, `warehouses`, `skus`, `aiRequests`; ở task này trả `users`, ba số còn lại do WMS-23.2 bổ sung) |
+| `GET /api/auth/subscription` | Mọi tài khoản | `plan`, `planName`, `status`, `trialEndsAt`, `expiresAt`, `daysRemaining`, `readOnly`, `limits`, `usage` (`users`, `warehouses`, `skus`, `aiRequests`; ở task này trả `users`, WMS-23.2 bổ sung ba số còn lại: `users` đếm tài khoản đang bật trong cơ sở dữ liệu, `warehouses` và `skus` đọc hash `wms:usage:{companyId}` (chưa có thì `null`), `aiRequests` đọc bộ đếm tháng hiện tại (chưa có thì `0`)) |
 | `POST /api/auth/subscription/renew-mock` | `ADMIN`, chỉ khi `PAYOS_MOCK=true` | Body: `plan` (`PRO`), `cycle` (`MONTHLY`, `YEARLY`). Kích hoạt ngay không qua thanh toán, dùng để phát triển và test |
 | `POST /api/auth/subscription/downgrade` | `ADMIN` | Chuyển về `FREE` theo quy tắc mục 2.6; không hợp lệ trả `409 CONFLICT` |
 | `POST /api/auth/subscription/demo/expire` | `ADMIN`, chỉ khi `APP_DEMO_TOOLS=true` | Đặt thuê bao của doanh nghiệp mình thành hết hạn để trình diễn |
@@ -478,7 +478,7 @@ Phần `data` của `GET /api/auth/subscription` ngay sau khi đăng ký:
   "daysRemaining": 30,
   "readOnly": false,
   "limits": { "maxUsers": 50, "maxWarehouses": 20, "maxSkus": -1, "maxAiRequests": 500, "apiAccess": true },
-  "usage": { "users": 1, "warehouses": null, "skus": null, "aiRequests": null }
+  "usage": { "users": 1, "warehouses": null, "skus": null, "aiRequests": 0 }
 }
 ```
 
@@ -539,7 +539,11 @@ Người làm: Toàn. Ngày: 10/11. Jira: TASK-143. Phụ thuộc: WMS-23.1.
 - `ApiException.withData(code, message, data)`: `GlobalExceptionHandler` trả `data` kèm lỗi.
 - Gateway: `SubscriptionGlobalFilter` (order -99, ngay sau bộ lọc JWT) gắn `X-Plan` và chặn ghi khi `EXPIRED`. Danh sách ngoại lệ ở `gateway.subscription.write-allowed-paths`; tắt cả bộ lọc bằng `GATEWAY_SUBSCRIPTION_ENABLED=false`. Bộ lọc chỉ có tác dụng khi bật kiểm tra JWT (mới có `X-Company-Id`).
 - inventory-service kiểm tra số kho khi tạo kho đang hoạt động và khi bật lại kho đã ngưng (PATCH trạng thái hoặc PUT có `active: true`); product-service kiểm tra số SKU khi tạo và khi bật lại SKU đã xóa mềm. product-service hiện đếm SKU trên toàn bảng cho tới khi xong WMS-22.4b.
-- Phần 2 (auth-service): kiểm tra số người dùng khi tạo hoặc mở khóa tài khoản, trả bốn số `usage` trong `GET /api/auth/subscription` từ `wms:usage:{companyId}`, ghi lại hash thuê bao định kỳ.
+- Phần 2 (auth-service, nhánh `wms-23-2b`):
+  - `UserPlanLimitGuard` kiểm tra `USERS` (số tài khoản `enabled = true` của doanh nghiệp) trước khi tạo tài khoản (`POST /api/auth/users`, `POST /api/auth/register`) và trước khi mở khóa (`PATCH .../status` hoặc `PUT` có `enabled: true`); sau mỗi lần tạo, mở khóa, khóa thì ghi lại `users` vào `wms:usage:{companyId}` sau khi commit. auth-service không dùng `TenantContext` nên gọi bản nhận doanh nghiệp trực tiếp `assertCanCreate(companyId, limit, currentCount)`, `reportUsage(companyId, limit, count)` (thêm vào `PlanLimitChecker`, bản cũ giữ nguyên). Đăng ký doanh nghiệp mới không bị chặn.
+  - `GET /api/auth/subscription` trả đủ bốn số `usage` (cách đọc ở mục API của WMS-23.1); Redis lỗi thì ba số đọc từ Redis là `null`.
+  - `SubscriptionCacheWriter` dùng tên khóa, tên trường của `SubscriptionCacheKeys`; test hợp đồng kiểm tra hash ghi ra được `SubscriptionSnapshot.fromHash` đọc lại đúng.
+  - Tác vụ định kỳ 5 phút, sau khi chuyển `EXPIRED`, ghi lại hash của mọi thuê bao để Redis mất dữ liệu thì tự lành trong 5 phút; Redis không chạy chỉ ghi cảnh báo.
 
 ### WMS-23.3a [Frontend] Trang giới thiệu và bảng giá
 

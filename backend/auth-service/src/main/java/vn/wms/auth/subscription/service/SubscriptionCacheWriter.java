@@ -8,6 +8,7 @@ import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import vn.wms.auth.subscription.entity.Plan;
 import vn.wms.auth.subscription.entity.Subscription;
+import vn.wms.common.plan.SubscriptionCacheKeys;
 
 import java.time.Instant;
 import java.util.HashMap;
@@ -20,6 +21,9 @@ import java.util.Map;
  * <p>Mọi giá trị là chuỗi: {@code expiresAt} dạng ISO-8601 (ví dụ {@code 2026-12-09T03:00:00Z}), rỗng với gói FREE,
  * với TRIAL là ngày hết dùng thử; các giới hạn {@code -1} là không giới hạn; {@code apiAccess} là {@code true}/{@code false}.
  *
+ * <p>Tên khóa và tên trường lấy từ {@link SubscriptionCacheKeys} của module common, cùng bộ hằng số mà
+ * {@code SubscriptionSnapshot} (PlanLimitChecker) dùng khi đọc; các hằng số dưới đây chỉ là tên gọi tắt.
+ *
  * <p>Nếu đang trong một giao dịch, giá trị được chụp lại ngay nhưng chỉ ghi sau khi giao dịch commit thành công,
  * để Redis không bao giờ mang trạng thái của một giao dịch đã rollback.
  */
@@ -28,21 +32,21 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class SubscriptionCacheWriter {
 
-    public static final String KEY_PREFIX = "wms:subscription:";
-    public static final String FIELD_PLAN = "plan";
-    public static final String FIELD_STATUS = "status";
-    public static final String FIELD_EXPIRES_AT = "expiresAt";
-    public static final String FIELD_MAX_USERS = "maxUsers";
-    public static final String FIELD_MAX_WAREHOUSES = "maxWarehouses";
-    public static final String FIELD_MAX_SKUS = "maxSkus";
-    public static final String FIELD_MAX_AI_REQUESTS = "maxAiRequests";
-    public static final String FIELD_API_ACCESS = "apiAccess";
+    public static final String KEY_PREFIX = SubscriptionCacheKeys.SUBSCRIPTION_KEY_PREFIX;
+    public static final String FIELD_PLAN = SubscriptionCacheKeys.FIELD_PLAN;
+    public static final String FIELD_STATUS = SubscriptionCacheKeys.FIELD_STATUS;
+    public static final String FIELD_EXPIRES_AT = SubscriptionCacheKeys.FIELD_EXPIRES_AT;
+    public static final String FIELD_MAX_USERS = SubscriptionCacheKeys.FIELD_MAX_USERS;
+    public static final String FIELD_MAX_WAREHOUSES = SubscriptionCacheKeys.FIELD_MAX_WAREHOUSES;
+    public static final String FIELD_MAX_SKUS = SubscriptionCacheKeys.FIELD_MAX_SKUS;
+    public static final String FIELD_MAX_AI_REQUESTS = SubscriptionCacheKeys.FIELD_MAX_AI_REQUESTS;
+    public static final String FIELD_API_ACCESS = SubscriptionCacheKeys.FIELD_API_ACCESS;
 
     private final RedisTemplate<String, String> redisTemplate;
 
     /** Khóa Redis của thuê bao một doanh nghiệp. */
     public static String keyOf(Long companyId) {
-        return KEY_PREFIX + companyId;
+        return SubscriptionCacheKeys.subscriptionKey(companyId);
     }
 
     /** Ghi lại toàn bộ hash của thuê bao (sau khi giao dịch hiện tại commit, nếu có). */

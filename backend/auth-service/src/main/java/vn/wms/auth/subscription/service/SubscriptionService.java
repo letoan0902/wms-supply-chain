@@ -34,6 +34,7 @@ public class SubscriptionService {
     private final PlanRepository planRepository;
     private final UserRepository userRepository;
     private final SubscriptionCacheWriter cacheWriter;
+    private final SubscriptionUsageReader usageReader;
 
     @Transactional
     public Subscription startTrial(Company company) {
@@ -200,7 +201,9 @@ public class SubscriptionService {
             daysRemaining = seconds > 0 ? (seconds + SECONDS_PER_DAY - 1) / SECONDS_PER_DAY : 0L;
         }
 
+        // Người dùng đếm trong cơ sở dữ liệu; kho, SKU, lượt AI đọc từ Redis do service nghiệp vụ ghi (mục 2.7)
         long activeUsers = userRepository.countByCompanyIdAndEnabledTrue(companyId);
+        SubscriptionUsageReader.Usage usage = usageReader.read(companyId);
 
         Plan plan = subscription.getPlan();
 
@@ -221,9 +224,9 @@ public class SubscriptionService {
                         .build())
                 .usage(SubscriptionResponse.UsageDto.builder()
                         .users(activeUsers)
-                        .warehouses(null)
-                        .skus(null)
-                        .aiRequests(null)
+                        .warehouses(usage.warehouses())
+                        .skus(usage.skus())
+                        .aiRequests(usage.aiRequests())
                         .build())
                 .build();
     }

@@ -29,6 +29,7 @@ public class CompanyRegistrationService {
     private final RoleRepository roleRepository;
     private final SubscriptionService subscriptionService;
     private final PasswordEncoder passwordEncoder;
+    private final UserPlanLimitGuard userPlanLimitGuard;
 
     @Transactional
     public CompanyRegistrationResponse register(RegisterCompanyRequest request) {
@@ -81,6 +82,8 @@ public class CompanyRegistrationService {
 
         // 5. Khởi tạo thuê bao dùng thử 30 ngày (TRIAL)
         Subscription subscription = subscriptionService.startTrial(company);
+        // Tài khoản ADMIN đầu tiên không qua kiểm tra giới hạn, chỉ ghi lại mức sử dụng (WMS-23.2)
+        userPlanLimitGuard.reportUsage(company.getId());
 
         log.info("Đăng ký thành công doanh nghiệp {} (Mã: {}), Admin: {}", company.getName(), company.getCode(), adminUser.getUsername());
 

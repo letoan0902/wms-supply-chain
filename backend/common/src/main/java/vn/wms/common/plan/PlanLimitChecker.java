@@ -24,6 +24,10 @@ import java.util.function.LongSupplier;
  * planLimitChecker.assertCanCreate(PlanLimit.WAREHOUSES, warehouseRepository.countByActiveTrue());
  * </pre>
  *
+ * <p>Service không dùng {@link TenantContext} (auth-service tự lọc theo doanh nghiệp trong JWT) gọi các bản
+ * nhận {@code companyId} trực tiếp: {@link #assertCanCreate(long, PlanLimit, long)} và
+ * {@link #reportUsage(long, PlanLimit, long)}.
+ *
  * <p>Khóa Redis đọc: hash {@code wms:subscription:{companyId}} (auth-service ghi). Khóa Redis ghi: hash
  * {@code wms:usage:{companyId}} (trường {@code users}, {@code warehouses}, {@code skus}) và bộ đếm
  * {@code wms:usage:ai:{companyId}:{yyyyMM}}.
@@ -66,7 +70,20 @@ public class PlanLimitChecker {
      *                      {@code currentCount >= max} và {@code max != -1}
      */
     public void assertCanCreate(PlanLimit limit, long currentCount) {
-        long companyId = TenantContext.requireCompanyId();
+        assertCanCreate(TenantContext.requireCompanyId(), limit, currentCount);
+    }
+
+    /**
+     * Giống {@link #assertCanCreate(PlanLimit, long)} nhưng nhận doanh nghiệp trực tiếp thay vì đọc
+     * {@link TenantContext}. Dành cho service tự lọc dữ liệu theo doanh nghiệp của người đang đăng nhập
+     * (auth-service lấy {@code companyId} từ JWT, không dùng bộ lọc doanh nghiệp của Hibernate).
+     *
+     * @param companyId    doanh nghiệp cần kiểm tra
+     * @param limit        giới hạn cần kiểm tra
+     * @param currentCount số bản ghi đang hoạt động TRƯỚC khi tạo mới
+     * @throws ApiException {@link ErrorCode#PLAN_LIMIT_EXCEEDED} kèm {@link PlanLimitViolation} khi vượt giới hạn
+     */
+    public void assertCanCreate(long companyId, PlanLimit limit, long currentCount) {
         SubscriptionSnapshot snapshot;
         try {
             if (limit.usageField() != null) {
@@ -104,14 +121,23 @@ public class PlanLimitChecker {
      *                                  {@code API_ACCESS})
      */
     public void reportUsage(PlanLimit limit, long count) {
-        if (limit.usageField() == null) {
-            throw new IllegalArgumentException("Giới hạn " + limit + " không ghi vào hash mức sử dụng");
-        }
+        requireUsageField(limit);
         Long companyId = TenantContext.getCompanyId();
         if (companyId == null) {
             log.debug("Bỏ qua ghi mức sử dụng {} vì chưa xác định được doanh nghiệp", limit);
             return;
         }
+        reportUsage(companyId, limit, count);
+    }
+
+    /**
+     * Giống {@link #reportUsage(PlanLimit, long)} nhưng nhận doanh nghiệp trực tiếp thay vì đọc
+     * {@link TenantContext}. Lỗi Redis chỉ ghi cảnh báo.
+     *
+     * @throws IllegalArgumentException khi {@code limit} không ghi vào hash mức sử dụng
+     */
+    public void reportUsage(long companyId, PlanLimit limit, long count) {
+        requireUsageField(limit);
         try {
             writeUsage(companyId, limit, count);
         } catch (RuntimeException ex) {
@@ -203,6 +229,12 @@ public class PlanLimitChecker {
         }
         return "Gói " + snapshot.planDisplayName() + " chỉ cho phép tối đa " + max + " " + limit.unit()
                 + ". Nâng cấp gói để " + limit.upgradeAction() + ".";
+    }
+
+    private static void requireUsageField(PlanLimit limit) {
+        if (limit.usageField() == null) {
+            throw new IllegalArgumentException("Giới hạn " + limit + " không ghi vào hash mức sử dụng");
+        }
     }
 
     private void writeUsage(long companyId, PlanLimit limit, long count) {

@@ -198,6 +198,41 @@ class PlanLimitCheckerTest {
     void reportUsage_forLimitWithoutUsageField_isRejected() {
         assertThatThrownBy(() -> checker.reportUsage(PlanLimit.AI_REQUESTS, 1))
                 .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> checker.reportUsage(COMPANY_ID, PlanLimit.API_ACCESS, 1))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void assertCanCreate_withExplicitCompany_ignoresTenantContext() {
+        TenantContext.clear();
+        Map<Object, Object> hash = new HashMap<>();
+        hash.put("plan", "FREE");
+        hash.put("status", "ACTIVE");
+        hash.put("maxUsers", "3");
+        when(hashOperations.entries("wms:subscription:9")).thenReturn(hash);
+
+        assertThatCode(() -> checker.assertCanCreate(9L, PlanLimit.USERS, 2)).doesNotThrowAnyException();
+        verify(hashOperations).put("wms:usage:9", "users", "2");
+
+        assertThatThrownBy(() -> checker.assertCanCreate(9L, PlanLimit.USERS, 3))
+                .isInstanceOfSatisfying(ApiException.class, ex -> {
+                    assertThat(ex.getErrorCode()).isEqualTo(ErrorCode.PLAN_LIMIT_EXCEEDED);
+                    assertThat(ex.getData()).isEqualTo(new PlanLimitViolation(PlanLimit.USERS, 3, 3, "FREE"));
+                    assertThat(ex.getMessage()).isEqualTo(
+                            "Gói Khởi Đầu chỉ cho phép tối đa 3 người dùng. Nâng cấp gói để thêm người dùng mới.");
+                });
+        assertThat(TenantContext.isSet()).isFalse();
+    }
+
+    @Test
+    void reportUsage_withExplicitCompany_writesWithoutTenantAndSwallowsRedisError() {
+        TenantContext.clear();
+
+        checker.reportUsage(9L, PlanLimit.USERS, 4);
+        verify(hashOperations).put("wms:usage:9", "users", "4");
+
+        when(redisTemplate.opsForHash()).thenThrow(new RedisConnectionFailureException("Redis không chạy"));
+        assertThatCode(() -> checker.reportUsage(9L, PlanLimit.USERS, 4)).doesNotThrowAnyException();
     }
 
     @Test

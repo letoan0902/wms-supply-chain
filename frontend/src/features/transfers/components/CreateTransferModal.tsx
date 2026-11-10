@@ -16,7 +16,7 @@ import {
   Table,
 } from 'antd'
 import dayjs from 'dayjs'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { formatNumber } from '../../../utils/format'
 import { fetchProducts } from '../../products/productApi'
 import type { Product } from '../../products/types'
@@ -62,53 +62,13 @@ export default function CreateTransferModal({
   onSubmitUpdate,
 }: Props) {
   const [form] = Form.useForm()
+  const sourceWarehouseId = Form.useWatch('sourceWarehouseId', form)
 
   const [products, setProducts] = useState<Product[]>([])
   const [sourceBins, setSourceBins] = useState<BinLocation[]>([])
-  const [items, setItems] = useState<TransferFormItem[]>([])
-  const [sourceWarehouseId, setSourceWarehouseId] = useState<number | undefined>(undefined)
-
-  // Nạp danh sách sản phẩm phục vụ chọn SKU
-  useEffect(() => {
-    if (open) {
-      fetchProducts({ size: 200, active: true })
-        .then((res) => setProducts(res.content))
-        .catch((err) => console.error('Lỗi khi nạp danh mục sản phẩm:', err))
-    }
-  }, [open])
-
-  // Nạp vị trí ô/kệ khi thay đổi kho nguồn
-  useEffect(() => {
-    if (sourceWarehouseId) {
-      fetchLocations({ warehouseId: sourceWarehouseId, active: true })
-        .then((bins) => setSourceBins(bins))
-        .catch((err) => console.error('Lỗi khi nạp vị trí kho nguồn:', err))
-    } else {
-      setSourceBins([])
-    }
-  }, [sourceWarehouseId])
-
-  // Khởi tạo giá trị khi mở modal hoặc chỉnh sửa
-  useEffect(() => {
-    if (!open) {
-      form.resetFields()
-      setItems([])
-      setSourceWarehouseId(undefined)
-      return
-    }
-
+  const [items, setItems] = useState<TransferFormItem[]>(() => {
     if (editingTransfer) {
-      setSourceWarehouseId(editingTransfer.sourceWarehouseId)
-      form.setFieldsValue({
-        sourceWarehouseId: editingTransfer.sourceWarehouseId,
-        destinationWarehouseId: editingTransfer.destinationWarehouseId,
-        expectedDeliveryDate: editingTransfer.expectedDeliveryDate
-          ? dayjs(editingTransfer.expectedDeliveryDate)
-          : undefined,
-        notes: editingTransfer.notes,
-      })
-
-      const initialItems: TransferFormItem[] = (editingTransfer.items || []).map((it, idx) => ({
+      return (editingTransfer.items || []).map((it, idx) => ({
         key: `item-${it.id || idx}`,
         productId: it.productId,
         skuCode: it.skuCode,
@@ -118,28 +78,17 @@ export default function CreateTransferModal({
         quantity: it.quantity,
         notes: it.notes,
       }))
-      setItems(initialItems)
-
-      // Cập nhật lại ATP cho từng dòng sản phẩm
-      initialItems.forEach((row) => {
-        if (row.productId && editingTransfer.sourceWarehouseId) {
-          updateRowAtp(row.key, row.productId, editingTransfer.sourceWarehouseId)
-        }
-      })
-    } else {
-      form.resetFields()
-      // Khởi tạo một dòng trống đầu tiên
-      setItems([
-        {
-          key: `item-${Date.now()}`,
-          quantity: 1,
-        },
-      ])
     }
-  }, [open, editingTransfer, form])
+    return [
+      {
+        key: `item-${Date.now()}`,
+        quantity: 1,
+      },
+    ]
+  })
 
   // Cập nhật tồn khả dụng (ATP) tại kho nguồn cho một dòng
-  const updateRowAtp = async (rowKey: string, productId: number, whId: number) => {
+  const updateRowAtp = useCallback(async (rowKey: string, productId: number, whId: number) => {
     setItems((prev) =>
       prev.map((it) => (it.key === rowKey ? { ...it, loadingAtp: true } : it))
     )
@@ -157,15 +106,77 @@ export default function CreateTransferModal({
         prev.map((it) => (it.key === rowKey ? { ...it, availableAtp: 0, loadingAtp: false } : it))
       )
     }
-  }
+  }, [])
+
+  // Nạp danh sách sản phẩm phục vụ chọn SKU
+  useEffect(() => {
+    let ignore = false
+    fetchProducts({ size: 200, active: true })
+      .then((res) => {
+        if (!ignore) {
+          setProducts(res.content)
+        }
+      })
+      .catch((err) => console.error('Lỗi khi nạp danh mục sản phẩm:', err))
+
+    return () => {
+      ignore = true
+    }
+  }, [])
+
+  // Nạp vị trí ô/kệ khi thay đổi kho nguồn
+  useEffect(() => {
+    let ignore = false
+    if (!sourceWarehouseId) {
+      return
+    }
+    fetchLocations({ warehouseId: sourceWarehouseId, active: true })
+      .then((bins) => {
+        if (!ignore) {
+          setSourceBins(bins)
+        }
+      })
+      .catch((err) => console.error('Lỗi khi nạp vị trí kho nguồn:', err))
+
+    return () => {
+      ignore = true
+    }
+  }, [sourceWarehouseId])
+
+  // Cập nhật ATP ban đầu nếu đang chỉnh sửa lệnh điều chuyển
+  useEffect(() => {
+    if (editingTransfer && editingTransfer.sourceWarehouseId) {
+      const whId = editingTransfer.sourceWarehouseId
+      ;(editingTransfer.items || []).forEach((row, idx) => {
+        if (row.productId) {
+          void updateRowAtp(`item-${row.id || idx}`, row.productId, whId)
+        }
+      })
+    }
+  }, [editingTransfer, updateRowAtp])
+
+  // Giá trị ban đầu cho form
+  const initialValues = useMemo(() => {
+    if (editingTransfer) {
+      return {
+        sourceWarehouseId: editingTransfer.sourceWarehouseId,
+        destinationWarehouseId: editingTransfer.destinationWarehouseId,
+        expectedDeliveryDate: editingTransfer.expectedDeliveryDate
+          ? dayjs(editingTransfer.expectedDeliveryDate)
+          : undefined,
+        notes: editingTransfer.notes,
+      }
+    }
+    return undefined
+  }, [editingTransfer])
 
   // Xử lý khi thay đổi kho nguồn
   const handleSourceWarehouseChange = (whId: number) => {
-    setSourceWarehouseId(whId)
+    setSourceBins([])
     // Tự động kiểm tra lại ATP cho toàn bộ các dòng đã chọn sản phẩm
     items.forEach((row) => {
       if (row.productId) {
-        updateRowAtp(row.key, row.productId, whId)
+        void updateRowAtp(row.key, row.productId, whId)
       }
     })
   }
@@ -207,7 +218,7 @@ export default function CreateTransferModal({
     )
 
     if (sourceWarehouseId) {
-      updateRowAtp(key, prod.id, sourceWarehouseId)
+      void updateRowAtp(key, prod.id, sourceWarehouseId)
     }
   }
 
@@ -488,6 +499,7 @@ export default function CreateTransferModal({
       <Form
         form={form}
         layout="vertical"
+        initialValues={initialValues}
         onFinish={handleFinish}
         className="mt-4"
       >

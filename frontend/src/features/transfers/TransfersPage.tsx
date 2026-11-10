@@ -15,7 +15,7 @@ import {
   Select,
   Space,
 } from 'antd'
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { getApiErrorMessage } from '../../services/api'
 import { fetchWarehouses } from '../warehouses/warehouseApi'
 import type { Warehouse } from '../warehouses/types'
@@ -38,20 +38,18 @@ export default function TransfersPage() {
 
   // State danh sách và phân trang
   const [transfers, setTransfers] = useState<StockTransfer[]>([])
-  const [totalCount, setTotalCount] = useState<number>(0)
   const [loading, setLoading] = useState<boolean>(false)
   const [warehouses, setWarehouses] = useState<Warehouse[]>([])
 
-  // Bộ lọc
+  // Bộ lọc và phân trang
   const [keyword, setKeyword] = useState<string>('')
   const [selectedStatus, setSelectedStatus] = useState<StockTransferStatus | undefined>(undefined)
   const [sourceWarehouseId, setSourceWarehouseId] = useState<number | undefined>(undefined)
   const [destinationWarehouseId, setDestinationWarehouseId] = useState<number | undefined>(undefined)
-  const [pagination, setPagination] = useState({
-    current: 1,
-    pageSize: 10,
-    total: 0,
-  })
+  const [page, setPage] = useState<number>(1)
+  const [pageSize, setPageSize] = useState<number>(10)
+  const [totalCount, setTotalCount] = useState<number>(0)
+  const [refreshKey, setRefreshKey] = useState<number>(0)
 
   // State các Modal
   const [isCreateModalOpen, setIsCreateModalOpen] = useState<boolean>(false)
@@ -63,19 +61,28 @@ export default function TransfersPage() {
 
   // Nạp danh sách kho bãi phục vụ lọc và chọn trong form
   useEffect(() => {
+    let ignore = false
     fetchWarehouses({ active: true })
-      .then((data) => setWarehouses(data))
+      .then((data) => {
+        if (!ignore) {
+          setWarehouses(data)
+        }
+      })
       .catch((err) => console.error('Lỗi tải danh sách kho:', err))
+    return () => {
+      ignore = true
+    }
   }, [])
 
   // Nạp danh sách lệnh điều chuyển
-  const loadTransfers = useCallback(
-    async (page = pagination.current, size = pagination.pageSize) => {
+  useEffect(() => {
+    let ignore = false
+    const fetchTransfers = async () => {
       setLoading(true)
       try {
         const params: StockTransferFilterParams = {
-          page: page - 1, // Spring Boot phân trang từ 0
-          size,
+          page: page - 1,
+          size: pageSize,
           keyword: keyword.trim() || undefined,
           status: selectedStatus,
           sourceWarehouseId,
@@ -83,38 +90,45 @@ export default function TransfersPage() {
         }
 
         const data = await transferApi.fetchTransfers(params)
-        setTransfers(data.content)
-        setTotalCount(data.totalElements)
-        setPagination({
-          current: page,
-          pageSize: size,
-          total: data.totalElements,
-        })
+        if (!ignore) {
+          setTransfers(data.content || [])
+          setTotalCount(data.totalElements || 0)
+        }
       } catch (err) {
-        message.error(getApiErrorMessage(err, 'Không thể tải danh sách lệnh điều chuyển'))
+        if (!ignore) {
+          message.error(getApiErrorMessage(err, 'Không thể tải danh sách lệnh điều chuyển'))
+        }
       } finally {
-        setLoading(false)
+        if (!ignore) {
+          setLoading(false)
+        }
       }
-    },
-    [
-      pagination.current,
-      pagination.pageSize,
-      keyword,
-      selectedStatus,
-      sourceWarehouseId,
-      destinationWarehouseId,
-      message,
-    ]
-  )
+    }
 
-  useEffect(() => {
-    loadTransfers(1, pagination.pageSize)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedStatus, sourceWarehouseId, destinationWarehouseId])
+    void fetchTransfers()
+    return () => {
+      ignore = true
+    }
+  }, [
+    page,
+    pageSize,
+    keyword,
+    selectedStatus,
+    sourceWarehouseId,
+    destinationWarehouseId,
+    refreshKey,
+    message,
+  ])
+
+  // Làm mới dữ liệu
+  const reloadData = () => {
+    setRefreshKey((k) => k + 1)
+  }
 
   // Xử lý tìm kiếm từ ô Input
   const handleSearch = () => {
-    loadTransfers(1, pagination.pageSize)
+    setPage(1)
+    reloadData()
   }
 
   // Đặt lại toàn bộ bộ lọc
@@ -123,12 +137,14 @@ export default function TransfersPage() {
     setSelectedStatus(undefined)
     setSourceWarehouseId(undefined)
     setDestinationWarehouseId(undefined)
-    loadTransfers(1, pagination.pageSize)
+    setPage(1)
+    reloadData()
   }
 
   // Chuyển trang
-  const handleChangePage = (page: number, pageSize: number) => {
-    loadTransfers(page, pageSize)
+  const handleChangePage = (newPage: number, newPageSize: number) => {
+    setPage(newPage)
+    setPageSize(newPageSize)
   }
 
   // Mở modal tạo mới
@@ -162,7 +178,8 @@ export default function TransfersPage() {
       await transferApi.createTransfer(payload)
       message.success('Tạo lệnh điều chuyển thành công!')
       setIsCreateModalOpen(false)
-      loadTransfers(1, pagination.pageSize)
+      setPage(1)
+      reloadData()
     } catch (err) {
       message.error(getApiErrorMessage(err, 'Không thể tạo lệnh điều chuyển'))
     } finally {
@@ -178,7 +195,7 @@ export default function TransfersPage() {
       message.success('Cập nhật thông tin lệnh điều chuyển thành công!')
       setIsCreateModalOpen(false)
       setEditingTransfer(null)
-      loadTransfers(pagination.current, pagination.pageSize)
+      reloadData()
     } catch (err) {
       message.error(getApiErrorMessage(err, 'Không thể cập nhật lệnh điều chuyển'))
     } finally {
@@ -191,7 +208,7 @@ export default function TransfersPage() {
     try {
       await transferApi.dispatchTransfer(transfer.id)
       message.success(`Đã duyệt xuất kho cho lệnh ${transfer.transferNumber}. Hàng đang được vận chuyển!`)
-      loadTransfers(pagination.current, pagination.pageSize)
+      reloadData()
     } catch (err) {
       message.error(getApiErrorMessage(err, 'Không thể duyệt xuất kho'))
     }
@@ -223,7 +240,7 @@ export default function TransfersPage() {
         try {
           await transferApi.cancelTransfer(transfer.id, reasonInput)
           message.success(`Đã hủy lệnh điều chuyển ${transfer.transferNumber}`)
-          loadTransfers(pagination.current, pagination.pageSize)
+          reloadData()
         } catch (err) {
           message.error(getApiErrorMessage(err, 'Không thể hủy lệnh điều chuyển'))
         }
@@ -246,7 +263,7 @@ export default function TransfersPage() {
         <Space size="middle">
           <Button
             icon={<ReloadOutlined />}
-            onClick={() => loadTransfers(pagination.current, pagination.pageSize)}
+            onClick={reloadData}
             loading={loading}
           >
             Làm mới
@@ -289,7 +306,10 @@ export default function TransfersPage() {
               placeholder="Trạng thái"
               style={{ width: '100%' }}
               value={selectedStatus}
-              onChange={(val) => setSelectedStatus(val)}
+              onChange={(val) => {
+                setSelectedStatus(val)
+                setPage(1)
+              }}
               options={Object.entries(TRANSFER_STATUS_CONFIG).map(([statusKey, cfg]) => ({
                 value: statusKey,
                 label: cfg.label,
@@ -303,7 +323,10 @@ export default function TransfersPage() {
               placeholder="Kho xuất nguồn"
               style={{ width: '100%' }}
               value={sourceWarehouseId}
-              onChange={(val) => setSourceWarehouseId(val)}
+              onChange={(val) => {
+                setSourceWarehouseId(val)
+                setPage(1)
+              }}
               options={warehouses.map((w) => ({
                 value: w.id,
                 label: `${w.name} (${w.code})`,
@@ -317,7 +340,10 @@ export default function TransfersPage() {
               placeholder="Kho nhập đích"
               style={{ width: '100%' }}
               value={destinationWarehouseId}
-              onChange={(val) => setDestinationWarehouseId(val)}
+              onChange={(val) => {
+                setDestinationWarehouseId(val)
+                setPage(1)
+              }}
               options={warehouses.map((w) => ({
                 value: w.id,
                 label: `${w.name} (${w.code})`,
@@ -341,7 +367,11 @@ export default function TransfersPage() {
       <TransferTable
         transfers={transfers}
         loading={loading}
-        pagination={pagination}
+        pagination={{
+          current: page,
+          pageSize,
+          total: totalCount,
+        }}
         onChangePage={handleChangePage}
         onViewDetail={handleViewDetail}
         onEdit={handleOpenEdit}
@@ -350,18 +380,21 @@ export default function TransfersPage() {
       />
 
       {/* Modal Lập / Chỉnh sửa lệnh điều chuyển */}
-      <CreateTransferModal
-        open={isCreateModalOpen}
-        editingTransfer={editingTransfer}
-        warehouses={warehouses}
-        submitting={submittingTransfer}
-        onClose={() => {
-          setIsCreateModalOpen(false)
-          setEditingTransfer(null)
-        }}
-        onSubmitCreate={handleSubmitCreate}
-        onSubmitUpdate={handleSubmitUpdate}
-      />
+      {isCreateModalOpen && (
+        <CreateTransferModal
+          key={editingTransfer ? `edit-${editingTransfer.id}` : 'create'}
+          open={isCreateModalOpen}
+          editingTransfer={editingTransfer}
+          warehouses={warehouses}
+          submitting={submittingTransfer}
+          onClose={() => {
+            setIsCreateModalOpen(false)
+            setEditingTransfer(null)
+          }}
+          onSubmitCreate={handleSubmitCreate}
+          onSubmitUpdate={handleSubmitUpdate}
+        />
+      )}
 
       {/* Modal Xem chi tiết lệnh điều chuyển */}
       <TransferDetailModal
@@ -375,4 +408,3 @@ export default function TransfersPage() {
     </div>
   )
 }
-

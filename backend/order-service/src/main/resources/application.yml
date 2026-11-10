@@ -90,6 +90,14 @@ springdoc:
     path: /swagger-ui.html
   api-docs:
     path: /v3/api-docs
+
+# Tách dữ liệu theo doanh nghiệp (docs/MULTI_TENANT.md). Service này chưa chuyển sang TenantEntity nên chưa bật
+# required; doanh nghiệp mặc định chỉ để sự kiện phát ra và lời gọi sang service khác mang đúng doanh nghiệp
+# khi chạy ở máy phát triển không qua gateway. Trên máy chủ biến này để rỗng.
+app:
+  tenant:
+    default-company-id: ${TENANT_DEFAULT_COMPANY_ID:}
+
 ---
 # Nạp cấu hình tập trung từ Config Server. Tiền tố optional nghĩa là Config Server chưa chạy thì service vẫn
 # khởi động bằng cấu hình cục bộ ở trên. Tài liệu này bị bỏ qua khi chạy test (profile test) để test không gọi mạng.

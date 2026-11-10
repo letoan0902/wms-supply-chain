@@ -11,9 +11,10 @@ import { type BillingCycle, PRICING_PLANS, type PricingPlan } from '../pricingCo
 
 interface PricingSectionProps {
   onScrollToComparison?: () => void
+  onScrollToTrial?: () => void
 }
 
-export default function PricingSection({ onScrollToComparison }: PricingSectionProps) {
+export default function PricingSection({ onScrollToComparison, onScrollToTrial }: PricingSectionProps) {
   const [billingCycle, setBillingCycle] = useState<BillingCycle>('monthly')
   const [enterpriseModalOpen, setEnterpriseModalOpen] = useState(false)
 
@@ -222,11 +223,12 @@ export default function PricingSection({ onScrollToComparison }: PricingSectionP
                       {plan.ctaText}
                     </Button>
                   ) : (
-                    <Link to="/login" className="block w-full">
+                    <div className="w-full">
                       <Button
                         type={isPro ? 'primary' : 'default'}
                         size="large"
                         block
+                        onClick={onScrollToTrial}
                         className={`h-12 rounded-xl font-bold ${
                           isPro
                             ? 'bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-500/25'
@@ -235,7 +237,7 @@ export default function PricingSection({ onScrollToComparison }: PricingSectionP
                       >
                         {plan.ctaText}
                       </Button>
-                    </Link>
+                    </div>
                   )}
                   {plan.ctaSubtext && (
                     <div className="mt-2 text-center text-[11px] text-slate-400">

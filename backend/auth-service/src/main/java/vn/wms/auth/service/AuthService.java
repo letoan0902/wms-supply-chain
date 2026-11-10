@@ -2,13 +2,15 @@ package vn.wms.auth.service;
 
 import io.jsonwebtoken.Claims;
 import lombok.extern.slf4j.Slf4j;
-
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.stereotype.Service;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import vn.wms.auth.company.dto.CompanySummary;
+import vn.wms.auth.company.entity.Company;
+import vn.wms.auth.company.repository.CompanyRepository;
 import vn.wms.auth.dto.auth.LoginRequest;
 import vn.wms.auth.dto.auth.LoginResponse;
 import vn.wms.auth.dto.auth.RefreshTokenRequest;
@@ -16,15 +18,14 @@ import vn.wms.auth.dto.auth.RefreshTokenResponse;
 import vn.wms.auth.dto.auth.RegisterRequest;
 import vn.wms.auth.dto.auth.RegisterResponse;
 import vn.wms.auth.dto.users.UserInfoResponse;
-import vn.wms.auth.company.dto.CompanySummary;
-import vn.wms.auth.company.entity.Company;
-import vn.wms.auth.company.repository.CompanyRepository;
 import vn.wms.auth.entity.Role;
 import vn.wms.auth.entity.User;
 import vn.wms.auth.repository.RoleRepository;
 import vn.wms.auth.repository.UserRepository;
 import vn.wms.auth.security.JwtService;
 import vn.wms.auth.security.UserPrincipal;
+import vn.wms.auth.subscription.dto.SubscriptionSummary;
+import vn.wms.auth.subscription.service.SubscriptionService;
 import vn.wms.common.api.ErrorCode;
 import vn.wms.common.constant.Roles;
 import vn.wms.common.exception.ApiException;
@@ -53,6 +54,7 @@ public class AuthService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final CompanyRepository companyRepository;
+    private final SubscriptionService subscriptionService;
     private final PasswordEncoder passwordEncoder;
 
     public AuthService(JwtService jwtService,
@@ -61,6 +63,7 @@ public class AuthService {
                        UserRepository userRepository,
                        RoleRepository roleRepository,
                        CompanyRepository companyRepository,
+                       SubscriptionService subscriptionService,
                        PasswordEncoder passwordEncoder) {
         this.jwtService = jwtService;
         this.devLogin = devLogin;
@@ -68,6 +71,7 @@ public class AuthService {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.companyRepository = companyRepository;
+        this.subscriptionService = subscriptionService;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -80,12 +84,8 @@ public class AuthService {
     private static final String LOGIN_ATTEMPTS_USER_PREFIX = "login:attempts:user:";
     private static final String LOGIN_LOCK_USER_PREFIX = "login:lock:user:";
 
-//    @Transactional(readOnly = true)
-//    public LoginResponse login(LoginRequest request) {
-//        return login(request, "127.0.0.1");
-//    }
-
-    @Transactional(readOnly = true)
+    // Không đặt readOnly: bước kiểm tra thuê bao có thể chuyển EXPIRED và phải được lưu lại
+    @Transactional
     public LoginResponse login(LoginRequest request, String clientIp) {
         String identifier = request.username();
 
@@ -102,7 +102,7 @@ public class AuthService {
             recordFailedAttempt(clientIp, canonicalUsername, isUserExist);
         }
 
-        // 3. Kiểm tra tài khoản có bị vô hiệu hóa bởi Admin hay không
+        // 3a. Kiểm tra tài khoản có bị vô hiệu hóa bởi Admin hay không
         if (!userLogin.isEnabled()) {
             throw ApiException.unauthorized("Tài khoản đã bị khóa hoặc ngừng kích hoạt");
         }
@@ -118,13 +118,19 @@ public class AuthService {
                 .map(Role::getName)
                 .toList();
 
-        // 6. Tạo Access Token (kèm companyId, companyCode và warehouseIds) & Refresh Token
+        // 6. Kiểm tra gói thuê bao: chuyển EXPIRED nếu đã quá hạn và ghi lại bộ nhớ đệm Redis (mục 2.7)
+        SubscriptionSummary subscriptionSummary = subscriptionService.refreshForLogin(company.getId())
+                .map(SubscriptionSummary::from)
+                .orElse(null);
+        String plan = subscriptionSummary != null ? subscriptionSummary.plan() : null;
+
+        // 7. Tạo Access Token (kèm companyId, companyCode, plan và warehouseIds) & Refresh Token
         String accessToken = jwtService.generateAccessToken(
-                userLogin.getId(), userLogin.getUsername(), company.getId(), company.getCode(),
+                userLogin.getId(), userLogin.getUsername(), company.getId(), company.getCode(), plan,
                 roles, userLogin.getWarehouseIds());
         String refreshToken = jwtService.generateRefreshToken(userLogin.getUsername());
 
-        // 7. Lưu Refresh Token vào Redis với TTL
+        // 8. Lưu Refresh Token vào Redis với TTL
         String key = "refresh:" + userLogin.getUsername();
         redisTemplate.opsForValue().set(key, refreshToken,
                 Duration.ofMinutes(jwtService.getRefreshTokenMinutes()));
@@ -136,7 +142,8 @@ public class AuthService {
                 jwtService.getAccessTokenMinutes() * 60L, // expiresIn (giây)
                 userLogin.getUsername(),
                 roles,
-                CompanySummary.from(company));
+                CompanySummary.from(company),
+                subscriptionSummary);
     }
 
     /**
@@ -173,13 +180,12 @@ public class AuthService {
     private void recordFailedAttempt(String clientIp, String username, boolean isUserExist) {
         // 1. Tăng bộ đếm cho IP (luôn luôn ghi nhận với mọi request sai)
         String attemptsIpKey = LOGIN_ATTEMPTS_IP_PREFIX + clientIp;
-        String lockIpKey = LOGIN_LOCK_IP_PREFIX + clientIp;
         Long attemptsIp = redisTemplate.opsForValue().increment(attemptsIpKey);
         if (attemptsIp != null && attemptsIp == 1) {
             redisTemplate.expire(attemptsIpKey, ATTEMPTS_TTL);
         }
 
-        // 2. Tăng bộ đếm cho Tài khoản (khi username thực sự tồn tại trong DB)
+        // 2. Tăng bộ đếm cho Tài khoản (CHỈ ghi nhận khi username/email THỰC SỰ TỒN TẠI trong DB)
         Long attemptsUser = null;
         if (isUserExist) {
             String attemptsUserKey = LOGIN_ATTEMPTS_USER_PREFIX + username;
@@ -191,9 +197,10 @@ public class AuthService {
 
         // 3. Kiểm tra khóa IP nếu chạm mốc 5 lần
         if (attemptsIp != null && attemptsIp >= MAX_FAILED_ATTEMPTS) {
+            String lockIpKey = LOGIN_LOCK_IP_PREFIX + clientIp;
             redisTemplate.opsForValue().set(lockIpKey, "LOCKED", LOCK_TIME);
             redisTemplate.delete(attemptsIpKey);
-            throw ApiException.badRequest("Bạn đã đăng nhập thất bại 5 lần liên tiếp. Vui lòng thử lại sau " + LOCK_TIME.toMinutes() + " phút!");
+            throw ApiException.badRequest("Địa chỉ IP của bạn đã thử sai 5 lần và bị tạm khóa " + LOCK_TIME.toMinutes() + " phút!");
         }
 
         // 4. Kiểm tra khóa Tài khoản nếu chạm mốc 5 lần
@@ -250,7 +257,8 @@ public class AuthService {
     /**
      * Làm mới Access Token bằng Refresh Token (hỗ trợ xoay vòng Refresh Token - RTR).
      */
-    @Transactional(readOnly = true)
+    // Không đặt readOnly: bước kiểm tra thuê bao có thể chuyển EXPIRED và phải được lưu lại
+    @Transactional
     public RefreshTokenResponse refreshToken(RefreshTokenRequest request) {
         String token = request.refreshToken();
         Claims claims;
@@ -293,12 +301,17 @@ public class AuthService {
                 .map(Role::getName)
                 .toList();
 
-        // 4. Phát hành Access Token mới (kèm companyId, companyCode và warehouseIds)
+        // 4. Kiểm tra gói thuê bao: chuyển EXPIRED nếu đã quá hạn và ghi lại bộ nhớ đệm Redis
+        String plan = subscriptionService.refreshForLogin(company.getId())
+                .map(sub -> sub.getPlan().getCode())
+                .orElse(null);
+
+        // 5. Phát hành Access Token mới (kèm companyId, companyCode, plan và warehouseIds)
         String newAccessToken = jwtService.generateAccessToken(
-                user.getId(), user.getUsername(), company.getId(), company.getCode(),
+                user.getId(), user.getUsername(), company.getId(), company.getCode(), plan,
                 roles, user.getWarehouseIds());
 
-        // 5. Xoay vòng Refresh Token (Refresh Token Rotation - RTR) để nâng cao bảo mật
+        // 6. Xoay vòng Refresh Token (Refresh Token Rotation - RTR) để nâng cao bảo mật
         String newRefreshToken = jwtService.generateRefreshToken(user.getUsername());
         redisTemplate.opsForValue().set(refreshKey, newRefreshToken,
                 Duration.ofMinutes(jwtService.getRefreshTokenMinutes()));
@@ -388,12 +401,16 @@ public class AuthService {
                 .map(AuthService::stripRolePrefix)
                 .toList();
         CompanySummary company = null;
+        SubscriptionSummary subscription = null;
         if (authentication.getPrincipal() instanceof UserPrincipal principal && principal.getCompanyId() != null) {
             company = companyRepository.findById(principal.getCompanyId())
                     .map(CompanySummary::from)
                     .orElse(null);
+            subscription = subscriptionService.findByCompanyId(principal.getCompanyId())
+                    .map(SubscriptionSummary::from)
+                    .orElse(null);
         }
-        return new UserInfoResponse(authentication.getName(), roles, company);
+        return new UserInfoResponse(authentication.getName(), roles, company, subscription);
     }
 
     private static boolean constantTimeEquals(String expected, String actual) {

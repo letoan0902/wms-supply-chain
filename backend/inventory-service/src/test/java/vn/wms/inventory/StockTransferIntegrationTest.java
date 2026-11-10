@@ -429,5 +429,80 @@ class StockTransferIntegrationTest {
                         .findFirst().orElseThrow());
         assertThat(destStock.getQuantity()).isEqualByComparingTo(new BigDecimal("15.000"));
     }
+
+    @Test
+    @DisplayName("WMS-13.2: Quản lý kho đích (không phụ trách kho nguồn) xem được chi tiết, nhận hàng được; nhận lần hai bị từ chối, tồn không cộng hai lần")
+    void receiveTransfer_ByDestinationManager_SecondReceiveRejected() throws Exception {
+        CreateStockTransferItemRequest itemRequest = new CreateStockTransferItemRequest(
+                testProductId, "SKU-TEST-6001", "Dầu gội Clear", "Chai", binSource.getId(), new BigDecimal("10.000"), null
+        );
+        CreateStockTransferRequest createRequest = new CreateStockTransferRequest(
+                warehouseSource.getId(), warehouseDest.getId(), Instant.now(), null, List.of(itemRequest)
+        );
+        String createRes = mockMvc.perform(post("/api/inventory/transfers")
+                        .header("X-Company-Id", COMPANY_A)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(createRequest)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        Long transferId = objectMapper.readTree(createRes).path("data").path("id").asLong();
+        Long transferItemId = objectMapper.readTree(createRes).path("data").path("items").get(0).path("id").asLong();
+
+        mockMvc.perform(post("/api/inventory/transfers/" + transferId + "/dispatch")
+                        .header("X-Company-Id", COMPANY_A))
+                .andExpect(status().isOk());
+
+        String destManagerWarehouses = String.valueOf(warehouseDest.getId());
+
+        // Quản lý kho đích xem chi tiết phiếu để kiểm đếm
+        mockMvc.perform(get("/api/inventory/transfers/" + transferId)
+                        .header("X-Company-Id", COMPANY_A)
+                        .header("X-User-Name", "manager_dn")
+                        .header("X-User-Roles", "WAREHOUSE_MANAGER")
+                        .header("X-User-Warehouse-Ids", destManagerWarehouses))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status", is("IN_TRANSIT")));
+
+        // Quản lý chỉ phụ trách kho nguồn không được nhận hàng thay kho đích
+        ReceiveStockTransferRequest receiveRequest = new ReceiveStockTransferRequest(List.of(
+                new ReceiveStockTransferItemRequest(transferItemId, new BigDecimal("10.000"), BigDecimal.ZERO, binDest.getId(), null)
+        ), null);
+        mockMvc.perform(post("/api/inventory/transfers/" + transferId + "/receive")
+                        .header("X-Company-Id", COMPANY_A)
+                        .header("X-User-Name", "manager_hn")
+                        .header("X-User-Roles", "WAREHOUSE_MANAGER")
+                        .header("X-User-Warehouse-Ids", String.valueOf(warehouseSource.getId()))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(receiveRequest)))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(post("/api/inventory/transfers/" + transferId + "/receive")
+                        .header("X-Company-Id", COMPANY_A)
+                        .header("X-User-Name", "manager_dn")
+                        .header("X-User-Roles", "WAREHOUSE_MANAGER")
+                        .header("X-User-Warehouse-Ids", destManagerWarehouses)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(receiveRequest)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status", is("COMPLETED")))
+                .andExpect(jsonPath("$.data.receivedBy", is("manager_dn")));
+
+        // Nhận lần hai: phiếu đã COMPLETED -> 400, tồn kho đích giữ nguyên 10
+        mockMvc.perform(post("/api/inventory/transfers/" + transferId + "/receive")
+                        .header("X-Company-Id", COMPANY_A)
+                        .header("X-User-Name", "manager_dn")
+                        .header("X-User-Roles", "WAREHOUSE_MANAGER")
+                        .header("X-User-Warehouse-Ids", destManagerWarehouses)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(receiveRequest)))
+                .andExpect(status().isBadRequest());
+
+        BigDecimal destTotal = TenantContext.callAs(COMPANY_A, () ->
+                stockItemRepository.findByBinLocationId(binDest.getId()).stream()
+                        .filter(s -> s.getProductId().equals(testProductId))
+                        .map(StockItem::getQuantity)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add));
+        assertThat(destTotal).isEqualByComparingTo(new BigDecimal("10.000"));
+    }
 }
 

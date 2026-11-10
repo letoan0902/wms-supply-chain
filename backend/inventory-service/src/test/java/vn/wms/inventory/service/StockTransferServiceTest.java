@@ -41,6 +41,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -252,7 +253,9 @@ class StockTransferServiceTest {
                 .build();
         transfer.addItem(item);
 
-        when(stockTransferRepository.findById(100L)).thenReturn(Optional.of(transfer));
+        when(stockTransferRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(transfer));
+        when(stockService.getAtp(501L, 1L))
+                .thenReturn(StockAtpResponse.of(501L, 1L, new BigDecimal("100.000"), BigDecimal.ZERO));
         when(stockDeductionService.deductStock(any(), anyString()))
                 .thenReturn(new DeductStockResponse(100L, "TRF-20261110-0001", 1L, "COMPLETED", new BigDecimal("25.000"), List.of(), Instant.now()));
         when(stockTransferRepository.save(any(StockTransfer.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -280,7 +283,7 @@ class StockTransferServiceTest {
                 .sourceWarehouse(warehouseSource)
                 .build();
 
-        when(stockTransferRepository.findById(100L)).thenReturn(Optional.of(transfer));
+        when(stockTransferRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(transfer));
 
         assertThatThrownBy(() -> stockTransferService.dispatchTransfer(100L))
                 .isInstanceOf(ApiException.class)
@@ -318,7 +321,7 @@ class StockTransferServiceTest {
                 List.of(itemReq), "Biên bản giao nhận nguyên đai nguyên kiện"
         );
 
-        when(stockTransferRepository.findById(100L)).thenReturn(Optional.of(transfer));
+        when(stockTransferRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(transfer));
         when(binLocationRepository.findById(binDest.getId())).thenReturn(Optional.of(binDest));
         when(stockItemRepository.findAllByBinLocationIdAndProductIdWithPessimisticLock(binDest.getId(), 501L))
                 .thenReturn(List.of());
@@ -370,7 +373,7 @@ class StockTransferServiceTest {
                 List.of(itemReq), "Có lập biên bản bất thường tổn thất hàng hóa"
         );
 
-        when(stockTransferRepository.findById(100L)).thenReturn(Optional.of(transfer));
+        when(stockTransferRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(transfer));
         when(binLocationRepository.findById(binDest.getId())).thenReturn(Optional.of(binDest));
         when(stockItemRepository.findAllByBinLocationIdAndProductIdWithPessimisticLock(binDest.getId(), 501L))
                 .thenReturn(List.of());
@@ -401,7 +404,7 @@ class StockTransferServiceTest {
                 List.of(new ReceiveStockTransferItemRequest(1L, BigDecimal.TEN, BigDecimal.ZERO, 20L, null)), null
         );
 
-        when(stockTransferRepository.findById(100L)).thenReturn(Optional.of(transfer));
+        when(stockTransferRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(transfer));
 
         assertThatThrownBy(() -> stockTransferService.receiveTransfer(100L, request))
                 .isInstanceOf(ApiException.class)
@@ -434,7 +437,7 @@ class StockTransferServiceTest {
         );
         ReceiveStockTransferRequest request = new ReceiveStockTransferRequest(List.of(itemReq), null);
 
-        when(stockTransferRepository.findById(100L)).thenReturn(Optional.of(transfer));
+        when(stockTransferRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(transfer));
         when(binLocationRepository.findById(binSource.getId())).thenReturn(Optional.of(binSource));
 
         assertThatThrownBy(() -> stockTransferService.receiveTransfer(100L, request))
@@ -468,7 +471,7 @@ class StockTransferServiceTest {
         );
         ReceiveStockTransferRequest request = new ReceiveStockTransferRequest(List.of(itemReq), null);
 
-        when(stockTransferRepository.findById(100L)).thenReturn(Optional.of(transfer));
+        when(stockTransferRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(transfer));
 
         assertThatThrownBy(() -> stockTransferService.receiveTransfer(100L, request))
                 .isInstanceOf(ApiException.class)
@@ -497,11 +500,127 @@ class StockTransferServiceTest {
         );
         ReceiveStockTransferRequest request = new ReceiveStockTransferRequest(List.of(itemReq), null);
 
-        when(stockTransferRepository.findById(100L)).thenReturn(Optional.of(transfer));
+        when(stockTransferRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(transfer));
 
         assertThatThrownBy(() -> stockTransferService.receiveTransfer(100L, request))
                 .isInstanceOf(ApiException.class)
                 .hasMessageContaining("Cần kiểm đếm và xác nhận toàn bộ danh sách mặt hàng");
+    }
+
+    @Test
+    @DisplayName("Từ chối duyệt xuất khi ATP lúc duyệt không còn đủ (tồn đã bị giữ chỗ cho đơn bán), không trừ tồn")
+    void dispatchTransfer_ThrowsWhenAtpNoLongerSufficient() {
+        StockTransfer transfer = StockTransfer.builder()
+                .id(100L)
+                .transferNumber("TRF-20261110-0001")
+                .sourceWarehouse(warehouseSource)
+                .destinationWarehouse(warehouseDest)
+                .status(StockTransferStatus.DRAFT)
+                .items(new ArrayList<>())
+                .build();
+        // Hai dòng cùng sản phẩm: tổng 30 phải được so với ATP, không so từng dòng riêng lẻ
+        transfer.addItem(StockTransferItem.builder().productId(501L).skuCode("SKU-01")
+                .quantity(new BigDecimal("15.000")).build());
+        transfer.addItem(StockTransferItem.builder().productId(501L).skuCode("SKU-01")
+                .quantity(new BigDecimal("15.000")).build());
+
+        when(stockTransferRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(transfer));
+        // OnHand 40 nhưng 20 đã giữ chỗ cho đơn bán: ATP còn 20 < 30
+        when(stockService.getAtp(501L, 1L))
+                .thenReturn(StockAtpResponse.of(501L, 1L, new BigDecimal("40.000"), new BigDecimal("20.000")));
+
+        assertThatThrownBy(() -> stockTransferService.dispatchTransfer(100L))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("không đủ tồn khả dụng để duyệt xuất");
+        verify(stockDeductionService, never()).deductStock(any(), anyString());
+        assertThat(transfer.getStatus()).isEqualTo(StockTransferStatus.DRAFT);
+    }
+
+    @Test
+    @DisplayName("Từ chối cập nhật lệnh khi vị trí nguồn không thuộc kho nguồn")
+    void updateTransfer_ThrowsWhenSourceBinNotInSourceWarehouse() {
+        StockTransfer transfer = StockTransfer.builder()
+                .id(100L)
+                .transferNumber("TRF-20261110-0001")
+                .sourceWarehouse(warehouseSource)
+                .destinationWarehouse(warehouseDest)
+                .status(StockTransferStatus.DRAFT)
+                .items(new ArrayList<>())
+                .build();
+
+        // binDest thuộc kho đích, không phải kho nguồn
+        CreateStockTransferItemRequest newItem = new CreateStockTransferItemRequest(
+                501L, "SKU-01", "Sản phẩm A", "Hộp", binDest.getId(), new BigDecimal("15.000"), null
+        );
+        UpdateStockTransferRequest request = new UpdateStockTransferRequest(Instant.now(), null, List.of(newItem));
+
+        when(stockTransferRepository.findById(100L)).thenReturn(Optional.of(transfer));
+        when(stockService.getAtp(501L, 1L))
+                .thenReturn(StockAtpResponse.of(501L, 1L, new BigDecimal("50.000"), BigDecimal.ZERO));
+        when(binLocationRepository.findById(binDest.getId())).thenReturn(Optional.of(binDest));
+
+        assertThatThrownBy(() -> stockTransferService.updateTransfer(100L, request))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("không thuộc kho nguồn");
+        verify(stockTransferRepository, never()).save(any(StockTransfer.class));
+    }
+
+    @Test
+    @DisplayName("Nhận hàng không cộng vào dòng tồn của lô khác hoặc dòng bị khóa tại ô đích, mà tạo dòng không theo lô")
+    void receiveTransfer_DoesNotMergeIntoLotTrackedOrLockedStockItem() {
+        StockTransfer transfer = StockTransfer.builder()
+                .id(100L)
+                .transferNumber("TRF-20261110-0001")
+                .sourceWarehouse(warehouseSource)
+                .destinationWarehouse(warehouseDest)
+                .status(StockTransferStatus.IN_TRANSIT)
+                .items(new ArrayList<>())
+                .build();
+        StockTransferItem item = StockTransferItem.builder()
+                .id(1001L)
+                .transfer(transfer)
+                .productId(501L)
+                .skuCode("SKU-01")
+                .quantity(new BigDecimal("20.000"))
+                .transferredQuantity(new BigDecimal("20.000"))
+                .build();
+        transfer.addItem(item);
+
+        StockItem lotRow = new StockItem();
+        lotRow.setId(7001L);
+        lotRow.setBinLocation(binDest);
+        lotRow.setProductId(501L);
+        lotRow.setLotNo("LOT-A");
+        lotRow.setExpDate(java.time.LocalDate.now().plusDays(10));
+        lotRow.setQuantity(new BigDecimal("5.000"));
+
+        StockItem lockedRow = new StockItem();
+        lockedRow.setId(7002L);
+        lockedRow.setBinLocation(binDest);
+        lockedRow.setProductId(501L);
+        lockedRow.setLocked(true);
+        lockedRow.setQuantity(new BigDecimal("3.000"));
+
+        ReceiveStockTransferRequest request = new ReceiveStockTransferRequest(List.of(
+                new ReceiveStockTransferItemRequest(1001L, new BigDecimal("20.000"), BigDecimal.ZERO, binDest.getId(), null)
+        ), null);
+
+        when(stockTransferRepository.findByIdForUpdate(100L)).thenReturn(Optional.of(transfer));
+        when(binLocationRepository.findById(binDest.getId())).thenReturn(Optional.of(binDest));
+        when(stockItemRepository.findAllByBinLocationIdAndProductIdWithPessimisticLock(binDest.getId(), 501L))
+                .thenReturn(List.of(lotRow, lockedRow));
+        when(stockItemRepository.save(any(StockItem.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(stockTransferRepository.save(any(StockTransfer.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        stockTransferService.receiveTransfer(100L, request);
+
+        assertThat(lotRow.getQuantity()).isEqualByComparingTo(new BigDecimal("5.000"));
+        assertThat(lockedRow.getQuantity()).isEqualByComparingTo(new BigDecimal("3.000"));
+        verify(stockItemRepository).save(argThat(s -> s.getId() == null
+                && s.getLotNo() == null
+                && s.getExpDate() == null
+                && !s.isLocked()
+                && s.getQuantity().compareTo(new BigDecimal("20.000")) == 0));
     }
 }
 

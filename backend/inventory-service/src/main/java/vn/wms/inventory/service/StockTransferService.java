@@ -42,6 +42,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -221,7 +222,8 @@ public class StockTransferService {
     @Transactional(readOnly = true)
     public StockTransferResponse getTransferById(Long id) {
         StockTransfer transfer = findTransferOrThrow(id);
-        checkWarehouseAccess(transfer.getSourceWarehouse().getId());
+        // Người phụ trách kho đích cũng phải xem được phiếu để kiểm đếm nhận hàng (WMS-13.2), giống phạm vi danh sách
+        checkWarehouseAccessAny(transfer.getSourceWarehouse().getId(), transfer.getDestinationWarehouse().getId());
         return StockTransferResponse.from(transfer);
     }
 
@@ -254,6 +256,9 @@ public class StockTransferService {
             if (itemReq.sourceBinLocationId() != null) {
                 sourceLoc = binLocationRepository.findById(itemReq.sourceBinLocationId())
                         .orElseThrow(() -> ApiException.notFound("Không tìm thấy vị trí có ID: " + itemReq.sourceBinLocationId()));
+                if (!sourceLoc.getWarehouse().getId().equals(transfer.getSourceWarehouse().getId())) {
+                    throw ApiException.badRequest("Vị trí " + sourceLoc.getCode() + " không thuộc kho nguồn " + transfer.getSourceWarehouse().getCode());
+                }
             }
 
             StockTransferItem item = StockTransferItem.builder()
@@ -312,7 +317,7 @@ public class StockTransferService {
      */
     @Transactional(rollbackFor = Exception.class)
     public StockTransferResponse dispatchTransfer(Long id) {
-        StockTransfer transfer = findTransferOrThrow(id);
+        StockTransfer transfer = findTransferForUpdateOrThrow(id);
 
         if (transfer.getStatus() != StockTransferStatus.DRAFT) {
             throw ApiException.badRequest("Chỉ có thể duyệt xuất chuyển đối với lệnh ở trạng thái DRAFT (hiện tại: " + transfer.getStatus() + ")");
@@ -323,6 +328,24 @@ public class StockTransferService {
         String currentUser = UserContext.getCurrentUser()
                 .map(CurrentUser::username)
                 .orElse("SYSTEM");
+
+        // Kiểm tra lại ATP lúc duyệt xuất: từ lúc lập phiếu tới giờ tồn có thể đã được giữ chỗ cho đơn bán.
+        // StockDeductionService chỉ chặn âm OnHand, không chặn lấy vào phần Reserved của đơn khác.
+        Map<Long, BigDecimal> requiredByProduct = new LinkedHashMap<>();
+        Map<Long, String> skuByProduct = new LinkedHashMap<>();
+        for (StockTransferItem item : transfer.getItems()) {
+            requiredByProduct.merge(item.getProductId(), item.getQuantity(), BigDecimal::add);
+            skuByProduct.putIfAbsent(item.getProductId(), item.getSkuCode());
+        }
+        for (Map.Entry<Long, BigDecimal> entry : requiredByProduct.entrySet()) {
+            StockAtpResponse atp = stockService.getAtp(entry.getKey(), transfer.getSourceWarehouse().getId());
+            BigDecimal availableAtp = atp != null && atp.atpQuantity() != null ? atp.atpQuantity() : BigDecimal.ZERO;
+            if (entry.getValue().compareTo(availableAtp) > 0) {
+                throw ApiException.badRequest(String.format(
+                        "Sản phẩm '%s' tại kho '%s' không đủ tồn khả dụng để duyệt xuất điều chuyển (Khả dụng: %s, Yêu cầu: %s)",
+                        skuByProduct.get(entry.getKey()), transfer.getSourceWarehouse().getName(), availableAtp, entry.getValue()));
+            }
+        }
 
         // Chuẩn bị danh sách trừ tồn kho với Khóa bi quan
         List<DeductStockItemRequest> deductItems = new ArrayList<>();
@@ -387,7 +410,7 @@ public class StockTransferService {
             throw ApiException.badRequest("Danh sách mặt hàng nhận không được để trống");
         }
 
-        StockTransfer transfer = findTransferOrThrow(id);
+        StockTransfer transfer = findTransferForUpdateOrThrow(id);
 
         if (transfer.getStatus() != StockTransferStatus.IN_TRANSIT) {
             throw ApiException.badRequest("Chỉ có thể nhận hàng đối với lệnh điều chuyển ở trạng thái IN_TRANSIT (hiện tại: " + transfer.getStatus() + ")");
@@ -467,10 +490,19 @@ public class StockTransferService {
                 List<StockItem> existingItems = stockItemRepository
                         .findAllByBinLocationIdAndProductIdWithPessimisticLock(destBinLocation.getId(), item.getProductId());
 
+                // Phiếu điều chuyển chưa lưu lô xuất đi nên hàng nhận về là hàng không theo lô: chỉ cộng dồn vào dòng
+                // không có số lô, không có hạn dùng và không bị khóa. Cộng vào dòng của một lô khác sẽ gán nhầm
+                // số lô, hạn dùng (sai FEFO, bị khóa khi lô đó hết hạn) hoặc nhập thẳng vào dòng đang bị khóa.
+                Optional<StockItem> mergeTarget = existingItems.stream()
+                        .filter(s -> (s.getLotNo() == null || s.getLotNo().isBlank())
+                                && s.getExpDate() == null
+                                && !s.isLocked())
+                        .findFirst();
+
                 StockItem destStockItem;
                 BigDecimal beforeQty;
-                if (!existingItems.isEmpty()) {
-                    destStockItem = existingItems.get(0);
+                if (mergeTarget.isPresent()) {
+                    destStockItem = mergeTarget.get();
                     beforeQty = destStockItem.getQuantity() != null ? destStockItem.getQuantity() : BigDecimal.ZERO;
                     destStockItem.setQuantity(beforeQty.add(receivedQty));
                 } else {
@@ -568,6 +600,11 @@ public class StockTransferService {
                 .orElseThrow(() -> ApiException.notFound("Không tìm thấy lệnh điều chuyển có ID: " + id));
     }
 
+    private StockTransfer findTransferForUpdateOrThrow(Long id) {
+        return stockTransferRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> ApiException.notFound("Không tìm thấy lệnh điều chuyển có ID: " + id));
+    }
+
     private synchronized String generateTransferNumber() {
         String dateStr = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
         String prefix = "TRF-" + dateStr + "-";
@@ -583,6 +620,17 @@ public class StockTransferService {
         UserContext.getCurrentUser().ifPresent(user -> {
             if (!UserContext.isGlobalScope(user) && !user.warehouseIds().contains(warehouseId)) {
                 throw ApiException.forbidden("Bạn không có quyền thao tác trên kho ID: " + warehouseId);
+            }
+        });
+    }
+
+    private void checkWarehouseAccessAny(Long sourceWarehouseId, Long destinationWarehouseId) {
+        UserContext.getCurrentUser().ifPresent(user -> {
+            if (!UserContext.isGlobalScope(user)
+                    && !user.warehouseIds().contains(sourceWarehouseId)
+                    && !user.warehouseIds().contains(destinationWarehouseId)) {
+                throw ApiException.forbidden("Bạn không có quyền xem lệnh điều chuyển giữa kho ID: "
+                        + sourceWarehouseId + " và kho ID: " + destinationWarehouseId);
             }
         });
     }

@@ -12,12 +12,15 @@ import vn.wms.common.messaging.WmsEvents;
 import vn.wms.common.messaging.event.OrderCreatedEvent;
 import vn.wms.common.messaging.event.OrderDispatchedEvent;
 import vn.wms.common.messaging.event.OrderLine;
+import vn.wms.common.messaging.event.OrderReceivedEvent;
 import vn.wms.common.messaging.event.OrderType;
+import vn.wms.common.messaging.event.ReceivedItemLine;
 import vn.wms.common.tenant.TenantContext;
 
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -65,6 +68,24 @@ class OrderEventsListenerTest {
 
         verify(handler).onOrderDispatched(event, "msg-2");
         verify(handler, never()).onOrderCreated(any(), any());
+    }
+
+    @Test
+    void dispatchesOrderReceivedToHandlers() throws Exception {
+        ReceivedItemLine receivedLine = new ReceivedItemLine(
+                100L, "SKU-001", "Thùng carton 60x40", new BigDecimal("50"), BigDecimal.ZERO,
+                "cái", null, null, "LOT-001", LocalDate.now(), LocalDate.now().plusMonths(6)
+        );
+        OrderReceivedEvent event = new OrderReceivedEvent(
+                10L, "GRN-20261108-0001", 1L, "PO-20261104-0001", 5L, 20L,
+                "staff", LocalDate.now(), Instant.parse("2026-11-08T10:00:00Z"), List.of(receivedLine)
+        );
+
+        listener.onMessage(message(objectMapper.writeValueAsBytes(event), WmsEvents.RoutingKeys.ORDER_RECEIVED, "msg-rec-1"));
+
+        verify(handler).onOrderReceived(event, "msg-rec-1");
+        verify(handler, never()).onOrderCreated(any(), any());
+        verify(handler, never()).onOrderDispatched(any(), any());
     }
 
     @Test

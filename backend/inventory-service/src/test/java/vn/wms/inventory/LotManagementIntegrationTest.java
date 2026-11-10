@@ -153,7 +153,18 @@ class LotManagementIntegrationTest {
     void fefoOrderingInStockDeduction() {
         LocalDate today = LocalDate.now();
 
-        // Lô 1: Hạn dùng sau 10 ngày (cận hạn hơn) -> Vị trí bin2 (tạo sau)
+        // Lô 1: Hạn dùng sau 90 ngày (xa hơn) -> Vị trí bin1 (lưu TRƯỚC nên có ID nhỏ hơn)
+        StockItem lotFarExpiry = new StockItem();
+        lotFarExpiry.setProductId(testProductId);
+        lotFarExpiry.setBinLocation(bin1);
+        lotFarExpiry.setLotNo("LOT-EXP-FAR");
+        lotFarExpiry.setMfgDate(today.minusMonths(1));
+        lotFarExpiry.setExpDate(today.plusDays(90));
+        lotFarExpiry.setQuantity(new BigDecimal("50.000"));
+        lotFarExpiry.setReservedQuantity(BigDecimal.ZERO);
+        lotFarExpiry = stockItemRepository.save(lotFarExpiry);
+
+        // Lô 2: Hạn dùng sau 10 ngày (gần hạn hơn) -> Vị trí bin2 (lưu SAU nên có ID lớn hơn)
         StockItem lotNearExpiry = new StockItem();
         lotNearExpiry.setProductId(testProductId);
         lotNearExpiry.setBinLocation(bin2);
@@ -164,16 +175,7 @@ class LotManagementIntegrationTest {
         lotNearExpiry.setReservedQuantity(BigDecimal.ZERO);
         lotNearExpiry = stockItemRepository.save(lotNearExpiry);
 
-        // Lô 2: Hạn dùng sau 90 ngày (xa hơn) -> Vị trí bin1 (tạo trước, id nhỏ hơn)
-        StockItem lotFarExpiry = new StockItem();
-        lotFarExpiry.setProductId(testProductId);
-        lotFarExpiry.setBinLocation(bin1);
-        lotFarExpiry.setLotNo("LOT-EXP-FAR");
-        lotFarExpiry.setMfgDate(today.minusMonths(1));
-        lotFarExpiry.setExpDate(today.plusDays(90));
-        lotFarExpiry.setQuantity(new BigDecimal("50.000"));
-        lotFarExpiry.setReservedQuantity(BigDecimal.ZERO);
-        lotFarExpiry = stockItemRepository.save(lotFarExpiry);
+        assertThat(lotNearExpiry.getId()).isGreaterThan(lotFarExpiry.getId());
 
         // Xuất kho 30 sản phẩm mà không chỉ định vị trí cụ thể -> Hệ thống tự động chọn theo FEFO
         DeductStockRequest req = new DeductStockRequest(
@@ -189,7 +191,7 @@ class LotManagementIntegrationTest {
 
         assertThat(response.totalDeductedQuantity()).isEqualByComparingTo("30.000");
         assertThat(response.deductedItems()).hasSize(1);
-        // Kiểm tra lô được trừ chính là LOT-EXP-NEAR (FEFO) mặc dù id của nó lớn hơn
+        // Kiểm tra lô được trừ chính là LOT-EXP-NEAR (FEFO) mặc dù ID của nó lớn hơn ID của LOT-EXP-FAR
         assertThat(response.deductedItems().get(0).lotNo()).isEqualTo("LOT-EXP-NEAR");
         assertThat(response.deductedItems().get(0).binLocationCode()).isEqualTo("WH-LOT-01-A-01-02");
 
@@ -315,7 +317,9 @@ class LotManagementIntegrationTest {
         mockMvc.perform(put("/api/inventory/lots/{id}/lock", item.getId())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(lockReq))
-                        .header("X-User-Name", "qlkho"))
+                        .header("X-User-Name", "qlkho")
+                        .header("X-User-Roles", "WAREHOUSE_MANAGER")
+                        .header("X-User-Warehouse-Ids", warehouse.getId().toString()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success", is(true)))
                 .andExpect(jsonPath("$.data.locked", is(true)))
@@ -323,7 +327,9 @@ class LotManagementIntegrationTest {
 
         // 2. Mở khóa lô hàng
         mockMvc.perform(put("/api/inventory/lots/{id}/unlock", item.getId())
-                        .header("X-User-Name", "qlkho"))
+                        .header("X-User-Name", "qlkho")
+                        .header("X-User-Roles", "WAREHOUSE_MANAGER")
+                        .header("X-User-Warehouse-Ids", warehouse.getId().toString()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success", is(true)))
                 .andExpect(jsonPath("$.data.locked", is(false)))
@@ -403,34 +409,38 @@ class LotManagementIntegrationTest {
     void inventoryLotsTable_recordsLotWithBinAndDates_andFindsByFefo() {
         LocalDate today = LocalDate.now();
 
-        // Tạo 2 bản ghi trên bảng inventory_lots
-        InventoryLot lot1 = new InventoryLot();
-        lot1.setLotNumber("INV-LOT-FEFO-01");
-        lot1.setProductId(testProductId);
-        lot1.setBinLocation(bin1);
-        lot1.setMfgDate(today.minusMonths(1));
-        lot1.setExpDate(today.plusDays(10)); // Hạn gần hơn
-        lot1.setQuantity(new BigDecimal("100.000"));
-        lot1.setReservedQuantity(BigDecimal.ZERO);
-        lot1.setLocked(false);
-        inventoryLotRepository.save(lot1);
+        // Lô 1: Hạn xa hơn (+90 ngày) lưu TRƯỚC -> có ID nhỏ hơn
+        InventoryLot lotFar = new InventoryLot();
+        lotFar.setLotNumber("INV-LOT-FEFO-FAR");
+        lotFar.setProductId(testProductId);
+        lotFar.setBinLocation(bin2);
+        lotFar.setMfgDate(today.minusMonths(1));
+        lotFar.setExpDate(today.plusDays(90));
+        lotFar.setQuantity(new BigDecimal("200.000"));
+        lotFar.setReservedQuantity(BigDecimal.ZERO);
+        lotFar.setLocked(false);
+        lotFar = inventoryLotRepository.save(lotFar);
 
-        InventoryLot lot2 = new InventoryLot();
-        lot2.setLotNumber("INV-LOT-FEFO-02");
-        lot2.setProductId(testProductId);
-        lot2.setBinLocation(bin2);
-        lot2.setMfgDate(today.minusMonths(1));
-        lot2.setExpDate(today.plusDays(90)); // Hạn xa hơn
-        lot2.setQuantity(new BigDecimal("200.000"));
-        lot2.setReservedQuantity(BigDecimal.ZERO);
-        lot2.setLocked(false);
-        inventoryLotRepository.save(lot2);
+        // Lô 2: Hạn gần hơn (+10 ngày) lưu SAU -> có ID lớn hơn
+        InventoryLot lotNear = new InventoryLot();
+        lotNear.setLotNumber("INV-LOT-FEFO-NEAR");
+        lotNear.setProductId(testProductId);
+        lotNear.setBinLocation(bin1);
+        lotNear.setMfgDate(today.minusMonths(1));
+        lotNear.setExpDate(today.plusDays(10));
+        lotNear.setQuantity(new BigDecimal("100.000"));
+        lotNear.setReservedQuantity(BigDecimal.ZERO);
+        lotNear.setLocked(false);
+        lotNear = inventoryLotRepository.save(lotNear);
 
-        // Kiểm tra tra cứu theo FEFO
-        List<InventoryLot> fefoLots = inventoryLotRepository.findAvailableLotsByFefo(testProductId, warehouse.getId());
+        assertThat(lotNear.getId()).isGreaterThan(lotFar.getId());
+
+        // Kiểm tra tra cứu theo FEFO (truyền ngày từ Java vào query)
+        List<InventoryLot> fefoLots = inventoryLotRepository.findAvailableLotsByFefo(testProductId, warehouse.getId(), today);
         assertThat(fefoLots).hasSize(2);
-        assertThat(fefoLots.get(0).getLotNumber()).isEqualTo("INV-LOT-FEFO-01");
-        assertThat(fefoLots.get(1).getLotNumber()).isEqualTo("INV-LOT-FEFO-02");
+        // Ưu tiên lô hết hạn sớm nhất (INV-LOT-FEFO-NEAR) dù có ID lớn hơn
+        assertThat(fefoLots.get(0).getLotNumber()).isEqualTo("INV-LOT-FEFO-NEAR");
+        assertThat(fefoLots.get(1).getLotNumber()).isEqualTo("INV-LOT-FEFO-FAR");
     }
 
     @Test
@@ -456,7 +466,76 @@ class LotManagementIntegrationTest {
         assertThat(after.getLockedReason()).contains("hết hạn sử dụng");
 
         // Khi tìm kiếm lô khả dụng để xuất (findAvailableLotsByFefo), lô hết hạn/bị khóa phải bị loại bỏ
-        List<InventoryLot> availableLots = inventoryLotRepository.findAvailableLotsByFefo(testProductId, warehouse.getId());
+        List<InventoryLot> availableLots = inventoryLotRepository.findAvailableLotsByFefo(testProductId, warehouse.getId(), today);
         assertThat(availableLots).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Đồng bộ trạng thái khóa và mở khóa giữa bảng inventory_lots và stock_items")
+    void syncLockAndUnlockBetweenInventoryLotsAndStockItems() {
+        LocalDate today = LocalDate.now();
+
+        // Tạo stock_item tương ứng
+        StockItem stockItem = new StockItem();
+        stockItem.setProductId(testProductId);
+        stockItem.setBinLocation(bin1);
+        stockItem.setLotNo("LOT-SYNC-01");
+        stockItem.setExpDate(today.plusMonths(6));
+        stockItem.setQuantity(new BigDecimal("50.000"));
+        stockItem.setLocked(false);
+        stockItem = stockItemRepository.save(stockItem);
+
+        // Tạo inventory_lot tương ứng
+        InventoryLot invLot = new InventoryLot();
+        invLot.setLotNumber("LOT-SYNC-01");
+        invLot.setProductId(testProductId);
+        invLot.setBinLocation(bin1);
+        invLot.setExpDate(today.plusMonths(6));
+        invLot.setQuantity(new BigDecimal("50.000"));
+        invLot.setLocked(false);
+        invLot = inventoryLotRepository.save(invLot);
+
+        // 1. Khóa thông qua inventoryLot ID
+        lotService.lockLot(invLot.getId(), new LockLotRequest("Nghi ngờ lỗi hàng"), "manager1");
+
+        InventoryLot invAfterLock = inventoryLotRepository.findById(invLot.getId()).orElseThrow();
+        StockItem stockAfterLock = stockItemRepository.findById(stockItem.getId()).orElseThrow();
+        assertThat(invAfterLock.isLocked()).isTrue();
+        assertThat(stockAfterLock.isLocked()).isTrue();
+
+        // 2. Mở khóa thông qua inventoryLot ID
+        lotService.unlockLot(invLot.getId(), "manager1");
+
+        InventoryLot invAfterUnlock = inventoryLotRepository.findById(invLot.getId()).orElseThrow();
+        StockItem stockAfterUnlock = stockItemRepository.findById(stockItem.getId()).orElseThrow();
+        assertThat(invAfterUnlock.isLocked()).isFalse();
+        assertThat(stockAfterUnlock.isLocked()).isFalse();
+    }
+
+    @Test
+    @DisplayName("Từ chối khóa lô khi người dùng không có quyền quản lý kho tương ứng (403 Forbidden)")
+    void lockLot_deniesUserWithoutWarehouseAccess() throws Exception {
+        LocalDate today = LocalDate.now();
+
+        StockItem item = new StockItem();
+        item.setProductId(testProductId);
+        item.setBinLocation(bin1);
+        item.setLotNo("LOT-FORBIDDEN-01");
+        item.setExpDate(today.plusMonths(6));
+        item.setQuantity(new BigDecimal("50.000"));
+        item.setLocked(false);
+        item = stockItemRepository.save(item);
+
+        LockLotRequest req = new LockLotRequest("Khóa thử");
+
+        // Gửi request với vai trò WAREHOUSE_MANAGER nhưng chỉ quản lý kho 99999 (không phải warehouse.getId())
+        mockMvc.perform(put("/api/inventory/lots/{id}/lock", item.getId())
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req))
+                        .header("X-User-Name", "manager_other_wh")
+                        .header("X-User-Roles", "WAREHOUSE_MANAGER")
+                        .header("X-User-Warehouse-Ids", "99999"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.success", is(false)));
     }
 }

@@ -202,4 +202,55 @@ class StockAtpTest {
                 .andExpect(jsonPath("$.data.items[1].atpQuantity", is(30.0)))
                 .andExpect(jsonPath("$.data.items[2].atpQuantity", is(0)));
     }
+
+    @Test
+    @DisplayName("Kiểm tra ATP tự động loại trừ các lô bị khóa (locked = true) và các lô đã hết hạn (expDate <= hôm nay)")
+    void testAtpExcludesLockedAndExpiredLots() throws Exception {
+        Long productId = 301L;
+        java.time.LocalDate today = java.time.LocalDate.now();
+
+        // 1. Lô hợp lệ: OnHand = 100, Reserved = 20 -> Đóng góp vào ATP: 80
+        StockItem validItem = new StockItem();
+        validItem.setProductId(productId);
+        validItem.setBinLocation(bin1);
+        validItem.setLotNo("LOT-VALID");
+        validItem.setExpDate(today.plusMonths(3));
+        validItem.setQuantity(new BigDecimal("100.000"));
+        validItem.setReservedQuantity(new BigDecimal("20.000"));
+        validItem.setLocked(false);
+        stockItemRepository.save(validItem);
+
+        // 2. Lô bị khóa thủ công (locked = true): OnHand = 50 -> BỊ LOẠI KHỎI ATP
+        StockItem lockedItem = new StockItem();
+        lockedItem.setProductId(productId);
+        lockedItem.setBinLocation(bin1);
+        lockedItem.setLotNo("LOT-LOCKED");
+        lockedItem.setExpDate(today.plusMonths(3));
+        lockedItem.setQuantity(new BigDecimal("50.000"));
+        lockedItem.setReservedQuantity(BigDecimal.ZERO);
+        lockedItem.setLocked(true);
+        lockedItem.setLockedReason("Lỗi bao bì");
+        stockItemRepository.save(lockedItem);
+
+        // 3. Lô đã hết hạn sử dụng (expDate <= today): OnHand = 40 -> BỊ LOẠI KHỎI ATP
+        StockItem expiredItem = new StockItem();
+        expiredItem.setProductId(productId);
+        expiredItem.setBinLocation(bin1);
+        expiredItem.setLotNo("LOT-EXPIRED");
+        expiredItem.setExpDate(today.minusDays(1));
+        expiredItem.setQuantity(new BigDecimal("40.000"));
+        expiredItem.setReservedQuantity(BigDecimal.ZERO);
+        expiredItem.setLocked(false);
+        stockItemRepository.save(expiredItem);
+
+        // ATP chỉ tính lô hợp lệ: OnHand = 100, Reserved = 20 -> ATP = 80
+        mockMvc.perform(get("/api/inventory/stock/atp")
+                        .param("productId", productId.toString())
+                        .param("warehouseId", warehouse1.getId().toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.success", is(true)))
+                .andExpect(jsonPath("$.data.onHandQuantity", is(100.0)))
+                .andExpect(jsonPath("$.data.reservedQuantity", is(20.0)))
+                .andExpect(jsonPath("$.data.atpQuantity", is(80.0)));
+    }
 }

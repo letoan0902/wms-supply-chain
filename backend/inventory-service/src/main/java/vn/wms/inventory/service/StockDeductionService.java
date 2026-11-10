@@ -17,12 +17,14 @@ import vn.wms.inventory.entity.StockItem;
 import vn.wms.inventory.entity.StockReservation;
 import vn.wms.inventory.entity.Warehouse;
 import vn.wms.inventory.repository.BinLocationRepository;
+import vn.wms.inventory.repository.InventoryLotRepository;
 import vn.wms.inventory.repository.StockItemRepository;
 import vn.wms.inventory.repository.StockReservationRepository;
 import vn.wms.inventory.repository.WarehouseRepository;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -40,6 +42,7 @@ public class StockDeductionService {
     private final StockReservationRepository stockReservationRepository;
     private final WarehouseRepository warehouseRepository;
     private final BinLocationRepository binLocationRepository;
+    private final InventoryLotRepository inventoryLotRepository;
 
     @Autowired(required = false)
     private WmsEventPublisher wmsEventPublisher;
@@ -47,11 +50,13 @@ public class StockDeductionService {
     public StockDeductionService(StockItemRepository stockItemRepository,
                                  StockReservationRepository stockReservationRepository,
                                  WarehouseRepository warehouseRepository,
-                                 BinLocationRepository binLocationRepository) {
+                                 BinLocationRepository binLocationRepository,
+                                 InventoryLotRepository inventoryLotRepository) {
         this.stockItemRepository = stockItemRepository;
         this.stockReservationRepository = stockReservationRepository;
         this.warehouseRepository = warehouseRepository;
         this.binLocationRepository = binLocationRepository;
+        this.inventoryLotRepository = inventoryLotRepository;
     }
 
     /**
@@ -106,7 +111,7 @@ public class StockDeductionService {
                 throw ApiException.badRequest("Số lượng cần trừ của sản phẩm ID " + productId + " phải lớn hơn 0");
             }
 
-            BigDecimal beforeStockTotal = stockItemRepository.getStockTotalsByProductIdAndWarehouseId(productId, warehouse.getId())
+            BigDecimal beforeStockTotal = stockItemRepository.getStockTotalsByProductIdAndWarehouseId(productId, warehouse.getId(), LocalDate.now())
                     .stream()
                     .findFirst()
                     .map(row -> (BigDecimal) row[0])
@@ -214,6 +219,7 @@ public class StockDeductionService {
         BigDecimal remainingReserved = processReservationFulfillment(orderId, stockItem, requiredQty);
 
         stockItemRepository.save(stockItem);
+        deductFromInventoryLot(stockItem, requiredQty);
 
         log.debug("Đã trừ {} đơn vị sản phẩm {} tại vị trí {}. Tồn OnHand còn: {}, Reserved còn: {}",
                 requiredQty, productId, stockItem.getBinLocation().getCode(), remainingQty, remainingReserved);
@@ -242,9 +248,9 @@ public class StockDeductionService {
             String orderNumber,
             Long warehouseId
     ) {
-        // Áp dụng Khóa bi quan trên toàn bộ các vị trí chứa sản phẩm này tại kho
+        // Áp dụng Khóa bi quan trên toàn bộ các vị trí chứa sản phẩm này tại kho (theo ngày hệ thống)
         List<StockItem> lockedItems = stockItemRepository
-                .findAvailableStockItemsByProductIdAndWarehouseIdWithPessimisticLock(productId, warehouseId);
+                .findAvailableStockItemsByProductIdAndWarehouseIdWithPessimisticLock(productId, warehouseId, LocalDate.now());
 
         BigDecimal totalOnHand = lockedItems.stream()
                 .map(StockItem::getQuantity)
@@ -272,6 +278,7 @@ public class StockDeductionService {
 
             BigDecimal remainingReserved = processReservationFulfillment(orderId, stockItem, alloc);
             stockItemRepository.save(stockItem);
+            deductFromInventoryLot(stockItem, alloc);
 
             details.add(new DeductedItemDetail(
                     stockItem.getId(),
@@ -373,6 +380,22 @@ public class StockDeductionService {
             } catch (Exception ex) {
                 log.warn("Không thể phát sự kiện inventory.updated cho SKU {}: {}", skuCode, ex.getMessage());
             }
+        }
+    }
+
+    private void deductFromInventoryLot(StockItem stockItem, BigDecimal quantity) {
+        if (stockItem == null || stockItem.getBinLocation() == null || stockItem.getLotNo() == null || quantity == null) {
+            return;
+        }
+        try {
+            inventoryLotRepository.findByLotNumberAndBinLocationIdAndProductId(
+                    stockItem.getLotNo(), stockItem.getBinLocation().getId(), stockItem.getProductId())
+                    .ifPresent(lot -> {
+                        lot.setQuantity(lot.getQuantity().subtract(quantity).max(BigDecimal.ZERO));
+                        inventoryLotRepository.save(lot);
+                    });
+        } catch (Exception ex) {
+            log.warn("Không thể trừ tồn tương ứng trong inventory_lots: {}", ex.getMessage());
         }
     }
 }

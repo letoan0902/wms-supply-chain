@@ -1,10 +1,17 @@
 package vn.wms.order.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.wms.common.api.PageResponse;
 import vn.wms.common.exception.ApiException;
+import vn.wms.common.messaging.WmsEventPublisher;
+import vn.wms.common.messaging.WmsEvents;
+import vn.wms.common.messaging.event.OrderReceivedEvent;
+import vn.wms.common.messaging.event.ReceivedItemLine;
 import vn.wms.order.dto.CreateGrnItemRequest;
 import vn.wms.order.dto.CreateGrnRequest;
 import vn.wms.order.dto.GrnResponse;
@@ -21,6 +28,7 @@ import vn.wms.order.repository.PurchaseOrderRepository;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -36,17 +44,24 @@ import java.util.stream.Collectors;
 @Service
 public class GoodsReceiptService {
 
+    private static final Logger log = LoggerFactory.getLogger(GoodsReceiptService.class);
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
 
     private final GoodsReceiptNoteRepository goodsReceiptNoteRepository;
     private final PurchaseOrderRepository purchaseOrderRepository;
+    private final PurchaseBillService purchaseBillService;
+
+    @Autowired(required = false)
+    private WmsEventPublisher wmsEventPublisher;
 
     private final ConcurrentHashMap<String, AtomicInteger> dailySequences = new ConcurrentHashMap<>();
 
     public GoodsReceiptService(GoodsReceiptNoteRepository goodsReceiptNoteRepository,
-                               PurchaseOrderRepository purchaseOrderRepository) {
+                               PurchaseOrderRepository purchaseOrderRepository,
+                               PurchaseBillService purchaseBillService) {
         this.goodsReceiptNoteRepository = goodsReceiptNoteRepository;
         this.purchaseOrderRepository = purchaseOrderRepository;
+        this.purchaseBillService = purchaseBillService;
     }
 
     /**
@@ -144,7 +159,9 @@ public class GoodsReceiptService {
                         + itemReq.mfgDate() + ") của sản phẩm " + poItem.getSkuCode());
             }
 
-            if (itemReq.expDate() != null && !itemReq.expDate().isAfter(receiptDate)) {
+            // Chỉ chặn hàng hết hạn khi có số lượng đạt chuẩn (accepted > 0).
+            // Nếu accepted = 0 (toàn bộ rejected), cho phép ghi nhận phiếu nhập để lưu vết hàng hết hạn bị trả lại/từ chối nhận.
+            if (accepted.compareTo(BigDecimal.ZERO) > 0 && itemReq.expDate() != null && !itemReq.expDate().isAfter(receiptDate)) {
                 throw ApiException.badRequest("Lô hàng '" + (batchNumber != null ? batchNumber : poItem.getSkuCode())
                         + "' đã hết hạn sử dụng (" + itemReq.expDate() + ") tính đến ngày nhận hàng (" + receiptDate + "), không thể nhập kho đạt chuẩn");
             }
@@ -200,7 +217,90 @@ public class GoodsReceiptService {
         purchaseOrderRepository.save(po);
         GoodsReceiptNote saved = goodsReceiptNoteRepository.save(grn);
 
+        // 4. Tự động tạo Hóa đơn mua (Purchase Bill) và cập nhật công nợ NCC (FR11, FR13 - WMS-10.3).
+        // Không nuốt lỗi: hóa đơn và công nợ phải cùng commit hoặc cùng rollback với GRN (lỗi trong createFromGrn
+        // đã đánh dấu transaction rollback-only, nuốt lỗi chỉ đổi thành UnexpectedRollbackException 500 lúc commit).
+        purchaseBillService.createFromGrn(saved);
+
+        // 5. Phát sự kiện order.received sau khi commit transaction (WMS-10.3)
+        publishOrderReceivedEvent(saved);
+
         return GrnResponse.from(saved);
+    }
+
+    /**
+     * Xác nhận phiếu nhập kho (chuyển từ DRAFT sang COMPLETED) nếu được lập ở dạng nháp.
+     */
+    @Transactional
+    public GrnResponse confirm(Long grnId, String confirmedBy) {
+        GoodsReceiptNote grn = goodsReceiptNoteRepository.findById(grnId)
+                .orElseThrow(() -> ApiException.notFound("Không tìm thấy phiếu nhập kho với ID: " + grnId));
+
+        if (grn.getStatus() == GoodsReceiptStatus.COMPLETED) {
+            throw ApiException.badRequest("Phiếu nhập kho '" + grn.getGrnNumber() + "' đã được xác nhận trước đó!");
+        }
+        if (grn.getStatus() == GoodsReceiptStatus.CANCELLED) {
+            throw ApiException.badRequest("Phiếu nhập kho '" + grn.getGrnNumber() + "' đã bị hủy, không thể xác nhận!");
+        }
+
+        grn.setStatus(GoodsReceiptStatus.COMPLETED);
+        if (confirmedBy != null && !confirmedBy.isBlank()) {
+            grn.setReceivedBy(confirmedBy.trim());
+        }
+
+        GoodsReceiptNote saved = goodsReceiptNoteRepository.save(grn);
+
+        purchaseBillService.createFromGrn(saved);
+
+        publishOrderReceivedEvent(saved);
+
+        return GrnResponse.from(saved);
+    }
+
+    private void publishOrderReceivedEvent(GoodsReceiptNote grn) {
+        if (wmsEventPublisher == null) {
+            log.info("WmsEventPublisher không khả dụng, bỏ qua gửi sự kiện '{}' cho phiếu nhập {}",
+                    WmsEvents.RoutingKeys.ORDER_RECEIVED, grn.getGrnNumber());
+            return;
+        }
+
+        List<ReceivedItemLine> lines = grn.getItems().stream()
+                .map(i -> new ReceivedItemLine(
+                        i.getProductId(),
+                        i.getSkuCode(),
+                        i.getProductName(),
+                        i.getAcceptedQuantity(),
+                        i.getRejectedQuantity(),
+                        i.getUom(),
+                        i.getLocationId(),
+                        i.getLocationCode(),
+                        i.getBatchNumber(),
+                        i.getMfgDate(),
+                        i.getExpDate()
+                ))
+                .toList();
+
+        OrderReceivedEvent event = new OrderReceivedEvent(
+                grn.getId(),
+                grn.getGrnNumber(),
+                grn.getPurchaseOrder() != null ? grn.getPurchaseOrder().getId() : null,
+                grn.getPoNumber(),
+                grn.getWarehouseId(),
+                grn.getSupplier() != null ? grn.getSupplier().getId() : null,
+                grn.getReceivedBy(),
+                grn.getReceiptDate(),
+                Instant.now(),
+                lines
+        );
+
+        try {
+            wmsEventPublisher.publishAfterCommit(WmsEvents.RoutingKeys.ORDER_RECEIVED, event);
+            log.info("Đã phát sự kiện '{}' sau commit cho phiếu nhập kho {}",
+                    WmsEvents.RoutingKeys.ORDER_RECEIVED, grn.getGrnNumber());
+        } catch (Exception ex) {
+            log.warn("Không thể phát sự kiện '{}' cho phiếu nhập kho {}: {}",
+                    WmsEvents.RoutingKeys.ORDER_RECEIVED, grn.getGrnNumber(), ex.getMessage());
+        }
     }
 
     /**

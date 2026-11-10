@@ -44,6 +44,9 @@ public final class WmsEvents {
         /** order-service: đơn hàng đã xuất kho (GDN xác nhận). */
         public static final String ORDER_DISPATCHED = "order.dispatched";
 
+        /** order-service: hàng đã nhập kho (GRN xác nhận, hoàn tất hoặc từng phần - WMS-10.3). */
+        public static final String ORDER_RECEIVED = "order.received";
+
         /** inventory-service: tồn kho thay đổi (nhập, xuất, điều chỉnh). */
         public static final String INVENTORY_UPDATED = "inventory.updated";
 
@@ -51,7 +54,7 @@ public final class WmsEvents {
         public static final String ALERT_LOW_STOCK = "alert.low-stock";
 
         /** Danh sách mọi routing key sự kiện, dùng cho test và tài liệu. */
-        public static final List<String> ALL = List.of(ORDER_CREATED, ORDER_DISPATCHED, INVENTORY_UPDATED, ALERT_LOW_STOCK);
+        public static final List<String> ALL = List.of(ORDER_CREATED, ORDER_DISPATCHED, ORDER_RECEIVED, INVENTORY_UPDATED, ALERT_LOW_STOCK);
 
         /** Mẫu binding: mọi sự kiện của domain đơn hàng. */
         public static final String ORDER_ALL = "order.#";

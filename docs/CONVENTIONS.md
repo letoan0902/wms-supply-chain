@@ -175,6 +175,7 @@ Quy tắc:
 - Đặt tên: lớp `PascalCase`, phương thức và biến `camelCase`, hằng số `UPPER_SNAKE_CASE`, gói chữ thường.
 - Dùng constructor injection với trường `final`, không dùng `@Autowired` trên trường.
 - Lỗi nghiệp vụ ném `ApiException`; `GlobalExceptionHandler` (module `common`) chuyển mọi ngoại lệ thành response chuẩn ở mục 3.
+  Lỗi cần trả thêm chi tiết cho frontend (ví dụ `PLAN_LIMIT_EXCEEDED`) dùng `ApiException.withData(code, message, data)`, `data` nằm trong trường `data` của response.
   Mọi service dùng chung `ApiResponse` và `PageResponse` của module `common`, không tự định nghĩa lại.
 - Validate đầu vào bằng Jakarta Validation (`@Valid`, `@NotNull`, `@Positive`...).
 - Hai lớp log: audit log nghiệp vụ (ai làm gì trên chứng từ nào) và error log kỹ thuật. Log bằng SLF4J với tham số (`log.info("Confirmed GRN {}", grnNo)`), không dùng `System.out`, không log mật khẩu, token hay dữ liệu cá nhân.

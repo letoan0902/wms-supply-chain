@@ -149,7 +149,16 @@ auth-service là nơi duy nhất ghi trạng thái thuê bao. Mỗi khi thuê ba
 | `maxUsers`, `maxWarehouses`, `maxSkus`, `maxAiRequests` | `50`, `20`, `-1`, `500` | `-1` là không giới hạn |
 | `apiAccess` | `true` | |
 
-Gateway và `PlanLimitChecker` (WMS-23.2) chỉ đọc khóa này. Lượt AI trong tháng đếm ở khóa `wms:usage:ai:{companyId}:{yyyyMM}`.
+Gateway và `PlanLimitChecker` (WMS-23.2) chỉ đọc khóa này. Tên khóa và tên trường nằm ở `vn.wms.common.plan.SubscriptionCacheKeys`, auth-service dùng lại các hằng số đó khi ghi.
+
+Các khóa mức sử dụng do service nghiệp vụ ghi (qua `PlanLimitChecker`), auth-service đọc để trả `usage`:
+
+| Khóa | Kiểu | Nội dung |
+| --- | --- | --- |
+| `wms:usage:{companyId}` | hash | `users`, `warehouses`, `skus`: số bản ghi đang hoạt động, ghi lại mỗi lần kiểm tra giới hạn và sau mỗi lần tạo, bật lại, ngưng, xóa |
+| `wms:usage:ai:{companyId}:{yyyyMM}` | chuỗi số | Lượt AI trong tháng (giờ Việt Nam), tự hết hạn sau 40 ngày |
+
+Thiếu hash `wms:subscription:{companyId}` hoặc không kết nối được Redis thì cả gateway lẫn `PlanLimitChecker` đều cho qua (fail open): gateway không gắn `X-Plan`, không chặn; `PlanLimitChecker` cho tạo và ghi một dòng cảnh báo. auth-service ghi lại hash ở mỗi lần đăng nhập và định kỳ 5 phút nên khoảng thiếu dữ liệu ngắn.
 
 ### 2.8. Màn hình mới
 
@@ -520,6 +529,17 @@ Người làm: Toàn. Ngày: 10/11. Jira: TASK-143. Phụ thuộc: WMS-23.1.
 1. Gói `FREE`: tạo tài khoản thứ 4, kho thứ 2, SKU thứ 201 đều nhận `403 PLAN_LIMIT_EXCEEDED` với `limit`, `current`, `max` đúng.
 2. Thuê bao hết hạn: `GET` vẫn chạy, `POST`, `PUT`, `PATCH`, `DELETE` nghiệp vụ nhận `403 SUBSCRIPTION_EXPIRED`; đăng nhập và các API thuê bao, thanh toán vẫn dùng được.
 3. Gia hạn xong, request ghi kế tiếp chạy được ngay, không cần đăng nhập lại.
+
+**Cách làm (phần 1, nhánh `wms-23-2`)**
+
+- `common`, gói `vn.wms.common.plan`: `PlanLimitChecker` tự đăng ký khi service có bean `StringRedisTemplate`; tắt bằng `app.plan-limit.enabled=false` (test không có Redis đặt sẵn giá trị này). Service tiêm dạng tùy chọn (`ObjectProvider<PlanLimitChecker>`).
+  - `assertCanCreate(limit, currentCount)`: `currentCount` là số bản ghi đang hoạt động trước khi tạo; `currentCount >= max` (và `max != -1`) thì ném `PLAN_LIMIT_EXCEEDED`, `data` là `{limit, current, max, plan}`.
+  - `assertCanCreateIfTenant(limit, supplier)`: bỏ qua khi chưa có doanh nghiệp trong ngữ cảnh, dùng cho service chưa tách dữ liệu (product-service).
+  - `reportUsage(limit, count)`, `incrementMonthlyAiUsage()`, `assertAiQuota()` cho ai-service.
+- `ApiException.withData(code, message, data)`: `GlobalExceptionHandler` trả `data` kèm lỗi.
+- Gateway: `SubscriptionGlobalFilter` (order -99, ngay sau bộ lọc JWT) gắn `X-Plan` và chặn ghi khi `EXPIRED`. Danh sách ngoại lệ ở `gateway.subscription.write-allowed-paths`; tắt cả bộ lọc bằng `GATEWAY_SUBSCRIPTION_ENABLED=false`. Bộ lọc chỉ có tác dụng khi bật kiểm tra JWT (mới có `X-Company-Id`).
+- inventory-service kiểm tra số kho khi tạo kho đang hoạt động và khi bật lại kho đã ngưng (PATCH trạng thái hoặc PUT có `active: true`); product-service kiểm tra số SKU khi tạo và khi bật lại SKU đã xóa mềm. product-service hiện đếm SKU trên toàn bảng cho tới khi xong WMS-22.4b.
+- Phần 2 (auth-service): kiểm tra số người dùng khi tạo hoặc mở khóa tài khoản, trả bốn số `usage` trong `GET /api/auth/subscription` từ `wms:usage:{companyId}`, ghi lại hash thuê bao định kỳ.
 
 ### WMS-23.3a [Frontend] Trang giới thiệu và bảng giá
 

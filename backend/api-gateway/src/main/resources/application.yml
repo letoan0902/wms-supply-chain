@@ -105,6 +105,19 @@ gateway:
       - /actuator/**
       # Handshake WebSocket từ trình duyệt không mang được header Bearer; notification-service kiểm tra JWT ở frame STOMP CONNECT.
       - /ws-wms/**
+  # Thuê bao (WMS-23.2, xem SubscriptionGlobalFilter): gắn X-Plan từ hash Redis wms:subscription:{companyId} do auth-service
+  # ghi, và khi thuê bao EXPIRED thì chặn POST, PUT, PATCH, DELETE (403 SUBSCRIPTION_EXPIRED) trừ các đường dẫn dưới đây.
+  # Thiếu hash hoặc Redis lỗi thì cho qua. Chỉ có tác dụng khi gateway.jwt.enabled=true (mới có X-Company-Id).
+  subscription:
+    enabled: ${GATEWAY_SUBSCRIPTION_ENABLED:true}
+    write-allowed-paths:
+      - /api/auth/login
+      - /api/auth/refresh
+      - /api/auth/logout
+      - /api/users/change-password
+      - /api/auth/users/change-password
+      - /api/auth/subscription/**
+      - /api/auth/payments/**
   rate-limit:
     # Tắt (RATE_LIMIT_ENABLED=false) khi chạy kiểm thử tải JMeter (WMS-19.2) để gateway không chặn kịch bản.
     enabled: ${RATE_LIMIT_ENABLED:true}

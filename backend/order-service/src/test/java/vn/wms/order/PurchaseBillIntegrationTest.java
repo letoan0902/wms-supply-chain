@@ -8,10 +8,12 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 import vn.wms.order.dto.CreateGrnItemRequest;
 import vn.wms.order.dto.CreateGrnRequest;
+import vn.wms.order.dto.GrnResponse;
 import vn.wms.order.dto.RecordBillPaymentRequest;
 import vn.wms.order.entity.GoodsReceiptNote;
 import vn.wms.order.entity.OrderStatus;
@@ -22,15 +24,18 @@ import vn.wms.order.entity.PurchaseOrderItem;
 import vn.wms.order.entity.Supplier;
 import vn.wms.order.entity.SupplierTransaction;
 import vn.wms.order.entity.SupplierTransactionType;
+import vn.wms.order.repository.GoodsReceiptNoteRepository;
 import vn.wms.order.repository.PurchaseBillRepository;
 import vn.wms.order.repository.PurchaseOrderRepository;
 import vn.wms.order.repository.SupplierRepository;
 import vn.wms.order.repository.SupplierTransactionRepository;
 import vn.wms.order.service.GoodsReceiptService;
+import vn.wms.order.service.PurchaseBillService;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasSize;
@@ -66,6 +71,12 @@ class PurchaseBillIntegrationTest {
 
     @Autowired
     private GoodsReceiptService goodsReceiptService;
+
+    @Autowired
+    private PurchaseBillService purchaseBillService;
+
+    @Autowired
+    private GoodsReceiptNoteRepository goodsReceiptNoteRepository;
 
     private Supplier createSupplier(String code, String name, BigDecimal initialDebt) {
         Supplier s = new Supplier();
@@ -284,5 +295,61 @@ class PurchaseBillIntegrationTest {
                         .param("status", "UNPAID"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content").isArray());
+    }
+
+    @Test
+    @DisplayName("Gọi tạo hóa đơn lần nữa cho cùng GRN (thử lại) không sinh hóa đơn thứ hai và không cộng công nợ thêm")
+    void testCreateFromGrnTwice_DoesNotDuplicateBillOrDebt() {
+        Supplier supplier = createSupplier("NCC-PB-05", "Công ty Giấy Hải Phòng", BigDecimal.ZERO);
+        PurchaseOrder po = createApprovedPo(supplier, new BigDecimal("10.000"), new BigDecimal("100000.00")); // 1,000,000 VNĐ
+
+        GrnResponse grn = goodsReceiptService.create(new CreateGrnRequest(
+                po.getId(), LocalDate.now(), null,
+                List.of(new CreateGrnItemRequest(
+                        po.getItems().get(0).getId(), new BigDecimal("10.000"), BigDecimal.ZERO, null,
+                        null, null, null, null, null, null
+                ))
+        ), "admin");
+
+        GoodsReceiptNote saved = goodsReceiptNoteRepository.findById(grn.id()).orElseThrow();
+        purchaseBillService.createFromGrn(saved);
+
+        assertThat(purchaseBillRepository.findByPurchaseOrderIdOrderByIdDesc(po.getId())).hasSize(1);
+        assertThat(supplierRepository.findById(supplier.getId()).orElseThrow().getCurrentDebt())
+                .isEqualByComparingTo(new BigDecimal("1000000.00"));
+    }
+
+    @Test
+    @DisplayName("Sau khi khởi động lại (bộ đếm trong bộ nhớ rỗng) mã hóa đơn mới không trùng mã đã lưu trong ngày")
+    @SuppressWarnings("unchecked")
+    void testBillNumberAfterRestart_DoesNotReuseExistingNumber() {
+        Map<String, ?> dailySequences = (Map<String, ?>) ReflectionTestUtils.getField(purchaseBillService, "dailySequences");
+        dailySequences.clear();
+
+        Supplier supplier = createSupplier("NCC-PB-06", "Công ty Nhựa Bình Minh", BigDecimal.ZERO);
+        PurchaseOrder po1 = createApprovedPo(supplier, new BigDecimal("10.000"), new BigDecimal("1000.00"));
+        goodsReceiptService.create(new CreateGrnRequest(
+                po1.getId(), LocalDate.now(), null,
+                List.of(new CreateGrnItemRequest(
+                        po1.getItems().get(0).getId(), new BigDecimal("10.000"), BigDecimal.ZERO, null,
+                        null, null, null, null, null, null
+                ))
+        ), "admin");
+        String firstNumber = purchaseBillRepository.findByPurchaseOrderIdOrderByIdDesc(po1.getId()).get(0).getBillNumber();
+
+        // Giả lập restart: xóa bộ đếm trong bộ nhớ của service
+        dailySequences.clear();
+
+        PurchaseOrder po2 = createApprovedPo(supplier, new BigDecimal("5.000"), new BigDecimal("1000.00"));
+        goodsReceiptService.create(new CreateGrnRequest(
+                po2.getId(), LocalDate.now(), null,
+                List.of(new CreateGrnItemRequest(
+                        po2.getItems().get(0).getId(), new BigDecimal("5.000"), BigDecimal.ZERO, null,
+                        null, null, null, null, null, null
+                ))
+        ), "admin");
+        String secondNumber = purchaseBillRepository.findByPurchaseOrderIdOrderByIdDesc(po2.getId()).get(0).getBillNumber();
+
+        assertThat(secondNumber).startsWith("PB-").isNotEqualTo(firstNumber);
     }
 }

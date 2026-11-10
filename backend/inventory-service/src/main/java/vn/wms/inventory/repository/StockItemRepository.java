@@ -271,4 +271,17 @@ public interface StockItemRepository extends JpaRepository<StockItem, Long> {
             @Param("binLocationId") Long binLocationId,
             @Param("productId") Long productId,
             @Param("lotNo") String lotNo);
+
+    /**
+     * Khóa bi quan các dòng tồn cùng (ô, sản phẩm, số lô) khi nhập kho (WMS-10.3), để phiếu nhập không ghi đè
+     * số lượng vừa bị phiếu xuất hoặc phiếu nhập khác thay đổi. Trả về danh sách (dòng cũ nhất trước) vì
+     * stock_items chưa có ràng buộc duy nhất trên bộ khóa này.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT s FROM StockItem s WHERE s.binLocation.id = :binLocationId AND s.productId = :productId AND " +
+           "((:lotNo IS NULL AND s.lotNo IS NULL) OR s.lotNo = :lotNo) ORDER BY s.id ASC")
+    List<StockItem> findByBinLocationIdAndProductIdAndLotNoForUpdate(
+            @Param("binLocationId") Long binLocationId,
+            @Param("productId") Long productId,
+            @Param("lotNo") String lotNo);
 }

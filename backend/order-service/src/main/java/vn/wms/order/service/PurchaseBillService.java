@@ -154,7 +154,9 @@ public class PurchaseBillService {
      */
     @Transactional
     public PurchaseBillResponse recordPayment(Long billId, RecordBillPaymentRequest request, String username) {
-        PurchaseBill bill = purchaseBillRepository.findById(billId)
+        // Khóa hóa đơn trước rồi mới khóa nhà cung cấp: hai lần thanh toán đồng thời phải xếp hàng,
+        // lần sau đọc remainingAmount đã giảm nên không thể trả vượt số còn nợ.
+        PurchaseBill bill = purchaseBillRepository.findByIdForUpdate(billId)
                 .orElseThrow(() -> ApiException.notFound("Không tìm thấy Hóa đơn mua hàng với ID: " + billId));
 
         if (bill.getStatus() == PurchaseBillStatus.PAID) {
@@ -262,11 +264,29 @@ public class PurchaseBillService {
         );
     }
 
+    /**
+     * Sinh mã hóa đơn PB-YYYYMMDD-XXXX. Bộ đếm trong bộ nhớ được khởi tạo từ mã lớn nhất đã lưu trong ngày
+     * (giống mã GRN) và bỏ qua mã đã tồn tại, để sau khi restart không sinh lại PB-...-0001 trùng khóa duy nhất.
+     */
     private String generateBillNumber(LocalDate date) {
         String dateStr = date.format(DATE_FORMATTER);
-        AtomicInteger seq = dailySequences.computeIfAbsent(dateStr, k -> new AtomicInteger(0));
-        int nextVal = seq.incrementAndGet();
-        return String.format("PB-%s-%04d", dateStr, nextVal);
+        String prefix = "PB-" + dateStr + "-";
+        AtomicInteger seq = dailySequences.computeIfAbsent(dateStr, k -> new AtomicInteger(
+                purchaseBillRepository.findTopByBillNumberStartingWithOrderByBillNumberDesc(prefix)
+                        .map(PurchaseBill::getBillNumber)
+                        .map(latest -> {
+                            try {
+                                return Integer.parseInt(latest.substring(prefix.length()));
+                            } catch (RuntimeException e) {
+                                return 0;
+                            }
+                        })
+                        .orElse(0)));
+        String candidate;
+        do {
+            candidate = String.format("%s%04d", prefix, seq.incrementAndGet());
+        } while (purchaseBillRepository.existsByBillNumber(candidate));
+        return candidate;
     }
 
     private LocalDate calculateDueDate(LocalDate billDate, String paymentTerms) {

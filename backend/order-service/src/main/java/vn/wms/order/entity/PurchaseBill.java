@@ -13,6 +13,7 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
@@ -30,7 +31,9 @@ import java.util.List;
  * Hóa đơn mua hàng (Purchase Bill) liên kết GRN và theo dõi công nợ NCC (FR11, FR13 - WMS-10.3).
  */
 @Entity
-@Table(name = "purchase_bills")
+@Table(name = "purchase_bills", uniqueConstraints = {
+        @UniqueConstraint(name = "uk_purchase_bills_grn", columnNames = {"grn_id"})
+})
 @Getter
 @Setter
 @NoArgsConstructor

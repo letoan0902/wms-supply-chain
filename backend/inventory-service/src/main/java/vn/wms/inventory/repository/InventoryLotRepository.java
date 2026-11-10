@@ -22,6 +22,14 @@ public interface InventoryLotRepository extends JpaRepository<InventoryLot, Long
     Optional<InventoryLot> findByCompanyIdAndLotNumberAndBinLocationIdAndProductId(
             Long companyId, String lotNumber, Long binLocationId, Long productId);
 
+    /** Khóa bi quan dòng lô theo (số lô, ô, sản phẩm) khi nhập kho để hai phiếu nhập đồng thời không ghi đè nhau. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT l FROM InventoryLot l WHERE l.lotNumber = :lotNumber AND l.binLocation.id = :binLocationId AND l.productId = :productId")
+    Optional<InventoryLot> findByLotNumberAndBinLocationIdAndProductIdForUpdate(
+            @Param("lotNumber") String lotNumber,
+            @Param("binLocationId") Long binLocationId,
+            @Param("productId") Long productId);
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("SELECT l FROM InventoryLot l WHERE l.id = :id")
     Optional<InventoryLot> findByIdWithLock(@Param("id") Long id);

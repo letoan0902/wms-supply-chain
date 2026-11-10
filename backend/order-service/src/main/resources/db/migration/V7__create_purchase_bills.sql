@@ -21,11 +21,12 @@ CREATE TABLE purchase_bills (
     created_by        VARCHAR(50)    NULL,
     updated_by        VARCHAR(50)    NULL,
     PRIMARY KEY (id),
+    -- Mỗi phiếu nhập kho chỉ sinh đúng một hóa đơn (chống tạo trùng và cộng công nợ hai lần)
+    CONSTRAINT uk_purchase_bills_grn UNIQUE (grn_id),
     CONSTRAINT fk_purchase_bills_grn FOREIGN KEY (grn_id) REFERENCES goods_receipt_notes (id),
     CONSTRAINT fk_purchase_bills_po FOREIGN KEY (po_id) REFERENCES purchase_orders (id),
     CONSTRAINT fk_purchase_bills_supplier FOREIGN KEY (supplier_id) REFERENCES suppliers (id),
     INDEX idx_purchase_bills_number (bill_number),
-    INDEX idx_purchase_bills_grn (grn_id),
     INDEX idx_purchase_bills_po (po_id),
     INDEX idx_purchase_bills_supplier (supplier_id),
     INDEX idx_purchase_bills_status (status),

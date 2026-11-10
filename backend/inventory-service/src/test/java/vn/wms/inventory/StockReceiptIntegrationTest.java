@@ -211,4 +211,78 @@ class StockReceiptIntegrationTest {
         StockAtpResponse atp = stockService.getAtp(productId, warehouse.getId());
         assertThat(atp.onHandQuantity()).isEqualByComparingTo(new BigDecimal("100.000"));
     }
+
+    @Test
+    @DisplayName("Cùng một GRN giao lại (messageId khác, ví dụ sau restart) chỉ được cộng tồn và trừ Incoming một lần")
+    void testDuplicateGrnEvent_ProcessedOnlyOnce() {
+        Long productId = 103L;
+        Long poId = 503L;
+        incomingStockRepository.save(IncomingStock.builder()
+                .warehouse(warehouse)
+                .productId(productId)
+                .skuCode("SKU-DUP-01")
+                .productName("Sản phẩm trùng")
+                .orderId(poId)
+                .orderNumber("PO-20261108-0003")
+                .quantity(new BigDecimal("100.000"))
+                .uom("cái")
+                .status("INCOMING")
+                .build());
+
+        ReceivedItemLine line = new ReceivedItemLine(
+                productId, "SKU-DUP-01", "Sản phẩm trùng",
+                new BigDecimal("50.000"), BigDecimal.ZERO, "cái",
+                binLocation.getId(), binLocation.getCode(),
+                "LOT-DUP-01", null, null
+        );
+        OrderReceivedEvent event = new OrderReceivedEvent(
+                4L, "GRN-20261108-0004", poId, "PO-20261108-0003",
+                warehouse.getId(), 10L, "wh_staff",
+                LocalDate.now(), Instant.now(), List.of(line)
+        );
+
+        stockReceiptService.processOrderReceived(event, "msg-dup-a");
+        stockReceiptService.processOrderReceived(event, "msg-dup-b");
+
+        assertThat(stockService.getAtp(productId, warehouse.getId()).onHandQuantity())
+                .isEqualByComparingTo(new BigDecimal("50.000"));
+        assertThat(incomingStockRepository.findByOrderIdAndProductId(poId, productId).orElseThrow().getQuantity())
+                .isEqualByComparingTo(new BigDecimal("50.000"));
+        assertThat(inventoryLotRepository
+                .findByLotNumberAndBinLocationIdAndProductId("LOT-DUP-01", binLocation.getId(), productId)
+                .orElseThrow().getQuantity())
+                .isEqualByComparingTo(new BigDecimal("50.000"));
+    }
+
+    @Test
+    @DisplayName("Dòng không có số lô: stock_items và inventory_lots dùng cùng số lô sinh từ GRN; số lượng từ chối không cộng vào tồn")
+    void testReceiptWithoutBatch_UsesSameLotNumberInBothTables() {
+        Long productId = 104L;
+
+        ReceivedItemLine line = new ReceivedItemLine(
+                productId, "SKU-NOLOT-01", "Sản phẩm không lô",
+                new BigDecimal("30.000"), new BigDecimal("5.000"), "cái",
+                binLocation.getId(), binLocation.getCode(),
+                null, null, null
+        );
+        OrderReceivedEvent event = new OrderReceivedEvent(
+                5L, "GRN-20261108-0005", null, null,
+                warehouse.getId(), 10L, "wh_staff",
+                LocalDate.now(), Instant.now(), List.of(line)
+        );
+
+        stockReceiptService.processOrderReceived(event, "msg-nolot-1");
+
+        List<StockItem> stockItems = stockItemRepository.findByBinLocationId(binLocation.getId()).stream()
+                .filter(s -> productId.equals(s.getProductId()))
+                .toList();
+        assertThat(stockItems).hasSize(1);
+        assertThat(stockItems.get(0).getQuantity()).isEqualByComparingTo(new BigDecimal("30.000"));
+        assertThat(stockItems.get(0).getLotNo()).isEqualTo("LOT-GRN-20261108-0005");
+
+        InventoryLot lot = inventoryLotRepository
+                .findByLotNumberAndBinLocationIdAndProductId("LOT-GRN-20261108-0005", binLocation.getId(), productId)
+                .orElseThrow();
+        assertThat(lot.getQuantity()).isEqualByComparingTo(new BigDecimal("30.000"));
+    }
 }

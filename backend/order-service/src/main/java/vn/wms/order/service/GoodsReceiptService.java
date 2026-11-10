@@ -217,12 +217,10 @@ public class GoodsReceiptService {
         purchaseOrderRepository.save(po);
         GoodsReceiptNote saved = goodsReceiptNoteRepository.save(grn);
 
-        // 4. Tự động tạo Hóa đơn mua (Purchase Bill) và cập nhật công nợ NCC (FR11, FR13 - WMS-10.3)
-        try {
-            purchaseBillService.createFromGrn(saved);
-        } catch (Exception ex) {
-            log.warn("Không thể tự động tạo Purchase Bill cho GRN {}: {}", saved.getGrnNumber(), ex.getMessage());
-        }
+        // 4. Tự động tạo Hóa đơn mua (Purchase Bill) và cập nhật công nợ NCC (FR11, FR13 - WMS-10.3).
+        // Không nuốt lỗi: hóa đơn và công nợ phải cùng commit hoặc cùng rollback với GRN (lỗi trong createFromGrn
+        // đã đánh dấu transaction rollback-only, nuốt lỗi chỉ đổi thành UnexpectedRollbackException 500 lúc commit).
+        purchaseBillService.createFromGrn(saved);
 
         // 5. Phát sự kiện order.received sau khi commit transaction (WMS-10.3)
         publishOrderReceivedEvent(saved);
@@ -252,11 +250,7 @@ public class GoodsReceiptService {
 
         GoodsReceiptNote saved = goodsReceiptNoteRepository.save(grn);
 
-        try {
-            purchaseBillService.createFromGrn(saved);
-        } catch (Exception ex) {
-            log.warn("Không thể tự động tạo Purchase Bill cho GRN {}: {}", saved.getGrnNumber(), ex.getMessage());
-        }
+        purchaseBillService.createFromGrn(saved);
 
         publishOrderReceivedEvent(saved);
 

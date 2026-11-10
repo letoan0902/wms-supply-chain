@@ -11,11 +11,13 @@ import vn.wms.inventory.entity.BinLocation;
 import vn.wms.inventory.entity.IncomingStock;
 import vn.wms.inventory.entity.InventoryLot;
 import vn.wms.inventory.entity.StockItem;
+import vn.wms.inventory.entity.StockReceipt;
 import vn.wms.inventory.entity.Warehouse;
 import vn.wms.inventory.repository.BinLocationRepository;
 import vn.wms.inventory.repository.IncomingStockRepository;
 import vn.wms.inventory.repository.InventoryLotRepository;
 import vn.wms.inventory.repository.StockItemRepository;
+import vn.wms.inventory.repository.StockReceiptRepository;
 import vn.wms.inventory.repository.WarehouseRepository;
 
 import java.math.BigDecimal;
@@ -36,17 +38,20 @@ public class StockReceiptService {
     private final InventoryLotRepository inventoryLotRepository;
     private final BinLocationRepository binLocationRepository;
     private final WarehouseRepository warehouseRepository;
+    private final StockReceiptRepository stockReceiptRepository;
 
     public StockReceiptService(IncomingStockRepository incomingStockRepository,
                                StockItemRepository stockItemRepository,
                                InventoryLotRepository inventoryLotRepository,
                                BinLocationRepository binLocationRepository,
-                               WarehouseRepository warehouseRepository) {
+                               WarehouseRepository warehouseRepository,
+                               StockReceiptRepository stockReceiptRepository) {
         this.incomingStockRepository = incomingStockRepository;
         this.stockItemRepository = stockItemRepository;
         this.inventoryLotRepository = inventoryLotRepository;
         this.binLocationRepository = binLocationRepository;
         this.warehouseRepository = warehouseRepository;
+        this.stockReceiptRepository = stockReceiptRepository;
     }
 
     /**
@@ -74,6 +79,26 @@ public class StockReceiptService {
             return;
         }
 
+        // Chống cộng tồn hai lần cho cùng một GRN (idempotency lưu trong DB, không mất khi restart):
+        // sự kiện giao lại thấy GRN đã có trong stock_receipts thì bỏ qua. Hai lần giao đồng thời thì lần sau
+        // vấp ràng buộc duy nhất (company_id, grn_id), transaction rollback, lần thử lại sẽ thấy bản ghi và bỏ qua.
+        if (event.grnId() != null) {
+            if (stockReceiptRepository.existsByGrnId(event.grnId())) {
+                log.info("Bỏ qua sự kiện order.received: phiếu nhập {} (grnId={}) đã được cộng tồn trước đó (messageId={})",
+                        event.grnNumber(), event.grnId(), messageId);
+                return;
+            }
+            StockReceipt receipt = new StockReceipt();
+            receipt.setGrnId(event.grnId());
+            receipt.setGrnNumber(event.grnNumber());
+            receipt.setPoId(event.poId());
+            receipt.setWarehouseId(warehouse.getId());
+            receipt.setMessageId(messageId);
+            stockReceiptRepository.saveAndFlush(receipt);
+        } else {
+            log.warn("Sự kiện order.received của phiếu nhập {} thiếu grnId, không kiểm tra được trùng lặp", event.grnNumber());
+        }
+
         for (ReceivedItemLine line : items) {
             BigDecimal acceptedQty = line.acceptedQuantity() != null ? line.acceptedQuantity() : BigDecimal.ZERO;
             if (acceptedQty.compareTo(BigDecimal.ZERO) <= 0) {
@@ -88,11 +113,17 @@ public class StockReceiptService {
             // 2. Xác định vị trí ô/kệ lưu kho (Bin Location)
             BinLocation binLocation = resolveBinLocation(warehouse, line.locationId(), line.locationCode());
 
+            // Cùng một số lô cho stock_items và inventory_lots để LotService đồng bộ khóa/trừ tồn giữa hai bảng
+            // theo (số lô, ô, sản phẩm); dòng không có số lô thì dùng số lô sinh từ mã GRN.
+            String lotNumber = (line.batchNumber() != null && !line.batchNumber().isBlank())
+                    ? line.batchNumber().trim()
+                    : ("LOT-" + event.grnNumber());
+
             // 3. Tăng tồn OnHand vào bảng stock_items
-            updateStockItem(warehouse, binLocation, line, acceptedQty);
+            updateStockItem(binLocation, line, lotNumber, acceptedQty);
 
             // 4. Lưu tồn chi tiết theo Lô & Vị trí ô vào bảng inventory_lots (WMS-10.2 - FR12)
-            updateInventoryLot(event.grnNumber(), binLocation, line, acceptedQty);
+            updateInventoryLot(binLocation, line, lotNumber, acceptedQty);
         }
 
         log.info("Đã hoàn tất xử lý tăng OnHand và giảm Incoming stock cho phiếu nhập GRN '{}'", event.grnNumber());
@@ -103,7 +134,8 @@ public class StockReceiptService {
             return;
         }
 
-        Optional<IncomingStock> incOpt = incomingStockRepository.findByOrderIdAndProductId(poId, productId);
+        Optional<IncomingStock> incOpt = incomingStockRepository.findByOrderIdAndProductIdForUpdate(poId, productId)
+                .stream().findFirst();
         if (incOpt.isPresent()) {
             IncomingStock inc = incOpt.get();
             BigDecimal currentQty = inc.getQuantity() != null ? inc.getQuantity() : BigDecimal.ZERO;
@@ -117,7 +149,7 @@ public class StockReceiptService {
                     poNumber, skuCode, acceptedQty, newQty);
         } else {
             // Trường hợp không tìm thấy theo orderId chính xác, tìm bất kỳ incoming stock nào của sản phẩm tại kho
-            List<IncomingStock> list = incomingStockRepository.findByWarehouseIdAndProductIdAndStatus(warehouseId, productId, "INCOMING");
+            List<IncomingStock> list = incomingStockRepository.findByWarehouseIdAndProductIdAndStatusForUpdate(warehouseId, productId, "INCOMING");
             if (!list.isEmpty()) {
                 IncomingStock inc = list.get(0);
                 BigDecimal currentQty = inc.getQuantity() != null ? inc.getQuantity() : BigDecimal.ZERO;
@@ -166,11 +198,10 @@ public class StockReceiptService {
         return binLocationRepository.save(defaultBin);
     }
 
-    private void updateStockItem(Warehouse warehouse, BinLocation binLocation, ReceivedItemLine line, BigDecimal quantity) {
-        String lotNo = (line.batchNumber() != null && !line.batchNumber().isBlank()) ? line.batchNumber().trim() : null;
-
-        Optional<StockItem> opt = stockItemRepository.findByBinLocationIdAndProductIdAndLotNo(
-                binLocation.getId(), line.productId(), lotNo);
+    private void updateStockItem(BinLocation binLocation, ReceivedItemLine line, String lotNo, BigDecimal quantity) {
+        // Khóa bi quan dòng tồn để không ghi đè số lượng do phiếu xuất/nhập khác đang cập nhật đồng thời
+        Optional<StockItem> opt = stockItemRepository.findByBinLocationIdAndProductIdAndLotNoForUpdate(
+                binLocation.getId(), line.productId(), lotNo).stream().findFirst();
 
         if (opt.isPresent()) {
             StockItem stockItem = opt.get();
@@ -200,12 +231,8 @@ public class StockReceiptService {
         }
     }
 
-    private void updateInventoryLot(String grnNumber, BinLocation binLocation, ReceivedItemLine line, BigDecimal quantity) {
-        String lotNumber = (line.batchNumber() != null && !line.batchNumber().isBlank())
-                ? line.batchNumber().trim()
-                : ("LOT-" + grnNumber);
-
-        Optional<InventoryLot> opt = inventoryLotRepository.findByLotNumberAndBinLocationIdAndProductId(
+    private void updateInventoryLot(BinLocation binLocation, ReceivedItemLine line, String lotNumber, BigDecimal quantity) {
+        Optional<InventoryLot> opt = inventoryLotRepository.findByLotNumberAndBinLocationIdAndProductIdForUpdate(
                 lotNumber, binLocation.getId(), line.productId());
 
         if (opt.isPresent()) {

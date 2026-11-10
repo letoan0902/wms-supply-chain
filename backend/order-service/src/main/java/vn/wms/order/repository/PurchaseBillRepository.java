@@ -1,8 +1,10 @@
 package vn.wms.order.repository;
 
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -18,6 +20,15 @@ import java.util.Optional;
 public interface PurchaseBillRepository extends JpaRepository<PurchaseBill, Long> {
 
     Optional<PurchaseBill> findByBillNumber(String billNumber);
+
+    boolean existsByBillNumber(String billNumber);
+
+    Optional<PurchaseBill> findTopByBillNumberStartingWithOrderByBillNumberDesc(String prefix);
+
+    /** Khóa bi quan (SELECT ... FOR UPDATE) hóa đơn khi ghi nhận thanh toán, chống hai lần trả đồng thời vượt số còn nợ. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT b FROM PurchaseBill b WHERE b.id = :id")
+    Optional<PurchaseBill> findByIdForUpdate(@Param("id") Long id);
 
     Optional<PurchaseBill> findByGoodsReceiptNoteId(Long grnId);
 

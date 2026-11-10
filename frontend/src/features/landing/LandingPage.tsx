@@ -27,7 +27,7 @@ export default function LandingPage() {
     }
   }
 
-  // Nếu người dùng vào route /pricing hoặc có hash #pricing, tự động cuộn đến section tương ứng
+  // Nếu người dùng vào route /pricing hoặc có hash #pricing / #trial-register, tự động cuộn đến section tương ứng
   useEffect(() => {
     if (location.pathname === '/pricing' || location.hash === '#pricing') {
       setTimeout(() => scrollToSection('pricing'), 150)
@@ -47,6 +47,7 @@ export default function LandingPage() {
         <HeroSection
           onExplorePricing={() => scrollToSection('pricing')}
           onExploreFeatures={() => scrollToSection('features')}
+          onRegisterTrial={() => scrollToSection('trial-register')}
         />
 
         {/* Platform Numbers & Stats */}
@@ -56,7 +57,10 @@ export default function LandingPage() {
         <FeaturesSection />
 
         {/* Pricing Tiers & Billing Switcher */}
-        <PricingSection onScrollToComparison={() => scrollToSection('comparison')} />
+        <PricingSection
+          onScrollToComparison={() => scrollToSection('comparison')}
+          onScrollToTrial={() => scrollToSection('trial-register')}
+        />
 
         {/* Deep Comparison Matrix */}
         <ComparisonSection />
@@ -64,13 +68,15 @@ export default function LandingPage() {
         {/* Customer Stories */}
         <TestimonialsSection />
 
-        {/* Frequently Asked Questions */}
+        {/* Frequently Asked Questions & Trial Registration Form */}
         <FaqSection />
       </main>
 
       {/* Call to action & Footer */}
-      <CtaFooter onScrollTo={scrollToSection} />
+      <CtaFooter
+        onScrollTo={scrollToSection}
+        onRegisterTrial={() => scrollToSection('trial-register')}
+      />
     </div>
   )
 }
-

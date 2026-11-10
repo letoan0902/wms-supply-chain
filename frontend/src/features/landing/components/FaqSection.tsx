@@ -94,7 +94,10 @@ export default function FaqSection() {
         {/* 2-Column Split Layout */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10 items-start">
           {/* CỘT 1: Form Đăng ký tài khoản dùng thử cho Doanh nghiệp */}
-          <div className="lg:col-span-6 bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-xs relative">
+          <div
+            id="trial-register"
+            className="lg:col-span-6 bg-white rounded-2xl border border-slate-200 p-6 sm:p-8 shadow-xs relative scroll-mt-24"
+          >
             {/* Header Form */}
             <div className="mb-6">
               <div className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200 px-3 py-0.5 text-xs font-medium text-emerald-700 mb-2.5">

@@ -8,14 +8,15 @@ import {
   ThunderboltOutlined,
 } from '@ant-design/icons'
 import { Button } from 'antd'
-import { Link } from 'react-router-dom'
+
 
 interface HeroSectionProps {
   onExplorePricing: () => void
   onExploreFeatures: () => void
+  onRegisterTrial?: () => void
 }
 
-export default function HeroSection({ onExplorePricing, onExploreFeatures }: HeroSectionProps) {
+export default function HeroSection({ onExplorePricing, onExploreFeatures, onRegisterTrial }: HeroSectionProps) {
   return (
     <section className="relative overflow-hidden bg-gradient-to-b from-blue-50/60 via-white to-slate-50 pt-12 pb-20 lg:pt-20 lg:pb-28">
       {/* Background Decorative Blobs */}
@@ -48,16 +49,17 @@ export default function HeroSection({ onExplorePricing, onExploreFeatures }: Her
 
             {/* Action Buttons */}
             <div className="mt-8 flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4">
-              <Link to="/login" className="w-full sm:w-auto">
+              <div className="w-full sm:w-auto">
                 <Button
                   type="primary"
                   size="large"
                   icon={<ThunderboltOutlined />}
+                  onClick={onRegisterTrial}
                   className="h-12 w-full sm:w-auto px-7 rounded-xl text-base font-semibold shadow-md shadow-blue-500/20 hover:scale-105 transition-transform"
                 >
                   Dùng thử 30 ngày Miễn phí
                 </Button>
-              </Link>
+              </div>
               <Button
                 size="large"
                 onClick={onExplorePricing}

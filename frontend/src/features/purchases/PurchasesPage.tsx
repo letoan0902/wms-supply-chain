@@ -2,6 +2,7 @@ import {
   BarcodeOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
+  DollarOutlined,
   ExclamationCircleOutlined,
   EyeOutlined,
   FileDoneOutlined,
@@ -45,6 +46,7 @@ import PurchaseOrderForm from './components/PurchaseOrderForm'
 import RejectPurchaseOrderModal from './components/RejectPurchaseOrderModal'
 import GoodsReceiptTable from './components/GoodsReceiptTable'
 import SmartGoodsReceiptForm from './components/SmartGoodsReceiptForm'
+import PurchaseBillsTable from './components/PurchaseBillsTable'
 import * as purchasesApi from './purchasesApi'
 import { STATUS_CONFIG } from './statusConfig'
 import type {
@@ -70,8 +72,8 @@ export default function PurchasesPage() {
       ['ADMIN', 'PURCHASING'].includes(r)
     ) ?? false
 
-  // Tab active: 'list' | 'create' | 'grn' | 'create-grn'
-  const [activeTab, setActiveTab] = useState<'list' | 'create' | 'grn' | 'create-grn'>('list')
+  // Tab active: 'list' | 'create' | 'grn' | 'create-grn' | 'bills'
+  const [activeTab, setActiveTab] = useState<'list' | 'create' | 'grn' | 'create-grn' | 'bills'>('list')
   const [formKey, setFormKey] = useState(0)
   const [grnFormKey, setGrnFormKey] = useState(0)
   const [selectedPoIdForGrn, setSelectedPoIdForGrn] = useState<number | undefined>(undefined)
@@ -633,7 +635,7 @@ export default function PurchasesPage() {
       <Tabs
         activeKey={activeTab}
         destroyInactiveTabPane
-        onChange={(k) => setActiveTab(k as 'list' | 'create')}
+        onChange={(k) => setActiveTab(k as typeof activeTab)}
         items={[
           {
             key: 'list',
@@ -779,6 +781,20 @@ export default function PurchasesPage() {
             children: (
               <Card variant="borderless" className="shadow-2xs">
                 <GoodsReceiptTable onOpenCreateGrn={handleOpenCreateGrnTab} />
+              </Card>
+            ),
+          },
+          {
+            key: 'bills',
+            label: (
+              <span className="flex items-center gap-1.5 px-1 font-medium text-amber-700">
+                <DollarOutlined />
+                <span>Hóa đơn mua & Công nợ (WMS-10.5)</span>
+              </span>
+            ),
+            children: (
+              <Card variant="borderless" className="shadow-2xs">
+                <PurchaseBillsTable />
               </Card>
             ),
           },

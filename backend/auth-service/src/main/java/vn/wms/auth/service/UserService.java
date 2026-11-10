@@ -18,6 +18,7 @@ import vn.wms.auth.entity.Role;
 import vn.wms.auth.entity.User;
 import vn.wms.auth.repository.RoleRepository;
 import vn.wms.auth.repository.UserRepository;
+import vn.wms.auth.subscription.service.UserPlanLimitGuard;
 import vn.wms.common.api.ErrorCode;
 import vn.wms.common.api.PageResponse;
 import vn.wms.common.constant.Roles;
@@ -35,15 +36,18 @@ public class UserService {
     private final RoleRepository roleRepository;
     private final CompanyRepository companyRepository;
     private final PasswordEncoder passwordEncoder;
+    private final UserPlanLimitGuard userPlanLimitGuard;
 
     public UserService(UserRepository userRepository,
                        RoleRepository roleRepository,
                        CompanyRepository companyRepository,
-                       PasswordEncoder passwordEncoder) {
+                       PasswordEncoder passwordEncoder,
+                       UserPlanLimitGuard userPlanLimitGuard) {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.companyRepository = companyRepository;
         this.passwordEncoder = passwordEncoder;
+        this.userPlanLimitGuard = userPlanLimitGuard;
     }
 
     // ==========================================
@@ -130,6 +134,7 @@ public class UserService {
 
     /**
      * Quản trị viên tạo mới người dùng và phân quyền kho. Tài khoản mới luôn thuộc doanh nghiệp của ADMIN đang tạo.
+     * Vượt giới hạn số người dùng của gói thì trả {@code PLAN_LIMIT_EXCEEDED} (WMS-23.2).
      */
     @Transactional
     public UserDetailResponse createUser(CreateUserRequest request, Long companyId) {
@@ -147,6 +152,9 @@ public class UserService {
 
         Set<Role> roles = resolveRoles(request.roles());
 
+        // Tài khoản mới luôn ở trạng thái bật nên tính vào giới hạn số người dùng của gói
+        userPlanLimitGuard.assertCanAddEnabledUser(companyId);
+
         User user = new User();
         user.setUsername(request.username().trim());
         user.setEmail(request.email().trim().toLowerCase());
@@ -161,6 +169,7 @@ public class UserService {
         }
 
         User saved = userRepository.save(user);
+        userPlanLimitGuard.reportUsage(companyId);
         return mapToUserDetailResponse(saved);
     }
 
@@ -207,11 +216,19 @@ public class UserService {
             user.setWarehouseIds(new HashSet<>(request.warehouseIds()));
         }
 
+        boolean enabledChanged = request.enabled() != null && request.enabled() != user.isEnabled();
+        if (enabledChanged && request.enabled()) {
+            // Mở khóa tài khoản cũng tính là có thêm một người dùng
+            userPlanLimitGuard.assertCanAddEnabledUser(companyId);
+        }
         if (request.enabled() != null) {
             user.setEnabled(request.enabled());
         }
 
         User updated = userRepository.save(user);
+        if (enabledChanged) {
+            userPlanLimitGuard.reportUsage(companyId);
+        }
         return mapToUserDetailResponse(updated);
     }
 
@@ -227,7 +244,7 @@ public class UserService {
     }
 
     /**
-     * Khóa hoặc mở khóa tài khoản người dùng.
+     * Khóa hoặc mở khóa tài khoản người dùng. Mở khóa tính là có thêm một người dùng nên phải qua giới hạn của gói.
      */
     @Transactional
     public UserDetailResponse updateUserStatus(Long id, boolean enabled, String currentAdminUsername,
@@ -244,8 +261,16 @@ public class UserService {
             }
         }
 
+        boolean enabledChanged = enabled != user.isEnabled();
+        if (enabledChanged && enabled) {
+            userPlanLimitGuard.assertCanAddEnabledUser(companyId);
+        }
+
         user.setEnabled(enabled);
         User updated = userRepository.save(user);
+        if (enabledChanged) {
+            userPlanLimitGuard.reportUsage(companyId);
+        }
         return mapToUserDetailResponse(updated);
     }
 

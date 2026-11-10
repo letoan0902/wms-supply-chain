@@ -36,15 +36,16 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
-    /** Lỗi nghiệp vụ chủ động ném ra từ service. */
+    /** Lỗi nghiệp vụ chủ động ném ra từ service; dữ liệu chi tiết của lỗi (nếu có) nằm trong {@code data}. */
     @ExceptionHandler(ApiException.class)
-    public ResponseEntity<ApiResponse<Void>> handleApiException(ApiException ex) {
+    public ResponseEntity<ApiResponse<Object>> handleApiException(ApiException ex) {
         if (ex.getHttpStatus() >= 500) {
             log.error("Business error {}: {}", ex.getErrorCode(), ex.getMessage(), ex);
         } else {
             log.debug("Business error {}: {}", ex.getErrorCode(), ex.getMessage());
         }
-        return ResponseEntity.status(ex.getHttpStatus()).body(ApiResponse.error(ex.getErrorCode(), ex.getMessage()));
+        return ResponseEntity.status(ex.getHttpStatus())
+                .body(ApiResponse.error(ex.getErrorCode(), ex.getMessage(), ex.getData()));
     }
 
     /** Vi phạm ràng buộc khi dùng {@code @Validated} trên tham số (query param, path variable). */

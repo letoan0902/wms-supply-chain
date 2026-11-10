@@ -52,7 +52,7 @@ public class JwtAuthenticationGlobalFilter implements GlobalFilter, Ordered {
     static final String HEADER_USER_WAREHOUSE_IDS = "X-User-Warehouse-Ids";
     /** ID doanh nghiệp của người gọi, module common (TenantFilter) đọc header này ở mỗi service. */
     static final String HEADER_COMPANY_ID = "X-Company-Id";
-    /** Gói dịch vụ của doanh nghiệp, do gateway gắn ở WMS-23.2; hiện chỉ gỡ giá trị client tự gửi. */
+    /** Gói dịch vụ: bộ lọc này gỡ giá trị client tự gửi, SubscriptionGlobalFilter gắn lại từ Redis. */
     static final String HEADER_PLAN = "X-Plan";
     static final String CLAIM_COMPANY_ID = "companyId";
     private static final String BEARER_PREFIX = "Bearer ";

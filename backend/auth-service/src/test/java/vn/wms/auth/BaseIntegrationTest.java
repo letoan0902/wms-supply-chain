@@ -11,6 +11,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.http.MediaType;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -95,6 +96,13 @@ public abstract class BaseIntegrationTest {
     @MockBean(name = "redisTemplate")
     protected RedisTemplate<String, String> redisTemplate;
 
+    /**
+     * {@code PlanLimitChecker} của module common dùng {@link StringRedisTemplate}; giả lập dùng chung hai đối tượng
+     * thao tác bên dưới để bên ghi (auth-service) và bên đọc (checker) nhìn thấy cùng một dữ liệu.
+     */
+    @MockBean
+    protected StringRedisTemplate stringRedisTemplate;
+
     @MockBean
     protected ValueOperations<String, String> valueOperations;
 
@@ -111,6 +119,8 @@ public abstract class BaseIntegrationTest {
 
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+        when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(stringRedisTemplate.opsForHash()).thenReturn(hashOperations);
 
         doAnswer(invocation -> {
             String key = invocation.getArgument(0);
@@ -118,6 +128,14 @@ public abstract class BaseIntegrationTest {
             mockRedisHashMap.computeIfAbsent(key, k -> new HashMap<>()).putAll(m);
             return null;
         }).when(hashOperations).putAll(anyString(), any());
+
+        doAnswer(invocation -> {
+            String key = invocation.getArgument(0);
+            mockRedisHashMap.computeIfAbsent(key, k -> new HashMap<>())
+                    .put(String.valueOf(invocation.getArgument(1, Object.class)),
+                            String.valueOf(invocation.getArgument(2, Object.class)));
+            return null;
+        }).when(hashOperations).put(anyString(), any(), any());
 
         when(hashOperations.entries(anyString())).thenAnswer(invocation -> {
             String key = invocation.getArgument(0);

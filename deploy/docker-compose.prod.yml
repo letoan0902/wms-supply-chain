@@ -23,6 +23,7 @@
 #      để chỉ trang https://<DOMAIN> mở được kết nối và frame STOMP CONNECT phải mang JWT hợp lệ (JWT_SECRET đã có sẵn
 #      qua x-backend-env của file gốc).
 #   6. inventory-service: đặt TENANT_DEFAULT_COMPANY_ID rỗng, bỏ doanh nghiệp mặc định chỉ dành cho môi trường phát triển.
+#   7. auth-service: PAYOS_MOCK (mặc định true) và địa chỉ trả về của PayOS theo DOMAIN (WMS-23.5a).
 #
 # Yêu cầu Docker Compose v2.24.4 trở lên vì file dùng hai thẻ YAML của Compose:
 #   !reset      xóa giá trị kế thừa từ file gốc (hỗ trợ từ v2.24.0)
@@ -135,6 +136,17 @@ services:
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-https://${DOMAIN:-wms.toanmarket.me}}
       GATEWAY_JWT_ENABLED: ${GATEWAY_JWT_ENABLED:-true}
       TENANT_DEFAULT_COMPANY_ID: ""
+
+  # --------------------------------------------------------------------------
+  # auth-service: thanh toán PayOS (WMS-23.5a). Ba khóa đọc từ .env (file gốc đã truyền vào container).
+  # PAYOS_MOCK mặc định vẫn true để máy chủ chạy được khi chưa có khóa; có khóa thật thì đặt PAYOS_MOCK=false trong .env.
+  # Địa chỉ trả về và hủy mặc định là trang kết quả thanh toán trên tên miền production.
+  # --------------------------------------------------------------------------
+  auth-service:
+    environment:
+      PAYOS_MOCK: ${PAYOS_MOCK:-true}
+      PAYOS_RETURN_URL: ${PAYOS_RETURN_URL:-https://${DOMAIN:-wms.toanmarket.me}/payment/result}
+      PAYOS_CANCEL_URL: ${PAYOS_CANCEL_URL:-https://${DOMAIN:-wms.toanmarket.me}/payment/result}
 
   # --------------------------------------------------------------------------
   # inventory-service: file gốc đặt TENANT_DEFAULT_COMPANY_ID mặc định 1 cho môi trường phát triển.

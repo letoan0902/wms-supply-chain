@@ -173,6 +173,8 @@ export default function CreateTransferModal({
   // Xử lý khi thay đổi kho nguồn
   const handleSourceWarehouseChange = (whId: number) => {
     setSourceBins([])
+    // Ô/kệ đã chọn thuộc kho nguồn cũ, phải bỏ chọn để không gửi vị trí của kho khác lên backend
+    setItems((prev) => prev.map((it) => ({ ...it, sourceBinLocationId: undefined })))
     // Tự động kiểm tra lại ATP cho toàn bộ các dòng đã chọn sản phẩm
     items.forEach((row) => {
       if (row.productId) {

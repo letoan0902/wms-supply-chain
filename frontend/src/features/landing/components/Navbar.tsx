@@ -67,7 +67,7 @@ export default function Navbar({ onScrollTo }: NavbarProps) {
             </Button>
           </Link>
           <button
-            onClick={() => handleNavClick('pricing')}
+            onClick={() => handleNavClick('trial-register')}
             className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:bg-blue-700 hover:shadow"
           >
             Dùng thử 30 ngày
@@ -108,7 +108,7 @@ export default function Navbar({ onScrollTo }: NavbarProps) {
                 </Button>
               </Link>
               <button
-                onClick={() => handleNavClick('pricing')}
+                onClick={() => handleNavClick('trial-register')}
                 className="w-full rounded-lg bg-blue-600 py-2.5 text-center text-sm font-semibold text-white shadow hover:bg-blue-700"
               >
                 Dùng thử 30 ngày miễn phí

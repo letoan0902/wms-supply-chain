@@ -6,8 +6,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -19,13 +18,12 @@ import java.io.IOException;
 import java.util.List;
 
 /**
- * Đọc header Authorization dạng Bearer, nếu token hợp lệ thì đặt Authentication vào SecurityContext.
- * Token sai/hết hạn KHÔNG ném lỗi ở đây: request đi tiếp như chưa đăng nhập, endpoint nào yêu cầu xác thực
- * sẽ trả 401 qua AuthenticationEntryPoint.
+ * Bộ lọc đọc Authorization Bearer, giải mã JWT bằng JwtService và đặt Authentication vào SecurityContext.
+ * Token không hợp lệ hoặc hết hạn sẽ bị bỏ qua (request tiếp tục không có thông tin xác thực).
  */
+@Slf4j
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-    private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
     private static final String BEARER_PREFIX = "Bearer ";
 
     private final JwtService jwtService;
@@ -45,12 +43,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 Claims claims = jwtService.parse(header.substring(BEARER_PREFIX.length()), redisTemplate);
                 Long userId = claims.get("userId", Long.class);
                 Long companyId = jwtService.companyIdOf(claims);
+                String plan = jwtService.planOf(claims);
                 String username = claims.getSubject();
                 List<SimpleGrantedAuthority> authorities = jwtService.rolesOf(claims).stream()
                         .map(role -> new SimpleGrantedAuthority(Roles.toAuthority(role)))
                         .toList();
 
-                UserPrincipal userPrincipal = new UserPrincipal(userId, username, companyId, authorities);
+                UserPrincipal userPrincipal = new UserPrincipal(userId, username, companyId, plan, authorities);
                 UsernamePasswordAuthenticationToken authenticationToken = new UsernamePasswordAuthenticationToken(userPrincipal, null, authorities);
                 SecurityContextHolder.getContext().setAuthentication(authenticationToken);
 

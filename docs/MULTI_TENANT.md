@@ -41,6 +41,17 @@ Tất cả nằm trong gói `vn.wms.common.tenant`, được `WmsTenantAutoConfi
 
 `WmsEventPublisher` tự gắn header `x-wms-company-id` vào mọi sự kiện phát ra khi luồng đang có doanh nghiệp. `ErrorCode` có thêm sáu mã của mô hình SaaS: `COMPANY_REQUIRED`, `COMPANY_INACTIVE`, `SUBSCRIPTION_EXPIRED`, `PLAN_LIMIT_EXCEEDED`, `PAYMENT_INVALID`, `TOKEN_INVALID` (bảng đầy đủ ở [CONVENTIONS.md](CONVENTIONS.md), mục 4).
 
+### 2.1. API Gateway (WMS-22.3)
+
+`JwtAuthenticationGlobalFilter` của api-gateway là nơi duy nhất quyết định request thuộc doanh nghiệp nào:
+
+- Luôn gỡ các header `X-Company-Id`, `X-Plan`, `X-User-*` do client tự gửi, kể cả với đường dẫn công khai và khi tắt kiểm tra JWT.
+- Token hợp lệ: gắn `X-Company-Id` bằng claim `companyId`. Client gửi kèm `X-Company-Id` khác cũng không có tác dụng.
+- Token hợp lệ nhưng không có `companyId` (token cấp trước khi auth-service có khái niệm doanh nghiệp): trả `401` để giao diện đưa người dùng về trang đăng nhập. Công tắc `gateway.jwt.require-company` (biến `GATEWAY_COMPANY_REQUIRED`, mặc định `true`) chỉ tắt tạm khi auth-service chưa cấp claim này.
+- Đường dẫn công khai (`gateway.jwt.public-paths`) đã có sẵn các API không cần đăng nhập của phần SaaS: đăng ký và kích hoạt doanh nghiệp, quên và đặt lại mật khẩu, danh sách gói, webhook PayOS.
+
+Thứ tự triển khai lên máy chủ: auth-service cấp `companyId` trong token (WMS-22.2) và gateway bản này phải lên cùng lúc với service đầu tiên bật `app.tenant.required`. Người dùng đang đăng nhập sẽ phải đăng nhập lại một lần.
+
 ## 3. Hành vi cần nắm trước khi dùng
 
 1. **Thêm mới**: `company_id` được gán bằng doanh nghiệp trong `TenantContext`. Entity không có setter cho `companyId`. Lưu khi chưa xác định doanh nghiệp bị từ chối với `COMPANY_REQUIRED`.
@@ -110,7 +121,9 @@ app:
     default-company-id: ${TENANT_DEFAULT_COMPANY_ID:}
 ```
 
-Trong `docker-compose.yml` (môi trường phát triển) thêm `TENANT_DEFAULT_COMPANY_ID: ${TENANT_DEFAULT_COMPANY_ID:-1}` cho service đó, để khi gateway tắt kiểm tra JWT hoặc gọi thẳng vào service vẫn có doanh nghiệp 1. Không thêm biến này vào `deploy/docker-compose.prod.yml`: trên máy chủ, request không có doanh nghiệp phải bị từ chối.
+Trong `docker-compose.yml` (môi trường phát triển) thêm `TENANT_DEFAULT_COMPANY_ID: ${TENANT_DEFAULT_COMPANY_ID:-1}` cho service đó, để khi gateway tắt kiểm tra JWT hoặc gọi thẳng vào service vẫn có doanh nghiệp 1. `deploy/docker-compose.prod.yml` là lớp phủ lên file gốc nên phải đặt lại `TENANT_DEFAULT_COMPANY_ID: ""` cho chính service đó: trên máy chủ, request không có doanh nghiệp phải bị từ chối chứ không được rơi vào doanh nghiệp 1.
+
+Các service chưa chuyển đổi (order-service, product-service, notification-service) cũng nhận doanh nghiệp mặc định ở máy phát triển nhưng chưa bật `required`. Nhờ vậy sự kiện chúng phát ra và lời gọi OpenFeign sang service đã chuyển đổi vẫn mang doanh nghiệp, kể cả khi chạy không qua gateway. Chạy service bằng IDE thì đặt biến môi trường `TENANT_DEFAULT_COMPANY_ID=1`.
 
 Service có API không cần doanh nghiệp (ví dụ webhook) khai báo thêm `app.tenant.public-paths`.
 
@@ -191,3 +204,5 @@ Lúc đăng nhập hệ thống chưa biết người dùng thuộc doanh nghi�
 | Đổi doanh nghiệp bằng `runAs` nhưng vẫn ra dữ liệu doanh nghiệp cũ | Đang gọi bên trong một transaction đã mở. Đưa `runAs` ra ngoài phương thức `@Transactional` |
 | Hai doanh nghiệp không tạo được cùng một mã | Ràng buộc duy nhất cũ chưa đổi thành `(company_id, code)` trong migration |
 | Số liệu báo cáo gộp cả doanh nghiệp khác | Câu SQL gốc chưa có điều kiện `company_id` |
+| Sau khi nâng cấp, mọi API trả 401 dù đã đăng nhập | Token cũ không có claim `companyId`. Đăng nhập lại để nhận token mới |
+| Listener không xử lý sự kiện, message nằm ở `wms.dead-letter` | Bên phát không có doanh nghiệp trong ngữ cảnh nên sự kiện thiếu header `x-wms-company-id`. Kiểm tra service phát có nhận `X-Company-Id` hoặc có `TENANT_DEFAULT_COMPANY_ID` ở máy phát triển |

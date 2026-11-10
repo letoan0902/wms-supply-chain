@@ -90,6 +90,9 @@ springdoc:
     path: /v3/api-docs
 
 app:
+  # Tách dữ liệu theo doanh nghiệp (docs/MULTI_TENANT.md): doanh nghiệp mặc định cho máy phát triển, máy chủ để rỗng.
+  tenant:
+    default-company-id: ${TENANT_DEFAULT_COMPANY_ID:}
   mail:
     from: ${MAIL_FROM:no-reply@wms.local}
   rabbitmq:

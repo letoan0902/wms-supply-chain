@@ -73,6 +73,7 @@ export const router = createBrowserRouter([
           { path: 'purchases', Component: lazy(() => import('../features/purchases/PurchasesPage')) },
           // Quản lý Đơn bán hàng (SO) (WMS-11 - Sprint 3)
           { path: 'sales', Component: lazy(() => import('../features/sales/SalesPage')) },
+          { path: 'transfers', Component: lazy(() => import('../features/transfers/TransfersPage')) },
           // Quản lý Người dùng & Phân quyền RBAC (FR01, FR02 - Sprint 2)
           { path: 'users', Component: lazy(() => import('../features/users/UsersPage')) },
           // Báo cáo Nhập-Xuất-Tồn kho & Thống kê (UC-10 - SRS Mục 2.5)

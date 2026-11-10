@@ -169,6 +169,7 @@ Thiếu hash `wms:subscription:{companyId}` hoặc không kết nối được R
 | `/activate`, `/reset-password` | Kích hoạt doanh nghiệp, đặt lại mật khẩu | WMS-23.6 | Khách truy cập |
 | `/subscription` | Gói dịch vụ, mức dùng, lịch sử thanh toán | WMS-23.4, WMS-23.5b | Mọi tài khoản xem; chỉ `ADMIN` thanh toán |
 | `/payment/result` | Kết quả thanh toán | WMS-23.5b | `ADMIN` |
+| `/payment/mock` | Thanh toán giả lập khi `PAYOS_MOCK=true` (nút xác nhận gọi `mock-confirm`) | WMS-23.5b | `ADMIN` |
 | `/ai-import` | Nhập dữ liệu bằng AI | WMS-24.3 | `ADMIN`, `WAREHOUSE_MANAGER`, `PURCHASING`, `SALES` |
 | Cửa sổ trợ lý AI | Hỏi đáp | WMS-18.4 | Mọi tài khoản |
 | `/settings/api-keys` | Quản lý API key | WMS-25.1 | `ADMIN` |
@@ -590,22 +591,64 @@ Người làm: Toàn. Ngày: 10/11. Jira: TASK-147. Phụ thuộc: WMS-23.1.
 
 **Dữ liệu**
 
-Bảng `payments` ở auth-service: `company_id`, `order_code` (số, duy nhất toàn hệ thống), `plan_code`, `cycle`, `amount`, `status` (`PENDING`, `PAID`, `CANCELLED`, `EXPIRED`), `checkout_url`, `reference` (mã giao dịch ngân hàng), `paid_at`, người tạo, bốn cột audit.
+Bảng `payments` ở auth-service (migration `V6__create_payments.sql`): `company_id`, `order_code` (số, duy nhất toàn hệ thống), `plan_code`, `cycle`, `amount` (VND, số nguyên), `status` (`PENDING`, `PAID`, `CANCELLED`, `EXPIRED`), `checkout_url`, `qr_code`, `payment_link_id`, `reference` (mã giao dịch ngân hàng), `paid_at`, `expires_at`, `created_by_user` (ID tài khoản tạo), bốn cột audit.
+
+- Mã đơn `order_code`: mili giây epoch nhân 1000 cộng ba chữ số ngẫu nhiên, ví dụ `1762761600123457` (16 chữ số, dưới giới hạn `9007199254740991` của PayOS). Trùng thì sinh lại.
+- Nội dung chuyển khoản gửi PayOS: `WMS PRO <orderCode>` (24 ký tự, PayOS giới hạn 25).
+- Không tạo được liên kết ở PayOS: giao dịch chuyển `CANCELLED`, API trả `503 SERVICE_UNAVAILABLE`.
+
+**Cấu hình** (`app.payos.*` trong application.yml của auth-service)
+
+| Biến | Mặc định | Ghi chú |
+| --- | --- | --- |
+| `PAYOS_MOCK` | `true` | `true`: không gọi PayOS, `checkoutUrl` là `<gốc của PAYOS_RETURN_URL>/payment/mock?orderCode=...` |
+| `PAYOS_CLIENT_ID`, `PAYOS_API_KEY`, `PAYOS_CHECKSUM_KEY` | rỗng | Chỉ nằm trong `.env` trên máy chủ |
+| `PAYOS_RETURN_URL`, `PAYOS_CANCEL_URL` | `http://localhost:5173/payment/result` | docker-compose đặt `http://localhost/payment/result`, production đặt `https://<DOMAIN>/payment/result` |
+| `PAYOS_BASE_URL` | `https://api-merchant.payos.vn` | |
+
+**Chữ ký** (HMAC-SHA256 bằng checksum key, hex chữ thường, lớp `PayOsSignature`)
+
+- Tạo liên kết: ký chuỗi `amount=<amount>&cancelUrl=<cancelUrl>&description=<description>&orderCode=<orderCode>&returnUrl=<returnUrl>`, giá trị giữ nguyên, không mã hóa URL.
+- Webhook: lấy đối tượng `data`, sắp xếp khóa theo chữ cái, nối `key=value` bằng `&` (null thành chuỗi rỗng, mảng và đối tượng lồng nhau thành JSON), so sánh thời gian hằng với `signature`. Đã đối chiếu với ví dụ trong tài liệu PayOS "Kiểm tra dữ liệu với signature" (test `PayOsSignatureTest`).
 
 **API**
 
 | API | Ai gọi | Mô tả |
 | --- | --- | --- |
-| `POST /api/auth/payments` | `ADMIN` | Body: `plan` (`PRO`), `cycle` (`MONTHLY`, `YEARLY`). Số tiền lấy từ bảng `plans`, không nhận từ client. Tạo bản ghi `PENDING`, gọi PayOS tạo liên kết thanh toán, trả `orderCode`, `amount`, `checkoutUrl`, `qrCode`, `expiresAt`. Liên kết hết hạn sau 15 phút |
+| `POST /api/auth/payments` | `ADMIN` | Body: `plan` (`PRO`), `cycle` (`MONTHLY`, `YEARLY`). Số tiền lấy từ bảng `plans`, không nhận từ client. Tạo bản ghi `PENDING`, gọi PayOS tạo liên kết thanh toán, trả `201` với `orderCode`, `amount`, `checkoutUrl`, `qrCode`, `expiresAt` (đủ các trường ở ví dụ bên dưới). Liên kết hết hạn sau 15 phút |
 | `POST /api/auth/payments/payos/webhook` | PayOS (công khai) | Kiểm tra chữ ký bằng checksum key, đối chiếu `orderCode` và số tiền với bản ghi `PENDING`. Hợp lệ: chuyển `PAID`, kích hoạt gói theo mục 2.6, ghi bộ nhớ đệm. Sai chữ ký hoặc sai số tiền: `400 PAYMENT_INVALID`, ghi log cảnh báo, gói không đổi. Gửi lặp cho đơn đã `PAID`: trả `200`, không cộng thêm ngày |
-| `GET /api/auth/payments/{orderCode}` | `ADMIN` của doanh nghiệp đó | Trạng thái một giao dịch, để trang kết quả hỏi lại |
-| `POST /api/auth/payments/{orderCode}/cancel` | `ADMIN` | Người dùng hủy ở trang PayOS: chuyển `CANCELLED` nếu đang `PENDING` |
-| `GET /api/auth/payments` | `ADMIN` | Lịch sử giao dịch của doanh nghiệp, có phân trang |
+| `POST /api/auth/payments/{orderCode}/mock-confirm` | `ADMIN` của doanh nghiệp đó, chỉ khi `PAYOS_MOCK=true` | Trang giả lập gọi khi bấm xác nhận: chạy đúng đường xử lý của webhook hợp lệ (chuyển `PAID`, kích hoạt gói). Tắt giả lập hoặc đơn của doanh nghiệp khác: `404` |
+| `GET /api/auth/payments/{orderCode}` | `ADMIN` của doanh nghiệp đó | Trạng thái một giao dịch, để trang kết quả hỏi lại. Đơn `PENDING` đã quá `expires_at` được chuyển `EXPIRED` ngay khi đọc. Đơn của doanh nghiệp khác: `404` |
+| `POST /api/auth/payments/{orderCode}/cancel` | `ADMIN` của doanh nghiệp đó | Người dùng hủy ở trang PayOS: chuyển `CANCELLED` nếu đang `PENDING`; trạng thái khác (kể cả đã hết hạn) trả `409 CONFLICT` |
+| `GET /api/auth/payments` | `ADMIN` | Lịch sử giao dịch của doanh nghiệp, mới nhất trước; tham số `page` (từ 0), `size` (mặc định 10, tối đa 100) |
+
+Phần `data` của một giao dịch (tạo, xem, hủy, mock-confirm và mỗi phần tử của lịch sử):
+
+```json
+{
+  "orderCode": 1762761600123457,
+  "plan": "PRO",
+  "cycle": "MONTHLY",
+  "amount": 499000,
+  "status": "PENDING",
+  "checkoutUrl": "https://pay.payos.vn/web/...",
+  "qrCode": "000201010212...",
+  "reference": null,
+  "expiresAt": "2026-11-10T03:15:00Z",
+  "paidAt": null,
+  "createdAt": "2026-11-10T03:00:00.123Z"
+}
+```
 
 **Quy tắc nghiệp vụ**
 
 - Gói chỉ được kích hoạt bởi webhook hợp lệ. Tham số trả về trên trình duyệt chỉ dùng để hiển thị.
-- Chế độ giả lập `PAYOS_MOCK=true` (mặc định khi chưa có khóa): `checkoutUrl` trỏ tới trang giả lập của hệ thống, bấm xác nhận thì backend xử lý như một webhook hợp lệ. Trên máy chủ thật đặt `PAYOS_MOCK=false`.
+- Webhook hợp lệ: trong một giao dịch, khóa dòng `payments` (`PESSIMISTIC_WRITE`), chuyển `PAID`, ghi `reference`, `paid_at`, gọi `SubscriptionService#activate` (công thức mục 2.6, ghi bộ nhớ đệm sau khi commit). Sai chữ ký, mã đơn không tồn tại hoặc sai số tiền: `400 PAYMENT_INVALID`, không đổi gì. Chưa cấu hình `PAYOS_CHECKSUM_KEY` thì mọi webhook bị từ chối, kể cả khi giả lập.
+- Webhook mẫu PayOS gửi khi đăng ký địa chỉ webhook (confirm-webhook) có mã đơn `123`: chữ ký đúng thì trả `200`, không đổi gì. Mã đơn lạ khác: `400`.
+- Webhook có chữ ký đúng nhưng `data.code` khác `"00"`: trả `200`, không đổi gì.
+- Đơn đã `CANCELLED` hoặc `EXPIRED` mà nhận webhook đã trả tiền hợp lệ: vẫn coi là đã thanh toán (tiền đã vào tài khoản), chuyển `PAID` và kích hoạt gói.
+- Chế độ giả lập `PAYOS_MOCK=true` (mặc định khi chưa có khóa): `checkoutUrl` trỏ tới trang giả lập `/payment/mock?orderCode=...` của frontend (WMS-23.5b làm trang này), bấm xác nhận thì gọi `mock-confirm`, backend xử lý như một webhook hợp lệ. Trên máy chủ thật đặt `PAYOS_MOCK=false` (các bước ở `deploy/README.md` mục 8.3).
+- API `renew-mock` của WMS-23.1 giữ nguyên.
 - Khóa `PAYOS_CLIENT_ID`, `PAYOS_API_KEY`, `PAYOS_CHECKSUM_KEY` chỉ nằm trong `.env` trên máy chủ, không vào repo, không gửi qua chat.
 
 **Tiêu chí nghiệm thu**

@@ -12,7 +12,7 @@ Tài liệu cho task WMS-02 (Sprint 2 và 3): exchange, routing key, queue, chí
 Sơ đồ:
 
 ```text
-order-service ----order.created / order.dispatched----> [wms.events] ----> inventory.order-events     (inventory-service)
+order-service --order.created/.dispatched/.received---> [wms.events] ----> inventory.order-events     (inventory-service)
                                                              |------------> notification.order-events  (notification-service)
 inventory-service --inventory.updated---------------------->  |------------> notification.inventory-events (notification-service)
 inventory-service --alert.low-stock------------------------->  '------------> notification.alerts       (notification-service)
@@ -37,6 +37,7 @@ Không đặt `x-arguments` trực tiếp trên queue (dead-letter đi qua polic
 | --- | --- | --- | --- |
 | `order.created` | order-service | `inventory.order-events` (inventory), `notification.order-events` (notification) | Đơn hàng mới (PO hoặc SO) đã tạo: mã đơn, loại đơn, kho, danh sách dòng hàng (SKU, số lượng) |
 | `order.dispatched` | order-service | `inventory.order-events`, `notification.order-events` | Đơn bán đã xuất kho (GDN xác nhận): mã đơn, mã GDN, dòng hàng đã xuất |
+| `order.received` | order-service | `inventory.order-events`, `notification.order-events` (qua `order.#`) | Phiếu nhập kho GRN đã lưu (WMS-10.3): inventory-service cộng OnHand tại ô và lô đã chọn, trừ Incoming của PO; mỗi GRN chỉ cộng một lần (bảng `stock_receipts`, khóa `(company_id, grn_id)`) |
 | `inventory.updated` | inventory-service | `notification.inventory-events` (notification) | Tồn kho thay đổi sau nhập, xuất, điều chỉnh: SKU, kho, tồn trước và sau |
 | `alert.low-stock` | inventory-service | `notification.alerts` (notification) | Tồn chạm ngưỡng an toàn: SKU, kho, tồn hiện tại, ngưỡng; notification-service đẩy cảnh báo lên WebSocket `/topic/alerts` (mục 8) |
 
@@ -46,6 +47,7 @@ Nội dung message là JSON (Jackson). Payload của mỗi routing key là một
 | --- | --- | --- |
 | `order.created` | `OrderCreatedEvent` | `orderId`, `orderNumber`, `orderType` (PURCHASE hoặc SALES), `status`, `supplierId` hoặc `customerId`, `warehouseId`, `warehouseName`, `totalAmount`, `createdBy`, `createdAt`, `items[]` (`OrderLine`: `productId`, `skuCode`, `productName`, `quantity`, `uom`, `unitPrice`) |
 | `order.dispatched` | `OrderDispatchedEvent` | `orderId`, `orderNumber`, `orderType`, `warehouseId`, `dispatchedBy`, `dispatchedAt`, `items[]` |
+| `order.received` | `OrderReceivedEvent` | `grnId`, `grnNumber`, `poId`, `poNumber`, `warehouseId`, `supplierId`, `receivedBy`, `receiptDate`, `receivedAt`, `items[]` (`ReceivedItemLine`: `productId`, `skuCode`, `productName`, `acceptedQuantity`, `rejectedQuantity`, `uom`, `locationId`, `locationCode`, `batchNumber`, `mfgDate`, `expDate`) |
 | `inventory.updated` | `InventoryUpdatedEvent` | `warehouseId`, `productId`, `skuCode`, `quantityBefore`, `quantityAfter`, `reason`, `referenceNumber`, `updatedAt` |
 | `alert.low-stock` | `LowStockAlertEvent` | `warehouseId`, `warehouseName`, `productId`, `skuCode`, `productName`, `quantityOnHand`, `minimumQuantity`, `detectedAt` |
 

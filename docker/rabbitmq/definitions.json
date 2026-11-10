@@ -80,6 +80,14 @@
     {
       "source": "wms.events",
       "vhost": "/",
+      "destination": "inventory.order-events",
+      "destination_type": "queue",
+      "routing_key": "order.received",
+      "arguments": {}
+    },
+    {
+      "source": "wms.events",
+      "vhost": "/",
       "destination": "notification.order-events",
       "destination_type": "queue",
       "routing_key": "order.#",

@@ -20,6 +20,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import vn.wms.common.api.ApiResponse;
 import vn.wms.inventory.dto.CreateStockTransferRequest;
+import vn.wms.inventory.dto.ReceiveStockTransferRequest;
 import vn.wms.inventory.dto.StockTransferResponse;
 import vn.wms.inventory.dto.UpdateStockTransferRequest;
 import vn.wms.inventory.entity.StockTransferStatus;
@@ -98,6 +99,15 @@ public class StockTransferController {
     @Operation(summary = "Phê duyệt xuất kho và chuyển hàng đi đường (DRAFT -> IN_TRANSIT) (WMS-13.1)")
     public ApiResponse<StockTransferResponse> dispatchTransfer(@PathVariable Long id) {
         return ApiResponse.ok(stockTransferService.dispatchTransfer(id));
+    }
+
+    @PostMapping("/{id}/receive")
+    @Operation(summary = "Xác nhận nhận hàng tại kho đích và xử lý biên bản tổn thất (IN_TRANSIT -> COMPLETED / PARTIAL_RECEIVED) (WMS-13.2)")
+    public ApiResponse<StockTransferResponse> receiveTransfer(
+            @PathVariable Long id,
+            @Valid @RequestBody ReceiveStockTransferRequest request
+    ) {
+        return ApiResponse.ok(stockTransferService.receiveTransfer(id, request));
     }
 }
 

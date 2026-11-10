@@ -228,14 +228,16 @@ export default function RecordPaymentModal({
                 name="paymentDate"
                 label="Ngày thanh toán thực tế"
                 rules={[{ required: true, message: 'Chọn ngày thanh toán' }]}
+                // Form lưu chuỗi YYYY-MM-DD, DatePicker chỉ nhận đối tượng dayjs nên phải chuyển đổi hai chiều
+                getValueProps={(val: string | undefined) => ({
+                  value: val ? dayjs(val) : null,
+                })}
+                normalize={(val: dayjs.Dayjs | null) =>
+                  val ? val.format('YYYY-MM-DD') : undefined
+                }
                 className="mb-3"
               >
-                <DatePicker
-                  format="DD/MM/YYYY"
-                  className="w-full"
-                  defaultValue={dayjs()}
-                  onChange={(d) => form.setFieldValue('paymentDate', d ? d.format('YYYY-MM-DD') : '')}
-                />
+                <DatePicker format="DD/MM/YYYY" className="w-full" />
               </Form.Item>
             </div>
 

@@ -86,8 +86,8 @@ export default function PurchaseBillDetailModal({
     },
     {
       title: 'SL thực nhận',
-      dataIndex: 'acceptedQuantity',
-      key: 'acceptedQuantity',
+      dataIndex: 'quantity',
+      key: 'quantity',
       width: 120,
       align: 'right',
       render: (qty) => (
@@ -240,7 +240,7 @@ export default function PurchaseBillDetailModal({
                   </Table.Summary.Cell>
                   <Table.Summary.Cell index={1} align="right" className="text-emerald-700">
                     {formatNumber(
-                      (bill.items || []).reduce((acc, it) => acc + (it.acceptedQuantity || 0), 0)
+                      (bill.items || []).reduce((acc, it) => acc + (Number(it.quantity) || 0), 0)
                     )}
                   </Table.Summary.Cell>
                   <Table.Summary.Cell index={2} />

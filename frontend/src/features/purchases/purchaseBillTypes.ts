@@ -6,14 +6,15 @@ export type PurchaseBillStatus = 'UNPAID' | 'PARTIALLY_PAID' | 'PAID' | 'CANCELL
 
 export interface PurchaseBillItem {
   id: number
-  poItemId?: number
   productId: number
   skuCode: string
   productName: string
   uom: string
-  acceptedQuantity: number
+  /** Số lượng tính tiền (bằng số lượng đạt chuẩn của dòng GRN), khớp PurchaseBillItemResponse.quantity */
+  quantity: number
   unitPrice: number
   lineTotal: number
+  batchNumber?: string
 }
 
 export interface PurchaseBill {

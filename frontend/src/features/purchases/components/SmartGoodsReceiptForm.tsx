@@ -760,11 +760,12 @@ export default function SmartGoodsReceiptForm({
             size="small"
             placeholder="Chọn vị trí ô/kệ"
             value={r.locationId}
-            onChange={(val, opt) => {
-              const label = (opt as { label?: string } | undefined)?.label
+            onChange={(val) => {
+              // Nhãn hiển thị có thêm tên khu nên lấy mã vị trí từ danh sách ô kệ, không lấy từ nhãn
+              const selectedBin = val != null ? binLocations.find((b) => b.id === val) : undefined
               updateItemFields(idx, {
                 locationId: val ?? undefined,
-                locationCode: val != null && label ? label : undefined,
+                locationCode: selectedBin?.code,
               })
             }}
             allowClear

@@ -2,7 +2,6 @@ package vn.wms.auth.subscription.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.wms.auth.company.entity.Company;
@@ -19,25 +18,30 @@ import vn.wms.common.exception.ApiException;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.Optional;
 
 @Slf4j
 @Service
 @RequiredArgsConstructor
 public class SubscriptionService {
 
+    public static final String PLAN_FREE = "FREE";
+    public static final String PLAN_TRIAL = "TRIAL";
+    public static final String PLAN_PRO = "PRO";
+    private static final long SECONDS_PER_DAY = 86_400L;
+
     private final SubscriptionRepository subscriptionRepository;
     private final PlanRepository planRepository;
     private final UserRepository userRepository;
-    private final RedisTemplate<String, String> redisTemplate;
+    private final SubscriptionCacheWriter cacheWriter;
 
     @Transactional
     public Subscription startTrial(Company company) {
-        Plan trialPlan = planRepository.findById("TRIAL")
+        Plan trialPlan = planRepository.findById(PLAN_TRIAL)
                 .orElseThrow(() -> ApiException.notFound("Không tìm thấy cấu hình gói dùng thử (TRIAL)"));
 
-        Instant now = Instant.now();
+        // Làm tròn tới giây để mốc lưu DB và chuỗi ISO-8601 trên Redis giống nhau (ví dụ 2026-12-09T03:00:00Z)
+        Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
         Instant trialEndsAt = now.plus(30, ChronoUnit.DAYS);
 
         Subscription subscription = Subscription.builder()
@@ -53,21 +57,34 @@ public class SubscriptionService {
         return subscription;
     }
 
+    /**
+     * Kích hoạt hoặc gia hạn gói trả phí cho doanh nghiệp (dùng chung cho renew-mock và webhook PayOS ở WMS-23.5a).
+     * Công thức mục 2.6: {@code expires_at = max(hiện tại, mốc hết hạn đang còn hiệu lực) + 30 hoặc 365 ngày};
+     * mốc đang còn hiệu lực là ngày hết dùng thử (TRIAL) hoặc ngày hết hạn (PRO) khi thuê bao còn ACTIVE.
+     * Sau đó đặt gói, trạng thái ACTIVE và ghi lại bộ nhớ đệm Redis.
+     */
     @Transactional
     public Subscription activate(Long companyId, String planCode, BillingCycle cycle) {
+        if (!PLAN_PRO.equals(planCode)) {
+            throw ApiException.badRequest("Chỉ gói Chuyên Nghiệp (PRO) được kích hoạt qua thanh toán");
+        }
+        if (cycle == null) {
+            throw ApiException.badRequest("Chu kỳ thanh toán không được để trống");
+        }
         Subscription subscription = subscriptionRepository.findByCompanyId(companyId)
                 .orElseThrow(() -> ApiException.notFound("Không tìm thấy thông tin thuê bao của doanh nghiệp"));
 
         Plan plan = planRepository.findById(planCode)
                 .orElseThrow(() -> ApiException.notFound("Không tìm thấy gói dịch vụ: " + planCode));
 
-        Instant now = Instant.now();
+        Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
         long daysToAdd = (cycle == BillingCycle.YEARLY) ? 365L : 30L;
 
-        // Công thức: expires_at = max(hiện tại, hạn đang có) + số ngày
-        Instant baseExpiry = (subscription.getExpiresAt() != null && subscription.getExpiresAt().isAfter(now))
-                ? subscription.getExpiresAt()
-                : now;
+        // Công thức: expires_at = max(hiện tại, mốc hết hạn đang còn hiệu lực) + số ngày
+        Instant currentExpiry = subscription.getStatus() == SubscriptionStatus.ACTIVE
+                ? SubscriptionCacheWriter.effectiveExpiry(subscription)
+                : null;
+        Instant baseExpiry = (currentExpiry != null && currentExpiry.isAfter(now)) ? currentExpiry : now;
 
         subscription.setPlan(plan);
         subscription.setStatus(SubscriptionStatus.ACTIVE);
@@ -84,12 +101,19 @@ public class SubscriptionService {
         Subscription subscription = subscriptionRepository.findByCompanyId(companyId)
                 .orElseThrow(() -> ApiException.notFound("Không tìm thấy thông tin thuê bao của doanh nghiệp"));
 
-        // Chỉ cho phép chuyển về FREE khi đang TRIAL hoặc thuê bao đã EXPIRED
-        if ("PRO".equalsIgnoreCase(subscription.getPlan().getCode()) && subscription.getStatus() == SubscriptionStatus.ACTIVE) {
-            throw ApiException.conflict("Không thể chuyển về gói Khởi Đầu khi gói Chuyên Nghiệp đang còn hiệu lực");
+        // Gói đã quá hạn nhưng tác vụ định kỳ chưa chạy thì chuyển EXPIRED trước khi xét
+        expireIfDue(subscription);
+
+        // Chỉ cho phép chuyển về FREE khi đang TRIAL hoặc thuê bao đã EXPIRED (mục 2.6)
+        boolean allowed = PLAN_TRIAL.equals(subscription.getPlan().getCode())
+                || subscription.getStatus() == SubscriptionStatus.EXPIRED;
+        if (!allowed) {
+            throw ApiException.conflict(PLAN_PRO.equals(subscription.getPlan().getCode())
+                    ? "Không thể chuyển về gói Khởi Đầu khi gói Chuyên Nghiệp đang còn hiệu lực"
+                    : "Doanh nghiệp đang dùng gói Khởi Đầu");
         }
 
-        Plan freePlan = planRepository.findById("FREE")
+        Plan freePlan = planRepository.findById(PLAN_FREE)
                 .orElseThrow(() -> ApiException.notFound("Không tìm thấy cấu hình gói Khởi Đầu (FREE)"));
 
         subscription.setPlan(freePlan);
@@ -102,10 +126,11 @@ public class SubscriptionService {
         return subscription;
     }
 
+    /** Chuyển thuê bao sang EXPIRED nếu đã quá hạn và ghi lại Redis; trả true khi có thay đổi. */
     @Transactional
-    public void expireIfDue(Subscription subscription) {
+    public boolean expireIfDue(Subscription subscription) {
         if (subscription == null || subscription.getStatus() == SubscriptionStatus.EXPIRED) {
-            return;
+            return false;
         }
         Instant now = Instant.now();
         if (subscription.isExpired(now)) {
@@ -113,7 +138,30 @@ public class SubscriptionService {
             subscriptionRepository.save(subscription);
             syncToRedis(subscription);
             log.info("Thuê bao của công ty ID {} đã chuyển sang trạng thái EXPIRED", subscription.getCompany().getId());
+            return true;
         }
+        return false;
+    }
+
+    /**
+     * Dùng khi đăng nhập và làm mới token: đọc thuê bao của doanh nghiệp, chuyển EXPIRED nếu đã quá hạn
+     * và luôn ghi lại bộ nhớ đệm Redis (mục 2.7). Doanh nghiệp chưa có thuê bao thì trả rỗng.
+     */
+    @Transactional
+    public Optional<Subscription> refreshForLogin(Long companyId) {
+        Optional<Subscription> subscription = subscriptionRepository.findByCompanyId(companyId);
+        subscription.ifPresent(sub -> {
+            if (!expireIfDue(sub)) {
+                syncToRedis(sub);
+            }
+        });
+        return subscription;
+    }
+
+    /** Thuê bao hiện tại của doanh nghiệp (thực thể), không thay đổi trạng thái. */
+    @Transactional(readOnly = true)
+    public Optional<Subscription> findByCompanyId(Long companyId) {
+        return subscriptionRepository.findByCompanyId(companyId);
     }
 
     @Transactional
@@ -143,16 +191,13 @@ public class SubscriptionService {
 
         expireIfDue(subscription);
 
+        // Số ngày còn lại làm tròn lên: vừa đăng ký dùng thử 30 ngày thì trả 30, không phải 29
         Instant now = Instant.now();
         Long daysRemaining = null;
-        if ("TRIAL".equalsIgnoreCase(subscription.getPlan().getCode()) && subscription.getTrialEndsAt() != null) {
-            daysRemaining = subscription.getTrialEndsAt().isAfter(now)
-                    ? Duration.between(now, subscription.getTrialEndsAt()).toDays()
-                    : 0L;
-        } else if ("PRO".equalsIgnoreCase(subscription.getPlan().getCode()) && subscription.getExpiresAt() != null) {
-            daysRemaining = subscription.getExpiresAt().isAfter(now)
-                    ? Duration.between(now, subscription.getExpiresAt()).toDays()
-                    : 0L;
+        Instant expiry = SubscriptionCacheWriter.effectiveExpiry(subscription);
+        if (expiry != null) {
+            long seconds = Duration.between(now, expiry).getSeconds();
+            daysRemaining = seconds > 0 ? (seconds + SECONDS_PER_DAY - 1) / SECONDS_PER_DAY : 0L;
         }
 
         long activeUsers = userRepository.countByCompanyIdAndEnabledTrue(companyId);
@@ -183,33 +228,8 @@ public class SubscriptionService {
                 .build();
     }
 
+    /** Ghi lại hash {@code wms:subscription:{companyId}} (xem {@link SubscriptionCacheWriter}). */
     public void syncToRedis(Subscription subscription) {
-        if (subscription == null || subscription.getCompany() == null) {
-            return;
-        }
-        try {
-            String key = "wms:subscription:" + subscription.getCompany().getId();
-            Map<String, String> map = new HashMap<>();
-            map.put("plan", subscription.getPlan().getCode());
-            map.put("status", subscription.getStatus().name());
-
-            String expiryStr = "";
-            if (subscription.getExpiresAt() != null) {
-                expiryStr = subscription.getExpiresAt().toString();
-            } else if (subscription.getTrialEndsAt() != null) {
-                expiryStr = subscription.getTrialEndsAt().toString();
-            }
-            map.put("expiresAt", expiryStr);
-
-            map.put("maxUsers", String.valueOf(subscription.getPlan().getMaxUsers()));
-            map.put("maxWarehouses", String.valueOf(subscription.getPlan().getMaxWarehouses()));
-            map.put("maxSkus", String.valueOf(subscription.getPlan().getMaxSkus()));
-            map.put("maxAiRequests", String.valueOf(subscription.getPlan().getMaxAiRequests()));
-            map.put("apiAccess", String.valueOf(subscription.getPlan().getApiAccess()));
-
-            redisTemplate.opsForHash().putAll(key, map);
-        } catch (Exception e) {
-            log.warn("Không thể đồng bộ trạng thái thuê bao vào Redis: {}", e.getMessage());
-        }
+        cacheWriter.write(subscription);
     }
 }

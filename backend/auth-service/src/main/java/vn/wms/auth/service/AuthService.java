@@ -24,8 +24,7 @@ import vn.wms.auth.repository.RoleRepository;
 import vn.wms.auth.repository.UserRepository;
 import vn.wms.auth.security.JwtService;
 import vn.wms.auth.security.UserPrincipal;
-import vn.wms.auth.subscription.entity.Subscription;
-import vn.wms.auth.subscription.repository.SubscriptionRepository;
+import vn.wms.auth.subscription.dto.SubscriptionSummary;
 import vn.wms.auth.subscription.service.SubscriptionService;
 import vn.wms.common.api.ErrorCode;
 import vn.wms.common.constant.Roles;
@@ -34,7 +33,6 @@ import vn.wms.common.exception.ApiException;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Duration;
-import java.time.Instant;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
@@ -56,7 +54,6 @@ public class AuthService {
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final CompanyRepository companyRepository;
-    private final SubscriptionRepository subscriptionRepository;
     private final SubscriptionService subscriptionService;
     private final PasswordEncoder passwordEncoder;
 
@@ -66,7 +63,6 @@ public class AuthService {
                        UserRepository userRepository,
                        RoleRepository roleRepository,
                        CompanyRepository companyRepository,
-                       SubscriptionRepository subscriptionRepository,
                        SubscriptionService subscriptionService,
                        PasswordEncoder passwordEncoder) {
         this.jwtService = jwtService;
@@ -75,7 +71,6 @@ public class AuthService {
         this.userRepository = userRepository;
         this.roleRepository = roleRepository;
         this.companyRepository = companyRepository;
-        this.subscriptionRepository = subscriptionRepository;
         this.subscriptionService = subscriptionService;
         this.passwordEncoder = passwordEncoder;
     }
@@ -89,7 +84,8 @@ public class AuthService {
     private static final String LOGIN_ATTEMPTS_USER_PREFIX = "login:attempts:user:";
     private static final String LOGIN_LOCK_USER_PREFIX = "login:lock:user:";
 
-    @Transactional(readOnly = true)
+    // Không đặt readOnly: bước kiểm tra thuê bao có thể chuyển EXPIRED và phải được lưu lại
+    @Transactional
     public LoginResponse login(LoginRequest request, String clientIp) {
         String identifier = request.username();
 
@@ -122,17 +118,11 @@ public class AuthService {
                 .map(Role::getName)
                 .toList();
 
-        // 6. Kiểm tra gói thuê bao (nếu có)
-        String plan = null;
-        LoginResponse.SubscriptionSummary subscriptionSummary = null;
-        var subOpt = subscriptionRepository.findByCompanyId(company.getId());
-        if (subOpt.isPresent()) {
-            Subscription sub = subOpt.get();
-            subscriptionService.expireIfDue(sub);
-            plan = sub.getPlan().getCode();
-            Instant expiry = sub.getExpiresAt() != null ? sub.getExpiresAt() : sub.getTrialEndsAt();
-            subscriptionSummary = new LoginResponse.SubscriptionSummary(plan, sub.getStatus().name(), expiry);
-        }
+        // 6. Kiểm tra gói thuê bao: chuyển EXPIRED nếu đã quá hạn và ghi lại bộ nhớ đệm Redis (mục 2.7)
+        SubscriptionSummary subscriptionSummary = subscriptionService.refreshForLogin(company.getId())
+                .map(SubscriptionSummary::from)
+                .orElse(null);
+        String plan = subscriptionSummary != null ? subscriptionSummary.plan() : null;
 
         // 7. Tạo Access Token (kèm companyId, companyCode, plan và warehouseIds) & Refresh Token
         String accessToken = jwtService.generateAccessToken(
@@ -267,7 +257,8 @@ public class AuthService {
     /**
      * Làm mới Access Token bằng Refresh Token (hỗ trợ xoay vòng Refresh Token - RTR).
      */
-    @Transactional(readOnly = true)
+    // Không đặt readOnly: bước kiểm tra thuê bao có thể chuyển EXPIRED và phải được lưu lại
+    @Transactional
     public RefreshTokenResponse refreshToken(RefreshTokenRequest request) {
         String token = request.refreshToken();
         Claims claims;
@@ -310,14 +301,10 @@ public class AuthService {
                 .map(Role::getName)
                 .toList();
 
-        // 4. Kiểm tra gói thuê bao (nếu có)
-        String plan = null;
-        var subOpt = subscriptionRepository.findByCompanyId(company.getId());
-        if (subOpt.isPresent()) {
-            Subscription sub = subOpt.get();
-            subscriptionService.expireIfDue(sub);
-            plan = sub.getPlan().getCode();
-        }
+        // 4. Kiểm tra gói thuê bao: chuyển EXPIRED nếu đã quá hạn và ghi lại bộ nhớ đệm Redis
+        String plan = subscriptionService.refreshForLogin(company.getId())
+                .map(sub -> sub.getPlan().getCode())
+                .orElse(null);
 
         // 5. Phát hành Access Token mới (kèm companyId, companyCode, plan và warehouseIds)
         String newAccessToken = jwtService.generateAccessToken(
@@ -400,11 +387,6 @@ public class AuthService {
         );
     }
 
-    @Transactional
-    public RegisterResponse register(RegisterRequest request) {
-        return register(request, 1L);
-    }
-
     /**
      * Thông tin người dùng hiện tại, dựng từ Authentication mà
      * JwtAuthenticationFilter đã đặt.
@@ -419,12 +401,16 @@ public class AuthService {
                 .map(AuthService::stripRolePrefix)
                 .toList();
         CompanySummary company = null;
+        SubscriptionSummary subscription = null;
         if (authentication.getPrincipal() instanceof UserPrincipal principal && principal.getCompanyId() != null) {
             company = companyRepository.findById(principal.getCompanyId())
                     .map(CompanySummary::from)
                     .orElse(null);
+            subscription = subscriptionService.findByCompanyId(principal.getCompanyId())
+                    .map(SubscriptionSummary::from)
+                    .orElse(null);
         }
-        return new UserInfoResponse(authentication.getName(), roles, company);
+        return new UserInfoResponse(authentication.getName(), roles, company, subscription);
     }
 
     private static boolean constantTimeEquals(String expected, String actual) {

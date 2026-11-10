@@ -21,7 +21,7 @@ CREATE TABLE plans (
 INSERT INTO plans (code, name, price_monthly, price_yearly, max_users, max_warehouses, max_skus, max_ai_requests, api_access, trial_days)
 VALUES
     ('FREE',  'Khởi Đầu',      0.00,        0.00,        3,  1,  200, 20,  FALSE, 0),
-    ('TRIAL', 'Dùng Thử',      0.00,        0.00,        50, 20, -1,  500, TRUE,  30),
+    ('TRIAL', 'Dùng thử',     0.00,        0.00,        50, 20, -1,  500, TRUE,  30),
     ('PRO',   'Chuyên Nghiệp', 499000.00,   4790000.00,  50, 20, -1,  500, TRUE,  0)
 ON DUPLICATE KEY UPDATE name = VALUES(name);
 
@@ -43,11 +43,11 @@ CREATE TABLE subscriptions (
     CONSTRAINT fk_subscriptions_plan FOREIGN KEY (plan_code) REFERENCES plans (code)
 ) ENGINE = InnoDB;
 
--- 4. Seed dữ liệu thuê bao cho 2 công ty mẫu:
---    - Công ty 1 (LOGIX): Gói PRO, hạn đến hết 31/12/2026
---    - Công ty 2 (FASTMOVE): Gói FREE, vô thời hạn
+-- 4. Seed thuê bao cho 2 công ty mẫu (docs/SAAS_SPEC.md, WMS-23.1): cả hai dùng gói PRO còn hạn tới hết
+--    ngày 31/12/2026 giờ Việt Nam. Cột thời gian lưu theo UTC (hibernate.jdbc.time_zone = UTC), nên
+--    23:59:59 ngày 31/12/2026 giờ Việt Nam (UTC+7) là 16:59:59 UTC.
 INSERT INTO subscriptions (company_id, plan_code, status, trial_ends_at, expires_at, created_by, updated_by)
 VALUES
-    (1, 'PRO',  'ACTIVE', NULL, '2026-12-31 23:59:59', 'system', 'system'),
-    (2, 'FREE', 'ACTIVE', NULL, NULL,                  'system', 'system')
+    (1, 'PRO', 'ACTIVE', NULL, '2026-12-31 16:59:59.999999', 'system', 'system'),
+    (2, 'PRO', 'ACTIVE', NULL, '2026-12-31 16:59:59.999999', 'system', 'system')
 ON DUPLICATE KEY UPDATE plan_code = VALUES(plan_code);

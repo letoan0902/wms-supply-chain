@@ -1,8 +1,8 @@
 package vn.wms.auth.dto.auth;
 
 import vn.wms.auth.company.dto.CompanySummary;
+import vn.wms.auth.subscription.dto.SubscriptionSummary;
 
-import java.time.Instant;
 import java.util.List;
 
 /**
@@ -26,8 +26,6 @@ public record LoginResponse(
         List<String> roles,
         CompanySummary company,
         SubscriptionSummary subscription) {
-
-    public record SubscriptionSummary(String plan, String status, Instant expiresAt) {}
 
     public LoginResponse(String accessToken, String refreshToken, String tokenType, long expiresIn, String username, List<String> roles, CompanySummary company) {
         this(accessToken, refreshToken, tokenType, expiresIn, username, roles, company, null);

@@ -165,7 +165,7 @@ public abstract class BaseIntegrationTest {
         }
         if (planRepository.findById("TRIAL").isEmpty()) {
             planRepository.save(Plan.builder()
-                    .code("TRIAL").name("Dùng Thử")
+                    .code("TRIAL").name("Dùng thử")
                     .priceMonthly(BigDecimal.ZERO).priceYearly(BigDecimal.ZERO)
                     .maxUsers(50).maxWarehouses(20).maxSkus(-1).maxAiRequests(500)
                     .apiAccess(true).trialDays(30)

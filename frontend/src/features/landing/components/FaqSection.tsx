@@ -2,6 +2,8 @@ import {
   ApartmentOutlined,
   CheckCircleFilled,
   CustomerServiceOutlined,
+  IdcardOutlined,
+  LockOutlined,
   MailOutlined,
   PhoneOutlined,
   QuestionCircleOutlined,
@@ -22,6 +24,8 @@ import {
 } from 'antd'
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
+import { api, getApiErrorMessage } from '../../../services/api'
+import type { ApiResponse } from '../../../types/api'
 import { FAQS } from '../pricingConfig'
 
 const { Title, Text, Paragraph } = Typography
@@ -29,6 +33,8 @@ const { Title, Text, Paragraph } = Typography
 interface CompanyRegistrationValues {
   companyName: string
   contactName: string
+  username: string
+  password: string
   email: string
   phone: string
   warehouseScale: string
@@ -36,11 +42,19 @@ interface CompanyRegistrationValues {
   agreement: boolean
 }
 
+/** Phần `data` của POST /api/auth/companies/register (docs/SAAS_SPEC.md, WMS-23.1). */
+interface CompanyRegistrationResult {
+  company: { id: number; code: string; name: string; status: string }
+  admin: { username: string; email: string }
+  subscription: { plan: string; status: string; trialEndsAt: string }
+}
+
 export default function FaqSection() {
   const { message } = App.useApp()
   const [form] = Form.useForm<CompanyRegistrationValues>()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [registeredData, setRegisteredData] = useState<CompanyRegistrationValues | null>(null)
+  const [registrationResult, setRegistrationResult] = useState<CompanyRegistrationResult | null>(null)
 
   // Danh sách FAQ cho Collapse
   const faqItems = FAQS.map((faq) => ({
@@ -57,19 +71,32 @@ export default function FaqSection() {
     ),
   }))
 
-  // Xử lý gửi Form đăng ký dùng thử (Chỉ frontend, giả lập submit)
-  const handleSubmit = (values: CompanyRegistrationValues) => {
+  // Gửi form tới API đăng ký doanh nghiệp: tạo doanh nghiệp, tài khoản ADMIN đầu tiên và 30 ngày dùng thử
+  const handleSubmit = async (values: CompanyRegistrationValues) => {
     setIsSubmitting(true)
-    setTimeout(() => {
-      setIsSubmitting(false)
+    try {
+      const response = await api.post<ApiResponse<CompanyRegistrationResult>>('/auth/companies/register', {
+        companyName: values.companyName.trim(),
+        fullName: values.contactName.trim(),
+        username: values.username.trim(),
+        email: values.email.trim(),
+        password: values.password,
+        phone: values.phone?.trim() || undefined,
+      })
+      setRegistrationResult(response.data.data)
       setRegisteredData(values)
-      message.success('Đăng ký tài khoản dùng thử doanh nghiệp thành công!')
-    }, 900)
+      message.success('Đăng ký doanh nghiệp thành công, bạn có 30 ngày dùng thử.')
+    } catch (error) {
+      message.error(getApiErrorMessage(error, 'Đăng ký doanh nghiệp không thành công, vui lòng thử lại.'))
+    } finally {
+      setIsSubmitting(false)
+    }
   }
 
   // Đăng ký lại / Reset form
   const handleResetForm = () => {
     setRegisteredData(null)
+    setRegistrationResult(null)
     form.resetFields()
   }
 
@@ -108,7 +135,7 @@ export default function FaqSection() {
                 Đăng ký Dùng thử cho Doanh nghiệp
               </Title>
               <Text type="secondary" className="text-xs sm:text-sm">
-                Điền thông tin doanh nghiệp bên dưới để khởi tạo tài khoản quản trị và dữ liệu mẫu thử nghiệm tức thì.
+                Điền thông tin bên dưới để tạo doanh nghiệp, tài khoản quản trị đầu tiên và nhận 30 ngày dùng thử.
               </Text>
             </div>
 
@@ -122,7 +149,7 @@ export default function FaqSection() {
                   Đăng ký dùng thử thành công!
                 </h3>
                 <p className="text-sm text-slate-600 max-w-md mb-6">
-                  Không gian làm việc cho doanh nghiệp <strong className="text-slate-900">{registeredData.companyName}</strong> đã được thiết lập sẵn sàng với đầy đủ dữ liệu mẫu demo.
+                  Doanh nghiệp <strong className="text-slate-900">{registeredData.companyName}</strong> đã được tạo. Đăng nhập bằng tên đăng nhập vừa đăng ký để bắt đầu nhập dữ liệu kho.
                 </p>
 
                 {/* Thông tin xác nhận */}
@@ -130,6 +157,16 @@ export default function FaqSection() {
                   <div className="flex justify-between py-1 border-b border-slate-200/60">
                     <span className="text-slate-500">Doanh nghiệp:</span>
                     <span className="font-semibold text-slate-800">{registeredData.companyName}</span>
+                  </div>
+                  {registrationResult && (
+                    <div className="flex justify-between py-1 border-b border-slate-200/60">
+                      <span className="text-slate-500">Mã doanh nghiệp:</span>
+                      <span className="font-mono text-slate-800">{registrationResult.company.code}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between py-1 border-b border-slate-200/60">
+                    <span className="text-slate-500">Tên đăng nhập:</span>
+                    <span className="font-mono text-slate-800">{registeredData.username}</span>
                   </div>
                   <div className="flex justify-between py-1 border-b border-slate-200/60">
                     <span className="text-slate-500">Người đại diện:</span>
@@ -146,7 +183,7 @@ export default function FaqSection() {
                   <div className="flex justify-between py-1">
                     <span className="text-slate-500">Gói dùng thử:</span>
                     <Tag color="blue" className="text-[11px] font-semibold mr-0">
-                      Gói Chuyên Nghiệp (30 ngày)
+                      Dùng thử 30 ngày
                     </Tag>
                   </div>
                 </div>
@@ -206,6 +243,44 @@ export default function FaqSection() {
                     className="h-10 text-sm rounded-lg"
                   />
                 </Form.Item>
+
+                {/* Tên đăng nhập & Mật khẩu của tài khoản quản trị (quy tắc giống API tạo tài khoản) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                  <Form.Item
+                    label={<span className="text-xs font-semibold text-slate-700">Tên đăng nhập quản trị</span>}
+                    name="username"
+                    rules={[
+                      { required: true, message: 'Vui lòng nhập tên đăng nhập' },
+                      { min: 3, max: 50, message: 'Tên đăng nhập từ 3 đến 50 ký tự' },
+                      {
+                        pattern: /^[a-zA-Z0-9._-]+$/,
+                        message: 'Chỉ dùng chữ cái, chữ số, dấu chấm, gạch dưới hoặc gạch ngang',
+                      },
+                    ]}
+                  >
+                    <Input
+                      prefix={<IdcardOutlined className="text-slate-400 text-xs" />}
+                      placeholder="an.nguyen"
+                      autoComplete="username"
+                      className="h-10 text-sm rounded-lg"
+                    />
+                  </Form.Item>
+
+                  <Form.Item
+                    label={<span className="text-xs font-semibold text-slate-700">Mật khẩu</span>}
+                    name="password"
+                    rules={[
+                      { required: true, message: 'Vui lòng nhập mật khẩu' },
+                      { min: 6, max: 72, message: 'Mật khẩu từ 6 đến 72 ký tự' },
+                    ]}
+                  >
+                    <Input.Password
+                      prefix={<LockOutlined className="text-slate-400 text-xs" />}
+                      autoComplete="new-password"
+                      className="h-10 text-sm rounded-lg"
+                    />
+                  </Form.Item>
+                </div>
 
                 {/* Email công ty & Số điện thoại */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
@@ -287,7 +362,7 @@ export default function FaqSection() {
                   className="mb-4"
                 >
                   <Checkbox className="text-xs text-slate-600">
-                    Tôi đồng ý với <span className="text-blue-600 hover:underline">Điều khoản dịch vụ</span> và cam kết bảo mật dữ liệu doanh nghiệp theo chuẩn Multi-Tenant.
+                    Tôi đồng ý với <span className="text-blue-600 hover:underline">Điều khoản dịch vụ</span> của hệ thống.
                   </Checkbox>
                 </Form.Item>
 
@@ -305,7 +380,7 @@ export default function FaqSection() {
 
                 <div className="flex items-center justify-center gap-2 text-[11px] text-slate-500 pt-1">
                   <SafetyCertificateOutlined className="text-emerald-600" />
-                  <span>Dữ liệu được phân lập logic an toàn tuyệt đối theo từng công ty</span>
+                  <span>Dữ liệu của mỗi doanh nghiệp được tách riêng, doanh nghiệp khác không xem được</span>
                 </div>
               </Form>
             )}
@@ -342,12 +417,12 @@ export default function FaqSection() {
                   Cần tư vấn giải pháp kho đặc thù cho doanh nghiệp?
                 </h4>
                 <p className="text-xs text-slate-600 mb-2.5 leading-relaxed">
-                  Đội ngũ kỹ sư chuỗi cung ứng của WMS luôn sẵn sàng hỗ trợ khảo sát sơ đồ ô/kệ và thiết kế quy trình mẫu riêng biệt cho doanh nghiệp của bạn.
+                  Gói Doanh nghiệp (nhiều kho, tích hợp riêng) được tư vấn theo nhu cầu: chọn "Liên hệ Doanh nghiệp" ở mục Bảng giá để gửi yêu cầu.
                 </p>
                 <div className="flex flex-wrap items-center gap-3 text-xs font-semibold text-blue-700">
-                  <span>Hotline: 1900 8888</span>
-                  <span>•</span>
-                  <span>Email: support@wms-supplychain.vn</span>
+                  <Link to="/login" className="hover:underline">
+                    Đã có tài khoản doanh nghiệp? Đăng nhập
+                  </Link>
                 </div>
               </div>
             </div>

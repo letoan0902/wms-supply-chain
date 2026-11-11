@@ -91,12 +91,15 @@ class DashboardKpiServiceTest {
             assertThat(response.payables().amount()).isEqualByComparingTo("132800000");
             assertThat(response.payables().dueSoonSuppliersCount()).isEqualTo(4);
 
-            // Thẻ 3: Giá trị tồn kho
+            // Thẻ 3: Giá trị tồn kho - chưa có giá vốn nên không có số tiền, không dùng đơn giá giả định
             assertThat(response.inventoryValuation().visible()).isTrue();
+            assertThat(response.inventoryValuation().amount()).isNull();
+            assertThat(response.inventoryValuation().valuationMethod()).isEqualTo("NOT_AVAILABLE");
+            assertThat(response.inventoryValuation().subText()).isEqualTo("Chưa tính được: tồn kho chưa có giá vốn");
 
-            // Thẻ 4: Doanh số tháng & tăng trưởng
+            // Thẻ 4: Doanh số tháng & tăng trưởng: (655 - 589) / 589 = 11.2%
             assertThat(response.monthlyRevenue().visible()).isTrue();
-            assertThat(response.monthlyRevenue().growthRatePercentage()).isGreaterThan(0.0);
+            assertThat(response.monthlyRevenue().growthRatePercentage()).isEqualTo(11.2);
             assertThat(response.monthlyRevenue().isPositiveGrowth()).isTrue();
 
             // Thẻ 5: Tồn kho khả dụng
@@ -176,6 +179,35 @@ class DashboardKpiServiceTest {
         org.assertj.core.api.Assertions.assertThatThrownBy(() -> dashboardKpiService.getKpiSummary(null, "7_DAYS"))
                 .isInstanceOf(vn.wms.common.exception.ApiException.class)
                 .hasMessageContaining("Yêu cầu thông tin xác thực");
+    }
+
+    @Test
+    @DisplayName("Tháng trước không có doanh số thì tăng trưởng là null kèm lời giải thích, không gán cứng 100%")
+    void getKpiSummary_withoutPreviousMonthRevenue_shouldNotInventGrowthRate() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader(UserContext.HEADER_USER_NAME, "admin");
+        request.addHeader(UserContext.HEADER_USER_ROLES, Roles.ADMIN);
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
+        TenantContext.setCompanyId(1L);
+
+        try {
+            when(valueOperations.get(anyString())).thenReturn(null);
+            when(orderKpiClient.fetchMetrics(null)).thenReturn(new OrderKpiMetricsResponse(
+                    BigDecimal.ZERO, 0, BigDecimal.ZERO, 0,
+                    new BigDecimal("655000000"), BigDecimal.ZERO,
+                    0, 0, 0, 0
+            ));
+            when(inventoryKpiClient.fetchMetrics(null)).thenReturn(InventoryKpiMetricsResponse.empty());
+
+            KpiSummaryResponse response = dashboardKpiService.getKpiSummary(null, "7_DAYS");
+
+            assertThat(response.monthlyRevenue().amount()).isEqualByComparingTo("655000000");
+            assertThat(response.monthlyRevenue().growthRatePercentage()).isNull();
+            assertThat(response.monthlyRevenue().subText()).isEqualTo("Chưa tính được tăng trưởng: tháng trước không có doanh số");
+        } finally {
+            RequestContextHolder.resetRequestAttributes();
+            TenantContext.clear();
+        }
     }
 
     @Test

@@ -21,6 +21,9 @@ public interface GoodsReceiptNoteRepository extends JpaRepository<GoodsReceiptNo
 
     boolean existsByGrnNumber(String grnNumber);
 
+    /** Phiếu đã lập với khóa chống trùng này trong doanh nghiệp hiện tại (truy vấn dẫn xuất, lọc theo @TenantId). */
+    Optional<GoodsReceiptNote> findByIdempotencyKey(String idempotencyKey);
+
     Optional<GoodsReceiptNote> findTopByGrnNumberStartingWithOrderByGrnNumberDesc(String prefix);
 
     @Override

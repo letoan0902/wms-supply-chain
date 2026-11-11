@@ -16,6 +16,9 @@ import vn.wms.common.exception.ApiException;
 import vn.wms.common.messaging.WmsEventPublisher;
 import vn.wms.common.messaging.WmsEvents;
 import vn.wms.common.tenant.TenantContext;
+import vn.wms.common.messaging.event.OrderDispatchedEvent;
+import vn.wms.order.client.DocumentDispatchRequest;
+import vn.wms.order.client.InventoryClient;
 import vn.wms.order.dto.CreateGdnItemRequest;
 import vn.wms.order.dto.CreateGdnRequest;
 import vn.wms.order.entity.Customer;
@@ -42,8 +45,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.startsWith;
@@ -78,6 +83,10 @@ class GoodsDeliveryIntegrationTest {
 
     @MockBean
     private WmsEventPublisher wmsEventPublisher;
+
+    /** inventory-service giả lập: mặc định trừ tồn thành công (mock trả null), WMS-20.4. */
+    @MockBean
+    private InventoryClient inventoryClient;
 
     private Customer createCustomer(String code, String name) {
         Customer c = new Customer();
@@ -425,6 +434,8 @@ class GoodsDeliveryIntegrationTest {
             // Chỉ đúng một sự kiện order.dispatched, tức inventory-service chỉ trừ tồn một lần
             verify(wmsEventPublisher, times(1))
                     .publishAfterCommit(eq(WmsEvents.RoutingKeys.ORDER_DISPATCHED), any());
+            // và chỉ một lần gọi trừ tồn đồng bộ (WMS-20.4)
+            verify(inventoryClient, times(1)).dispatchStock(any());
         } finally {
             executor.shutdownNow();
             cleanUp(so, customer);
@@ -466,10 +477,120 @@ class GoodsDeliveryIntegrationTest {
             assertThat(gdnRepository.findById(gdnId).orElseThrow().getStatus()).isEqualTo(GoodsDeliveryStatus.COMPLETED);
             verify(wmsEventPublisher, times(1))
                     .publishAfterCommit(eq(WmsEvents.RoutingKeys.ORDER_DISPATCHED), any());
+            verify(inventoryClient, times(1)).dispatchStock(any());
         } finally {
             executor.shutdownNow();
             cleanUp(so, customer);
         }
+    }
+
+    private static final feign.Request DISPATCH_REQUEST = feign.Request.create(feign.Request.HttpMethod.POST,
+            "/internal/inventory/dispatches", java.util.Map.of(), null, java.nio.charset.StandardCharsets.UTF_8,
+            new feign.RequestTemplate());
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    @DisplayName("WMS-20.4 (TC-LOAD-01.5): inventory-service không trừ được tồn thì phiếu xuất không được lập, người dùng nhận lỗi của kho, không phát sự kiện")
+    void createGdnFailsWhenInventoryRejectsDeduction() throws Exception {
+        Customer customer = createCustomer("KH-GDN-NOSTOCK", "Công ty Thiếu hàng");
+        SalesOrder so = createConfirmedSo(customer, 1L, new BigDecimal("10"), new BigDecimal("10000"));
+        String body = "{\"success\":false,\"code\":\"BAD_REQUEST\",\"message\":\"Không đủ tồn kho để xuất. Sản phẩm ID 10 "
+                + "(SKU-MILK-001) yêu cầu xuất 10, nhưng tổng tồn kho thực tế tại kho ID 1 chỉ còn 4\",\"data\":null}";
+        when(inventoryClient.dispatchStock(any())).thenThrow(new feign.FeignException.BadRequest("bad request",
+                DISPATCH_REQUEST, body.getBytes(java.nio.charset.StandardCharsets.UTF_8), java.util.Map.of()));
+        try {
+            mockMvc.perform(post("/api/orders/goods-delivery-notes")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(new CreateGdnRequest(so.getId(), LocalDate.now(),
+                                    GoodsDeliveryStatus.COMPLETED, "A", "09", "DC", null,
+                                    List.of(gdnItem(so.getItems().get(0), "10"))))))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.code", is("BAD_REQUEST")))
+                    .andExpect(jsonPath("$.message", startsWith("Không đủ tồn kho để xuất")));
+            restoreTestCompany();
+
+            assertThat(gdnRepository.findBySalesOrderIdOrderByIdDesc(so.getId())).isEmpty();
+            SalesOrder reloaded = salesOrderRepository.findById(so.getId()).orElseThrow();
+            assertThat(reloaded.getItems().get(0).getDeliveredQuantity()).isEqualByComparingTo("0");
+            assertThat(reloaded.getStatus()).isEqualTo(OrderStatus.CONFIRMED);
+            verify(wmsEventPublisher, never()).publishAfterCommit(eq(WmsEvents.RoutingKeys.ORDER_DISPATCHED), any());
+        } finally {
+            cleanUp(so, customer);
+        }
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    @DisplayName("WMS-20.4: hết thời gian chờ khi trừ tồn thì phiếu lưu ở PICKING và trả 503; bấm Xuất kho lại gửi cùng khóa GDN-<id>, hoàn tất và phát một sự kiện mang khóa đó")
+    void createGdnWithUnknownOutcomeKeepsPickingAndRetryIsSafe() throws Exception {
+        Customer customer = createCustomer("KH-GDN-TIMEOUT", "Công ty Mạng chậm");
+        SalesOrder so = createConfirmedSo(customer, 1L, new BigDecimal("10"), new BigDecimal("10000"));
+        when(inventoryClient.dispatchStock(any())).thenThrow(new feign.FeignException.ServiceUnavailable(
+                "Read timed out", DISPATCH_REQUEST, null, java.util.Map.of()));
+        try {
+            mockMvc.perform(post("/api/orders/goods-delivery-notes")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(new CreateGdnRequest(so.getId(), LocalDate.now(),
+                                    GoodsDeliveryStatus.COMPLETED, "A", "09", "DC", null,
+                                    List.of(gdnItem(so.getItems().get(0), "10"))))))
+                    .andExpect(status().isServiceUnavailable())
+                    .andExpect(jsonPath("$.code", is("SERVICE_UNAVAILABLE")))
+                    .andExpect(jsonPath("$.message", org.hamcrest.Matchers.containsString("PICKING")));
+            restoreTestCompany();
+
+            List<GoodsDeliveryNote> notes = gdnRepository.findBySalesOrderIdOrderByIdDesc(so.getId());
+            assertThat(notes).hasSize(1);
+            GoodsDeliveryNote pending = notes.get(0);
+            assertThat(pending.getStatus()).isEqualTo(GoodsDeliveryStatus.PICKING);
+            assertThat(salesOrderRepository.findById(so.getId()).orElseThrow().getStatus()).isEqualTo(OrderStatus.CONFIRMED);
+            verify(wmsEventPublisher, never()).publishAfterCommit(eq(WmsEvents.RoutingKeys.ORDER_DISPATCHED), any());
+
+            // inventory-service trả lời lại (lần trước có thể đã trừ: inventory-service trả alreadyProcessed)
+            org.mockito.Mockito.reset(inventoryClient);
+            mockMvc.perform(post("/api/orders/goods-delivery-notes/{id}/dispatch", pending.getId()))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.data.status", is("COMPLETED")));
+            restoreTestCompany();
+
+            assertThat(salesOrderRepository.findById(so.getId()).orElseThrow().getStatus()).isEqualTo(OrderStatus.COMPLETED);
+            org.mockito.ArgumentCaptor<DocumentDispatchRequest> sent = org.mockito.ArgumentCaptor.forClass(DocumentDispatchRequest.class);
+            verify(inventoryClient).dispatchStock(sent.capture());
+            assertThat(sent.getValue().dispatchKey()).isEqualTo("GDN-" + pending.getId());
+            assertThat(sent.getValue().orderId()).isEqualTo(so.getId());
+            assertThat(sent.getValue().warehouseId()).isEqualTo(1L);
+            assertThat(sent.getValue().items()).containsExactly(
+                    new DocumentDispatchRequest.Item(10L, "SKU-MILK-001", new BigDecimal("10.000")));
+            org.mockito.ArgumentCaptor<Object> event = org.mockito.ArgumentCaptor.forClass(Object.class);
+            verify(wmsEventPublisher, times(1)).publishAfterCommit(eq(WmsEvents.RoutingKeys.ORDER_DISPATCHED), event.capture());
+            assertThat(((OrderDispatchedEvent) event.getValue()).dispatchKey()).isEqualTo("GDN-" + pending.getId());
+        } finally {
+            cleanUp(so, customer);
+        }
+    }
+
+    @Test
+    @DisplayName("WMS-20.4: xác nhận xuất phiếu PICKING mà kho từ chối trừ tồn thì phiếu giữ nguyên PICKING, trả lỗi 409 của kho")
+    void dispatchKeepsPickingWhenInventoryRejects() throws Exception {
+        Customer customer = createCustomer("KH-GDN-FRZ", "Công ty Kiểm kê");
+        SalesOrder so = createConfirmedSo(customer, 1L, new BigDecimal("10"), new BigDecimal("10000"));
+        Long gdnId = goodsDeliveryService.create(new CreateGdnRequest(so.getId(), LocalDate.now(),
+                GoodsDeliveryStatus.PICKING, "A", "09", "DC", null, List.of(gdnItem(so.getItems().get(0), "4"))), "thukho").id();
+        String body = "{\"success\":false,\"code\":\"CONFLICT\",\"message\":\"Vị trí WH1-A-R01-B01 đang đóng băng để kiểm kê "
+                + "(đợt ST-202611-01), không thể thực hiện thao tác xuất kho!\",\"data\":{\"sessionCode\":\"ST-202611-01\"}}";
+        when(inventoryClient.dispatchStock(any())).thenThrow(new feign.FeignException.Conflict("conflict",
+                DISPATCH_REQUEST, body.getBytes(java.nio.charset.StandardCharsets.UTF_8), java.util.Map.of()));
+
+        mockMvc.perform(post("/api/orders/goods-delivery-notes/{id}/dispatch", gdnId))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message", startsWith("Vị trí WH1-A-R01-B01 đang đóng băng")))
+                .andExpect(jsonPath("$.data.sessionCode", is("ST-202611-01")));
+        assertThat(gdnRepository.findById(gdnId).orElseThrow().getStatus()).isEqualTo(GoodsDeliveryStatus.PICKING);
+        verify(wmsEventPublisher, never()).publishAfterCommit(eq(WmsEvents.RoutingKeys.ORDER_DISPATCHED), any());
+    }
+
+    /** Request MockMvc xóa ngữ cảnh doanh nghiệp khi kết thúc; test không có transaction bao ngoài thì đặt lại. */
+    private void restoreTestCompany() {
+        TenantContext.setCompanyId(TenantTestExecutionListener.DEFAULT_TEST_COMPANY);
     }
 
     private CreateGdnItemRequest gdnItem(SalesOrderItem soItem, String quantity) {
@@ -479,6 +600,7 @@ class GoodsDeliveryIntegrationTest {
     }
 
     private void cleanUp(SalesOrder so, Customer customer) {
+        restoreTestCompany();
         gdnRepository.deleteAll(gdnRepository.findBySalesOrderIdOrderByIdDesc(so.getId()));
         salesOrderRepository.deleteById(so.getId());
         customerRepository.deleteById(customer.getId());

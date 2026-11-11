@@ -53,14 +53,29 @@ public class StocktakeFreezeGuard {
         if (binLocationId == null) {
             return;
         }
-        findBlockingLocation(binLocationId, productId).ifPresent(location -> {
-            StocktakeSession session = location.getSession();
-            String binCode = location.getBinLocation().getCode();
+        findConflict(binLocationId, productId).ifPresent(conflict -> {
             String message = String.format(
                     "Vị trí %s đang đóng băng để kiểm kê (đợt %s), không thể thực hiện thao tác %s!",
-                    binCode, session.getCode(), action != null ? action : "thay đổi tồn kho");
-            throw ApiException.withData(ErrorCode.CONFLICT, message,
-                    new FrozenLocationConflict(session.getId(), session.getCode(), binLocationId, binCode, productId));
+                    conflict.binLocationCode(), conflict.sessionCode(), action != null ? action : "thay đổi tồn kho");
+            throw ApiException.withData(ErrorCode.CONFLICT, message, conflict);
+        });
+    }
+
+    /**
+     * Thông tin xung đột nếu sản phẩm tại vị trí đang bị đóng băng, dùng cho kiểm tra trước không ném lỗi
+     * (order-service hỏi trước khi lập phiếu nhập, WMS-20.4).
+     *
+     * @param binLocationId vị trí ô/kệ; null thì không có xung đột
+     * @param productId     sản phẩm của thao tác; null nghĩa là xét theo vị trí bất kể sản phẩm
+     */
+    public Optional<FrozenLocationConflict> findConflict(Long binLocationId, Long productId) {
+        if (binLocationId == null) {
+            return Optional.empty();
+        }
+        return findBlockingLocation(binLocationId, productId).map(location -> {
+            StocktakeSession session = location.getSession();
+            return new FrozenLocationConflict(session.getId(), session.getCode(), binLocationId,
+                    location.getBinLocation().getCode(), productId);
         });
     }
 

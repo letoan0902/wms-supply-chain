@@ -9,4 +9,7 @@ public interface StockDispatchRepository extends JpaRepository<StockDispatch, Lo
 
     /** Truy vấn dẫn xuất nên được Hibernate lọc theo doanh nghiệp hiện tại (@TenantId). */
     boolean existsByMessageId(String messageId);
+
+    /** Bản ghi trừ tồn theo khóa (messageId của sự kiện cũ hoặc dispatchKey của phiếu xuất, WMS-20.4). */
+    java.util.Optional<StockDispatch> findByMessageId(String messageId);
 }

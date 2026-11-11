@@ -2,7 +2,8 @@ package vn.wms.ai.service;
 
 /**
  * Lời dặn hệ thống gửi Claude. Giữ nội dung cố định (không chèn thời gian, tên người dùng hay mã doanh nghiệp) để
- * bộ nhớ đệm prompt dùng lại được; WMS-24.4 sẽ nối thêm tài liệu hướng dẫn sử dụng phía sau đoạn này.
+ * bộ nhớ đệm prompt dùng lại được. Lời dặn của trợ lý có tài liệu hướng dẫn (WMS-24.4) ở
+ * {@code vn.wms.ai.assistant.AssistantPrompts}.
  */
 public final class AiPrompts {
 

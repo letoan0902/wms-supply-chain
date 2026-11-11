@@ -13,12 +13,15 @@ import vn.wms.ai.dto.AiHealthResponse;
 import vn.wms.ai.dto.AiUsageResponse;
 import vn.wms.ai.dto.AskRequest;
 import vn.wms.ai.dto.AskResponse;
+import vn.wms.ai.dto.ChatRequest;
+import vn.wms.ai.dto.ChatResponse;
 import vn.wms.ai.service.AiAskService;
+import vn.wms.ai.service.AiChatService;
 import vn.wms.ai.service.AiQuotaService;
 import vn.wms.common.api.ApiResponse;
 
 /**
- * API của ai-service (WMS-24.1). Mọi API cần doanh nghiệp (header X-Company-Id do api-gateway gắn từ JWT).
+ * API của ai-service (WMS-24.1, trợ lý AI WMS-24.4). Mọi API cần doanh nghiệp (header X-Company-Id do api-gateway gắn từ JWT).
  */
 @RestController
 @RequestMapping("/api/ai")
@@ -28,11 +31,14 @@ public class AiController {
     private final AiRuntime runtime;
     private final AiQuotaService quotaService;
     private final AiAskService askService;
+    private final AiChatService chatService;
 
-    public AiController(AiRuntime runtime, AiQuotaService quotaService, AiAskService askService) {
+    public AiController(AiRuntime runtime, AiQuotaService quotaService, AiAskService askService,
+                        AiChatService chatService) {
         this.runtime = runtime;
         this.quotaService = quotaService;
         this.askService = askService;
+        this.chatService = chatService;
     }
 
     @GetMapping("/health")
@@ -51,5 +57,13 @@ public class AiController {
     @Operation(summary = "Gửi một câu hỏi cho trợ lý AI (tính một lượt AI khi trả lời thành công)")
     public ApiResponse<AskResponse> ask(@Valid @RequestBody AskRequest request) {
         return ApiResponse.ok(askService.ask(request.question()));
+    }
+
+    @PostMapping("/chat")
+    @Operation(summary = "Hỏi trợ lý AI: hướng dẫn sử dụng, tồn kho theo SKU hoặc theo kho, trạng thái đơn mua, đơn bán "
+            + "theo số chứng từ. Chỉ đọc dữ liệu trong phạm vi quyền của người hỏi; lịch sử hội thoại giữ 1 giờ. Tính một "
+            + "lượt AI khi trả lời thành công")
+    public ApiResponse<ChatResponse> chat(@Valid @RequestBody ChatRequest request) {
+        return ApiResponse.ok(chatService.chat(request));
     }
 }

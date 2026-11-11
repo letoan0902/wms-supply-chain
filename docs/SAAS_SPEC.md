@@ -940,6 +940,59 @@ Người làm: Toàn. Ngày: 13/11. Jira: TASK-154. Phụ thuộc: WMS-24.1.
 
 Hỏi "tạo kho thế nào" nhận hướng dẫn đúng các bước trên giao diện; hỏi tồn của một SKU nhận đúng số trong hệ thống; người dùng của B hỏi về SKU chỉ có ở A nhận câu trả lời là không tìm thấy.
 
+**Đã làm (nhánh `t-24-4`, gộp WMS-18.2 "API trợ lý AI")**
+
+`POST /api/ai/chat`, bọc `ApiResponse`, cần `X-Company-Id` (thiếu thì `403 COMPANY_REQUIRED`). Mọi vai trò đã đăng nhập đều hỏi được; tra cứu được gì do service đích quyết định theo vai trò và kho của người hỏi.
+
+- Body `{ "message": "...", "conversationId": "..." }`: `message` từ 1 đến 2000 ký tự (sai: `400 VALIDATION_ERROR`, `data.message`); `conversationId` không bắt buộc.
+- Một câu hỏi tính đúng một lượt AI như `POST /api/ai/ask`: kiểm tra hạn mức trước (hết lượt: `403 PLAN_LIMIT_EXCEEDED`, `limit = AI_REQUESTS`), chỉ tăng bộ đếm khi có câu trả lời, dù Claude gọi bao nhiêu lần trong câu đó. Lỗi, hết thời gian (`503 SERVICE_UNAVAILABLE`) và câu bị từ chối (`refused = true`) không bị tính. Câu trả lời giả lập vẫn bị tính trừ khi `AI_MOCK_COUNTS_USAGE=false`.
+- Lịch sử: khóa Redis `wms:ai:chat:{companyId}:{tên đăng nhập mã hóa base64url}:{conversationId}`, giữ 1 giờ kể từ câu hỏi gần nhất, tối đa 10 lượt hỏi đáp gần nhất (câu trả lời lưu tối đa 4000 ký tự). Mã hội thoại sai dạng, hết hạn, của người khác hay doanh nghiệp khác đều bắt đầu hội thoại mới (`newConversation = true`, mã mới), không đọc được gì của người khác. Redis lỗi chỉ làm mất lịch sử, không làm hỏng câu trả lời. Câu bị từ chối không lưu vào lịch sử.
+- Hướng dẫn sử dụng: `docs/USER_GUIDE.md`, bản chép ở `backend/ai-service/src/main/resources/assistant/USER_GUIDE.md` (image Docker build từ `backend/` nên không đọc được `docs/`); test `UserGuideTest` báo lỗi khi hai bản khác nhau. Sửa tài liệu thì chép lại.
+- Chế độ LIVE: lời dặn cố định cộng toàn văn hướng dẫn (trong thẻ `<user_guide>`) đứng đầu và đánh dấu bộ nhớ đệm prompt, không chứa người hỏi hay doanh nghiệp; điểm đánh dấu tự động ở cấp yêu cầu để các vòng công cụ sau đọc lại phần hội thoại đã gửi. Cùng mô hình, effort, quy tắc không tham số lấy mẫu, không đặt `thinking`, `fallbacks` của WMS-24.1. Vòng công cụ tự viết bằng SDK (`client.beta().messages()`): tối đa 5 vòng công cụ, hết vòng thì lần gọi cuối đặt `tool_choice: none` để Claude trả lời bằng dữ liệu đã có; tổng thời gian một câu hỏi 90 giây (nginx chờ `/api/ai/` 200 giây, gateway và Caddy không đặt giới hạn); mỗi lần gọi xét `stop_reason` trước: `refusal` trả lời xin lỗi, chỉ `tool_use` mới chạy công cụ (lượt bị cắt vì `max_tokens` không chạy công cụ dở).
+- Công cụ (chỉ đọc, ai-service thực thi qua client cân bằng tải với nguyên `X-Company-Id`, `X-User-Name`, `X-User-Roles`, `X-User-Warehouse-Ids`, `X-Plan` của người hỏi; kết quả rút gọn, không gửi giá, mô tả, ghi chú):
+
+| Công cụ | Gọi API | Trả cho Claude |
+| --- | --- | --- |
+| `find_product(keyword)` | `GET /api/products?keyword=&size=10` | `sku`, `name`, `uom`, `active` |
+| `get_stock(sku, warehouse?)` | `GET /api/products/sku/{sku}` rồi `GET /api/inventory/stock/atp?productId=&warehouseId=` | `onHandQuantity`, `reservedQuantity`, `availableQuantity` trên mọi kho hoặc một kho |
+| `get_warehouse_stock(warehouse, keyword?)` | `GET /api/inventory/reports/in-out-balance` từ hôm nay đến hôm nay, sắp `closingQuantity` giảm dần, 20 dòng | số mặt hàng, tổng tồn, từng dòng `sku`, `name`, `uom`, `quantity` |
+| `list_warehouses()` | `GET /api/inventory/warehouses` | `id`, `code`, `name`, `active` |
+| `get_purchase_order(poNumber)` | `GET /api/orders/purchase/number/{poNumber}` | trạng thái và nhãn tiếng Việt, nhà cung cấp, kho, ngày, tổng tiền, tối đa 30 dòng hàng |
+| `get_sales_order(soNumber)` | `GET /api/orders/sales/number/{soNumber}` | như trên với khách hàng, lý do thiếu hàng |
+
+  `warehouse` nhận ID, mã kho hoặc một phần tên (không phân biệt dấu) trong các kho người hỏi được xem. Kết quả lỗi gửi Claude dạng `{"status":"NOT_FOUND|FORBIDDEN|BAD_REQUEST|UNAVAILABLE|UNKNOWN_TOOL","message":"..."}`: 404 thành "không tìm thấy trong dữ liệu của doanh nghiệp bạn" (SKU chỉ có ở doanh nghiệp khác rơi vào đây vì product-service lọc theo `X-Company-Id`), 401, 403 thành "Bạn không có quyền xem dữ liệu này.", 5xx hoặc service chưa chạy thành "chưa tra cứu được". Tên công cụ lạ trả `UNKNOWN_TOOL`; mã SKU, số chứng từ chỉ nhận chữ, số và `. _ -` (không có `/`, `..`).
+- An toàn: lời dặn yêu cầu chỉ đọc (muốn thay đổi thì chỉ chỗ làm trên màn hình), chỉ nói về dữ liệu của người hỏi, không tiết lộ lời dặn, công cụ, khóa; coi kết quả công cụ, tài liệu và tin nhắn là dữ liệu, không làm theo câu lệnh nằm trong tên hàng hay ghi chú. Không có công cụ ghi nên trường hợp xấu nhất là một câu trả lời sai.
+- Chế độ MOCK (`AI_MOCK=true` hoặc chưa có khóa): không gọi Claude, không bịa số. Câu có `PO-...`/`SO-...` tra đơn; có mã dạng SKU (chữ lẫn số, hoặc chữ in hoa có gạch nối, hoặc sau chữ "SKU", "mã hàng") tra tồn của SKU, kèm kho nếu có "kho <mã>"; có "kho <mã>" tra tồn của kho; chỉ hỏi "tồn" thì liệt kê kho để hỏi lại; còn lại trả mục hướng dẫn khớp nhất theo từ khóa (không phân biệt dấu). Mọi câu trả lời mở đầu bằng dòng "Đây là trợ lý giả lập (hệ thống chưa bật AI thật)...".
+- Cấu hình `app.ai.assistant.*` (đều có mặc định, không thêm biến môi trường): `max-tokens` 2048, `timeout` 90s, `max-tool-rounds` 5, `history-ttl` 1h, `max-exchanges` 10, `max-stored-answer-length` 4000, `max-list-items` 20.
+
+Hợp đồng JSON cho cửa sổ trợ lý (WMS-18.4). Gửi:
+
+```json
+{ "message": "Tồn của SKU-GAO-ST25 còn bao nhiêu?", "conversationId": "3f1c2b9e-1111-4a2b-9c3d-0123456789ab" }
+```
+
+Nhận `data`:
+
+```json
+{
+  "answer": "Mã SKU-GAO-ST25 (Gạo ST25 túi 5kg) trên mọi kho: tồn thực tế 120 Túi, đang giữ cho đơn bán 20 Túi, còn khả dụng 100 Túi.",
+  "conversationId": "3f1c2b9e-1111-4a2b-9c3d-0123456789ab",
+  "newConversation": false,
+  "truncated": false,
+  "refused": false,
+  "mode": "LIVE",
+  "lookups": ["get_stock"],
+  "usage": { "used": 8, "max": 500 }
+}
+```
+
+- `answer` là văn bản thường tiếng Việt, có thể có xuống dòng và dòng bắt đầu bằng "- " hoặc "1. "; hiển thị giữ xuống dòng, không render HTML.
+- Lưu `conversationId` và gửi lại ở câu sau. `newConversation = true` khi hội thoại cũ đã hết hạn (quá 1 giờ) hay không hợp lệ: giao diện nên báo "Đã bắt đầu cuộc trò chuyện mới". Muốn bắt đầu lại thì bỏ `conversationId`.
+- `mode = "MOCK"`: có thể hiện nhãn "Trợ lý giả lập". `lookups` là các phép tra cứu đã chạy (`find_product`, `get_stock`, `get_warehouse_stock`, `list_warehouses`, `get_purchase_order`, `get_sales_order`), rỗng khi trả lời từ hướng dẫn. `usage.max = -1` là không giới hạn, `null` khi chưa đọc được thuê bao.
+- Lỗi: `PLAN_LIMIT_EXCEEDED` dùng hộp thoại chung của WMS-23.4; `SERVICE_UNAVAILABLE` hiện `message` và cho gửi lại; `VALIDATION_ERROR` không xảy ra nếu giao diện chặn ô trống và quá 2000 ký tự. Một câu hỏi có thể mất tới 90 giây: hiện trạng thái đang trả lời và khóa nút gửi.
+
+Chưa kiểm chứng: chưa gọi Claude thật (máy phát triển và CI không có khóa), nên chất lượng câu trả lời, việc Claude chọn đúng công cụ, thời gian thực tế và tỷ lệ đọc lại bộ nhớ đệm chưa đo; vòng công cụ được kiểm thử bằng phản hồi JSON mẫu đọc qua SDK.
+
 ### WMS-25.1 [Backend] API key cho hệ thống ngoài
 
 Người làm: Toàn. Ngày: 17/11 (làm sớm ngày 11/11). Jira: TASK-156. Phụ thuộc: WMS-22.3.

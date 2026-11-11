@@ -2,6 +2,7 @@ package vn.wms.ai.client;
 
 import com.anthropic.client.AnthropicClient;
 import com.anthropic.core.JsonValue;
+import com.anthropic.core.ObjectMappers;
 import com.anthropic.core.RequestOptions;
 import com.anthropic.core.Timeout;
 import com.anthropic.core.http.StreamResponse;
@@ -24,14 +25,20 @@ import com.anthropic.models.beta.messages.BetaContentBlockParam;
 import com.anthropic.models.beta.messages.BetaImageBlockParam;
 import com.anthropic.models.beta.messages.BetaJsonOutputFormat;
 import com.anthropic.models.beta.messages.BetaMessage;
+import com.anthropic.models.beta.messages.BetaMessageParam;
 import com.anthropic.models.beta.messages.BetaOutputConfig;
 import com.anthropic.models.beta.messages.BetaRawMessageStreamEvent;
 import com.anthropic.models.beta.messages.BetaRequestDocumentBlock;
 import com.anthropic.models.beta.messages.BetaStopReason;
 import com.anthropic.models.beta.messages.BetaTextBlock;
 import com.anthropic.models.beta.messages.BetaTextBlockParam;
+import com.anthropic.models.beta.messages.BetaTool;
+import com.anthropic.models.beta.messages.BetaToolChoiceNone;
+import com.anthropic.models.beta.messages.BetaToolResultBlockParam;
+import com.anthropic.models.beta.messages.BetaToolUseBlock;
 import com.anthropic.models.beta.messages.BetaUsage;
 import com.anthropic.models.beta.messages.MessageCreateParams;
+import com.fasterxml.jackson.databind.JsonNode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import vn.wms.ai.config.AiEffort;
@@ -41,6 +48,7 @@ import vn.wms.common.exception.ApiException;
 
 import java.io.InterruptedIOException;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
@@ -109,6 +117,166 @@ public class AnthropicAiClient implements AiClient, AutoCloseable {
             return accumulator.message();
         }, request.timeout());
         return toJsonReply(message);
+    }
+
+    /**
+     * Vòng hỏi đáp có công cụ, tự viết (không dùng {@code BetaToolRunner}) để giữ được ba ràng buộc của trợ lý: tối đa
+     * {@link AiChatRequest#maxToolRounds()} vòng công cụ, tổng thời gian {@link AiChatRequest#timeout()}, và công cụ
+     * chạy trên luồng đang xử lý request (để chuyển tiếp đúng danh tính người hỏi). Mỗi lần gọi đều xét
+     * {@code stop_reason} trước khi đọc nội dung: {@code refusal} trả lời xin lỗi; chỉ {@code tool_use} mới chạy công
+     * cụ (câu trả lời bị cắt giữa chừng không chạy công cụ dở); hết vòng thì lần gọi cuối đặt
+     * {@code tool_choice: none} để mô hình trả lời bằng dữ liệu đã có.
+     */
+    @Override
+    public AiChatReply chat(AiChatRequest request, AiToolExecutor executor) {
+        List<BetaMessageParam> messages = new ArrayList<>();
+        for (AiChatMessage message : request.history()) {
+            messages.add(AiChatMessage.USER.equals(message.role())
+                    ? BetaMessageParam.ofUser(message.text())
+                    : BetaMessageParam.ofAssistant(message.text()));
+        }
+        messages.add(BetaMessageParam.ofUser(request.userMessage()));
+
+        long deadline = System.nanoTime() + request.timeout().toNanos();
+        long inputTokens = 0L;
+        long outputTokens = 0L;
+        int toolRounds = 0;
+        List<String> toolsUsed = new ArrayList<>();
+        while (true) {
+            long remainingNanos = deadline - System.nanoTime();
+            if (remainingNanos <= 0) {
+                log.warn("Trợ lý AI chưa trả lời xong trong {} giây ({} vòng công cụ), lượt không bị tính",
+                        request.timeout().toSeconds(), toolRounds);
+                throw new ApiException(ErrorCode.SERVICE_UNAVAILABLE, "Dịch vụ AI không trả lời kịp trong "
+                        + request.timeout().toSeconds() + " giây, lượt này không bị tính. Vui lòng thử lại.");
+            }
+            boolean toolsAllowed = toolRounds < request.maxToolRounds();
+            MessageCreateParams params = buildChatParams(request, messages, toolsAllowed);
+            RequestOptions options = RequestOptions.builder()
+                    .timeout(Timeout.builder().connect(CONNECT_TIMEOUT)
+                            .request(Duration.ofNanos(remainingNanos)).build())
+                    .build();
+            BetaMessage message = call(() -> client.beta().messages().create(params, options), request.timeout());
+
+            BetaUsage usage = message.usage();
+            if (usage != null) {
+                inputTokens += usage.inputTokens();
+                outputTokens += usage.outputTokens();
+            }
+            BetaStopReason stopReason = message.stopReason().orElse(null);
+            String stopReasonText = stopReason != null ? stopReason.asString() : "unknown";
+
+            if (BetaStopReason.REFUSAL.equals(stopReason)) {
+                String category = message.stopDetails()
+                        .flatMap(details -> details.category().map(Object::toString))
+                        .orElse("không rõ");
+                log.info("Claude từ chối trả lời trợ lý (nhóm {}), lượt không bị tính", category);
+                return AiChatReply.refusal(stopReasonText, inputTokens, outputTokens, toolsUsed);
+            }
+
+            List<BetaToolUseBlock> toolUses = message.content().stream()
+                    .map(BetaContentBlock::toolUse)
+                    .flatMap(Optional::stream)
+                    .toList();
+            if (BetaStopReason.TOOL_USE.equals(stopReason) && !toolUses.isEmpty() && toolsAllowed) {
+                toolRounds++;
+                messages.add(message.toParam());
+                List<BetaContentBlockParam> results = new ArrayList<>();
+                for (BetaToolUseBlock toolUse : toolUses) {
+                    toolsUsed.add(toolUse.name());
+                    AiToolResult result = runTool(executor, toolUse);
+                    results.add(BetaContentBlockParam.ofToolResult(BetaToolResultBlockParam.builder()
+                            .toolUseId(toolUse.id())
+                            .content(result.content())
+                            .isError(result.error())
+                            .build()));
+                }
+                messages.add(BetaMessageParam.ofUserOfContentBlockParams(results));
+                continue;
+            }
+
+            String text = message.content().stream()
+                    .map(BetaContentBlock::text)
+                    .flatMap(Optional::stream)
+                    .map(BetaTextBlock::text)
+                    .collect(Collectors.joining())
+                    .strip();
+            boolean truncated = BetaStopReason.MAX_TOKENS.equals(stopReason)
+                    || BetaStopReason.MODEL_CONTEXT_WINDOW_EXCEEDED.equals(stopReason);
+            if (text.isBlank()) {
+                log.warn("Trợ lý AI không có câu trả lời (stop_reason={}, {} vòng công cụ)", stopReasonText,
+                        toolRounds);
+                throw new ApiException(ErrorCode.SERVICE_UNAVAILABLE,
+                        "Dịch vụ AI không trả về nội dung, lượt này không bị tính. Vui lòng thử lại.");
+            }
+            if (truncated) {
+                log.info("Câu trả lời của trợ lý bị cắt (stop_reason={}, {} token đầu ra)", stopReasonText,
+                        outputTokens);
+            }
+            return AiChatReply.answered(text, stopReasonText, inputTokens, outputTokens, truncated, toolsUsed);
+        }
+    }
+
+    /** Chạy một công cụ; lỗi bất ngờ của công cụ thành kết quả lỗi gửi mô hình, không làm hỏng cả câu hỏi. */
+    private static AiToolResult runTool(AiToolExecutor executor, BetaToolUseBlock toolUse) {
+        try {
+            JsonNode input = ObjectMappers.jsonMapper().valueToTree(toolUse._input());
+            if (input == null || !input.isObject()) {
+                input = ObjectMappers.jsonMapper().createObjectNode();
+            }
+            return executor.execute(new AiToolCall(toolUse.id(), toolUse.name(), input));
+        } catch (ApiException ex) {
+            // Hết lượt hay lỗi nghiệp vụ không thuộc về công cụ: dừng cả câu hỏi như lỗi thường.
+            throw ex;
+        } catch (RuntimeException ex) {
+            log.warn("Công cụ {} của trợ lý lỗi: {}", toolUse.name(), ex.getClass().getSimpleName());
+            return AiToolResult.error("Không tra cứu được dữ liệu lúc này do lỗi hệ thống.");
+        }
+    }
+
+    /**
+     * Dựng tham số một lần gọi trong vòng hỏi đáp: cùng quy tắc với {@link #buildParams(AiRequest)} (mô hình, effort,
+     * không tham số lấy mẫu, không đặt thinking), thêm danh sách công cụ. Công cụ đứng trước lời dặn hệ thống trong
+     * prompt nên điểm đánh dấu bộ nhớ đệm ở lời dặn (kèm tài liệu hướng dẫn) gom được cả công cụ; điểm đánh dấu tự động
+     * ở cấp yêu cầu giúp các vòng công cụ sau đọc lại phần hội thoại đã gửi từ bộ nhớ đệm. Hết vòng công cụ thì đặt
+     * {@code tool_choice: none} (giữ nguyên danh sách công cụ để không làm mất bộ nhớ đệm).
+     */
+    MessageCreateParams buildChatParams(AiChatRequest request, List<BetaMessageParam> messages,
+                                        boolean toolsAllowed) {
+        MessageCreateParams.Builder builder = MessageCreateParams.builder()
+                .model(properties.model())
+                .maxTokens(request.maxTokens())
+                .systemOfBetaTextBlockParams(List.of(BetaTextBlockParam.builder()
+                        .text(request.systemPrompt())
+                        .cacheControl(BetaCacheControlEphemeral.builder().build())
+                        .build()))
+                .messages(messages)
+                .cacheControl(BetaCacheControlEphemeral.builder().build())
+                .outputConfig(BetaOutputConfig.builder().effort(toSdkEffort(properties.effort())).build());
+        for (AiTool tool : request.tools()) {
+            builder.addTool(toSdkTool(tool));
+        }
+        if (!toolsAllowed && !request.tools().isEmpty()) {
+            builder.toolChoice(BetaToolChoiceNone.builder().build());
+        }
+        if (properties.serverFallback()) {
+            builder.addBeta(AnthropicBeta.SERVER_SIDE_FALLBACK_2026_07_01).fallbacksDefault();
+        }
+        return builder.build();
+    }
+
+    private static BetaTool toSdkTool(AiTool tool) {
+        BetaTool.InputSchema.Properties.Builder properties = BetaTool.InputSchema.Properties.builder();
+        tool.properties().forEach((name, schema) -> properties.putAdditionalProperty(name, JsonValue.from(schema)));
+        return BetaTool.builder()
+                .name(tool.name())
+                .description(tool.description())
+                .inputSchema(BetaTool.InputSchema.builder()
+                        .properties(properties.build())
+                        .required(tool.required())
+                        .putAdditionalProperty("additionalProperties", JsonValue.from(false))
+                        .build())
+                .build();
     }
 
     /** Chạy một lời gọi SDK và đổi mọi lỗi của SDK thành {@code 503 SERVICE_UNAVAILABLE} với thông báo tiếng Việt. */

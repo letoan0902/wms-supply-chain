@@ -1,0 +1,34 @@
+# ============================================================================
+# Cấu hình bổ sung cho stack kiểm thử tự động (qa/README.md, mục 3).
+# Chạy từ thư mục gốc repo:
+#   docker compose -f docker-compose.yml -f qa/docker-compose.qa.yml up -d --build
+# File này chỉ ghi đè biến môi trường; không dùng cho máy chủ production.
+# ============================================================================
+
+services:
+  api-gateway:
+    environment:
+      # Gateway kiểm tra JWT và gắn X-Company-Id, X-User-*, X-Plan: bắt buộc cho kiểm thử quyền và cách ly doanh nghiệp.
+      GATEWAY_JWT_ENABLED: "true"
+      # Tắt giới hạn chung 20 request/giây theo người dùng (Postman CLI và kịch bản tải gửi nhanh hơn mức này).
+      # Giới hạn riêng của API key (API_KEY_RATE_LIMIT_PER_SECOND) vẫn bật. Đặt QA_RATE_LIMIT_ENABLED=true để bật lại.
+      RATE_LIMIT_ENABLED: ${QA_RATE_LIMIT_ENABLED:-false}
+
+  auth-service:
+    environment:
+      # Đăng ký xong là ACTIVE, không cần bấm liên kết kích hoạt trong email (Postman không đọc được log).
+      REGISTRATION_REQUIRE_ACTIVATION: "false"
+      # Bật POST /api/auth/subscription/demo/expire cho các ca hết hạn (docker-compose.yml không truyền biến này).
+      APP_DEMO_TOOLS: "true"
+      # Thanh toán giả lập: POST /api/auth/payments/{orderCode}/mock-confirm.
+      PAYOS_MOCK: "true"
+
+  notification-service:
+    environment:
+      # Cùng công tắc với gateway: WebSocket kiểm tra JWT ở frame CONNECT.
+      GATEWAY_JWT_ENABLED: "true"
+
+  ai-service:
+    environment:
+      # Không gọi Claude; câu trả lời giả lập vẫn được tính lượt để thử giới hạn gói.
+      AI_MOCK: "true"

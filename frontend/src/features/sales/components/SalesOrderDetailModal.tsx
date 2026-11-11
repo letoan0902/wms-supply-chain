@@ -3,6 +3,7 @@ import {
   DollarOutlined,
   ExclamationCircleOutlined,
   FileTextOutlined,
+  RocketOutlined,
   StopOutlined,
   UserOutlined,
   WarningOutlined,
@@ -39,6 +40,7 @@ interface Props {
   onClose: () => void
   onOrderUpdated?: (updated: SalesOrder) => void
   onOpenInvoiceModal?: (order: SalesOrder) => void
+  onOpenPicking?: (order: SalesOrder) => void
   canConfirm?: boolean
   canCancel?: boolean
   canManageInvoice?: boolean
@@ -50,6 +52,7 @@ export default function SalesOrderDetailModal({
   onClose,
   onOrderUpdated,
   onOpenInvoiceModal,
+  onOpenPicking,
   canConfirm = false,
   canCancel = false,
   canManageInvoice = false,
@@ -282,6 +285,22 @@ export default function SalesOrderDetailModal({
                   Hủy đơn
                 </Button>
               </Popconfirm>
+            )}
+
+            {/* Nút Lấy hàng (Smart Picking) */}
+            {order.status === 'CONFIRMED' && (
+              <Button
+                type="primary"
+                icon={<RocketOutlined />}
+                onClick={() => {
+                  setCreditInfo(null)
+                  onClose()
+                  onOpenPicking?.(order)
+                }}
+                className="bg-orange-500 hover:bg-orange-600 font-semibold"
+              >
+                Lấy hàng (Smart Picking)
+              </Button>
             )}
 
             {/* Nút Tạo Hóa đơn bán hàng (FR18) */}

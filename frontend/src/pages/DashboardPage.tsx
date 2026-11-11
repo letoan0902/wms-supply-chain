@@ -243,7 +243,7 @@ export default function DashboardPage() {
               loading={loadingWarehouses}
               onChange={(val) => setSelectedWarehouseId(val)}
               options={[
-                ...(isGlobalScope ? [{ label: '🏢 Tất cả các kho (Toàn cục)', value: 'all' as const }] : []),
+                ...(isGlobalScope ? [{ label: 'Tất cả các kho (Toàn cục)', value: 'all' as const }] : []),
                 ...allowedWarehouses.map((w) => ({
                   label: `${w.name} (${w.code})`,
                   value: w.id,

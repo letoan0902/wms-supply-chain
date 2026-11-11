@@ -47,7 +47,7 @@ public class SecurityConfig {
                     .requestMatchers("/api/auth/me").authenticated()
                     .requestMatchers(HttpMethod.POST, "/api/auth/refresh").permitAll()
                     .requestMatchers("/api/auth/users/**").authenticated()
-                    .requestMatchers("/api/auth/company", "/api/auth/company/**").authenticated()
+                    .requestMatchers("/api/auth/company", "/api/notifications/**", "/api/auth/company/**").authenticated()
                     .requestMatchers("/api/auth/subscription", "/api/auth/subscription/**").authenticated()
                     // Webhook PayOS công khai, xác thực bằng chữ ký; các API thanh toán khác cần đăng nhập (WMS-23.5a)
                     .requestMatchers(HttpMethod.POST, "/api/auth/payments/payos/webhook").permitAll()

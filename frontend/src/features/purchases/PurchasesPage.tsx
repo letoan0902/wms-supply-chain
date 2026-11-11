@@ -72,6 +72,11 @@ export default function PurchasesPage() {
       ['ADMIN', 'PURCHASING'].includes(r)
     ) ?? false
 
+  const canViewBills =
+    currentUser?.roles?.some((r) =>
+      ['ADMIN', 'PURCHASING', 'ACCOUNTANT', 'WAREHOUSE_MANAGER'].includes(r)
+    ) ?? false
+
   // Tab active: 'list' | 'create' | 'grn' | 'create-grn' | 'bills'
   const [activeTab, setActiveTab] = useState<'list' | 'create' | 'grn' | 'create-grn' | 'bills'>('list')
   const [formKey, setFormKey] = useState(0)
@@ -775,7 +780,7 @@ export default function PurchasesPage() {
             label: (
               <span className="flex items-center gap-1.5 px-1 font-medium text-emerald-700">
                 <FileDoneOutlined />
-                <span>Phiếu nhập kho (GRN List - WMS-10.1)</span>
+                <span>Phiếu nhập kho</span>
               </span>
             ),
             children: (
@@ -784,26 +789,30 @@ export default function PurchasesPage() {
               </Card>
             ),
           },
-          {
-            key: 'bills',
-            label: (
-              <span className="flex items-center gap-1.5 px-1 font-medium text-amber-700">
-                <DollarOutlined />
-                <span>Hóa đơn mua & Công nợ (WMS-10.5)</span>
-              </span>
-            ),
-            children: (
-              <Card variant="borderless" className="shadow-2xs">
-                <PurchaseBillsTable />
-              </Card>
-            ),
-          },
+          ...(canViewBills
+            ? [
+                {
+                  key: 'bills',
+                  label: (
+                    <span className="flex items-center gap-1.5 px-1 font-medium text-amber-700">
+                      <DollarOutlined />
+                      <span>Hóa đơn mua & Công nợ</span>
+                    </span>
+                  ),
+                  children: (
+                    <Card variant="borderless" className="shadow-2xs">
+                      <PurchaseBillsTable />
+                    </Card>
+                  ),
+                },
+              ]
+            : []),
           {
             key: 'create',
             label: (
               <span className="flex items-center gap-1.5 px-1 text-blue-600 font-semibold">
                 <PlusOutlined />
-                <span>Lập đơn mua hàng (PO Form - WMS-09.3)</span>
+                <span>Lập đơn mua hàng</span>
               </span>
             ),
             children: (
@@ -821,7 +830,7 @@ export default function PurchasesPage() {
             label: (
               <span className="flex items-center gap-1.5 px-1 text-emerald-600 font-semibold">
                 <BarcodeOutlined />
-                <span>Nhập kho thông minh (Súng bắn mã - WMS-10.4)</span>
+                <span>Nhập kho thông minh (Quét mã)</span>
               </span>
             ),
             children: (

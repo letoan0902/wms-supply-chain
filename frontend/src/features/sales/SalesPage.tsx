@@ -1,7 +1,7 @@
 import {
   CheckCircleOutlined,
-  DeleteOutlined,
   ClockCircleOutlined,
+  DeleteOutlined,
   DollarOutlined,
   ExclamationCircleOutlined,
   EyeOutlined,
@@ -10,6 +10,7 @@ import {
   FileTextOutlined,
   PlusOutlined,
   ReloadOutlined,
+  RocketOutlined,
   SearchOutlined,
   ShoppingOutlined,
   StopOutlined,
@@ -47,8 +48,10 @@ import * as warehouseApi from '../warehouses/warehouseApi'
 import type { Warehouse } from '../warehouses/types'
 import CreateSalesInvoiceModal from './components/CreateSalesInvoiceModal'
 import CustomerReceivablesTab from './components/CustomerReceivablesTab'
+import RealtimeOutboundBoard from './components/RealtimeOutboundBoard'
 import SalesOrderDetailModal from './components/SalesOrderDetailModal'
 import SalesOrderForm from './components/SalesOrderForm'
+import SmartPickingModal from './components/SmartPickingModal'
 import * as salesApi from './salesApi'
 import { SALES_STATUS_CONFIG } from './statusConfig'
 import type { OrderStatus, SalesOrder, SalesOrderSummary } from './types'
@@ -114,6 +117,9 @@ export default function SalesPage() {
 
   const [orderForInvoice, setOrderForInvoice] = useState<SalesOrder | null>(null)
   const [invoiceModalOpen, setInvoiceModalOpen] = useState<boolean>(false)
+
+  const [orderForPicking, setOrderForPicking] = useState<SalesOrder | null>(null)
+  const [isPickingModalOpen, setIsPickingModalOpen] = useState<boolean>(false)
 
   // Tải danh mục khách hàng và kho cho bộ lọc
   useEffect(() => {
@@ -444,6 +450,21 @@ export default function SalesPage() {
                     icon={<CheckCircleOutlined className="text-green-600" />}
                   />
                 </Popconfirm>
+              </Tooltip>
+            )}
+
+            {/* Lấy hàng thông minh (Smart Picking - WMS-12.3) */}
+            {r.status === 'CONFIRMED' && (
+              <Tooltip title="Lấy hàng thông minh (Smart Picking Route)">
+                <Button
+                  size="small"
+                  type="text"
+                  icon={<RocketOutlined className="text-orange-500 hover:text-orange-600" />}
+                  onClick={() => {
+                    setOrderForPicking(r)
+                    setIsPickingModalOpen(true)
+                  }}
+                />
               </Tooltip>
             )}
 
@@ -787,6 +808,23 @@ export default function SalesPage() {
               ),
             },
             {
+              key: 'outbound',
+              label: (
+                <Space>
+                  <RocketOutlined className="text-orange-500" />
+                  <span>Xuất kho & Lộ trình lấy hàng (FR17)</span>
+                </Space>
+              ),
+              children: (
+                <RealtimeOutboundBoard
+                  onOpenOrderDetail={(order) => {
+                    setSelectedOrder(order)
+                    setDetailModalOpen(true)
+                  }}
+                />
+              ),
+            },
+            {
               key: 'receivables',
               label: (
                 <Space>
@@ -816,9 +854,23 @@ export default function SalesPage() {
           setOrderForInvoice(order)
           setInvoiceModalOpen(true)
         }}
+        onOpenPicking={(order) => {
+          setOrderForPicking(order)
+          setIsPickingModalOpen(true)
+        }}
         canConfirm={canConfirm}
         canCancel={canCancel}
         canManageInvoice={canManageInvoice}
+      />
+
+      {/* Modal Lộ trình lấy hàng thông minh (Smart Picking View - WMS-12.3) */}
+      <SmartPickingModal
+        open={isPickingModalOpen}
+        order={orderForPicking}
+        onClose={() => {
+          setIsPickingModalOpen(false)
+          setOrderForPicking(null)
+        }}
       />
 
       {/* Modal Lập Hóa đơn bán hàng (FR18) */}

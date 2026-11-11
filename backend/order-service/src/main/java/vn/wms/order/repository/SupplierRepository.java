@@ -49,5 +49,8 @@ public interface SupplierRepository extends JpaRepository<Supplier, Long> {
     @Query("SELECT COUNT(s) FROM Supplier s WHERE s.active = true AND s.creditLimit > 0 AND s.currentDebt > s.creditLimit")
     long countOverLimitSuppliers();
 
+    @Query("SELECT COUNT(s) FROM Supplier s WHERE s.active = true AND s.currentDebt > 0")
+    long countSuppliersWithDebt();
+
     long countByActiveTrue();
 }

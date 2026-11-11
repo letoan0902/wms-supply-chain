@@ -41,9 +41,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 /**
@@ -63,16 +60,18 @@ public class GoodsDeliveryService {
     @Autowired(required = false)
     private WmsEventPublisher wmsEventPublisher;
 
-    private final ConcurrentHashMap<String, AtomicInteger> dailySequences = new ConcurrentHashMap<>();
+    private final DocumentNumberService documentNumberService;
 
     public GoodsDeliveryService(GoodsDeliveryNoteRepository gdnRepository,
                                 GoodsDeliveryNoteItemRepository gdnItemRepository,
                                 SalesOrderRepository salesOrderRepository,
-                                InventoryGateway inventoryGateway) {
+                                InventoryGateway inventoryGateway,
+                                DocumentNumberService documentNumberService) {
         this.gdnRepository = gdnRepository;
         this.gdnItemRepository = gdnItemRepository;
         this.salesOrderRepository = salesOrderRepository;
         this.inventoryGateway = inventoryGateway;
+        this.documentNumberService = documentNumberService;
     }
 
     /**
@@ -394,31 +393,12 @@ public class GoodsDeliveryService {
         }
     }
 
+    /** Sinh mã phiếu xuất GDN-YYYYMMDD-XXXX, đánh số riêng cho từng doanh nghiệp (WMS-22.4b). */
     private String generateNextGdnNumber() {
-        String todayStr = LocalDate.now().format(DATE_FORMATTER);
-        String prefix = "GDN-" + todayStr + "-";
-
-        AtomicInteger seq = dailySequences.computeIfAbsent(todayStr, k -> {
-            Optional<GoodsDeliveryNote> latest = gdnRepository
-                    .findTopByGdnNumberStartingWithOrderByGdnNumberDesc(prefix);
-            if (latest.isPresent()) {
-                String latestNumber = latest.get().getGdnNumber();
-                try {
-                    String seqStr = latestNumber.substring(prefix.length());
-                    return new AtomicInteger(Integer.parseInt(seqStr));
-                } catch (Exception ignored) {
-                }
-            }
-            return new AtomicInteger(0);
-        });
-
-        int nextVal = seq.incrementAndGet();
-        String candidate = String.format("%s%04d", prefix, nextVal);
-        while (gdnRepository.existsByGdnNumber(candidate)) {
-            nextVal = seq.incrementAndGet();
-            candidate = String.format("%s%04d", prefix, nextVal);
-        }
-        return candidate;
+        return documentNumberService.next("GDN-" + LocalDate.now().format(DATE_FORMATTER) + "-",
+                prefix -> gdnRepository.findTopByGdnNumberStartingWithOrderByGdnNumberDesc(prefix)
+                        .map(GoodsDeliveryNote::getGdnNumber),
+                gdnRepository::existsByGdnNumber);
     }
 
     private GoodsDeliveryNote findGdn(Long id) {

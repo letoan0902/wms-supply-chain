@@ -13,10 +13,11 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import vn.wms.common.persistence.AuditableEntity;
+import vn.wms.common.tenant.TenantEntity;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -28,17 +29,18 @@ import java.util.List;
  * Phiếu xuất kho (Goods Delivery Note - GDN) (WMS-12.1 - FR17).
  */
 @Entity
-@Table(name = "goods_delivery_notes")
+@Table(name = "goods_delivery_notes", uniqueConstraints = @UniqueConstraint(
+        name = "uk_goods_delivery_notes_company_number", columnNames = {"company_id", "gdn_number"}))
 @Getter
 @Setter
 @NoArgsConstructor
-public class GoodsDeliveryNote extends AuditableEntity {
+public class GoodsDeliveryNote extends TenantEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "gdn_number", nullable = false, unique = true, length = 30)
+    @Column(name = "gdn_number", nullable = false, length = 30)
     private String gdnNumber;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)

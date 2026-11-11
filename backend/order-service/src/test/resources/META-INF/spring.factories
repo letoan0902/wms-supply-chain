@@ -1,0 +1,1 @@
+org.springframework.test.context.TestExecutionListener=vn.wms.order.support.TenantTestExecutionListener

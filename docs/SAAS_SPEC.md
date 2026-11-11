@@ -373,9 +373,7 @@ Người làm: Việt. Ngày: 10/11 đến 12/11. Jira: TASK-137. Phụ thuộc:
 3. File có 3 dòng lỗi (thiếu tên, trùng SKU đã có, trùng SKU trong file): 47 dòng còn lại vẫn vào, 3 dòng lỗi có `row` và `message` đúng.
 4. Nhập lại đúng file đó: tất cả `SKIPPED`, không sinh bản ghi trùng.
 
-**Đã làm ở product-service (11/11, nhánh `t-22-4b-product`)**
-
-Phần order-service (đối tác, đơn hàng và hai API nhập hàng loạt của đối tác) vẫn giữ nguyên như mô tả ở trên, làm sau.
+**Phần product-service đã làm** (11/11, migration `V4`)
 
 - Migration `V4__multi_tenant_company_id.sql`: thêm `company_id BIGINT NOT NULL` cho `categories`, `uoms`, `products`, `unit_conversions` (dữ liệu cũ thuộc doanh nghiệp 1, quy đổi lấy doanh nghiệp từ sản phẩm); ràng buộc duy nhất `uk_categories_company_code`, `uk_uoms_company_code`, `uk_products_company_sku`, `uk_products_company_barcode`; index `idx_products_company_active`, `idx_unit_conversions_company`. MySQL cho phép nhiều dòng `barcode` NULL trong chỉ mục duy nhất nên hàng hóa chưa có mã vạch vẫn tạo được không giới hạn như trước.
 - Bốn entity kế thừa `TenantEntity`; `app.tenant.required: true`. Không có câu SQL gốc nào, mọi kiểm tra trùng (SKU, mã vạch, mã danh mục, mã đơn vị tính, cặp quy đổi) tự xét trong doanh nghiệp. Xem, sửa, xóa theo ID của doanh nghiệp khác, kể cả dùng ID danh mục hoặc đơn vị tính của doanh nghiệp khác khi tạo hàng hóa, quy đổi, đều trả `404`.
@@ -391,7 +389,25 @@ Phần order-service (đối tác, đơn hàng và hai API nhập hàng loạt c
 - Thứ tự xét một dòng: SKU đã xuất hiện ở dòng trước trong file thì `FAILED` ("Mã SKU 'X' bị lặp lại trong file (đã có ở dòng N)"); kiểm tra dữ liệu bằng đúng ràng buộc của API tạo một hàng hóa cộng `uomName` bắt buộc (tối đa 100 ký tự), `categoryName` tối đa 150 ký tự, nhiều lỗi nối bằng dấu chấm phẩy; SKU đã có trong doanh nghiệp thì `SKIPPED`, không ghi đè; còn lại tạo qua đúng nghiệp vụ của `POST /api/products`, nên trùng mã vạch và vượt giới hạn SKU của gói thành `FAILED` kèm thông báo của lỗi đó (ví dụ "Gói Khởi Đầu chỉ cho phép tối đa 200 SKU. Nâng cấp gói để thêm SKU mới.").
 - `categoryName`, `uomName` tìm theo tên (không phân biệt hoa thường và khoảng trắng hai đầu), không thấy thì tìm theo mã; vẫn không có thì tạo mới cho doanh nghiệp với mã sinh từ tên (bỏ dấu, viết hoa, ví dụ "Thùng" thành `THUNG`, trùng thì thêm `-2`). Danh mục, đơn vị tính tạo ở một dòng được các dòng sau trong cùng file dùng lại.
 - Mỗi dòng là một transaction riêng (`REQUIRES_NEW` trong bean `ProductBulkRowImporter`): dòng lỗi rollback cả danh mục, đơn vị tính vừa tạo cho nó, không ảnh hưởng dòng khác.
-- Lớp kết quả dùng chung ở `vn.wms.common.bulk` (`BulkRequest`, `BulkResult`, `BulkRowResult`, `BulkRowStatus`) để order-service dùng lại cho nhà cung cấp, khách hàng.
+- Lớp kết quả dùng chung ở `vn.wms.common.bulk` (`BulkRequest`, `BulkResult`, `BulkRowResult`, `BulkRowStatus`). order-service hiện có lớp riêng cùng cấu trúc JSON trong `vn.wms.order.dto.bulk`.
+
+**Phần order-service đã làm** (11/11, migration `V9`)
+
+- Tách dữ liệu toàn bộ 14 bảng của order-service, không chỉ tám bảng ở phần 1: thêm cả phiếu nhập (`goods_receipt_notes`, `goods_receipt_note_items`), hóa đơn mua (`purchase_bills`, `purchase_bill_items`), phiếu xuất (`goods_delivery_notes`, `goods_delivery_note_items`). Số chứng từ duy nhất trong một doanh nghiệp: `(company_id, po_number)`, `so_number`, `grn_number`, `bill_number`, `gdn_number`. Bật `app.tenant.required: true`; thiếu doanh nghiệp nhận `403 COMPANY_REQUIRED`.
+- Số chứng từ PO, SO, GRN, GDN, PB cấp theo từng doanh nghiệp từ bảng mới `document_sequences` (khóa dòng trong transaction riêng), giữ định dạng 4 chữ số đang dùng: hai doanh nghiệp cùng có `PO-20261110-0001`.
+- Sự kiện mang `x-wms-company-id` (tự động qua `WmsEventPublisher`, payload không đổi). Lời gọi OpenFeign sang inventory-service, product-service chuyển tiếp `X-Company-Id`. `/internal/orders/kpi-metrics` chỉ trả số liệu của doanh nghiệp gọi. Chi tiết kỹ thuật ở [MULTI_TENANT.md](MULTI_TENANT.md), mục 4.
+
+**API nhập hàng loạt đã làm (order-service)**
+
+| API | Vai trò | Body |
+| --- | --- | --- |
+| `POST /api/orders/suppliers/bulk` | Như `POST /api/orders/suppliers` (hiện chưa giới hạn vai trò) | `{ "items": [CreateSupplierRequest, ...] }`: `code`, `name` (bắt buộc), `taxCode`, `contactName`, `email`, `phone`, `address`, `bankAccount`, `bankName`, `paymentTerms`, `creditLimit`, `initialDebt` |
+| `POST /api/orders/customers/bulk` | Như `POST /api/orders/customers` (khai báo `ADMIN`, `SALES`, `ACCOUNTANT`) | `{ "items": [CreateCustomerRequest, ...] }`: `code`, `name`, `customerType` (`WHOLESALE`/`RETAIL`, bắt buộc), `taxCode`, `contactName`, `email`, `phone`, `address`, `paymentTerms`, `creditLimit`, `initialDebt`, `notes` |
+
+- Thiếu body, `items` rỗng hoặc hơn 500 dòng: `400 VALIDATION_ERROR` (với `items` rỗng hoặc quá dài, `data.items` là lý do). Còn lại luôn `200`, `data` = `{ total, created, skipped, failed, results: [{ row, status, id, code, message }] }`. `code` là mã đã chuẩn hóa (viết hoa, bỏ khoảng trắng hai đầu); `id` là bản ghi vừa tạo (`CREATED`) hoặc đang có (`SKIPPED`), `null` khi `FAILED`.
+- Thứ tự xét mỗi dòng: kiểm tra ràng buộc như API tạo đơn lẻ (lỗi gộp các thông báo bằng `; `) -> mã trùng một dòng hợp lệ phía trên: `FAILED` "trùng với dòng N" -> mã đã có trong doanh nghiệp: `SKIPPED`, không ghi đè -> tạo bằng đúng service tạo đơn lẻ (trùng mã số thuế trong doanh nghiệp, kể cả với dòng phía trên vừa tạo: `FAILED`; công nợ ban đầu ghi giao dịch như tạo đơn lẻ).
+- Mỗi dòng một transaction riêng (`REQUIRES_NEW`). Nhập lại cùng file: mọi dòng hợp lệ thành `SKIPPED`; dòng sai dữ liệu và dòng lặp mã trong file vẫn `FAILED` như lần đầu.
+- order-service chưa bật kiểm tra vai trò (không có method security, `@PreAuthorize` chỉ là khai báo), nên API nhập hàng loạt có cùng quyền thực tế với API tạo đơn lẻ.
 
 ### WMS-22.4c [Backend] notification-service: thông báo, KPI và báo cáo theo doanh nghiệp
 

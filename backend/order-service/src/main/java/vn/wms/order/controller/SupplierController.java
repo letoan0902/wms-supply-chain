@@ -18,8 +18,13 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import vn.wms.common.api.ApiResponse;
+import vn.wms.common.api.ErrorCode;
 import vn.wms.common.api.PageResponse;
+import vn.wms.common.exception.ApiException;
 import vn.wms.order.dto.CreateSupplierRequest;
+import vn.wms.order.dto.bulk.BulkCreateSupplierRequest;
+import vn.wms.order.dto.bulk.BulkImportResponse;
+import vn.wms.order.service.PartnerBulkImportService;
 import vn.wms.order.dto.RecordSupplierTransactionRequest;
 import vn.wms.order.dto.SupplierDebtSummaryResponse;
 import vn.wms.order.dto.SupplierResponse;
@@ -38,9 +43,25 @@ import java.net.URI;
 public class SupplierController {
 
     private final SupplierService supplierService;
+    private final PartnerBulkImportService bulkImportService;
 
-    public SupplierController(SupplierService supplierService) {
+    public SupplierController(SupplierService supplierService, PartnerBulkImportService bulkImportService) {
         this.supplierService = supplierService;
+        this.bulkImportService = bulkImportService;
+    }
+
+    /**
+     * Nhập hàng loạt nhà cung cấp (WMS-22.4b). Cùng quyền với API tạo một nhà cung cấp. Luôn trả 200 kèm kết quả
+     * từng dòng; chỉ body rỗng, danh sách rỗng hoặc quá 500 dòng mới trả 400 VALIDATION_ERROR.
+     */
+    @PostMapping("/bulk")
+    @Operation(summary = "Nhập hàng loạt nhà cung cấp (tối đa 500 dòng, mã đã có thì bỏ qua)")
+    public ApiResponse<BulkImportResponse> bulkCreate(
+            @Valid @RequestBody(required = false) BulkCreateSupplierRequest request) {
+        if (request == null) {
+            throw new ApiException(ErrorCode.VALIDATION_ERROR, "Danh sách nhà cung cấp cần nhập không được để trống");
+        }
+        return ApiResponse.ok(bulkImportService.importSuppliers(request.items()));
     }
 
     @GetMapping

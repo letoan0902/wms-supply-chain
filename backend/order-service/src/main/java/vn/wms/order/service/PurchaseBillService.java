@@ -27,8 +27,6 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -46,14 +44,16 @@ public class PurchaseBillService {
     private final SupplierRepository supplierRepository;
     private final SupplierTransactionRepository transactionRepository;
 
-    private final ConcurrentHashMap<String, AtomicInteger> dailySequences = new ConcurrentHashMap<>();
+    private final DocumentNumberService documentNumberService;
 
     public PurchaseBillService(PurchaseBillRepository purchaseBillRepository,
                                SupplierRepository supplierRepository,
-                               SupplierTransactionRepository transactionRepository) {
+                               SupplierTransactionRepository transactionRepository,
+                               DocumentNumberService documentNumberService) {
         this.purchaseBillRepository = purchaseBillRepository;
         this.supplierRepository = supplierRepository;
         this.transactionRepository = transactionRepository;
+        this.documentNumberService = documentNumberService;
     }
 
     /**
@@ -282,28 +282,14 @@ public class PurchaseBillService {
     }
 
     /**
-     * Sinh mã hóa đơn PB-YYYYMMDD-XXXX. Bộ đếm trong bộ nhớ được khởi tạo từ mã lớn nhất đã lưu trong ngày
-     * (giống mã GRN) và bỏ qua mã đã tồn tại, để sau khi restart không sinh lại PB-...-0001 trùng khóa duy nhất.
+     * Sinh mã hóa đơn PB-YYYYMMDD-XXXX, đánh số riêng cho từng doanh nghiệp (WMS-22.4b). Bộ đếm lưu trong cơ sở
+     * dữ liệu, lần đầu khởi tạo từ mã lớn nhất đã lưu trong ngày, nên sau khi restart không sinh lại mã đã dùng.
      */
     private String generateBillNumber(LocalDate date) {
-        String dateStr = date.format(DATE_FORMATTER);
-        String prefix = "PB-" + dateStr + "-";
-        AtomicInteger seq = dailySequences.computeIfAbsent(dateStr, k -> new AtomicInteger(
-                purchaseBillRepository.findTopByBillNumberStartingWithOrderByBillNumberDesc(prefix)
-                        .map(PurchaseBill::getBillNumber)
-                        .map(latest -> {
-                            try {
-                                return Integer.parseInt(latest.substring(prefix.length()));
-                            } catch (RuntimeException e) {
-                                return 0;
-                            }
-                        })
-                        .orElse(0)));
-        String candidate;
-        do {
-            candidate = String.format("%s%04d", prefix, seq.incrementAndGet());
-        } while (purchaseBillRepository.existsByBillNumber(candidate));
-        return candidate;
+        return documentNumberService.next("PB-" + date.format(DATE_FORMATTER) + "-",
+                prefix -> purchaseBillRepository.findTopByBillNumberStartingWithOrderByBillNumberDesc(prefix)
+                        .map(PurchaseBill::getBillNumber),
+                purchaseBillRepository::existsByBillNumber);
     }
 
     private LocalDate calculateDueDate(LocalDate billDate, String paymentTerms) {

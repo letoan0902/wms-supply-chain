@@ -155,6 +155,26 @@ public class InventoryGateway {
     }
 
     /**
+     * Trừ tồn đồng bộ khi hoàn tất phiếu xuất (WMS-20.4). Thành công (kể cả {@code alreadyProcessed}) nghĩa là tồn đã
+     * được trừ đúng một lần cho khóa này. Lỗi nghiệp vụ 4xx (không đủ tồn, kho ngừng hoạt động, ...) ném lại nguyên mã
+     * và thông báo: inventory-service chắc chắn chưa trừ. Hết thời gian chờ, mất kết nối hoặc 5xx ném
+     * {@link InventoryOutcomeUnknownException}: có thể đã trừ hoặc chưa, gọi lại cùng khóa là an toàn.
+     */
+    public DocumentDispatchResponse deductForDispatch(DocumentDispatchRequest request) {
+        try {
+            ApiResponse<DocumentDispatchResponse> response = inventoryClient.dispatchStock(request);
+            log.info("inventory-service đã trừ tồn cho phiếu xuất {} (đơn {})", request.dispatchKey(), request.orderNumber());
+            return response != null ? response.data() : null;
+        } catch (FeignException ex) {
+            ApiException translated = translate(ex, "Chưa xác nhận được việc trừ tồn với dịch vụ kho");
+            if (translated.getErrorCode() == ErrorCode.SERVICE_UNAVAILABLE) {
+                throw new InventoryOutcomeUnknownException(translated.getMessage(), ex);
+            }
+            throw translated;
+        }
+    }
+
+    /**
      * Quy lỗi Feign về {@link ApiException}: inventory-service trả lỗi 4xx theo khung ApiResponse thì giữ nguyên mã,
      * thông báo tiếng Việt và {@code data}; lỗi kết nối, hết thời gian chờ hoặc 5xx thì trả SERVICE_UNAVAILABLE.
      */

@@ -178,6 +178,10 @@ order-service gọi đồng bộ các endpoint tồn kho nội bộ của invent
 | --- | --- | --- |
 | `POST /internal/inventory/receipts/location-check` | lập, xác nhận phiếu nhập | Trả các dòng sẽ cộng tồn vào vị trí đang đóng băng kiểm kê (không đổi dữ liệu) |
 | `POST /internal/inventory/reservations` | xác nhận đơn bán (cả lập đơn CONFIRMED, sửa đơn BACKORDER) | Giữ chỗ toàn bộ đơn, tất cả hoặc không, idempotent theo đơn; thiếu hàng trả 409 |
+| `POST /internal/inventory/dispatches` | lập phiếu xuất COMPLETED, xác nhận xuất phiếu | Trừ tồn theo phiếu, mỗi `dispatchKey` một lần; thiếu tồn, ô đóng băng trả 4xx |
+
+Endpoint nội bộ đổi tồn kho không kiểm tra vai trò của người được chuyển tiếp (khác `/api/inventory/stock/deduct` chỉ
+cho ADMIN, WAREHOUSE_MANAGER), vì vai trò đã được kiểm tra ở API phiếu, đơn của order-service.
 
 api-gateway không định tuyến tới (route chỉ có `/api/**` và `/ws-wms/**`). Quy tắc:
 

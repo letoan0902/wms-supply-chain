@@ -9,9 +9,12 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import vn.wms.common.api.ApiResponse;
 import vn.wms.inventory.dto.FrozenLocationConflict;
+import vn.wms.inventory.dto.internal.DocumentDispatchRequest;
+import vn.wms.inventory.dto.internal.DocumentDispatchResponse;
 import vn.wms.inventory.dto.internal.ReceiptLocationCheckRequest;
 import vn.wms.inventory.dto.internal.ReserveOrderRequest;
 import vn.wms.inventory.dto.internal.ReserveOrderResponse;
+import vn.wms.inventory.service.DocumentDispatchService;
 import vn.wms.inventory.service.StockReceiptService;
 import vn.wms.inventory.service.StockReservationService;
 
@@ -30,11 +33,20 @@ public class InventoryStockInternalController {
 
     private final StockReceiptService stockReceiptService;
     private final StockReservationService stockReservationService;
+    private final DocumentDispatchService documentDispatchService;
 
     public InventoryStockInternalController(StockReceiptService stockReceiptService,
-                                            StockReservationService stockReservationService) {
+                                            StockReservationService stockReservationService,
+                                            DocumentDispatchService documentDispatchService) {
         this.stockReceiptService = stockReceiptService;
         this.stockReservationService = stockReservationService;
+        this.documentDispatchService = documentDispatchService;
+    }
+
+    @PostMapping("/dispatches")
+    @Operation(summary = "Trừ tồn khi hoàn tất phiếu xuất, mỗi dispatchKey một lần (gọi lại trả alreadyProcessed); thiếu tồn trả lỗi, không trừ gì")
+    public ApiResponse<DocumentDispatchResponse> dispatch(@Valid @RequestBody DocumentDispatchRequest request) {
+        return ApiResponse.ok(documentDispatchService.dispatch(request));
     }
 
     @PostMapping("/reservations")

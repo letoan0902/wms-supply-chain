@@ -54,4 +54,11 @@ public interface InventoryClient {
      */
     @PostMapping("/internal/inventory/reservations")
     ApiResponse<ReserveOrderResponse> reserveOrder(@RequestBody ReserveOrderRequest request);
+
+    /**
+     * Endpoint nội bộ (WMS-20.4): trừ tồn khi hoàn tất phiếu xuất, mỗi {@code dispatchKey} một lần (gọi lại trả
+     * {@code alreadyProcessed}); thiếu tồn hoặc vị trí đóng băng trả lỗi 4xx, không trừ gì.
+     */
+    @PostMapping("/internal/inventory/dispatches")
+    ApiResponse<DocumentDispatchResponse> dispatchStock(@RequestBody DocumentDispatchRequest request);
 }

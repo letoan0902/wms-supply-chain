@@ -152,6 +152,41 @@ class InventoryInternalContractTest {
                 .extracting(ex -> ((ApiException) ex).getErrorCode()).isEqualTo(ErrorCode.SERVICE_UNAVAILABLE);
     }
 
+    @Test
+    @DisplayName("Trừ tồn phiếu xuất: POST /internal/inventory/dispatches với dispatchKey; 4xx giữ nguyên lỗi, 5xx là chưa biết kết quả")
+    void dispatchStockContract() throws Exception {
+        DocumentDispatchRequest request = new DocumentDispatchRequest("GDN-77", 55L, "SO-20261111-0001", 3L, "thukho",
+                List.of(new DocumentDispatchRequest.Item(101L, "SKU-1", new java.math.BigDecimal("4"))));
+        stub.respond(200, "{\"success\":true,\"code\":\"OK\",\"message\":\"Thành công\",\"data\":{\"dispatchKey\":\"GDN-77\","
+                + "\"alreadyProcessed\":true,\"orderId\":55,\"warehouseId\":3,\"totalDeductedQuantity\":null,"
+                + "\"processedAt\":\"2026-11-11T08:00:00Z\"}}");
+
+        DocumentDispatchResponse result = inventoryGateway.deductForDispatch(request);
+
+        assertThat(result.alreadyProcessed()).isTrue();
+        assertThat(result.processedAt()).isNotNull();
+        Request sent = stub.last();
+        assertThat(sent.url()).endsWith("/internal/inventory/dispatches");
+        JsonNode body = json.readTree(sent.body());
+        assertThat(body.path("dispatchKey").asText()).isEqualTo("GDN-77");
+        assertThat(body.path("orderId").asLong()).isEqualTo(55L);
+        assertThat(body.path("orderNumber").asText()).isEqualTo("SO-20261111-0001");
+        assertThat(body.path("warehouseId").asLong()).isEqualTo(3L);
+        assertThat(body.path("dispatchedBy").asText()).isEqualTo("thukho");
+        assertThat(body.path("items").get(0).path("quantity").decimalValue()).isEqualByComparingTo("4");
+
+        stub.respond(400, "{\"success\":false,\"code\":\"BAD_REQUEST\",\"message\":\"Không đủ tồn kho để xuất\"}");
+        assertThatThrownBy(() -> inventoryGateway.deductForDispatch(request))
+                .isInstanceOf(ApiException.class)
+                .isNotInstanceOf(InventoryOutcomeUnknownException.class)
+                .hasMessage("Không đủ tồn kho để xuất");
+
+        stub.respond(504, "");
+        assertThatThrownBy(() -> inventoryGateway.deductForDispatch(request))
+                .isInstanceOf(InventoryOutcomeUnknownException.class)
+                .extracting(ex -> ((ApiException) ex).getErrorCode()).isEqualTo(ErrorCode.SERVICE_UNAVAILABLE);
+    }
+
     /** {@link Client} giả: ghi lại request và trả phản hồi đặt trước, thay cho inventory-service qua mạng. */
     static class StubInventory {
         private final List<Request> requests = new CopyOnWriteArrayList<>();

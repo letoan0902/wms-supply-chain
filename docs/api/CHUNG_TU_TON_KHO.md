@@ -46,3 +46,19 @@ và phản hồi không đổi; giữ chỗ nay là một phần của xác nh�
 | Không gọi được inventory-service hoặc hết thời gian chờ | `503 SERVICE_UNAVAILABLE`, đơn không đổi; bấm xác nhận lại là an toàn (inventory-service không giữ hai lần cho cùng đơn) |
 
 Hàng ở lô khóa, lô hết hạn và ô đang đóng băng kiểm kê không được giữ, nên có thể thiếu dù ATP trên màn hình đủ.
+
+## 3. Phiếu xuất kho
+
+Áp dụng cho `POST /api/orders/goods-delivery-notes` khi `status` là COMPLETED hoặc bỏ trống, và
+`POST /api/orders/goods-delivery-notes/{id}/dispatch`. Đường dẫn, vai trò, thân yêu cầu và phản hồi thành công không
+đổi; phiếu chỉ COMPLETED khi tồn đã được trừ thật.
+
+| Tình huống | Kết quả |
+| --- | --- |
+| Trừ tồn thành công | Như trước: `201` (lập) hoặc `200` (`dispatch`), `status` COMPLETED |
+| Không đủ tồn thực tế, lô khóa, kho ngừng hoạt động | Mã và thông báo của inventory-service (thường `400 BAD_REQUEST` "Không đủ tồn kho để xuất..."). Lập phiếu: không có phiếu nào được lưu. `dispatch`: phiếu giữ nguyên DRAFT/PICKING |
+| Xuất từ ô đang đóng băng kiểm kê | `409 CONFLICT` với `data` của đợt kiểm kê; phiếu không hoàn tất |
+| Lập phiếu mà hết thời gian chờ hoặc mất kết nối tới inventory-service | `503 SERVICE_UNAVAILABLE`, thông báo nêu mã phiếu: phiếu **đã được lưu ở PICKING**. Giao diện tải lại danh sách phiếu của đơn và cho người dùng bấm Xuất kho (`dispatch`) trên phiếu đó; không lập phiếu mới (số lượng của phiếu PICKING đã tính vào phần đã xuất của đơn) |
+| `dispatch` mà hết thời gian chờ | `503`, phiếu giữ nguyên; bấm lại an toàn, tồn chỉ bị trừ một lần |
+
+Phiếu lập ở DRAFT hoặc PICKING không gọi inventory-service, như trước.

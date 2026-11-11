@@ -80,10 +80,14 @@ public class DispatchStockHandler implements OrderEventHandler {
                 deductItems
         );
 
+        // Từ WMS-20.4 order-service đã trừ tồn đồng bộ với khóa của phiếu xuất (dispatchKey) trước khi phát sự kiện,
+        // nên dùng khóa đó để tra nhật ký: thấy đã trừ thì bỏ qua. Sự kiện cũ không có khóa thì chống trùng theo messageId.
+        String guardKey = event.dispatchKey() != null && !event.dispatchKey().isBlank() ? event.dispatchKey() : messageId;
+
         try {
             // Tập messageId trong bộ nhớ chỉ chặn trùng khi service còn chạy; nhật ký stock_dispatches trong DB
             // chặn cả trường hợp giao lại sau khi restart hoặc phát lại từ dead-letter (WMS-12.1).
-            if (stockDeductionService.deductStockForDispatchEvent(request, event.dispatchedBy(), messageId) == null) {
+            if (stockDeductionService.deductStockForDispatchEvent(request, event.dispatchedBy(), guardKey) == null) {
                 return;
             }
             log.info("Đã hoàn tất trừ tồn kho với Khóa bi quan cho đơn xuất {}", event.orderNumber());

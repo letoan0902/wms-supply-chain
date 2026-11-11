@@ -26,6 +26,7 @@ import vn.wms.auth.security.JwtService;
 import vn.wms.auth.security.UserPrincipal;
 import vn.wms.auth.subscription.dto.SubscriptionSummary;
 import vn.wms.auth.subscription.service.SubscriptionService;
+import vn.wms.auth.subscription.service.UserPlanLimitGuard;
 import vn.wms.common.api.ErrorCode;
 import vn.wms.common.constant.Roles;
 import vn.wms.common.exception.ApiException;
@@ -56,6 +57,7 @@ public class AuthService {
     private final CompanyRepository companyRepository;
     private final SubscriptionService subscriptionService;
     private final PasswordEncoder passwordEncoder;
+    private final UserPlanLimitGuard userPlanLimitGuard;
 
     public AuthService(JwtService jwtService,
                        DevLoginProperties devLogin,
@@ -64,7 +66,8 @@ public class AuthService {
                        RoleRepository roleRepository,
                        CompanyRepository companyRepository,
                        SubscriptionService subscriptionService,
-                       PasswordEncoder passwordEncoder) {
+                       PasswordEncoder passwordEncoder,
+                       UserPlanLimitGuard userPlanLimitGuard) {
         this.jwtService = jwtService;
         this.devLogin = devLogin;
         this.redisTemplate = redisTemplate;
@@ -73,6 +76,7 @@ public class AuthService {
         this.companyRepository = companyRepository;
         this.subscriptionService = subscriptionService;
         this.passwordEncoder = passwordEncoder;
+        this.userPlanLimitGuard = userPlanLimitGuard;
     }
 
     private static final int MAX_FAILED_ATTEMPTS = 5;
@@ -326,7 +330,8 @@ public class AuthService {
 
     /**
      * Tạo mới tài khoản người dùng (chỉ dành cho Admin). Tài khoản mới luôn thuộc doanh nghiệp
-     * của ADMIN đang tạo (companyId lấy từ JWT), không nhận doanh nghiệp từ body.
+     * của ADMIN đang tạo (companyId lấy từ JWT), không nhận doanh nghiệp từ body. Vượt giới hạn số người dùng
+     * của gói thì trả {@code PLAN_LIMIT_EXCEEDED} (WMS-23.2).
      */
     @Transactional
     public RegisterResponse register(RegisterRequest request, Long companyId) {
@@ -355,10 +360,13 @@ public class AuthService {
             assignedRoles.add(roleEntity);
         }
 
-        // 4. Băm mật khẩu bằng BCrypt
+        // 4. Giới hạn số người dùng của gói: tài khoản mới luôn ở trạng thái bật
+        userPlanLimitGuard.assertCanAddEnabledUser(companyId);
+
+        // 5. Băm mật khẩu bằng BCrypt
         String encodedPassword = passwordEncoder.encode(request.password());
 
-        // 5. Tạo User mới, gán enabled = true và các vai trò
+        // 6. Tạo User mới, gán enabled = true và các vai trò
         User newUser = new User();
         newUser.setUsername(request.username());
         newUser.setEmail(request.email());
@@ -368,10 +376,11 @@ public class AuthService {
         newUser.setRoles(assignedRoles);
         newUser.setCompany(company);
 
-        // 6. Lưu vào DB
+        // 7. Lưu vào DB và ghi lại mức sử dụng
         User savedUser = userRepository.save(newUser);
+        userPlanLimitGuard.reportUsage(companyId);
 
-        // 7. Trả về RegisterResponse
+        // 8. Trả về RegisterResponse
         Set<String> roleNames = savedUser.getRoles().stream()
                 .map(Role::getName)
                 .collect(Collectors.toSet());

@@ -1,9 +1,12 @@
 package vn.wms.inventory.service;
 
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.wms.common.constant.Roles;
 import vn.wms.common.exception.ApiException;
+import vn.wms.common.plan.PlanLimit;
+import vn.wms.common.plan.PlanLimitChecker;
 import vn.wms.common.security.CurrentUser;
 import vn.wms.common.security.UserContext;
 import vn.wms.inventory.dto.CreateWarehouseRequest;
@@ -22,6 +25,10 @@ import java.util.Set;
 
 /**
  * Xử lý nghiệp vụ danh mục đa kho & giám sát sức chứa kho (WMS-05).
+ *
+ * <p>Giới hạn số kho theo gói dịch vụ (WMS-23.2): tạo kho đang hoạt động hoặc bật lại kho đã ngưng đều phải qua
+ * {@link PlanLimitChecker}; sau mỗi thay đổi số kho đang hoạt động thì báo lại mức sử dụng. Checker là tùy chọn
+ * (không có Redis hoặc tắt {@code app.plan-limit.enabled} thì bỏ qua).
  */
 @Service
 public class WarehouseService {
@@ -29,15 +36,18 @@ public class WarehouseService {
     private final WarehouseRepository warehouseRepository;
     private final BinLocationRepository binLocationRepository;
     private final StockItemRepository stockItemRepository;
+    private final ObjectProvider<PlanLimitChecker> planLimitChecker;
 
     public WarehouseService(
             WarehouseRepository warehouseRepository,
             BinLocationRepository binLocationRepository,
-            StockItemRepository stockItemRepository
+            StockItemRepository stockItemRepository,
+            ObjectProvider<PlanLimitChecker> planLimitChecker
     ) {
         this.warehouseRepository = warehouseRepository;
         this.binLocationRepository = binLocationRepository;
         this.stockItemRepository = stockItemRepository;
+        this.planLimitChecker = planLimitChecker;
     }
 
     /**
@@ -176,7 +186,12 @@ public class WarehouseService {
         warehouse.setCapacity(request.capacity() != null ? request.capacity() : 0);
         warehouse.setActive(request.active() == null || request.active());
 
+        // Kho tạo ở trạng thái ngưng không tính vào giới hạn; lúc bật lên mới kiểm tra
+        if (warehouse.isActive()) {
+            assertCanActivateWarehouse();
+        }
         Warehouse saved = warehouseRepository.save(warehouse);
+        reportWarehouseUsage();
         return toResponseWithStats(saved);
     }
 
@@ -196,11 +211,18 @@ public class WarehouseService {
         if (request.capacity() != null) {
             warehouse.setCapacity(request.capacity());
         }
+        boolean wasActive = warehouse.isActive();
         if (request.active() != null) {
+            if (request.active() && !wasActive) {
+                assertCanActivateWarehouse();
+            }
             warehouse.setActive(request.active());
         }
 
         Warehouse updated = warehouseRepository.save(warehouse);
+        if (wasActive != updated.isActive()) {
+            reportWarehouseUsage();
+        }
         return toResponseWithStats(updated);
     }
 
@@ -217,8 +239,15 @@ public class WarehouseService {
             throw ApiException.conflict("Không thể khóa kho '" + warehouse.getName() + "' vì hiện vẫn còn hàng tồn kho.");
         }
 
+        boolean wasActive = warehouse.isActive();
+        if (active && !wasActive) {
+            assertCanActivateWarehouse();
+        }
         warehouse.setActive(active);
         Warehouse updated = warehouseRepository.save(warehouse);
+        if (wasActive != active) {
+            reportWarehouseUsage();
+        }
         return toResponseWithStats(updated);
     }
 
@@ -245,6 +274,29 @@ public class WarehouseService {
         }
 
         warehouseRepository.delete(warehouse);
+        if (warehouse.isActive()) {
+            // Truy vấn đếm (JPQL) tự đẩy lệnh xóa xuống DB trước khi đếm (FlushMode AUTO)
+            reportWarehouseUsage();
+        }
+    }
+
+    /**
+     * Kiểm tra giới hạn số kho của gói trước khi có thêm một kho đang hoạt động (tạo mới hoặc bật lại).
+     * Vượt giới hạn thì ném {@code PLAN_LIMIT_EXCEEDED}.
+     */
+    private void assertCanActivateWarehouse() {
+        PlanLimitChecker checker = planLimitChecker != null ? planLimitChecker.getIfAvailable() : null;
+        if (checker != null) {
+            checker.assertCanCreate(PlanLimit.WAREHOUSES, warehouseRepository.countByActiveTrue());
+        }
+    }
+
+    /** Ghi số kho đang hoạt động vào bộ nhớ đệm mức sử dụng để auth-service hiển thị. */
+    private void reportWarehouseUsage() {
+        PlanLimitChecker checker = planLimitChecker != null ? planLimitChecker.getIfAvailable() : null;
+        if (checker != null) {
+            checker.reportUsage(PlanLimit.WAREHOUSES, warehouseRepository.countByActiveTrue());
+        }
     }
 
     /**

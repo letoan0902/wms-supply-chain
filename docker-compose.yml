@@ -212,6 +212,15 @@ services:
     environment:
       <<: [*backend-env, *db-credentials]
       DB_URL: jdbc:mysql://mysql:3306/auth_db
+      # Thanh toán PayOS (WMS-23.5a). Máy phát triển chạy giả lập (PAYOS_MOCK=true), không cần khóa.
+      # Ba khóa chỉ đặt trong .env, không commit. Địa chỉ trả về mặc định là frontend của compose (cổng 80).
+      PAYOS_MOCK: ${PAYOS_MOCK:-true}
+      PAYOS_CLIENT_ID: ${PAYOS_CLIENT_ID:-}
+      PAYOS_API_KEY: ${PAYOS_API_KEY:-}
+      PAYOS_CHECKSUM_KEY: ${PAYOS_CHECKSUM_KEY:-}
+      PAYOS_RETURN_URL: ${PAYOS_RETURN_URL:-http://localhost/payment/result}
+      PAYOS_CANCEL_URL: ${PAYOS_CANCEL_URL:-http://localhost/payment/result}
+      PAYOS_BASE_URL: ${PAYOS_BASE_URL:-https://api-merchant.payos.vn}
     depends_on: *depends-on-core
     ports:
       - "127.0.0.1:8081:8081"

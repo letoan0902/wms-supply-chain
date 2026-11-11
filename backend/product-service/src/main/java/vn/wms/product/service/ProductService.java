@@ -1,10 +1,14 @@
 package vn.wms.product.service;
 
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.wms.common.api.PageResponse;
 import vn.wms.common.exception.ApiException;
+import vn.wms.common.plan.PlanLimit;
+import vn.wms.common.plan.PlanLimitChecker;
+import vn.wms.common.tenant.TenantContext;
 import vn.wms.product.dto.CreateProductRequest;
 import vn.wms.product.dto.ProductResponse;
 import vn.wms.product.dto.UpdateProductRequest;
@@ -17,19 +21,30 @@ import vn.wms.product.repository.UomRepository;
 
 import java.math.BigDecimal;
 
+/**
+ * Nghiệp vụ danh mục SKU / sản phẩm.
+ *
+ * <p>Giới hạn số SKU theo gói (WMS-23.2): tạo SKU mới hoặc bật lại SKU đã ngưng phải qua {@link PlanLimitChecker}.
+ * product-service chưa tách dữ liệu theo doanh nghiệp (WMS-22.4b) nên dùng
+ * {@link PlanLimitChecker#assertCanCreateIfTenant}: request không mang X-Company-Id (gọi trực tiếp, test cũ) thì bỏ
+ * qua kiểm tra thay vì báo lỗi COMPANY_REQUIRED. Checker là tùy chọn (không có Redis thì bỏ qua).
+ */
 @Service
 public class ProductService {
 
     private final ProductRepository productRepository;
     private final CategoryRepository categoryRepository;
     private final UomRepository uomRepository;
+    private final ObjectProvider<PlanLimitChecker> planLimitChecker;
 
     public ProductService(ProductRepository productRepository,
                           CategoryRepository categoryRepository,
-                          UomRepository uomRepository) {
+                          UomRepository uomRepository,
+                          ObjectProvider<PlanLimitChecker> planLimitChecker) {
         this.productRepository = productRepository;
         this.categoryRepository = categoryRepository;
         this.uomRepository = uomRepository;
+        this.planLimitChecker = planLimitChecker;
     }
 
     /** Danh sách sản phẩm có phân trang, tìm kiếm và lọc. */
@@ -102,7 +117,10 @@ public class ProductService {
         product.setMaxStock(request.maxStock() != null ? request.maxStock() : BigDecimal.ZERO);
         product.setActive(true);
 
-        return ProductResponse.from(productRepository.save(product));
+        assertCanActivateSku();
+        Product saved = productRepository.save(product);
+        reportSkuUsage();
+        return ProductResponse.from(saved);
     }
 
     /** Cập nhật thông tin SKU / sản phẩm. */
@@ -146,11 +164,19 @@ public class ProductService {
         product.setReorderPoint(request.reorderPoint() != null ? request.reorderPoint() : BigDecimal.ZERO);
         product.setMaxStock(request.maxStock() != null ? request.maxStock() : BigDecimal.ZERO);
 
+        boolean wasActive = product.isActive();
         if (request.active() != null) {
+            if (request.active() && !wasActive) {
+                assertCanActivateSku();
+            }
             product.setActive(request.active());
         }
 
-        return ProductResponse.from(productRepository.save(product));
+        Product saved = productRepository.save(product);
+        if (wasActive != saved.isActive()) {
+            reportSkuUsage();
+        }
+        return ProductResponse.from(saved);
     }
 
     /** Xóa mềm sản phẩm theo ID (chuyển active = false để không mất tham chiếu SKU ở inventory-service). */
@@ -158,8 +184,28 @@ public class ProductService {
     public void delete(Long id) {
         Product product = productRepository.findById(id)
                 .orElseThrow(() -> ApiException.notFound("Không tìm thấy sản phẩm với id: " + id));
+        boolean wasActive = product.isActive();
         product.setActive(false);
         productRepository.save(product);
+        if (wasActive) {
+            reportSkuUsage();
+        }
+    }
+
+    /** Kiểm tra giới hạn số SKU của gói trước khi có thêm một SKU đang hoạt động (tạo mới hoặc bật lại). */
+    private void assertCanActivateSku() {
+        PlanLimitChecker checker = planLimitChecker != null ? planLimitChecker.getIfAvailable() : null;
+        if (checker != null) {
+            checker.assertCanCreateIfTenant(PlanLimit.SKUS, productRepository::countByActiveTrue);
+        }
+    }
+
+    /** Ghi số SKU đang hoạt động vào bộ nhớ đệm mức sử dụng (bỏ qua khi chưa có doanh nghiệp trong ngữ cảnh). */
+    private void reportSkuUsage() {
+        PlanLimitChecker checker = planLimitChecker != null ? planLimitChecker.getIfAvailable() : null;
+        if (checker != null && TenantContext.isSet()) {
+            checker.reportUsage(PlanLimit.SKUS, productRepository.countByActiveTrue());
+        }
     }
 
     private String normalizeBarcode(String barcode) {

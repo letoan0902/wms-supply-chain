@@ -993,6 +993,49 @@ Nhận `data`:
 
 Chưa kiểm chứng: chưa gọi Claude thật (máy phát triển và CI không có khóa), nên chất lượng câu trả lời, việc Claude chọn đúng công cụ, thời gian thực tế và tỷ lệ đọc lại bộ nhớ đệm chưa đo; vòng công cụ được kiểm thử bằng phản hồi JSON mẫu đọc qua SDK.
 
+### WMS-18.1 [Backend] Tóm tắt số liệu điều hành bằng AI (khối "AI Summary" của dashboard)
+
+Người làm: Toàn. Jira: TASK-85. Phụ thuộc: WMS-24.1, WMS-16.1 (8 thẻ KPI), WMS-17.1 (báo cáo Xuất - Nhập - Tồn). Giao diện làm ở WMS-18.3.
+
+**Đã làm (nhánh `t-24-4`)**
+
+`GET /api/ai/summary?warehouseId=&refresh=`, bọc `ApiResponse`, cần `X-Company-Id` (thiếu thì `403 COMPANY_REQUIRED`).
+
+- Tham số: `warehouseId` (không bắt buộc, sai kiểu: `400`), `refresh` (mặc định `false`; `true` bỏ qua bộ nhớ đệm và tạo bản mới).
+- Số liệu lấy bằng danh tính người xem (cùng client chuyển tiếp header với trợ lý): `GET /api/notifications/dashboard/kpi-summary?warehouseId=` (bắt buộc) và `GET /api/inventory/reports/in-out-balance` từ ngày 1 của tháng tới hôm nay (giờ Việt Nam), `groupBy=PRODUCT`, `size=1`, cùng kho mà notification-service đã dùng (`meta.warehouseId`; vai trò theo kho không chọn kho thì là kho được gán đầu tiên), chỉ đọc `totals`. KPI trả 403 thì trả `403 FORBIDDEN` (vai trò theo kho chưa được gán kho, kho không được gán); KPI không đọc được thì `503`. Báo cáo nhập xuất không đọc được (ví dụ `SALES`, `PURCHASING` bị 403) thì bản tóm tắt ghi "chưa có số liệu" kèm lý do, không lỗi.
+- Ai xem được: người notification-service cho xem KPI. Thẻ tài chính (công nợ phải thu, phải trả, giá trị tồn kho, doanh số) có `visible = false` với vai trò không phải `ADMIN`, `ACCOUNTANT`: giá trị của chúng (notification-service điền 0) không được đưa cho Claude, chỉ ghi tên trong `hiddenForRole`. Giá trị `null` (giá trị tồn kho chưa có giá vốn, tăng trưởng khi tháng trước không có doanh số, nhập xuất trước mốc sổ kho) giữ `null` kèm lời giải thích, Claude được dặn nói "chưa có" chứ không đoán.
+- Chế độ LIVE: `structured outputs` với lược đồ `{ bullets: string[], actions: string[] }`, lời dặn cố định đứng đầu và đánh dấu bộ nhớ đệm prompt, số liệu nằm trong tin nhắn người dùng (thẻ `<kpi_data>`), cùng mô hình, effort, quy tắc không tham số lấy mẫu của WMS-24.1; `max_tokens` 1500, chờ tối đa 60 giây. Giữ tối đa 5 ý và 2 gợi ý. `refusal`, `max_tokens`, JSON hỏng hoặc không có ý nào: `503`, không tính lượt, không lưu.
+- Chế độ MOCK: 4 hoặc 5 ý dựng bằng câu soạn sẵn từ đúng các số trên (đơn bán chờ xuất và đơn gấp, đơn mua chờ nhận, tồn khả dụng và tỷ lệ lấp đầy, nhập xuất từ đầu tháng, công nợ và doanh số khi được xem); gợi ý theo quy tắc (có đơn gấp, có lô đến hôm nay, kho lấp đầy từ 85%, có khách nợ đến hạn).
+- Bộ nhớ đệm: Redis `wms:ai:summary:{companyId}:{FIN|OPS}:{phạm vi}` sống 30 phút (`app.ai.summary.cache-ttl`). `FIN` cho `ADMIN`, `ACCOUNTANT`, `OPS` cho vai trò khác, nên bản viết từ số liệu tài chính không đến tay vai trò bị che. Phạm vi: `w{warehouseId}` khi chọn kho; không chọn kho thì `all` (vai trò xem mọi kho) hoặc `a{các kho được gán, sắp tăng, nối bằng -}`. Lấy từ bộ nhớ đệm không gọi service khác, không kiểm tra, không tính lượt (`fromCache = true`, `generatedAt` là lúc tạo). Redis lỗi thì coi như không có bộ nhớ đệm.
+- Đếm lượt: mỗi lần tạo bản mới (lần đầu, hết 30 phút, `refresh=true`) kiểm tra hạn mức sau khi đọc được KPI (hết lượt: `403 PLAN_LIMIT_EXCEEDED`) và tính một lượt khi thành công; bản giả lập vẫn bị tính trừ khi `AI_MOCK_COUNTS_USAGE=false`.
+- Cấu hình `app.ai.summary.*` (có mặc định, không thêm biến môi trường): `cache-ttl` 30m, `max-tokens` 1500, `timeout` 60s.
+
+Hợp đồng JSON cho khối "AI Summary" (WMS-18.3), `data`:
+
+```json
+{
+  "summary": "- Có 7 đơn bán chờ xuất kho, 2 đơn cần lấy hàng gấp.\n- Kho đã lấp đầy 91,5% (183/200 vị trí).\n- Từ đầu tháng nhập 500, xuất 320,25.\n\nGợi ý:\n- Ưu tiên điều phối lấy hàng cho 2 đơn gấp.",
+  "bullets": [
+    "Có 7 đơn bán chờ xuất kho, 2 đơn cần lấy hàng gấp.",
+    "Kho đã lấp đầy 91,5% (183/200 vị trí).",
+    "Từ đầu tháng nhập 500, xuất 320,25."
+  ],
+  "actions": ["Ưu tiên điều phối lấy hàng cho 2 đơn gấp."],
+  "generatedAt": "2026-11-12T03:00:00Z",
+  "fromCache": false,
+  "mode": "LIVE",
+  "warehouseId": null,
+  "financialsIncluded": false,
+  "usage": { "used": 10, "max": 500 }
+}
+```
+
+- Hiển thị `bullets` thành danh sách và `actions` dưới tiêu đề "Gợi ý" (hoặc dùng `summary` là văn bản thường có xuống dòng). `generatedAt` là UTC, hiển thị "Cập nhật lúc ..." theo giờ máy; `fromCache = true` nghĩa là bản đã lưu, nút "Làm mới" gọi lại với `refresh=true` (tốn một lượt AI). `mode = "MOCK"` có thể hiện nhãn "Tóm tắt tự động (chưa dùng AI thật)".
+- Gọi với cùng `warehouseId` mà bộ lọc kho của dashboard đang chọn. Gọi khi mở dashboard, không gọi lại theo chu kỳ.
+- Lỗi: `PLAN_LIMIT_EXCEEDED` hiện lời nhắc nâng gói trong khối (không chặn cả dashboard); `FORBIDDEN` ẩn khối; `SERVICE_UNAVAILABLE` hiện `message` và nút thử lại.
+
+Chưa kiểm chứng: chưa gọi Claude thật nên chất lượng câu chữ và thời gian thực tế chưa đo; notification-service hiện tính KPI từ số liệu thật nhưng thẻ "Giá trị tồn kho" luôn `null` (chưa có giá vốn).
+
 ### WMS-25.1 [Backend] API key cho hệ thống ngoài
 
 Người làm: Toàn. Ngày: 17/11 (làm sớm ngày 11/11). Jira: TASK-156. Phụ thuộc: WMS-22.3.

@@ -80,7 +80,10 @@ public class EmailService {
         return DeliveryResult.SENT;
     }
 
-    /** Gửi một email HTML (UTF-8); ném MailException nếu SMTP lỗi. */
+    /**
+     * Gửi một email HTML (UTF-8): email cảnh báo tồn kho (WMS-15.2), email kích hoạt và đặt lại mật khẩu (WMS-23.6);
+     * ném MailException nếu SMTP lỗi hoặc không dựng được thư.
+     */
     public DeliveryResult sendHtml(String to, String subject, String html) {
         if (!isConfigured()) {
             logInsteadOfSending(to, subject, html);
@@ -104,24 +107,5 @@ public class EmailService {
     private static void logInsteadOfSending(String to, String subject, String body) {
         log.info("SMTP chưa cấu hình (MAIL_HOST rỗng), không gửi email mà ghi nội dung: tiêu đề='{}', số người nhận={}, "
                 + "nội dung:\n{}", subject, StringUtils.hasText(to) ? 1 : 0, body);
-    }
-
-    /**
-     * Gửi một email HTML mã hóa UTF-8 (email kích hoạt và đặt lại mật khẩu, WMS-23.6); ném MailException nếu SMTP lỗi
-     * hoặc không dựng được thư.
-     */
-    public void sendHtml(String to, String subject, String html) {
-        jakarta.mail.internet.MimeMessage message = mailSender.createMimeMessage();
-        try {
-            org.springframework.mail.javamail.MimeMessageHelper helper =
-                    new org.springframework.mail.javamail.MimeMessageHelper(message, false, "UTF-8");
-            helper.setFrom(properties.mail().from());
-            helper.setTo(to);
-            helper.setSubject(subject);
-            helper.setText(html, true);
-        } catch (jakarta.mail.MessagingException ex) {
-            throw new org.springframework.mail.MailPreparationException("Không dựng được email HTML", ex);
-        }
-        mailSender.send(message);
     }
 }

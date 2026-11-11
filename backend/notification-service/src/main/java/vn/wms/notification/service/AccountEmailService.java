@@ -32,7 +32,7 @@ import java.util.Set;
  *   <li>SMTP được coi là đã cấu hình khi {@code spring.mail.host} có giá trị và có tài khoản
  *       {@code spring.mail.username}, hoặc host là máy cục bộ (Mailpit, MailHog không cần xác thực). Chưa cấu hình thì
  *       không gửi, ghi đúng một dòng INFO gồm người nhận và liên kết đầy đủ để nhóm thử luồng, và ghi nhật ký
- *       {@code FAILED}. Đây là nơi duy nhất liên kết được ghi ra log.</li>
+ *       {@code LOGGED} (cùng trạng thái với email cảnh báo tồn kho khi chưa có SMTP).</li>
  *   <li>SMTP lỗi: ghi nhật ký {@code FAILED}, không ném lỗi ra ngoài để tin nhắn không bị đưa lại hàng đợi mãi; người
  *       dùng tự yêu cầu gửi lại từ giao diện.</li>
  *   <li>Broker giao lại cùng tin (cùng {@code messageId}) thì không gửi lần hai: khóa Redis
@@ -97,12 +97,14 @@ public class AccountEmailService {
         if (!smtpConfigured) {
             log.info("SMTP chưa cấu hình, không gửi email {}. Người nhận: {}, liên kết: {}", event.kind(),
                     event.recipientEmail(), event.link());
-            entry.setStatus(NotificationStatus.FAILED);
+            entry.setStatus(NotificationStatus.LOGGED);
             entry.setErrorMessage(SMTP_NOT_CONFIGURED);
         } else {
             try {
-                emailService.sendHtml(event.recipientEmail(), subject, htmlOf(event));
-                entry.setStatus(NotificationStatus.SENT);
+                EmailService.DeliveryResult result =
+                        emailService.sendHtml(event.recipientEmail(), subject, htmlOf(event));
+                entry.setStatus(result == EmailService.DeliveryResult.LOGGED
+                        ? NotificationStatus.LOGGED : NotificationStatus.SENT);
             } catch (MailException ex) {
                 // Không ghi liên kết khi lỗi: chỉ người nhận và nguyên nhân
                 log.warn("Gửi email {} tới {} thất bại (companyId={}): {}", event.kind(), event.recipientEmail(),

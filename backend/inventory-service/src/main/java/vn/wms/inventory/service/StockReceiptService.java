@@ -40,6 +40,10 @@ public class StockReceiptService {
     private final WarehouseRepository warehouseRepository;
     private final StockReceiptRepository stockReceiptRepository;
 
+    /** Chặn nhập vào vị trí đang đóng băng kiểm kê (WMS-14.1). */
+    @org.springframework.beans.factory.annotation.Autowired
+    private StocktakeFreezeGuard stocktakeFreezeGuard;
+
     public StockReceiptService(IncomingStockRepository incomingStockRepository,
                                StockItemRepository stockItemRepository,
                                InventoryLotRepository inventoryLotRepository,
@@ -112,6 +116,7 @@ public class StockReceiptService {
 
             // 2. Xác định vị trí ô/kệ lưu kho (Bin Location)
             BinLocation binLocation = resolveBinLocation(warehouse, line.locationId(), line.locationCode());
+            if (stocktakeFreezeGuard != null) stocktakeFreezeGuard.assertNotFrozen(binLocation.getId(), line.productId(), "nhập kho");
 
             // Cùng một số lô cho stock_items và inventory_lots để LotService đồng bộ khóa/trừ tồn giữa hai bảng
             // theo (số lô, ô, sản phẩm); dòng không có số lô thì dùng số lô sinh từ mã GRN.

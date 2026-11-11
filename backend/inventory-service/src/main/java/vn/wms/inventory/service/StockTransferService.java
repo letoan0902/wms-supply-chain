@@ -68,6 +68,10 @@ public class StockTransferService {
     @Autowired(required = false)
     private WmsEventPublisher wmsEventPublisher;
 
+    /** Chặn nhận hàng điều chuyển vào vị trí đang đóng băng kiểm kê (WMS-14.1); xuất kho nguồn đi qua StockDeductionService. */
+    @Autowired
+    private StocktakeFreezeGuard stocktakeFreezeGuard;
+
     public StockTransferService(
             StockTransferRepository stockTransferRepository,
             StockTransferItemRepository stockTransferItemRepository,
@@ -486,6 +490,7 @@ public class StockTransferService {
                     throw ApiException.badRequest("Vị trí '" + destBinLocation.getCode() + "' hiện đang bị khóa hoặc ngừng hoạt động");
                 }
 
+                if (stocktakeFreezeGuard != null) stocktakeFreezeGuard.assertNotFrozen(destBinLocation.getId(), item.getProductId(), "nhận hàng điều chuyển");
                 // Cập nhật tăng tồn kho OnHand tại kho đích với Khóa bi quan
                 List<StockItem> existingItems = stockItemRepository
                         .findAllByBinLocationIdAndProductIdWithPessimisticLock(destBinLocation.getId(), item.getProductId());

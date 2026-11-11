@@ -138,6 +138,27 @@ SO -> kiểm tra ATP -> CONFIRMED (giữ hàng mềm) -> Picking List -> GDN (xu
 - **Báo cáo và Dashboard (FR23 đến FR25)**: notification-service tổng hợp số liệu tồn kho, nhập xuất tồn, đơn chờ xử lý và công nợ
   để hiển thị thẻ KPI, biểu đồ và bảng giao dịch gần nhất.
 
+### 5.4. API kiểm kê (inventory-service, `/api/inventory/stocktakes`)
+
+Bảng `stocktake_sessions`, `stocktake_locations`, `stocktake_lines` (Flyway V11, đều có `company_id`, mã đợt
+`ST-yyyyMM-NN` duy nhất theo `(company_id, code)`). Mọi API bắt buộc đăng nhập; phản hồi theo `ApiResponse`,
+danh sách theo `PageResponse`.
+
+| Method, đường dẫn | Vai trò | Việc |
+|---|---|---|
+| `POST /` (201) | ADMIN, WAREHOUSE_MANAGER của kho | Lập đợt DRAFT: `warehouseId`, `scopeType` (WAREHOUSE, ZONES, LOCATIONS), `zones`, `binLocationIds`, `productIds`, `plannedDate`, `notes` |
+| `GET /`, `GET /{id}` | ADMIN, ACCOUNTANT, WAREHOUSE_MANAGER, WAREHOUSE_STAFF (theo kho) | Danh sách lọc `warehouseId`, `status`, `fromDate`, `toDate` (theo `plannedDate`), `keyword`; chi tiết kèm `locations` |
+| `POST /{id}/start` | ADMIN, WAREHOUSE_MANAGER của kho | DRAFT sang COUNTING: chốt vị trí, đóng băng, chụp tồn theo (vị trí, sản phẩm, lô) gồm tồn và giữ chỗ |
+| `POST /{id}/counts` | ADMIN, WAREHOUSE_MANAGER, WAREHOUSE_STAFF của kho | Đếm mù: `lineId` hoặc (`binLocationId`/`binLocationCode`, `productId`, `lotNo`), `quantity`, `mode` ADD (cộng dồn khi quét) hoặc SET; không khớp dòng nào thì tạo dòng phát sinh; phản hồi không có tồn hệ thống |
+| `GET /{id}/count-lines` | như `GET /{id}` | Dòng cần đếm (không có tồn hệ thống), lọc `counted`, `binCode`, `productId` |
+| `POST /{id}/cancel` | ADMIN, WAREHOUSE_MANAGER của kho | Hủy khi DRAFT, COUNTING, COUNTED: mở đóng băng, tồn không đổi |
+
+Đóng băng: mỗi vị trí chỉ thuộc một đợt đang kiểm (ràng buộc duy nhất `(company_id, frozen_bin_location_id)`).
+`StocktakeFreezeGuard` là chốt chặn dùng chung: nhập vào ô, xuất chỉ định ô, duyệt xuất điều chuyển từ ô, nhận hàng
+điều chuyển vào ô đang đóng băng bị từ chối 409 `CONFLICT` với thông báo nêu mã vị trí và mã đợt, `data` gồm
+`sessionId`, `sessionCode`, `binLocationId`, `binLocationCode`, `productId`; giữ chỗ đơn mới và xuất không chỉ định ô
+bỏ qua ô đang đóng băng. Đợt có `productIds` chỉ đóng băng các sản phẩm đó.
+
 ## 6. Bảo mật
 
 - Người dùng đăng nhập qua `POST /api/auth/login`. Access Token (JWT, thời hạn 15 phút) gửi trong body; Refresh Token nằm

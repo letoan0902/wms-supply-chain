@@ -50,6 +50,10 @@ public class StockDeductionService {
     @Autowired(required = false)
     private WmsEventPublisher wmsEventPublisher;
 
+    /** Chặn xuất từ vị trí đang đóng băng kiểm kê (WMS-14.1). */
+    @Autowired
+    private StocktakeFreezeGuard stocktakeFreezeGuard;
+
     public StockDeductionService(StockItemRepository stockItemRepository,
                                  StockReservationRepository stockReservationRepository,
                                  WarehouseRepository warehouseRepository,
@@ -219,6 +223,7 @@ public class StockDeductionService {
             String orderNumber,
             Long warehouseId
     ) {
+        if (stocktakeFreezeGuard != null) stocktakeFreezeGuard.assertNotFrozen(binLocationId, productId, "xuất kho");
         // Áp dụng Khóa bi quan PESSIMISTIC_WRITE trên đúng dòng StockItem này
         Optional<StockItem> stockItemOpt = stockItemRepository.findByBinLocationIdAndProductIdWithPessimisticLock(binLocationId, productId);
 
@@ -298,6 +303,7 @@ public class StockDeductionService {
         // Áp dụng Khóa bi quan trên toàn bộ các vị trí chứa sản phẩm này tại kho (theo ngày hệ thống)
         List<StockItem> lockedItems = stockItemRepository
                 .findAvailableStockItemsByProductIdAndWarehouseIdWithPessimisticLock(productId, warehouseId, LocalDate.now());
+        if (stocktakeFreezeGuard != null) lockedItems = stocktakeFreezeGuard.excludeFrozen(lockedItems);
 
         BigDecimal totalOnHand = lockedItems.stream()
                 .map(StockItem::getQuantity)

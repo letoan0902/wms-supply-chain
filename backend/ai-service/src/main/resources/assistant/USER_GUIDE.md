@@ -84,8 +84,8 @@ Thêm một mặt hàng:
 
 Nhập nhiều mặt hàng từ Excel:
 1. Bấm "Nhập Excel", bấm "Tải file mẫu (.xlsx)".
-2. Điền file; cột bắt buộc là Mã SKU, Tên sản phẩm, Mã đơn vị tính. Mã nhóm hàng và đơn vị phải trùng mã có sẵn.
-3. Kéo thả file (.xlsx, .xls, .csv), xem trước, bấm "Tiến hành Import". Dòng trùng SKU báo lỗi.
+2. Điền file; cột bắt buộc là Mã SKU, Tên sản phẩm, Đơn vị tính. Đơn vị tính và nhóm hàng ghi bằng tên (ghi mã có sẵn cũng được); tên chưa có trong doanh nghiệp được tạo mới. Quản lý theo lô và hạn dùng bật sau trong màn hình sửa hàng hóa.
+3. Kéo thả file (.xlsx, .xls, .csv), xem trước, bấm "Tiến hành Import". Bảng kết quả ghi từng dòng: Đã tạo, Bỏ qua (SKU đã có, không ghi đè) hoặc Lỗi kèm lý do. File trên 500 dòng được gửi thành nhiều lần.
 
 Nút ngưng hoạt động trên dòng là xóa mềm, dữ liệu vẫn giữ. Nhóm hàng và đơn vị tính chỉ chọn từ danh sách có sẵn; chưa có màn hình thêm mới hai danh mục này.
 

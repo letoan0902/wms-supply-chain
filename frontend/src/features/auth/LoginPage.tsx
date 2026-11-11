@@ -6,10 +6,11 @@ import { getApiErrorMessage, getErrorStatus } from '../../services/api'
 import type { LoginRequest } from '../../types/auth'
 import { getToken, saveAuth } from '../../utils/storage'
 import ResendActivationForm from './ResendActivationForm'
+import { REDIRECT_PARAM, safeRedirectPath } from './loginRedirect'
 import { getAuthErrorCode, getInactiveCompanyStatus, login } from './authApi'
 
 interface LocationState {
-  from?: { pathname: string }
+  from?: { pathname: string; search?: string; hash?: string }
   /** Tên đăng nhập điền sẵn (trang kích hoạt doanh nghiệp chuyển sang) */
   username?: string
 }
@@ -59,7 +60,14 @@ export default function LoginPage() {
   const [pendingActivation, setPendingActivation] = useState<PendingActivation | null>(null)
 
   const locationState = location.state as LocationState | null
-  const redirectTo = locationState?.from?.pathname ?? '/'
+  // Trang cần quay lại: state của router (chuyển trong ứng dụng) hoặc tham số `redirect` (phiên hết hạn, tải lại
+  // trang). Giữ cả query string, ví dụ /payment/result?orderCode=... khi quay lại từ PayOS; chỉ nhận đường dẫn
+  // nội bộ, không bao giờ chuyển sang URL tuyệt đối lấy từ query string.
+  const from = locationState?.from
+  const redirectTo =
+    safeRedirectPath(from ? `${from.pathname}${from.search ?? ''}${from.hash ?? ''}` : null) ??
+    safeRedirectPath(new URLSearchParams(location.search).get(REDIRECT_PARAM)) ??
+    '/'
 
   // Đã đăng nhập thì vào thẳng hệ thống
   if (getToken()) {

@@ -108,6 +108,8 @@ class WmsEventsDefinitionsTest {
                 .containsExactly(WmsEvents.Queues.NOTIFICATION_AUTH_EMAILS);
         assertThat(queuesReceiving(WmsEvents.RoutingKeys.AUTH_PASSWORD_RESET_REQUESTED))
                 .containsExactly(WmsEvents.Queues.NOTIFICATION_AUTH_EMAILS);
+        assertThat(queuesReceiving(WmsEvents.RoutingKeys.ALERT_STOCK_SUMMARY))
+                .containsExactly(WmsEvents.Queues.NOTIFICATION_ALERTS);
     }
 
     @Test

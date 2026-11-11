@@ -15,7 +15,7 @@ Sơ đồ:
 order-service --order.created/.dispatched/.received---> [wms.events] ----> inventory.order-events     (inventory-service)
                                                              |------------> notification.order-events  (notification-service)
 inventory-service --inventory.updated---------------------->  |------------> notification.inventory-events (notification-service)
-inventory-service --alert.low-stock------------------------->  |------------> notification.alerts       (notification-service)
+inventory-service --alert.low-stock, alert.stock-summary---->  |------------> notification.alerts       (notification-service)
 auth-service --auth.activation-requested/.password-reset-requested-'------------> notification.auth-emails  (notification-service)
 
 queue nghiệp vụ --(reject, không requeue)--> [wms.dlx] --> wms.dead-letter (giữ 7 ngày, tối đa 10000 tin)
@@ -41,6 +41,7 @@ Không đặt `x-arguments` trực tiếp trên queue (dead-letter đi qua polic
 | `order.received` | order-service | `inventory.order-events`, `notification.order-events` (qua `order.#`) | Phiếu nhập kho GRN đã lưu (WMS-10.3): inventory-service cộng OnHand tại ô và lô đã chọn, trừ Incoming của PO; mỗi GRN chỉ cộng một lần (bảng `stock_receipts`, khóa `(company_id, grn_id)`) |
 | `inventory.updated` | inventory-service | `notification.inventory-events` (notification) | Tồn kho thay đổi sau nhập, xuất, điều chuyển, điều chỉnh: SKU, kho, tồn trước và sau. Điều chỉnh kiểm kê (WMS-14.2): phát sau khi Kế toán duyệt phiếu điều chỉnh, mỗi sản phẩm của phiếu một sự kiện, `reason = ADJUSTMENT`, `referenceNumber` là mã phiếu `ADJ-yyyyMM-NN`, `quantityBefore`/`quantityAfter` là tổng tồn thực tế của sản phẩm trong kho trước và sau, `skuCode` để null (inventory-service không lưu SKU, bên nhận hiển thị theo `productId`), doanh nghiệp ở header `x-wms-company-id` |
 | `alert.low-stock` | inventory-service | `notification.alerts` (notification) | Tồn chạm ngưỡng an toàn: SKU, kho, tồn hiện tại, ngưỡng; notification-service đẩy cảnh báo lên WebSocket `/topic/company/{companyId}/alerts` (mục 8) |
+| `alert.stock-summary` | inventory-service | `notification.alerts` (qua `alert.#`) | Bản tổng hợp cảnh báo tồn kho hằng ngày (WMS-15.1): một tin cho mỗi (kho, loại cảnh báo) có cảnh báo, kèm các dòng nghiêm trọng nhất (mục 10) |
 | `auth.activation-requested` | auth-service | `notification.auth-emails` (notification, binding `auth.#`) | Doanh nghiệp vừa đăng ký hoặc xin gửi lại liên kết kích hoạt (WMS-23.6): notification-service gửi email chứa liên kết `/activate?token=...` (mục 8.7) |
 | `auth.password-reset-requested` | auth-service | `notification.auth-emails` (notification) | Người dùng quên mật khẩu (WMS-23.6): notification-service gửi email chứa liên kết `/reset-password?token=...` (mục 8.7) |
 
@@ -53,6 +54,7 @@ Nội dung message là JSON (Jackson). Payload của mỗi routing key là một
 | `order.received` | `OrderReceivedEvent` | `grnId`, `grnNumber`, `poId`, `poNumber`, `warehouseId`, `supplierId`, `receivedBy`, `receiptDate`, `receivedAt`, `items[]` (`ReceivedItemLine`: `productId`, `skuCode`, `productName`, `acceptedQuantity`, `rejectedQuantity`, `uom`, `locationId`, `locationCode`, `batchNumber`, `mfgDate`, `expDate`) |
 | `inventory.updated` | `InventoryUpdatedEvent` | `warehouseId`, `productId`, `skuCode`, `quantityBefore`, `quantityAfter`, `reason`, `referenceNumber`, `updatedAt` |
 | `alert.low-stock` | `LowStockAlertEvent` | `warehouseId`, `warehouseName`, `productId`, `skuCode`, `productName`, `quantityOnHand`, `minimumQuantity`, `detectedAt` |
+| `alert.stock-summary` | `StockAlertSummaryEvent` | `companyId`, `alertDate`, `kind` (`NEAR_EXPIRY`, `EXPIRED`, `DEAD_STOCK`, `LOW_STOCK`), `severity` (`CRITICAL`, `WARNING`, `INFO`), `warehouseId`, `warehouseCode`, `warehouseName`, `totalItems`, `totalQuantity`, `thresholdDays`, `items[]` (`StockAlertItem`: `productId`, `skuCode`, `productName`, `lotNo`, `binCode`, `quantity`, `availableQuantity`, `expDate`, `daysLeft`, `lastMovementAt`, `daysWithoutMovement`, `safetyStock`, `reorderPoint`, `severity`), `detectedAt` |
 | `auth.activation-requested`, `auth.password-reset-requested` | `AccountEmailRequestedEvent` | `kind` (`ACTIVATION` hoặc `PASSWORD_RESET`, enum `AccountEmailKind`), `companyId`, `companyName`, `recipientEmail`, `recipientName` (có thể rỗng), `link` (liên kết đầy đủ tới giao diện, chứa mã dùng một lần), `expiresAt` (24 giờ với kích hoạt, 30 phút với đặt lại mật khẩu), `requestedAt` |
 
 Thông tin kỹ thuật không nằm trong payload mà ở thuộc tính message do `WmsEventPublisher` gắn: `messageId` (UUID, consumer dùng để bỏ qua message giao lại), `timestamp`, header `x-wms-event` (trùng routing key), `x-wms-source` (tên service phát) và `x-wms-company-id` (ID doanh nghiệp phát sinh sự kiện, bên nhận dùng để đặt lại ngữ cảnh doanh nghiệp trước khi xử lý, xem [MULTI_TENANT.md](MULTI_TENANT.md)). Thời gian ghi dạng ISO 8601 UTC, ví dụ `2026-11-04T08:00:00Z` (xem nguyên tắc idempotent trong [ARCHITECTURE.md](ARCHITECTURE.md)).
@@ -286,3 +288,32 @@ auth-service không gửi mail. Khi đăng ký doanh nghiệp, xin gửi lại l
 - Đã làm ở WMS-22.4c: WebSocket tách kênh theo doanh nghiệp (`/topic/company/{companyId}/...`), interceptor chỉ cho SUBSCRIBE kênh của `companyId` trong JWT, bộ đếm KPI tách khóa Redis theo `companyId`. Còn lại: thêm `companyId` vào từng record sự kiện (hiện doanh nghiệp đi theo header, listener đã đọc được trường này nếu có).
 - Lọc thông báo theo kho người dùng được phân quyền (WMS-04.2): thêm `warehouseId` vào đích hoặc lọc trước khi đẩy.
 - Cân nhắc mẫu outbox nếu cần đảm bảo không mất sự kiện khi broker ngừng đúng lúc commit.
+
+## 10. Cảnh báo tồn kho hằng ngày (WMS-15.1)
+
+inventory-service (gói `vn.wms.inventory.alert`) tính bốn loại cảnh báo từ bảng `stock_items` (nguồn tồn mà trừ tồn, giữ chỗ và ATP đang dùng; `inventory_lots` chỉ là bản sao theo lô nên không cộng thêm):
+
+| Loại | Điều kiện | Mức |
+| --- | --- | --- |
+| `EXPIRED` | Dòng còn hàng có hạn dùng nhỏ hơn hoặc bằng hôm nay (cùng quy ước với khóa lô hết hạn) | `CRITICAL` |
+| `NEAR_EXPIRY` | Dòng còn hàng có hạn dùng sau hôm nay và không quá hôm nay cộng `ALERT_NEAR_EXPIRY_DAYS` (mặc định 30, theo tài liệu yêu cầu) | `WARNING` |
+| `LOW_STOCK` | Tồn dùng được của mặt hàng tại kho (bỏ lô khóa và lô hết hạn) nhỏ hơn hoặc bằng `safetyStock` thì `CRITICAL`, nếu không mà nhỏ hơn hoặc bằng `reorderPoint` thì `WARNING`. Ngưỡng đọc từ product-service (`GET /api/products`), ngưỡng 0 là chưa cấu hình. Chỉ xét cặp (kho, sản phẩm) đã có dòng tồn trong kho đó | `CRITICAL` hoặc `WARNING` |
+| `DEAD_STOCK` | Mặt hàng còn tồn trong kho, lần biến động gần nhất cách hôm nay từ `ALERT_DEAD_STOCK_DAYS` ngày trở lên (mặc định 90, nhóm tự chọn vì tài liệu yêu cầu không ghi số) | `INFO` |
+
+"Lần biến động gần nhất" hiện là `updated_at` lớn nhất của các dòng `stock_items` của mặt hàng trong kho (đổi khi nhập, xuất, điều chuyển và cả khi giữ chỗ hay khóa lô). Toàn bộ nằm trong `LastMovementReader.lastMovements`, đổi sang sổ cái biến động kho khi có. "Hôm nay" tính theo `ALERT_SCAN_ZONE` (mặc định `Asia/Ho_Chi_Minh`).
+
+Chưa có sự kiện tồn thấp phát ngay sau mỗi lần trừ tồn (`alert.low-stock` mới có bên nhận, chưa có bên phát), nên tác vụ hằng ngày tự tính `LOW_STOCK`.
+
+**Tác vụ 00:00** (`StockAlertScheduler`, lịch `ALERT_SCAN_CRON` mặc định `0 0 0 * * *`, tắt bằng `ALERT_SCAN_ENABLED=false`): lấy danh sách doanh nghiệp bằng SQL gốc, quét từng doanh nghiệp trong `TenantContext.callAs` (doanh nghiệp lỗi chỉ ghi log). Với mỗi loại có cảnh báo, phát một `alert.stock-summary` cho mỗi kho, chứa tối đa 10 dòng nghiêm trọng nhất và tổng số dòng.
+
+**Chống gửi trùng**: trước khi phát một loại, tác vụ ghi dấu vào bảng `stock_alert_runs` (migration V14, khóa duy nhất `(company_id, alert_date, alert_kind)`). Lần chạy thứ hai trong ngày, kể cả trên instance khác hoặc bấm quét tay, gặp dấu và bỏ qua loại đó (`ALREADY_SENT`). Loại không có cảnh báo thì không ghi dấu. Phát lỗi thì gỡ dấu để lần quét sau thử lại.
+
+**API** (qua gateway, doanh nghiệp theo JWT, phạm vi kho như các API kho khác: ADMIN và ACCOUNTANT thấy mọi kho, vai trò khác chỉ thấy kho được phân công, hỏi kho khác trả 403):
+
+| Phương thức, đường dẫn | Quyền | Mô tả |
+| --- | --- | --- |
+| `GET /api/inventory/alerts` | Mọi vai trò có phạm vi kho | Danh sách cảnh báo tính trực tiếp từ tồn hiện tại. Tham số: `kind`, `severity`, `warehouseId`, `productId`, `keyword` (SKU, tên, số lô, ô kệ, kho), `page`, `size` (tối đa 100). Thứ tự cố định: mức, loại, hạn gần trước |
+| `GET /api/inventory/alerts/summary` | Như trên | Số cảnh báo theo loại và mức, ngưỡng đang dùng, 5 cảnh báo nghiêm trọng nhất; `lowStockAvailable = false` khi không đọc được product-service |
+| `POST /api/inventory/alerts/scan` | `ADMIN` | Chạy ngay tác vụ cho doanh nghiệp của mình, trả trạng thái từng loại: `PUBLISHED`, `ALREADY_SENT`, `NOTHING_FOUND`, `UNAVAILABLE`, `FAILED` |
+
+product-service không trả lời: `LOW_STOCK` không tính (lọc riêng `kind=LOW_STOCK` trả 503 `SERVICE_UNAVAILABLE`), các loại khác vẫn trả với `skuCode`, `productName` là null.

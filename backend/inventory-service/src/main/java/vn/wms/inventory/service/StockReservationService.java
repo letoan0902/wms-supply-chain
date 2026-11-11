@@ -78,8 +78,8 @@ public class StockReservationService {
 
             LocalDate today = LocalDate.now();
             List<StockItem> availableItems = event.warehouseId() != null
-                    ? stockItemRepository.findAvailableStockItemsByProductIdAndWarehouseId(productId, event.warehouseId(), today)
-                    : stockItemRepository.findAvailableStockItemsByProductId(productId, today);
+                    ? stockItemRepository.findAvailableStockItemsByProductIdAndWarehouseIdForUpdate(productId, event.warehouseId(), today)
+                    : stockItemRepository.findAvailableStockItemsByProductIdForUpdate(productId, today);
 
             for (StockItem stockItem : availableItems) {
                 BigDecimal available = stockItem.getQuantity().subtract(stockItem.getReservedQuantity()).max(BigDecimal.ZERO);

@@ -184,13 +184,30 @@ public class PurchaseBillService {
         SupplierTransaction tx = new SupplierTransaction();
         tx.setSupplier(supplier);
         tx.setTransactionType(SupplierTransactionType.PAYMENT);
-        tx.setReferenceCode(request.referenceCode() != null && !request.referenceCode().isBlank()
-                ? request.referenceCode().trim() : "UNC-" + bill.getBillNumber());
+        String refCode = request.referenceCode() != null && !request.referenceCode().isBlank()
+                ? request.referenceCode().trim() : "UNC-" + bill.getBillNumber();
+        if (refCode.length() > 50) {
+            refCode = refCode.substring(0, 50);
+        }
+        tx.setReferenceCode(refCode);
         tx.setAmount(paymentAmount);
         tx.setBalanceAfter(newDebt);
-        tx.setNote(request.note() != null && !request.note().isBlank()
-                ? request.note().trim() : ("Thanh toán tiền hàng cho hóa đơn mua " + bill.getBillNumber()));
-        tx.setTransactionDate(Instant.now());
+
+        StringBuilder noteBuilder = new StringBuilder();
+        if (request.paymentMethod() != null && !request.paymentMethod().isBlank()) {
+            noteBuilder.append("[").append(request.paymentMethod().trim()).append("] ");
+        }
+        if (request.note() != null && !request.note().isBlank()) {
+            noteBuilder.append(request.note().trim());
+        } else {
+            noteBuilder.append("Thanh toán tiền hàng cho hóa đơn mua ").append(bill.getBillNumber());
+        }
+        tx.setNote(noteBuilder.toString());
+
+        Instant txDate = request.paymentDate() != null
+                ? request.paymentDate().atStartOfDay(java.time.ZoneOffset.UTC).toInstant()
+                : Instant.now();
+        tx.setTransactionDate(txDate);
         transactionRepository.save(tx);
 
         log.info("Đã ghi nhận thanh toán {} VNĐ cho hóa đơn '{}' bởi {}. Trạng thái mới: {}, công nợ NCC còn lại: {} VNĐ",

@@ -216,10 +216,12 @@ public class StockDeductionService {
         stockItem.setQuantity(remainingQty);
 
         // Giảm Reserved và hoàn tất bản ghi giữ chỗ nếu có
+        BigDecimal previousReserved = stockItem.getReservedQuantity() != null ? stockItem.getReservedQuantity() : BigDecimal.ZERO;
         BigDecimal remainingReserved = processReservationFulfillment(orderId, stockItem, requiredQty);
+        BigDecimal fulfilledReserved = previousReserved.subtract(remainingReserved).max(BigDecimal.ZERO);
 
         stockItemRepository.save(stockItem);
-        deductFromInventoryLot(stockItem, requiredQty);
+        deductFromInventoryLot(stockItem, requiredQty, fulfilledReserved);
 
         log.debug("Đã trừ {} đơn vị sản phẩm {} tại vị trí {}. Tồn OnHand còn: {}, Reserved còn: {}",
                 requiredQty, productId, stockItem.getBinLocation().getCode(), remainingQty, remainingReserved);
@@ -276,9 +278,11 @@ public class StockDeductionService {
             BigDecimal remainingQty = currentQty.subtract(alloc);
             stockItem.setQuantity(remainingQty);
 
+            BigDecimal previousReserved = stockItem.getReservedQuantity() != null ? stockItem.getReservedQuantity() : BigDecimal.ZERO;
             BigDecimal remainingReserved = processReservationFulfillment(orderId, stockItem, alloc);
+            BigDecimal fulfilledReserved = previousReserved.subtract(remainingReserved).max(BigDecimal.ZERO);
             stockItemRepository.save(stockItem);
-            deductFromInventoryLot(stockItem, alloc);
+            deductFromInventoryLot(stockItem, alloc, fulfilledReserved);
 
             details.add(new DeductedItemDetail(
                     stockItem.getId(),
@@ -351,6 +355,7 @@ public class StockDeductionService {
                 BigDecimal reserved = item.getReservedQuantity() != null ? item.getReservedQuantity() : BigDecimal.ZERO;
                 item.setReservedQuantity(reserved.subtract(res.getReservedQuantity()).max(BigDecimal.ZERO));
                 stockItemRepository.save(item);
+                syncReservedQuantityToLot(item, res.getReservedQuantity().negate());
             });
             res.setStatus("FULFILLED");
             stockReservationRepository.save(res);
@@ -383,7 +388,7 @@ public class StockDeductionService {
         }
     }
 
-    private void deductFromInventoryLot(StockItem stockItem, BigDecimal quantity) {
+    private void deductFromInventoryLot(StockItem stockItem, BigDecimal quantity, BigDecimal fulfilledReserved) {
         if (stockItem == null || stockItem.getBinLocation() == null || stockItem.getLotNo() == null || quantity == null) {
             return;
         }
@@ -392,10 +397,32 @@ public class StockDeductionService {
                     stockItem.getLotNo(), stockItem.getBinLocation().getId(), stockItem.getProductId())
                     .ifPresent(lot -> {
                         lot.setQuantity(lot.getQuantity().subtract(quantity).max(BigDecimal.ZERO));
+                        if (fulfilledReserved != null && fulfilledReserved.compareTo(BigDecimal.ZERO) > 0) {
+                            BigDecimal currentRes = lot.getReservedQuantity() != null ? lot.getReservedQuantity() : BigDecimal.ZERO;
+                            lot.setReservedQuantity(currentRes.subtract(fulfilledReserved).max(BigDecimal.ZERO));
+                        }
                         inventoryLotRepository.save(lot);
                     });
         } catch (Exception ex) {
             log.warn("Không thể trừ tồn tương ứng trong inventory_lots: {}", ex.getMessage());
+        }
+    }
+
+    private void syncReservedQuantityToLot(StockItem stockItem, BigDecimal delta) {
+        if (stockItem == null || stockItem.getBinLocation() == null || stockItem.getLotNo() == null || delta == null) {
+            return;
+        }
+        try {
+            inventoryLotRepository.findByLotNumberAndBinLocationIdAndProductId(
+                    stockItem.getLotNo(), stockItem.getBinLocation().getId(), stockItem.getProductId())
+                    .ifPresent(lot -> {
+                        BigDecimal currentRes = lot.getReservedQuantity() != null ? lot.getReservedQuantity() : BigDecimal.ZERO;
+                        BigDecimal newRes = currentRes.add(delta).max(BigDecimal.ZERO);
+                        lot.setReservedQuantity(newRes);
+                        inventoryLotRepository.save(lot);
+                    });
+        } catch (Exception ex) {
+            log.warn("Không thể đồng bộ reservedQuantity sang inventory_lots: {}", ex.getMessage());
         }
     }
 }

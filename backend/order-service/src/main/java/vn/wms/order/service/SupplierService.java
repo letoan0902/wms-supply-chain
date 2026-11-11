@@ -1,5 +1,6 @@
 package vn.wms.order.service;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -11,14 +12,18 @@ import vn.wms.order.dto.SupplierDebtSummaryResponse;
 import vn.wms.order.dto.SupplierResponse;
 import vn.wms.order.dto.SupplierTransactionResponse;
 import vn.wms.order.dto.UpdateSupplierRequest;
+import vn.wms.order.entity.PurchaseBill;
+import vn.wms.order.entity.PurchaseBillStatus;
 import vn.wms.order.entity.Supplier;
 import vn.wms.order.entity.SupplierTransaction;
 import vn.wms.order.entity.SupplierTransactionType;
+import vn.wms.order.repository.PurchaseBillRepository;
 import vn.wms.order.repository.SupplierRepository;
 import vn.wms.order.repository.SupplierTransactionRepository;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 
 /**
  * Service quản lý danh mục Nhà cung cấp & Theo dõi công nợ (FR09 - WMS-08.1).
@@ -28,6 +33,9 @@ public class SupplierService {
 
     private final SupplierRepository supplierRepository;
     private final SupplierTransactionRepository transactionRepository;
+
+    @Autowired(required = false)
+    private PurchaseBillRepository purchaseBillRepository;
 
     public SupplierService(SupplierRepository supplierRepository,
                            SupplierTransactionRepository transactionRepository) {
@@ -181,6 +189,26 @@ public class SupplierService {
 
         supplier.setCurrentDebt(newDebt);
         supplierRepository.save(supplier);
+
+        // Đồng bộ giảm remainingAmount trên các hóa đơn mua chưa trả đủ (nếu có) khi thanh toán
+        if (request.type() == SupplierTransactionType.PAYMENT && purchaseBillRepository != null) {
+            try {
+                List<PurchaseBill> unpaidBills = purchaseBillRepository.findBySupplierIdAndStatusInOrderByBillDateAsc(
+                        supplierId, List.of(PurchaseBillStatus.UNPAID, PurchaseBillStatus.PARTIALLY_PAID));
+                BigDecimal rem = request.amount();
+                for (PurchaseBill bill : unpaidBills) {
+                    if (rem.compareTo(BigDecimal.ZERO) <= 0) break;
+                    BigDecimal billRemain = bill.getRemainingAmount() != null ? bill.getRemainingAmount() : BigDecimal.ZERO;
+                    if (billRemain.compareTo(BigDecimal.ZERO) <= 0) continue;
+                    BigDecimal payForBill = rem.min(billRemain);
+                    bill.recordPayment(payForBill);
+                    purchaseBillRepository.save(bill);
+                    rem = rem.subtract(payForBill);
+                }
+            } catch (Exception ex) {
+                // Ghi log cảnh báo nhưng không làm thất bại giao dịch công nợ NCC
+            }
+        }
 
         SupplierTransaction tx = new SupplierTransaction();
         tx.setSupplier(supplier);

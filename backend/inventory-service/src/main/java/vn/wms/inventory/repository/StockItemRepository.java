@@ -61,6 +61,15 @@ public interface StockItemRepository extends JpaRepository<StockItem, Long> {
            "ORDER BY CASE WHEN s.expDate IS NULL THEN 1 ELSE 0 END ASC, s.expDate ASC, s.id ASC")
     List<StockItem> findAvailableStockItemsByProductId(@Param("productId") Long productId, @Param("today") LocalDate today);
 
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT s FROM StockItem s " +
+           "WHERE s.productId = :productId " +
+           "  AND (s.quantity - s.reservedQuantity) > 0 " +
+           "  AND s.locked = false " +
+           "  AND (s.expDate IS NULL OR s.expDate > :today) " +
+           "ORDER BY CASE WHEN s.expDate IS NULL THEN 1 ELSE 0 END ASC, s.expDate ASC, s.id ASC")
+    List<StockItem> findAvailableStockItemsByProductIdForUpdate(@Param("productId") Long productId, @Param("today") LocalDate today);
+
     @Query("SELECT s FROM StockItem s " +
            "WHERE s.productId = :productId " +
            "  AND s.binLocation.warehouse.id = :warehouseId " +
@@ -69,6 +78,19 @@ public interface StockItemRepository extends JpaRepository<StockItem, Long> {
            "  AND (s.expDate IS NULL OR s.expDate > :today) " +
            "ORDER BY CASE WHEN s.expDate IS NULL THEN 1 ELSE 0 END ASC, s.expDate ASC, s.id ASC")
     List<StockItem> findAvailableStockItemsByProductIdAndWarehouseId(
+            @Param("productId") Long productId,
+            @Param("warehouseId") Long warehouseId,
+            @Param("today") LocalDate today);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT s FROM StockItem s " +
+           "WHERE s.productId = :productId " +
+           "  AND s.binLocation.warehouse.id = :warehouseId " +
+           "  AND (s.quantity - s.reservedQuantity) > 0 " +
+           "  AND s.locked = false " +
+           "  AND (s.expDate IS NULL OR s.expDate > :today) " +
+           "ORDER BY CASE WHEN s.expDate IS NULL THEN 1 ELSE 0 END ASC, s.expDate ASC, s.id ASC")
+    List<StockItem> findAvailableStockItemsByProductIdAndWarehouseIdForUpdate(
             @Param("productId") Long productId,
             @Param("warehouseId") Long warehouseId,
             @Param("today") LocalDate today);

@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataAccessException;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -31,6 +32,7 @@ public class RealtimeKpiController {
     @GetMapping("/kpi")
     @Operation(summary = "Bộ đếm KPI trong ngày (giờ Việt Nam) của doanh nghiệp đang đăng nhập; các thay đổi sau đó "
             + "được đẩy qua /topic/company/{companyId}/kpi")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'PURCHASING', 'SALES', 'ACCOUNTANT')")
     public ApiResponse<KpiSnapshot> kpi() {
         // Doanh nghiệp lấy từ header X-Company-Id do gateway gắn theo JWT, không nhận từ tham số của client
         Long companyId = TenantContext.requireCompanyId();

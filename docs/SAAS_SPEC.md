@@ -401,13 +401,13 @@ Người làm: Việt. Ngày: 10/11 đến 12/11. Jira: TASK-137. Phụ thuộc:
 
 | API | Vai trò | Body |
 | --- | --- | --- |
-| `POST /api/orders/suppliers/bulk` | Như `POST /api/orders/suppliers` (hiện chưa giới hạn vai trò) | `{ "items": [CreateSupplierRequest, ...] }`: `code`, `name` (bắt buộc), `taxCode`, `contactName`, `email`, `phone`, `address`, `bankAccount`, `bankName`, `paymentTerms`, `creditLimit`, `initialDebt` |
+| `POST /api/orders/suppliers/bulk` | Như `POST /api/orders/suppliers`: `ADMIN`, `WAREHOUSE_MANAGER`, `PURCHASING`, `ACCOUNTANT` (WMS-20.3) | `{ "items": [CreateSupplierRequest, ...] }`: `code`, `name` (bắt buộc), `taxCode`, `contactName`, `email`, `phone`, `address`, `bankAccount`, `bankName`, `paymentTerms`, `creditLimit`, `initialDebt` |
 | `POST /api/orders/customers/bulk` | Như `POST /api/orders/customers` (khai báo `ADMIN`, `SALES`, `ACCOUNTANT`) | `{ "items": [CreateCustomerRequest, ...] }`: `code`, `name`, `customerType` (`WHOLESALE`/`RETAIL`, bắt buộc), `taxCode`, `contactName`, `email`, `phone`, `address`, `paymentTerms`, `creditLimit`, `initialDebt`, `notes` |
 
 - Thiếu body, `items` rỗng hoặc hơn 500 dòng: `400 VALIDATION_ERROR` (với `items` rỗng hoặc quá dài, `data.items` là lý do). Còn lại luôn `200`, `data` = `{ total, created, skipped, failed, results: [{ row, status, id, code, message }] }`. `code` là mã đã chuẩn hóa (viết hoa, bỏ khoảng trắng hai đầu); `id` là bản ghi vừa tạo (`CREATED`) hoặc đang có (`SKIPPED`), `null` khi `FAILED`.
 - Thứ tự xét mỗi dòng: kiểm tra ràng buộc như API tạo đơn lẻ (lỗi gộp các thông báo bằng `; `) -> mã trùng một dòng hợp lệ phía trên: `FAILED` "trùng với dòng N" -> mã đã có trong doanh nghiệp: `SKIPPED`, không ghi đè -> tạo bằng đúng service tạo đơn lẻ (trùng mã số thuế trong doanh nghiệp, kể cả với dòng phía trên vừa tạo: `FAILED`; công nợ ban đầu ghi giao dịch như tạo đơn lẻ).
 - Mỗi dòng một transaction riêng (`REQUIRES_NEW`). Nhập lại cùng file: mọi dòng hợp lệ thành `SKIPPED`; dòng sai dữ liệu và dòng lặp mã trong file vẫn `FAILED` như lần đầu.
-- order-service chưa bật kiểm tra vai trò (không có method security, `@PreAuthorize` chỉ là khai báo), nên API nhập hàng loạt có cùng quyền thực tế với API tạo đơn lẻ.
+- Từ WMS-20.3 order-service bật method security: `@PreAuthorize` có hiệu lực, API nhập hàng loạt có đúng vai trò của API tạo đơn lẻ (ma trận ở [SECURITY.md](SECURITY.md)).
 
 ### WMS-22.4c [Backend] notification-service: thông báo, KPI và báo cáo theo doanh nghiệp
 
@@ -1099,7 +1099,7 @@ Bộ lọc `ApiKeyAuthenticationGlobalFilter` (order -101, ngay trước bộ l�
 
 Request có cả `Authorization` lẫn `X-Api-Key` được xử lý như request JWT (key bị gỡ, không chuyển xuống service). Hành vi của request JWT không đổi. Tắt cả cơ chế bằng `GATEWAY_API_KEY_ENABLED=false`. Bộ lọc chạy cả khi `GATEWAY_JWT_ENABLED=false`. Thân lỗi cùng khung `{ success: false, code, message }`, thêm `data` với `PLAN_LIMIT_EXCEEDED`.
 
-*Vai trò `INTEGRATION` ở service nghiệp vụ.* Hằng số `Roles.INTEGRATION` không nằm trong `Roles.ALL` nên không gán được cho tài khoản. `UserContext.isGlobalReadScope` coi `INTEGRATION` là đọc được mọi kho của doanh nghiệp (giống `ADMIN`, `ACCOUNTANT` khi đọc); `requireWarehouseWriteAccess` vẫn từ chối. Bộ lọc `IntegrationAccessFilter` của module `common` (tự đăng ký ở mọi service servlet, chạy ngay sau `TenantFilter`) trả `403 FORBIDDEN` cho mọi request mang vai trò `INTEGRATION` mà không phải `GET`/`HEAD` hoặc nằm ngoài ba nhóm đường dẫn trên, để vai trò này chỉ đọc kể cả khi request không qua gateway. product-service và order-service không kiểm tra vai trò khi đọc nên không phải sửa; dữ liệu vẫn lọc theo `X-Company-Id`.
+*Vai trò `INTEGRATION` ở service nghiệp vụ.* Hằng số `Roles.INTEGRATION` không nằm trong `Roles.ALL` nên không gán được cho tài khoản. `UserContext.isGlobalReadScope` coi `INTEGRATION` là đọc được mọi kho của doanh nghiệp (giống `ADMIN`, `ACCOUNTANT` khi đọc); `requireWarehouseWriteAccess` vẫn từ chối. Bộ lọc `IntegrationAccessFilter` của module `common` (tự đăng ký ở mọi service servlet, chạy ngay sau `TenantFilter`) trả `403 FORBIDDEN` cho mọi request mang vai trò `INTEGRATION` mà không phải `GET`/`HEAD` hoặc nằm ngoài ba nhóm đường dẫn trên, để vai trò này chỉ đọc kể cả khi request không qua gateway. Từ WMS-20.3 các service bật `@PreAuthorize`: mọi API `GET` dưới ba nhóm đường dẫn trên khai báo thêm `INTEGRATION`, trừ kiểm kê, phiếu điều chỉnh tồn, báo cáo kho và danh sách lấy hàng của đơn bán (bảng vai trò, cột INTEGRATION ở [SECURITY.md](SECURITY.md)); dữ liệu vẫn lọc theo `X-Company-Id`.
 
 *Ví dụ cho tài liệu tích hợp (WMS-25.2).*
 
@@ -1136,7 +1136,7 @@ Toàn dùng thử toàn bộ hệ thống, ghi danh sách góp ý (bố cục, l
 | Vai trò `ADMIN` | Là quản trị của một doanh nghiệp |
 | Test của các service | Phải đặt doanh nghiệp (header `X-Company-Id` hoặc `TenantContext`) trước khi gọi |
 | WebSocket | Kênh đổi sang dạng theo doanh nghiệp ở WMS-22.4c, Toàn sửa hook dùng chung |
-| Cache Redis (WMS-19.1) | Tên khóa phải có `companyId` |
+| Cache Redis (WMS-19.1) | Tên khóa phải có `companyId`. Đã làm: `wms:stock:{companyId}:...` (chi tiết ở [PERFORMANCE.md](PERFORMANCE.md)) |
 | Báo cáo WMS-15, WMS-16, WMS-17 | Bảng và truy vấn mới phải có `company_id` ngay từ đầu; truy vấn SQL gốc phải tự lọc |
 | Task nghiệp vụ làm từ 09/11 (WMS-10, 12, 13, 14) | Thực thể mới kế thừa `TenantEntity` ngay khi tạo |
 

@@ -8,6 +8,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -56,6 +57,7 @@ public class SupplierController {
      */
     @PostMapping("/bulk")
     @Operation(summary = "Nhập hàng loạt nhà cung cấp (tối đa 500 dòng, mã đã có thì bỏ qua)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'PURCHASING', 'ACCOUNTANT')")
     public ApiResponse<BulkImportResponse> bulkCreate(
             @Valid @RequestBody(required = false) BulkCreateSupplierRequest request) {
         if (request == null) {
@@ -66,6 +68,7 @@ public class SupplierController {
 
     @GetMapping
     @Operation(summary = "Danh sách nhà cung cấp có phân trang, tìm kiếm và lọc trạng thái")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'PURCHASING', 'ACCOUNTANT', 'INTEGRATION')")
     public ApiResponse<PageResponse<SupplierResponse>> list(
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) Boolean active,
@@ -75,24 +78,28 @@ public class SupplierController {
 
     @GetMapping("/summary")
     @Operation(summary = "Báo cáo tổng quan công nợ & tình hình nhà cung cấp")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'PURCHASING', 'ACCOUNTANT', 'INTEGRATION')")
     public ApiResponse<SupplierDebtSummaryResponse> getDebtSummary() {
         return ApiResponse.ok(supplierService.getDebtSummary());
     }
 
     @GetMapping("/{id}")
     @Operation(summary = "Chi tiết hồ sơ nhà cung cấp theo ID")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'PURCHASING', 'ACCOUNTANT', 'INTEGRATION')")
     public ApiResponse<SupplierResponse> getById(@PathVariable Long id) {
         return ApiResponse.ok(supplierService.getById(id));
     }
 
     @GetMapping("/code/{code}")
     @Operation(summary = "Chi tiết hồ sơ nhà cung cấp theo Mã")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'PURCHASING', 'ACCOUNTANT', 'INTEGRATION')")
     public ApiResponse<SupplierResponse> getByCode(@PathVariable String code) {
         return ApiResponse.ok(supplierService.getByCode(code));
     }
 
     @PostMapping
     @Operation(summary = "Tạo mới hồ sơ nhà cung cấp")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'PURCHASING', 'ACCOUNTANT')")
     public ResponseEntity<ApiResponse<SupplierResponse>> create(@Valid @RequestBody CreateSupplierRequest request) {
         SupplierResponse created = supplierService.create(request);
         return ResponseEntity
@@ -102,6 +109,7 @@ public class SupplierController {
 
     @PutMapping("/{id}")
     @Operation(summary = "Cập nhật hồ sơ nhà cung cấp theo ID")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'PURCHASING', 'ACCOUNTANT')")
     public ApiResponse<SupplierResponse> update(
             @PathVariable Long id,
             @Valid @RequestBody UpdateSupplierRequest request) {
@@ -110,6 +118,7 @@ public class SupplierController {
 
     @DeleteMapping("/{id}")
     @Operation(summary = "Xóa mềm nhà cung cấp (chuyển sang ngưng hoạt động)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'PURCHASING', 'ACCOUNTANT')")
     public ApiResponse<Void> delete(@PathVariable Long id) {
         supplierService.delete(id);
         return ApiResponse.ok();
@@ -117,6 +126,7 @@ public class SupplierController {
 
     @GetMapping("/{id}/transactions")
     @Operation(summary = "Lịch sử giao dịch công nợ của nhà cung cấp")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'PURCHASING', 'ACCOUNTANT', 'INTEGRATION')")
     public ApiResponse<PageResponse<SupplierTransactionResponse>> listTransactions(
             @PathVariable Long id,
             @ParameterObject @PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {
@@ -125,6 +135,7 @@ public class SupplierController {
 
     @PostMapping("/{id}/transactions")
     @Operation(summary = "Ghi nhận phát sinh giao dịch công nợ với nhà cung cấp")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
     public ResponseEntity<ApiResponse<SupplierTransactionResponse>> recordTransaction(
             @PathVariable Long id,
             @Valid @RequestBody RecordSupplierTransactionRequest request) {

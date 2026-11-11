@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -52,12 +53,14 @@ public class StocktakeController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Lập đợt kiểm kê ở trạng thái DRAFT (ADMIN, WAREHOUSE_MANAGER của kho)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER')")
     public ApiResponse<StocktakeSessionResponse> create(@Valid @RequestBody CreateStocktakeRequest request) {
         return ApiResponse.ok(stocktakeService.create(request));
     }
 
     @GetMapping
     @Operation(summary = "Danh sách đợt kiểm kê có phân trang, lọc theo kho, trạng thái, khoảng ngày dự kiến, mã đợt")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'ACCOUNTANT')")
     public ApiResponse<PageResponse<StocktakeSessionResponse>> list(
             @RequestParam(required = false) Long warehouseId,
             @RequestParam(required = false) StocktakeStatus status,
@@ -71,18 +74,21 @@ public class StocktakeController {
 
     @GetMapping("/{id}")
     @Operation(summary = "Chi tiết đợt kiểm kê kèm danh sách vị trí trong phạm vi")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'ACCOUNTANT')")
     public ApiResponse<StocktakeSessionResponse> getById(@PathVariable Long id) {
         return ApiResponse.ok(stocktakeService.getById(id));
     }
 
     @PostMapping("/{id}/start")
     @Operation(summary = "Bắt đầu kiểm kê: đóng băng vị trí trong phạm vi và chụp tồn hệ thống (DRAFT -> COUNTING)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER')")
     public ApiResponse<StocktakeSessionResponse> start(@PathVariable Long id) {
         return ApiResponse.ok(stocktakeService.start(id));
     }
 
     @PostMapping("/{id}/counts")
     @Operation(summary = "Ghi số đếm mù cho một dòng (quét cộng dồn ADD hoặc nhập tay SET); phản hồi không có tồn hệ thống")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF')")
     public ApiResponse<StocktakeCountLineResponse> count(@PathVariable Long id,
                                                          @Valid @RequestBody StocktakeCountRequest request) {
         return ApiResponse.ok(stocktakeService.count(id, request));
@@ -90,6 +96,7 @@ public class StocktakeController {
 
     @GetMapping("/{id}/count-lines")
     @Operation(summary = "Danh sách dòng cần đếm cho màn hình đếm mù (không có tồn hệ thống), lọc đã đếm hoặc chưa đếm")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'ACCOUNTANT')")
     public ApiResponse<PageResponse<StocktakeCountLineResponse>> listCountLines(
             @PathVariable Long id,
             @RequestParam(required = false) Long productId,
@@ -102,6 +109,7 @@ public class StocktakeController {
 
     @PostMapping("/{id}/cancel")
     @Operation(summary = "Hủy đợt kiểm kê trước khi duyệt: mở đóng băng, tồn kho không đổi")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER')")
     public ApiResponse<StocktakeSessionResponse> cancel(@PathVariable Long id,
                                                         @Valid @RequestBody(required = false) StocktakeReasonRequest request) {
         return ApiResponse.ok(stocktakeService.cancel(id, request != null ? request.reason() : null));
@@ -111,6 +119,7 @@ public class StocktakeController {
 
     @PostMapping("/{id}/finish")
     @Operation(summary = "Kết thúc đếm và tính chênh lệch (COUNTING -> COUNTED); còn dòng chưa đếm thì 409 trừ khi xác nhận tính bằng 0")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER')")
     public ApiResponse<StocktakeSessionResponse> finish(@PathVariable Long id,
                                                         @RequestBody(required = false) StocktakeFinishRequest request) {
         return ApiResponse.ok(stocktakeApprovalService.finish(id, request != null && request.confirmed()));
@@ -118,6 +127,7 @@ public class StocktakeController {
 
     @GetMapping("/{id}/variances")
     @Operation(summary = "Báo cáo chênh lệch: tổng hợp và dòng chênh lệch có tồn hệ thống (ADMIN, ACCOUNTANT, WAREHOUSE_MANAGER của kho)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'ACCOUNTANT')")
     public ApiResponse<StocktakeVarianceReportResponse> variances(
             @PathVariable Long id,
             @RequestParam(defaultValue = "false") boolean onlyDifferences,
@@ -130,6 +140,7 @@ public class StocktakeController {
 
     @PostMapping("/{id}/recount")
     @Operation(summary = "Yêu cầu đếm lại các dòng đã chọn trước khi duyệt (đợt quay lại COUNTING)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER')")
     public ApiResponse<StocktakeSessionResponse> recount(@PathVariable Long id,
                                                          @Valid @RequestBody StocktakeRecountRequest request) {
         return ApiResponse.ok(stocktakeApprovalService.recount(id, request.lineIds()));
@@ -137,6 +148,7 @@ public class StocktakeController {
 
     @PutMapping("/{id}/lines/{lineId}/reason")
     @Operation(summary = "Ghi lý do chênh lệch cho một dòng (khi đợt chờ Quản lý kho duyệt)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER')")
     public ApiResponse<StocktakeVarianceLineResponse> setReason(@PathVariable Long id, @PathVariable Long lineId,
                                                                 @Valid @RequestBody StocktakeReasonRequest request) {
         return ApiResponse.ok(stocktakeApprovalService.setReason(id, lineId, request.reason()));
@@ -144,6 +156,7 @@ public class StocktakeController {
 
     @PostMapping("/{id}/approve")
     @Operation(summary = "Quản lý kho duyệt kết quả kiểm kê: không lệch thì hoàn tất, có lệch thì sinh phiếu điều chỉnh chờ Kế toán")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER')")
     public ApiResponse<StocktakeSessionResponse> approve(@PathVariable Long id,
                                                          @Valid @RequestBody(required = false) StocktakeApproveRequest request) {
         return ApiResponse.ok(stocktakeApprovalService.approveByManager(id, request != null ? request.notes() : null));
@@ -151,12 +164,14 @@ public class StocktakeController {
 
     @PostMapping("/{id}/adjustment/approve")
     @Operation(summary = "Kế toán duyệt phiếu điều chỉnh: cập nhật tồn trong một transaction, mở đóng băng, hoàn tất đợt")
+    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT')")
     public ApiResponse<StocktakeSessionResponse> approveAdjustment(@PathVariable Long id) {
         return ApiResponse.ok(stocktakeApprovalService.approveAdjustment(id));
     }
 
     @PostMapping("/{id}/reject")
     @Operation(summary = "Từ chối kết quả kiểm kê hoặc phiếu điều chỉnh (bắt buộc lý do): mở đóng băng, tồn kho không đổi")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'ACCOUNTANT')")
     public ApiResponse<StocktakeSessionResponse> reject(@PathVariable Long id,
                                                         @Valid @RequestBody(required = false) StocktakeReasonRequest request) {
         return ApiResponse.ok(stocktakeApprovalService.reject(id, request != null ? request.reason() : null));

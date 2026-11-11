@@ -38,11 +38,16 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Long> {
     @Query("SELECT so FROM SalesOrder so WHERE so.id = :id")
     Optional<SalesOrder> findByIdForUpdate(@Param("id") Long id);
 
+    /*
+     * Hai truy vấn phân trang dưới đây chỉ nạp kèm khách hàng, KHÔNG nạp kèm danh sách dòng hàng (WMS-19.3): nạp
+     * kèm một collection khi phân trang khiến Hibernate đọc toàn bộ đơn khớp điều kiện rồi mới cắt trang trong bộ nhớ
+     * (cảnh báo HHH90003004). Dòng hàng của cả trang được nạp sau bằng một câu IN nhờ hibernate.default_batch_fetch_size.
+     */
     @Override
-    @EntityGraph(attributePaths = {"customer", "items"})
+    @EntityGraph(attributePaths = {"customer"})
     Page<SalesOrder> findAll(Pageable pageable);
 
-    @EntityGraph(attributePaths = {"customer", "items"})
+    @EntityGraph(attributePaths = {"customer"})
     @Query("SELECT so FROM SalesOrder so " +
            "WHERE (:keyword IS NULL OR :keyword = '' " +
            "       OR LOWER(so.soNumber) LIKE LOWER(CONCAT('%', :keyword, '%')) " +

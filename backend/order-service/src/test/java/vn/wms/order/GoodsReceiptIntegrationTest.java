@@ -10,6 +10,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
+import vn.wms.common.test.GatewayHeaders;
 import vn.wms.order.dto.CreateGrnItemRequest;
 import vn.wms.order.dto.CreateGrnRequest;
 import vn.wms.order.entity.GoodsReceiptNote;
@@ -145,7 +146,7 @@ class GoodsReceiptIntegrationTest {
 
         mockMvc.perform(post("/api/orders/goods-receipt-notes")
                         .contentType(MediaType.APPLICATION_JSON)
-                        .header("X-User-Name", "thukho_viet")
+                        .with(GatewayHeaders.asUser("thukho_viet", 1L, List.of("WAREHOUSE_STAFF"), List.of()))
                         .content(objectMapper.writeValueAsString(req)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.success").value(true))

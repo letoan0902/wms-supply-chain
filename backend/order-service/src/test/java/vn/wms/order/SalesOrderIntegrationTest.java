@@ -12,6 +12,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
+import vn.wms.common.test.GatewayHeaders;
 import vn.wms.order.client.AtpResponse;
 import vn.wms.order.client.InventoryGateway;
 import vn.wms.order.client.WarehouseSummary;
@@ -334,7 +335,7 @@ class SalesOrderIntegrationTest {
 
         // Xác nhận đơn: DRAFT -> CONFIRMED
         mockMvc.perform(post("/api/orders/sales/{id}/confirm", orderId)
-                        .header("X-User-Name", "manager"))
+                        .with(GatewayHeaders.asUser("manager", 1L, List.of("WAREHOUSE_MANAGER"), List.of())))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status", is("CONFIRMED")))
                 .andExpect(jsonPath("$.data.confirmedBy", is("manager")));

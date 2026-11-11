@@ -109,6 +109,10 @@ ALTER TABLE warehouses ADD CONSTRAINT uk_warehouses_company_code UNIQUE (company
 CREATE INDEX idx_warehouses_company ON warehouses (company_id);
 ```
 
+Index cho cột lọc và cột sắp xếp phải bắt đầu bằng `company_id`, ví dụ `(company_id, status)`, `(company_id, created_at)`,
+vì mọi truy vấn đều có điều kiện doanh nghiệp; index cũ chỉ có `(status)` hay `(exp_date)` trở nên kém hiệu quả. Cách
+chọn và số đo ở [PERFORMANCE.md](PERFORMANCE.md), mục 2.
+
 Bảng con (dòng chi tiết đơn hàng, giao dịch công nợ) cũng thêm `company_id`, lấy giá trị từ bảng cha khi cập nhật dữ liệu cũ. Không tạo khóa ngoại tới bảng `companies` vì bảng đó nằm ở cơ sở dữ liệu của auth-service.
 
 ### Bước 2: entity

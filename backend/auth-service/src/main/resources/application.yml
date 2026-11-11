@@ -25,6 +25,8 @@ spring:
       hibernate:
         jdbc:
           time_zone: UTC
+        # Nạp quan hệ lazy theo lô (một câu IN cho cả trang) thay vì một câu cho mỗi bản ghi (WMS-19.3, docs/PERFORMANCE.md)
+        default_batch_fetch_size: 50
   flyway:
     enabled: true
     locations: classpath:db/migration

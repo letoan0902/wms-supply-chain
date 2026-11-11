@@ -3,6 +3,7 @@ package vn.wms.inventory.controller;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -33,6 +34,7 @@ public class StockAdjustmentController {
 
     @GetMapping
     @Operation(summary = "Danh sách phiếu điều chỉnh, lọc theo kho, trạng thái, khoảng ngày tạo, mã phiếu (ADMIN, ACCOUNTANT, WAREHOUSE_MANAGER)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'ACCOUNTANT')")
     public ApiResponse<PageResponse<StockAdjustmentResponse>> list(
             @RequestParam(required = false) Long warehouseId,
             @RequestParam(required = false) StockAdjustmentStatus status,
@@ -46,6 +48,7 @@ public class StockAdjustmentController {
 
     @GetMapping("/{id}")
     @Operation(summary = "Chi tiết phiếu điều chỉnh kèm các dòng, tồn trước và sau khi duyệt")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'ACCOUNTANT')")
     public ApiResponse<StockAdjustmentResponse> getById(@PathVariable Long id) {
         return ApiResponse.ok(stocktakeApprovalService.getAdjustment(id));
     }

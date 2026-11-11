@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -37,6 +38,7 @@ public class StockAlertController {
     }
 
     @GetMapping
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'PURCHASING', 'SALES', 'ACCOUNTANT', 'INTEGRATION')")
     @Operation(summary = "Danh sách cảnh báo tồn kho hiện tại trong phạm vi kho của người dùng, có lọc và phân trang")
     public ApiResponse<PageResponse<StockAlertResponse>> search(
             @RequestParam(required = false) StockAlertKind kind,
@@ -49,12 +51,14 @@ public class StockAlertController {
     }
 
     @GetMapping("/summary")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'PURCHASING', 'SALES', 'ACCOUNTANT', 'INTEGRATION')")
     @Operation(summary = "Số cảnh báo theo loại và mức độ, kèm 5 cảnh báo nghiêm trọng nhất")
     public ApiResponse<StockAlertSummaryResponse> summary(@RequestParam(required = false) Long warehouseId) {
         return ApiResponse.ok(alertService.summary(warehouseId));
     }
 
     @PostMapping("/scan")
+    @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Chạy ngay tác vụ quét cảnh báo cho doanh nghiệp của mình (chỉ ADMIN); mỗi loại chỉ gửi một lần mỗi ngày")
     public ApiResponse<StockAlertScanResponse> scan() {
         CurrentUser user = UserContext.requireCurrentUser();

@@ -35,6 +35,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -75,13 +76,49 @@ public class GoodsReceiptService {
      */
     @Transactional
     public GrnResponse create(CreateGrnRequest request, String receivedBy) {
+        return create(request, receivedBy, null).grn();
+    }
+
+    /** Kết quả lập phiếu nhập: {@code replayed = true} nghĩa là khóa chống trùng đã dùng, trả lại phiếu đã lập trước đó. */
+    public record CreateResult(GrnResponse grn, boolean replayed) {
+    }
+
+    /**
+     * Lập phiếu nhập kho có khóa chống trùng (header {@code Idempotency-Key}, WMS-20.4). Request mang khóa đã dùng
+     * trong doanh nghiệp thì không tạo gì mới mà trả lại phiếu đầu; khóa đã dùng cho đơn mua khác thì 409.
+     * Việc tra khóa diễn ra sau khi khóa bi quan đơn mua, nên hai request cùng khóa gửi đồng thời xếp hàng và request
+     * sau thấy phiếu request trước vừa commit (ràng buộc UNIQUE (company_id, idempotency_key) là chốt chặn cuối).
+     *
+     * @param idempotencyKey khóa do client sinh (mỗi lần mở form một khóa), null hoặc rỗng nếu không dùng
+     */
+    @Transactional
+    public CreateResult create(CreateGrnRequest request, String receivedBy, String idempotencyKey) {
         if (request.poId() == null) {
             throw ApiException.badRequest("ID đơn mua hàng (PO) không được để trống");
         }
+        String key = idempotencyKey != null && !idempotencyKey.isBlank() ? idempotencyKey.trim() : null;
+        if (key != null && key.length() > 100) {
+            throw ApiException.badRequest("Idempotency-Key không được dài quá 100 ký tự");
+        }
 
-        // Khóa bi quan (SELECT ... FOR UPDATE) trên đơn mua hàng để chống race condition khi 2 phiếu nhập tạo đồng thời
+        // Khóa bi quan (SELECT ... FOR UPDATE) trên đơn mua hàng để chống race condition khi 2 phiếu nhập tạo đồng thời.
+        // Phải là câu lệnh đầu tiên của transaction: với MySQL REPEATABLE READ, lần đọc thường đầu tiên (tra khóa chống
+        // trùng ngay dưới) chụp dữ liệu sau khi đã chờ được khóa, nên thấy phiếu của request trước đã commit.
         PurchaseOrder po = purchaseOrderRepository.findByIdForUpdate(request.poId())
                 .orElseThrow(() -> ApiException.notFound("Không tìm thấy đơn mua hàng với ID: " + request.poId()));
+
+        if (key != null) {
+            Optional<GoodsReceiptNote> existing = goodsReceiptNoteRepository.findByIdempotencyKey(key);
+            if (existing.isPresent()) {
+                GoodsReceiptNote first = existing.get();
+                if (first.getPurchaseOrder() == null || !po.getId().equals(first.getPurchaseOrder().getId())) {
+                    throw ApiException.conflict("Idempotency-Key này đã được dùng cho phiếu nhập " + first.getGrnNumber()
+                            + " của đơn mua " + first.getPoNumber() + ", không dùng lại cho đơn mua khác");
+                }
+                log.info("Bỏ qua lập phiếu nhập trùng: khóa chống trùng đã dùng cho phiếu {}", first.getGrnNumber());
+                return new CreateResult(GrnResponse.from(first), true);
+            }
+        }
 
         // 1. Kiểm tra trạng thái đơn mua hàng: Chỉ cho phép nhập khi APPROVED hoặc PARTIALLY_RECEIVED
         if (po.getStatus() != OrderStatus.APPROVED && po.getStatus() != OrderStatus.PARTIALLY_RECEIVED) {
@@ -118,6 +155,7 @@ public class GoodsReceiptService {
         grn.setReceiptDate(receiptDate);
         grn.setNote(request.note() != null ? request.note().trim() : null);
         grn.setReceivedBy(receivedBy != null && !receivedBy.isBlank() ? receivedBy.trim() : "SYSTEM");
+        grn.setIdempotencyKey(key);
 
         BigDecimal totalAccepted = BigDecimal.ZERO;
         BigDecimal totalRejected = BigDecimal.ZERO;
@@ -234,7 +272,7 @@ public class GoodsReceiptService {
         // 5. Phát sự kiện order.received sau khi commit transaction (WMS-10.3)
         publishOrderReceivedEvent(saved);
 
-        return GrnResponse.from(saved);
+        return new CreateResult(GrnResponse.from(saved), false);
     }
 
     /**

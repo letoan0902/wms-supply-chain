@@ -13,6 +13,7 @@ import vn.wms.order.client.FrozenLocationConflict;
 import vn.wms.order.client.InventoryClient;
 import vn.wms.order.client.ReceiptLocationCheckRequest;
 import vn.wms.order.repository.PurchaseBillRepository;
+import vn.wms.order.service.GoodsReceiptService;
 import org.mockito.ArgumentCaptor;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -555,6 +556,146 @@ class GoodsReceiptIntegrationTest {
                 () -> purchaseOrderRepository.findById(po.getId()).orElseThrow());
         assertThat(reloaded.getStatus()).isEqualTo(OrderStatus.APPROVED);
         assertThat(reloaded.getItems().get(0).getReceivedQuantity()).isEqualByComparingTo("0");
+    }
+
+    private CreateGrnRequest partialReceipt(PurchaseOrder po, String accepted) {
+        return new CreateGrnRequest(po.getId(), LocalDate.now(), "Nhập từng phần", List.of(
+                new CreateGrnItemRequest(po.getItems().get(0).getId(), new BigDecimal(accepted), BigDecimal.ZERO, null,
+                        null, null, null, null, null, null)));
+    }
+
+    @Test
+    @DisplayName("WMS-20.4 (TC-LOAD-02.2): gửi lại cùng Idempotency-Key không tạo phiếu thứ hai, trả 200 kèm phiếu đầu; không có khóa thì vẫn là hai phiếu")
+    void createGrn_sameIdempotencyKey_returnsFirstReceipt() throws Exception {
+        Supplier supplier = createSampleSupplier("NCC-IDEM-01", "NCC Chống trùng");
+        PurchaseOrder po = createSampleApprovedPo("PO-20261111-IDEM", supplier);
+        String body = objectMapper.writeValueAsString(partialReceipt(po, "30.000"));
+
+        String first = mockMvc.perform(post("/api/orders/goods-receipt-notes")
+                        .header("Idempotency-Key", "grn-form-7f3a")
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString(java.nio.charset.StandardCharsets.UTF_8);
+        long firstId = objectMapper.readTree(first).path("data").path("id").asLong();
+
+        mockMvc.perform(post("/api/orders/goods-receipt-notes")
+                        .header("Idempotency-Key", "grn-form-7f3a")
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.header()
+                        .string("Idempotent-Replayed", "true"))
+                .andExpect(jsonPath("$.data.id").value(firstId))
+                .andExpect(jsonPath("$.data.totalAcceptedQuantity").value(30.0));
+
+        assertThat(goodsReceiptNoteRepository.findByPurchaseOrderIdOrderByIdDesc(po.getId())).hasSize(1);
+        assertThat(purchaseOrderRepository.findById(po.getId()).orElseThrow().getItems().get(0).getReceivedQuantity())
+                .isEqualByComparingTo("30.000");
+        assertThat(purchaseBillRepository.findByPurchaseOrderIdOrderByIdDesc(po.getId())).hasSize(1);
+
+        // Khóa mới (mở form lần nữa) là một lần nhập mới hợp lệ
+        mockMvc.perform(post("/api/orders/goods-receipt-notes")
+                        .header("Idempotency-Key", "grn-form-9c21")
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isCreated());
+        assertThat(goodsReceiptNoteRepository.findByPurchaseOrderIdOrderByIdDesc(po.getId())).hasSize(2);
+    }
+
+    @Test
+    @DisplayName("WMS-20.4: Idempotency-Key đã dùng cho đơn mua khác bị từ chối 409; khóa dài quá 100 ký tự bị từ chối 400")
+    void createGrn_idempotencyKeyReusedForOtherPo_isConflict() throws Exception {
+        Supplier supplier = createSampleSupplier("NCC-IDEM-02", "NCC Khóa dùng lại");
+        PurchaseOrder po1 = createSampleApprovedPo("PO-20261111-IDEM-A", supplier);
+        PurchaseOrder po2 = createSampleApprovedPo("PO-20261111-IDEM-B", supplier);
+
+        mockMvc.perform(post("/api/orders/goods-receipt-notes")
+                        .header("Idempotency-Key", "grn-form-shared")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(partialReceipt(po1, "10.000"))))
+                .andExpect(status().isCreated());
+        mockMvc.perform(post("/api/orders/goods-receipt-notes")
+                        .header("Idempotency-Key", "grn-form-shared")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(partialReceipt(po2, "10.000"))))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("CONFLICT"))
+                .andExpect(jsonPath("$.message").value(containsString("PO-20261111-IDEM-A")));
+        assertThat(goodsReceiptNoteRepository.findByPurchaseOrderIdOrderByIdDesc(po2.getId())).isEmpty();
+
+        mockMvc.perform(post("/api/orders/goods-receipt-notes")
+                        .header("Idempotency-Key", "k".repeat(101))
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(partialReceipt(po2, "10.000"))))
+                .andExpect(status().isBadRequest());
+    }
+
+    @Test
+    @org.springframework.transaction.annotation.Transactional(
+            propagation = org.springframework.transaction.annotation.Propagation.NOT_SUPPORTED)
+    @DisplayName("WMS-20.4 (TC-LOAD-02.2): hai request nhập từng phần giống hệt cùng Idempotency-Key gửi đồng thời chỉ tạo một phiếu, cộng nhận một lần; khóa tách theo doanh nghiệp")
+    void concurrentDuplicateGrnWithSameKey_createsOneReceipt() throws Exception {
+        Supplier supplier = createSampleSupplier("NCC-IDEM-RACE", "NCC Bấm hai lần");
+        PurchaseOrder po = createSampleApprovedPo("PO-20261111-IDEM-RACE", supplier);
+        CreateGrnRequest req = partialReceipt(po, "30.000");
+        Long otherCompany = 2L;
+        Supplier[] supplierB = new Supplier[1];
+        PurchaseOrder[] poB = new PurchaseOrder[1];
+
+        int threadCount = 2;
+        java.util.concurrent.ExecutorService executor = java.util.concurrent.Executors.newFixedThreadPool(threadCount);
+        java.util.concurrent.CountDownLatch start = new java.util.concurrent.CountDownLatch(1);
+        List<java.util.concurrent.Future<GoodsReceiptService.CreateResult>> results = new java.util.ArrayList<>();
+        try {
+            for (int i = 0; i < threadCount; i++) {
+                results.add(executor.submit(() -> {
+                    start.await();
+                    return vn.wms.common.tenant.TenantContext.callAs(1L,
+                            () -> goodsReceiptService.create(req, "thukho", "grn-form-race"));
+                }));
+            }
+            start.countDown();
+            GoodsReceiptService.CreateResult r1 = results.get(0).get(15, java.util.concurrent.TimeUnit.SECONDS);
+            GoodsReceiptService.CreateResult r2 = results.get(1).get(15, java.util.concurrent.TimeUnit.SECONDS);
+
+            assertThat(r1.grn().id()).isEqualTo(r2.grn().id());
+            assertThat(List.of(r1.replayed(), r2.replayed())).containsExactlyInAnyOrder(true, false);
+            assertThat(goodsReceiptNoteRepository.findByPurchaseOrderIdOrderByIdDesc(po.getId())).hasSize(1);
+            PurchaseOrder reloaded = purchaseOrderRepository.findById(po.getId()).orElseThrow();
+            assertThat(reloaded.getItems().get(0).getReceivedQuantity()).isEqualByComparingTo("30.000");
+            assertThat(reloaded.getStatus()).isEqualTo(OrderStatus.PARTIALLY_RECEIVED);
+            assertThat(purchaseBillRepository.findByPurchaseOrderIdOrderByIdDesc(po.getId())).hasSize(1);
+
+            // Doanh nghiệp khác dùng trùng giá trị khóa: là phiếu riêng của doanh nghiệp đó, không nhận lại phiếu của A
+            vn.wms.common.tenant.TenantContext.runAs(otherCompany, () -> {
+                supplierB[0] = createSampleSupplier("NCC-IDEM-RACE", "NCC của doanh nghiệp B");
+                poB[0] = createSampleApprovedPo("PO-20261111-IDEM-RACE", supplierB[0]);
+                GoodsReceiptService.CreateResult ofB = goodsReceiptService.create(
+                        partialReceipt(poB[0], "5.000"), "thukhoB", "grn-form-race");
+                assertThat(ofB.replayed()).isFalse();
+                assertThat(ofB.grn().id()).isNotEqualTo(r1.grn().id());
+            });
+        } finally {
+            executor.shutdownNow();
+            cleanUpReceipts(1L, po, supplier);
+            if (poB[0] != null) {
+                cleanUpReceipts(otherCompany, poB[0], supplierB[0]);
+            }
+        }
+    }
+
+    @Autowired
+    private GoodsReceiptService goodsReceiptService;
+
+    @Autowired
+    private vn.wms.order.repository.SupplierTransactionRepository supplierTransactionRepository;
+
+    private void cleanUpReceipts(Long company, PurchaseOrder po, Supplier supplier) {
+        vn.wms.common.tenant.TenantContext.runAs(company, () -> {
+            purchaseBillRepository.deleteAll(purchaseBillRepository.findByPurchaseOrderIdOrderByIdDesc(po.getId()));
+            goodsReceiptNoteRepository.deleteAll(goodsReceiptNoteRepository.findByPurchaseOrderIdOrderByIdDesc(po.getId()));
+            purchaseOrderRepository.deleteById(po.getId());
+            supplierTransactionRepository.deleteAll(supplierTransactionRepository.findBySupplierIdOrderByIdDesc(supplier.getId()));
+            supplierRepository.deleteById(supplier.getId());
+        });
     }
 
     @Test

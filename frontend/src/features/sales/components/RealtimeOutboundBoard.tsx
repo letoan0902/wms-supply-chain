@@ -33,13 +33,17 @@ import { useEffect, useState } from 'react'
 import * as XLSX from 'xlsx'
 import { getApiErrorMessage } from '../../../services/api'
 import { formatNumber } from '../../../utils/format'
+import { getStoredUser } from '../../../utils/storage'
 import { addNotificationListener } from '../../realtime/realtimeConnection'
+import { useRealtimeStore } from '../../realtime/realtimeStore'
+import type { OrderCreatedPayload } from '../../realtime/types'
 import * as warehouseApi from '../../warehouses/warehouseApi'
 import type { Warehouse } from '../../warehouses/types'
 import * as salesApi from '../salesApi'
 import type { SalesOrder } from '../types'
 import PrintPickingListModal from './PrintPickingListModal'
 import SmartPickingModal from './SmartPickingModal'
+import SmartGoodsDeliveryForm from './SmartGoodsDeliveryForm'
 import * as pickingApi from '../pickingApi'
 import type { PickingItem } from '../pickingTypes'
 
@@ -52,18 +56,37 @@ interface RealtimeOutboundBoardProps {
 export default function RealtimeOutboundBoard({ onOpenOrderDetail }: RealtimeOutboundBoardProps) {
   const { message } = App.useApp()
 
+  // Phân quyền theo RBAC
+  const currentUser = getStoredUser()
+  const canPickOrDispatch =
+    currentUser?.roles?.some((r) =>
+      ['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF'].includes(r)
+    ) ?? false
+
+  // Trạng thái kết nối STOMP thực tế từ store
+  const realtimeStatus = useRealtimeStore((state) => state.status)
+  const isRealtimeActive = realtimeStatus === 'connected'
+
   const [orders, setOrders] = useState<SalesOrder[]>([])
   const [loading, setLoading] = useState(false)
   const [warehouses, setWarehouses] = useState<Warehouse[]>([])
 
-  // Bộ lọc
+  // Bộ lọc tìm kiếm có debounce
   const [keyword, setKeyword] = useState('')
+  const [debouncedKeyword, setDebouncedKeyword] = useState('')
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<number | undefined>(undefined)
   const [selectedFilterStatus, setSelectedFilterStatus] = useState<string>('ALL')
   const [dateRange, setDateRange] = useState<[string | undefined, string | undefined]>([
     undefined,
     undefined,
   ])
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedKeyword(keyword)
+    }, 350)
+    return () => clearTimeout(handler)
+  }, [keyword])
 
   // Realtime & Refresh Key
   const [refreshKey, setRefreshKey] = useState(0)
@@ -72,6 +95,10 @@ export default function RealtimeOutboundBoard({ onOpenOrderDetail }: RealtimeOut
   // Modal Lấy hàng & In phiếu
   const [selectedOrderForPicking, setSelectedOrderForPicking] = useState<SalesOrder | null>(null)
   const [isPickingModalOpen, setIsPickingModalOpen] = useState(false)
+
+  // Modal Xuất xưởng GDN (WMS-12.4)
+  const [selectedOrderForDelivery, setSelectedOrderForDelivery] = useState<SalesOrder | null>(null)
+  const [isDeliveryModalOpen, setIsDeliveryModalOpen] = useState(false)
 
   const [selectedOrderForPrint, setSelectedOrderForPrint] = useState<SalesOrder | null>(null)
   const [printItems, setPrintItems] = useState<PickingItem[]>([])
@@ -104,7 +131,7 @@ export default function RealtimeOutboundBoard({ onOpenOrderDetail }: RealtimeOut
           salesApi.fetchSalesOrders({
             status: 'CONFIRMED',
             warehouseId: selectedWarehouseId,
-            keyword: keyword.trim() || undefined,
+            keyword: debouncedKeyword.trim() || undefined,
             fromOrderDate: dateRange[0],
             toOrderDate: dateRange[1],
             size: 100,
@@ -112,7 +139,7 @@ export default function RealtimeOutboundBoard({ onOpenOrderDetail }: RealtimeOut
           salesApi.fetchSalesOrders({
             status: 'COMPLETED',
             warehouseId: selectedWarehouseId,
-            keyword: keyword.trim() || undefined,
+            keyword: debouncedKeyword.trim() || undefined,
             fromOrderDate: dateRange[0],
             toOrderDate: dateRange[1],
             size: 50,
@@ -136,16 +163,19 @@ export default function RealtimeOutboundBoard({ onOpenOrderDetail }: RealtimeOut
     return () => {
       ignore = true
     }
-  }, [selectedWarehouseId, keyword, dateRange, refreshKey, message])
+  }, [selectedWarehouseId, debouncedKeyword, dateRange, refreshKey, message])
 
-  // 3. Lắng nghe WebSocket sự kiện realtime (ORDER_CREATED, ORDER_DISPATCHED)
+  // 3. Lắng nghe WebSocket sự kiện realtime (chỉ làm mới khi liên quan đến xuất kho / đơn bán)
   useEffect(() => {
     const unsubscribe = addNotificationListener((msg) => {
-      if (
-        msg.type === 'ORDER_CREATED' ||
-        msg.type === 'ORDER_DISPATCHED'
-      ) {
-        // Tự động làm mới bảng xuất kho thời gian thực
+      if (msg.type === 'ORDER_CREATED') {
+        const payload = msg.payload as OrderCreatedPayload | undefined
+        // Bỏ qua đơn mua hàng (PURCHASE), chỉ làm mới khi có đơn bán mới
+        if (payload?.orderType === 'PURCHASE') {
+          return
+        }
+        reloadData()
+      } else if (msg.type === 'ORDER_DISPATCHED') {
         reloadData()
       }
     })
@@ -177,6 +207,12 @@ export default function RealtimeOutboundBoard({ onOpenOrderDetail }: RealtimeOut
   const handleOpenPicking = (order: SalesOrder) => {
     setSelectedOrderForPicking(order)
     setIsPickingModalOpen(true)
+  }
+
+  // Mở modal Xuất xưởng GDN (WMS-12.4)
+  const handleOpenDelivery = (order: SalesOrder) => {
+    setSelectedOrderForDelivery(order)
+    setIsDeliveryModalOpen(true)
   }
 
   // Mở modal In phiếu lấy hàng: lập lộ trình từ tồn thực tế của kho xuất, không dựng vị trí giả
@@ -324,15 +360,16 @@ export default function RealtimeOutboundBoard({ onOpenOrderDetail }: RealtimeOut
     {
       title: 'Thao tác',
       key: 'actions',
-      width: 160,
+      width: 240,
       fixed: 'right',
       render: (_, r) => (
         <Space size="small">
-          <Tooltip title="Lấy hàng thông minh (Smart Picking Route)">
+          <Tooltip title={canPickOrDispatch ? 'Lấy hàng thông minh' : 'Chỉ dành cho Quản lý kho / Thủ kho'}>
             <Button
               size="small"
               type="primary"
               icon={<RocketOutlined />}
+              disabled={!canPickOrDispatch}
               onClick={() => handleOpenPicking(r)}
               className={
                 r.status === 'COMPLETED'
@@ -340,11 +377,26 @@ export default function RealtimeOutboundBoard({ onOpenOrderDetail }: RealtimeOut
                   : 'bg-orange-500 hover:bg-orange-600'
               }
             >
-              {r.status === 'COMPLETED' ? 'Xem lộ trình' : 'Lấy hàng'}
+              {r.status === 'COMPLETED' ? 'Lộ trình' : 'Lấy hàng'}
             </Button>
           </Tooltip>
 
-          <Tooltip title="In Phiếu lấy hàng (Picking List)">
+          {r.status === 'CONFIRMED' && (
+            <Tooltip title={canPickOrDispatch ? 'Quét mã kiểm tra xuất xưởng & lập phiếu GDN' : 'Chỉ dành cho Quản lý kho / Thủ kho'}>
+              <Button
+                size="small"
+                type="primary"
+                icon={<CheckCircleOutlined />}
+                disabled={!canPickOrDispatch}
+                onClick={() => handleOpenDelivery(r)}
+                className="bg-emerald-600 hover:bg-emerald-700"
+              >
+                Xuất kho
+              </Button>
+            </Tooltip>
+          )}
+
+          <Tooltip title="In phiếu lấy hàng">
             <Button
               size="small"
               icon={<PrinterOutlined />}
@@ -375,11 +427,18 @@ export default function RealtimeOutboundBoard({ onOpenOrderDetail }: RealtimeOut
           <RocketOutlined className="text-orange-500 text-xl" />
           <div>
             <h3 className="font-bold text-slate-800 text-base m-0 flex items-center gap-2">
-              <span>Bảng Xuất Kho Thời Gian Thực & Lấy Hàng (Outbound Board)</span>
-              <Badge status="processing" text={<span className="text-xs text-emerald-600 font-normal">Realtime STOMP Active</span>} />
+              <span>Bảng Xuất Kho & Lấy Hàng Thời Gian Thực</span>
+              <Badge
+                status={isRealtimeActive ? 'processing' : 'default'}
+                text={
+                  <span className={`text-xs ${isRealtimeActive ? 'text-emerald-600' : 'text-slate-400'} font-normal`}>
+                    {isRealtimeActive ? 'Thời gian thực đang hoạt động' : 'Thời gian thực chưa kết nối'}
+                  </span>
+                }
+              />
             </h3>
             <span className="text-xs text-slate-500">
-              Lộ trình lấy hàng thông minh theo vị trí Zone → Rack → Bin, hỗ trợ nhặt hàng xe đẩy (FR17)
+              Lộ trình lấy hàng thông minh theo vị trí Zone → Rack → Bin, hỗ trợ nhặt hàng xe đẩy
             </span>
           </div>
         </div>
@@ -408,7 +467,7 @@ export default function RealtimeOutboundBoard({ onOpenOrderDetail }: RealtimeOut
         <Col xs={24} sm={12} lg={6}>
           <Card size="small" className="border-l-4 border-l-orange-500 shadow-2xs">
             <Statistic
-              title={<span className="text-xs text-slate-500">Đơn chờ lấy hàng (Confirmed)</span>}
+              title={<span className="text-xs text-slate-500">Đơn chờ lấy hàng</span>}
               value={waitingOrdersCount}
               valueStyle={{ color: '#ea580c', fontWeight: 'bold' }}
               prefix={<ClockCircleOutlined />}
@@ -551,6 +610,21 @@ export default function RealtimeOutboundBoard({ onOpenOrderDetail }: RealtimeOut
         onClose={() => {
           setIsPrintModalOpen(false)
           setSelectedOrderForPrint(null)
+        }}
+      />
+
+      {/* 7. Modal Form Quét mã xác nhận Xuất xưởng & Lập phiếu GDN (WMS-12.4) */}
+      <SmartGoodsDeliveryForm
+        open={isDeliveryModalOpen}
+        order={selectedOrderForDelivery}
+        onClose={() => {
+          setIsDeliveryModalOpen(false)
+          setSelectedOrderForDelivery(null)
+        }}
+        onSuccess={() => {
+          setIsDeliveryModalOpen(false)
+          setSelectedOrderForDelivery(null)
+          reloadData()
         }}
       />
     </div>

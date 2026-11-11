@@ -47,6 +47,10 @@ public class DashboardKpiService {
         Long effectiveWarehouseId = warehouseId;
         if (!UserContext.isGlobalScope(currentUser)) {
             Set<Long> allowedWhs = currentUser.warehouseIds();
+            // Chưa được gán kho nào thì không được rơi về số liệu toàn doanh nghiệp (BR-13)
+            if (allowedWhs == null || allowedWhs.isEmpty()) {
+                throw vn.wms.common.exception.ApiException.forbidden("Tài khoản chưa được phân quyền phụ trách bất kỳ kho nào");
+            }
             if (warehouseId != null && (allowedWhs == null || !allowedWhs.contains(warehouseId))) {
                 throw vn.wms.common.exception.ApiException.forbidden("Tài khoản không có quyền truy cập dữ liệu của kho #" + warehouseId);
             }

@@ -179,6 +179,26 @@ class DashboardKpiServiceTest {
     }
 
     @Test
+    @DisplayName("Nhân viên kho chưa được gán kho bị từ chối 403, không lấy số liệu toàn doanh nghiệp")
+    void getKpiSummary_asWarehouseStaffWithoutWarehouses_shouldThrowForbidden() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader(UserContext.HEADER_USER_NAME, "staff_no_wh");
+        request.addHeader(UserContext.HEADER_USER_ROLES, Roles.WAREHOUSE_STAFF);
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
+        TenantContext.setCompanyId(1L);
+
+        try {
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> dashboardKpiService.getKpiSummary(null, "7_DAYS"))
+                    .isInstanceOf(vn.wms.common.exception.ApiException.class)
+                    .hasMessageContaining("chưa được phân quyền phụ trách bất kỳ kho nào");
+            org.mockito.Mockito.verifyNoInteractions(orderKpiClient, inventoryKpiClient);
+        } finally {
+            RequestContextHolder.resetRequestAttributes();
+            TenantContext.clear();
+        }
+    }
+
+    @Test
     @DisplayName("Nhân viên kho truy cập kho ngoài quyền bị từ chối 403 Forbidden")
     void getKpiSummary_asWarehouseStaff_accessingOtherWarehouse_shouldThrowForbidden() {
         MockHttpServletRequest request = new MockHttpServletRequest();

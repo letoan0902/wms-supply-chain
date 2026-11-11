@@ -11,8 +11,13 @@ import vn.wms.common.api.ApiResponse;
 import vn.wms.order.dto.internal.OrderKpiMetricsResponse;
 import vn.wms.order.service.OrderKpiInternalService;
 
+/**
+ * Endpoint nội bộ chỉ cho notification-service gọi qua Eureka. Đường dẫn cố ý nằm ngoài /api/orders/** để
+ * api-gateway không có route tới nó: endpoint không tự kiểm tra phạm vi kho của người gọi, và order-service
+ * chưa lọc theo doanh nghiệp (WMS-22.4b) nên số liệu hiện là của toàn hệ thống.
+ */
 @RestController
-@RequestMapping("/api/orders/internal")
+@RequestMapping("/internal/orders")
 @RequiredArgsConstructor
 @Tag(name = "Order Internal KPI", description = "Endpoint nội bộ tổng hợp dữ liệu đơn hàng và tài chính cho Dashboard KPI")
 public class OrderKpiInternalController {

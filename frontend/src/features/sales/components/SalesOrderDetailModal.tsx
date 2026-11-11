@@ -41,6 +41,7 @@ interface Props {
   onOrderUpdated?: (updated: SalesOrder) => void
   onOpenInvoiceModal?: (order: SalesOrder) => void
   onOpenPicking?: (order: SalesOrder) => void
+  onOpenDelivery?: (order: SalesOrder) => void
   canConfirm?: boolean
   canCancel?: boolean
   canManageInvoice?: boolean
@@ -53,6 +54,7 @@ export default function SalesOrderDetailModal({
   onOrderUpdated,
   onOpenInvoiceModal,
   onOpenPicking,
+  onOpenDelivery,
   canConfirm = false,
   canCancel = false,
   canManageInvoice = false,
@@ -287,7 +289,7 @@ export default function SalesOrderDetailModal({
               </Popconfirm>
             )}
 
-            {/* Nút Lấy hàng (Smart Picking) */}
+            {/* Nút Lấy hàng */}
             {order.status === 'CONFIRMED' && (
               <Button
                 type="primary"
@@ -299,11 +301,27 @@ export default function SalesOrderDetailModal({
                 }}
                 className="bg-orange-500 hover:bg-orange-600 font-semibold"
               >
-                Lấy hàng (Smart Picking)
+                Lấy hàng
               </Button>
             )}
 
-            {/* Nút Tạo Hóa đơn bán hàng (FR18) */}
+            {/* Nút Xuất kho (GDN) */}
+            {order.status === 'CONFIRMED' && (
+              <Button
+                type="primary"
+                icon={<CheckCircleOutlined />}
+                onClick={() => {
+                  setCreditInfo(null)
+                  onClose()
+                  onOpenDelivery?.(order)
+                }}
+                className="bg-emerald-600 hover:bg-emerald-700 font-semibold"
+              >
+                Xuất kho (GDN)
+              </Button>
+            )}
+
+            {/* Nút Tạo Hóa đơn bán hàng */}
             {canCreateInvoice && canManageInvoice && (
               <Button
                 type="default"
@@ -311,7 +329,7 @@ export default function SalesOrderDetailModal({
                 onClick={() => onOpenInvoiceModal?.(order)}
                 className="hover:border-blue-600 hover:text-blue-600 font-medium"
               >
-                Tạo Hóa đơn bán (FR18)
+                Tạo Hóa đơn bán
               </Button>
             )}
 
@@ -396,7 +414,7 @@ export default function SalesOrderDetailModal({
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-semibold text-slate-700 flex items-center gap-1.5">
                 <UserOutlined className="text-blue-600" />
-                <span>Trạng thái Công nợ Khách hàng hiện tại (FR14 - FR18):</span>
+                <span>Trạng thái Công nợ Khách hàng hiện tại:</span>
               </span>
               <Tag
                 color={

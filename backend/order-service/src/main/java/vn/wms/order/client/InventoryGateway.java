@@ -1,5 +1,7 @@
 package vn.wms.order.client;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import feign.FeignException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -8,7 +10,9 @@ import vn.wms.common.api.ApiResponse;
 import vn.wms.common.api.ErrorCode;
 import vn.wms.common.exception.ApiException;
 
+import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * Lớp bọc {@link InventoryClient}: quy lỗi Feign về {@link ApiException} để controller trả về đúng mã lỗi
@@ -18,6 +22,8 @@ import java.util.Optional;
 public class InventoryGateway {
 
     private static final Logger log = LoggerFactory.getLogger(InventoryGateway.class);
+    /** Chỉ dùng để đọc khung lỗi ApiResponse trong thân phản hồi lỗi của inventory-service. */
+    private static final ObjectMapper JSON = new ObjectMapper();
 
     private final InventoryClient inventoryClient;
 
@@ -94,6 +100,85 @@ public class InventoryGateway {
         } catch (FeignException ex) {
             log.warn("Gọi inventory-service giải phóng giữ chỗ cho đơn {} thất bại (status {}): {}",
                     orderId, ex.status(), ex.getMessage());
+        }
+    }
+
+    /**
+     * Kiểm tra trước khi lưu phiếu nhập kho (WMS-20.4): nếu có dòng sẽ cộng tồn vào vị trí đang đóng băng kiểm kê thì
+     * ném 409 CONFLICT nêu mã vị trí và mã đợt kiểm kê, kèm danh sách {@link FrozenLocationConflict} trong
+     * {@code data}. Lỗi nghiệp vụ khác của inventory-service (kho không có vị trí, kho không tồn tại) được trả lại
+     * nguyên mã và thông báo; không gọi được inventory-service thì 503 và phiếu không được lưu.
+     */
+    public void assertReceiptLocationsNotFrozen(ReceiptLocationCheckRequest request) {
+        if (request == null || request.warehouseId() == null || request.lines().isEmpty()) {
+            return;
+        }
+        List<FrozenLocationConflict> conflicts;
+        try {
+            ApiResponse<List<FrozenLocationConflict>> response = inventoryClient.checkReceiptLocations(request);
+            conflicts = response != null && response.data() != null ? response.data() : List.of();
+        } catch (FeignException ex) {
+            throw translate(ex, "Không kết nối được dịch vụ kho để kiểm tra vị trí nhận hàng, vui lòng thử lại sau");
+        }
+        if (conflicts.isEmpty()) {
+            return;
+        }
+        String detail = conflicts.stream()
+                .map(c -> c.binLocationCode() + " (đợt " + c.sessionCode() + ")")
+                .distinct()
+                .collect(Collectors.joining(", "));
+        throw ApiException.withData(ErrorCode.CONFLICT,
+                "Vị trí " + detail + " đang đóng băng để kiểm kê, không thể lập phiếu nhập kho vào vị trí này. "
+                        + "Hãy chọn vị trí khác hoặc chờ đợt kiểm kê kết thúc!",
+                conflicts);
+    }
+
+    /**
+     * Quy lỗi Feign về {@link ApiException}: inventory-service trả lỗi 4xx theo khung ApiResponse thì giữ nguyên mã,
+     * thông báo tiếng Việt và {@code data}; lỗi kết nối, hết thời gian chờ hoặc 5xx thì trả SERVICE_UNAVAILABLE.
+     */
+    ApiException translate(FeignException ex, String unavailableMessage) {
+        int status = ex.status();
+        if (status >= 400 && status < 500) {
+            ApiException fromBody = readApiError(ex);
+            if (fromBody != null) {
+                return fromBody;
+            }
+            return new ApiException(ErrorCode.fromHttpStatus(status), ErrorCode.fromHttpStatus(status).getDefaultMessage(), ex);
+        }
+        log.warn("Gọi inventory-service thất bại (status {}): {}", status, ex.getMessage());
+        return new ApiException(ErrorCode.SERVICE_UNAVAILABLE, unavailableMessage, ex);
+    }
+
+    private ApiException readApiError(FeignException ex) {
+        String body = ex.contentUTF8();
+        if (body == null || body.isBlank()) {
+            return null;
+        }
+        try {
+            JsonNode node = JSON.readTree(body);
+            String message = node.path("message").asText(null);
+            if (message == null || message.isBlank()) {
+                return null;
+            }
+            ErrorCode code = ErrorCode.fromHttpStatus(ex.status());
+            String codeText = node.path("code").asText(null);
+            if (codeText != null) {
+                for (ErrorCode candidate : ErrorCode.values()) {
+                    if (candidate.name().equals(codeText)) {
+                        code = candidate;
+                        break;
+                    }
+                }
+            }
+            JsonNode data = node.get("data");
+            if (data != null && !data.isNull()) {
+                return ApiException.withData(code, message, JSON.convertValue(data, Object.class));
+            }
+            return new ApiException(code, message);
+        } catch (Exception parseError) {
+            log.debug("Không đọc được nội dung lỗi của inventory-service: {}", parseError.getMessage());
+            return null;
         }
     }
 

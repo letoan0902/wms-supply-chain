@@ -74,6 +74,13 @@ Consumer cần đặt `spring.rabbitmq.listener.simple.default-requeue-rejected=
 
 Xem và xử lý tin chết: vào giao diện quản trị (mục 6), queue `wms.dead-letter`, Get messages để đọc nội dung và header `x-death`. Sau khi sửa lỗi, có thể publish lại tin vào `wms.events` với routing key cũ (nút Publish message) hoặc dùng Shovel. Không có consumer tự động cho queue này.
 
+**Phiếu nhập (`order.received`) vào dead-letter.** Từ WMS-20.4 order-service hỏi inventory-service trước khi lưu phiếu nhập (mục 7.4), nên phiếu nhập vào vị trí đang đóng băng kiểm kê bị từ chối 409 ngay khi lập. Listener vẫn kiểm tra lại và từ chối (chốt chặn cuối), nên tin `order.received` chỉ còn vào dead-letter khi đợt kiểm kê bắt đầu đúng trong khoảng giữa lúc lập phiếu và lúc inventory-service xử lý tin (thường dưới một giây, lâu hơn nếu inventory-service đang dừng), hoặc khi kho bị xóa hết vị trí trong khoảng đó. Khi đó phiếu nhập, hóa đơn mua và công nợ đã ghi nhưng tồn chưa tăng. Cách xử lý:
+
+1. Tìm tin trong `wms.dead-letter` có header `x-wms-event = order.received`; thân tin có `grnId`, `grnNumber`, header `x-wms-company-id` là doanh nghiệp. Lý do nằm trong log inventory-service (thông báo "Vị trí ... đang đóng băng để kiểm kê (đợt ...)").
+2. Chờ đợt kiểm kê đó kết thúc (duyệt hoặc hủy, vị trí được mở đóng băng; xem `GET /api/inventory/stocktakes/{id}`).
+3. Publish lại đúng tin đó (giữ nguyên thân và các header `x-wms-*`, nhất là `x-wms-company-id`) vào exchange `wms.events` với routing key `order.received`. Phát lại an toàn: bảng `stock_receipts` (khóa `(company_id, grn_id)`) bảo đảm mỗi phiếu chỉ cộng tồn một lần, phát lại hai lần cũng chỉ cộng một lần.
+4. Kiểm tra tồn và thẻ kho của sản phẩm (`GET /api/inventory/reports/stock-card`) có dòng nhập của phiếu.
+
 ## 5. Thêm sự kiện mới
 
 1. Thêm routing key (và queue nếu service nhận chưa có queue phù hợp) vào `docker/rabbitmq/definitions.json`: queue durable, không arguments; binding từ `wms.events`.
@@ -178,6 +185,21 @@ spring:
 ### 7.3. Gọi đồng bộ bằng OpenFeign
 
 Sự kiện dùng cho những việc "đã xảy ra" và không cần kết quả ngay. Khi lập đơn cần kiểm tra ngay (kho có tồn tại, đang hoạt động không) thì gọi REST qua OpenFeign với Eureka: `vn.wms.order.client.InventoryClient` (`GET /api/inventory/warehouses/{id}`) bọc bởi `InventoryGateway`, quy lỗi về `ApiException`: không có kho thì `NOT_FOUND` (404), kho ngừng hoạt động thì `BAD_REQUEST`, inventory-service không trả lời thì `SERVICE_UNAVAILABLE` (503). Timeout Feign đặt trong `spring.cloud.openfeign.client.config.default` (3 giây kết nối, 5 giây đọc) để request của người dùng không bị treo. Tương tự `ProductClient` cho product-service.
+
+### 7.4. Bước tồn kho đồng bộ khi lập chứng từ (WMS-20.4)
+
+Không có giao dịch phân tán giữa order-service và inventory-service. Trước WMS-20.4 chứng từ được lưu trước rồi tồn mới
+đổi ở luồng nền theo sự kiện; nếu inventory-service từ chối (vị trí đóng băng, thiếu hàng) thì tin vào dead-letter trong
+khi chứng từ đã ghi, hai bên lệch nhau. Nay các bước tồn kho có thể bị từ chối được làm đồng bộ qua endpoint nội bộ
+`/internal/inventory/**` (Feign `InventoryClient`, bọc bởi `InventoryGateway`), và chứng từ chỉ được lưu khi bước đó
+thành công. Lỗi nghiệp vụ 4xx của inventory-service được trả lại nguyên mã và thông báo tiếng Việt cho người dùng;
+không gọi được inventory-service thì 503 và chứng từ không đổi.
+
+| Chứng từ | Gọi đồng bộ | Sự kiện còn dùng cho |
+| --- | --- | --- |
+| Lập hoặc xác nhận phiếu nhập GRN | `POST /internal/inventory/receipts/location-check`: vị trí nhận (xác định như listener: theo ID, theo mã, không chọn thì ô đầu tiên của kho) đang đóng băng kiểm kê thì trả xung đột, order-service trả `409 CONFLICT` và không ghi phiếu, hóa đơn mua, công nợ | `order.received` vẫn là bước cộng tồn (inventory-service), thông báo và KPI (notification-service). Listener vẫn kiểm tra đóng băng; tin bị từ chối xử lý theo mục 4 |
+
+Khoảng hở còn lại của phiếu nhập: đợt kiểm kê bắt đầu sau lúc kiểm tra nhưng trước lúc listener xử lý tin (mục 4).
 
 ## 8. WebSocket STOMP: thông báo thời gian thực (WMS-02.3)
 

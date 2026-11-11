@@ -6,7 +6,14 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
+import vn.wms.common.api.ApiResponse;
+import vn.wms.order.client.FrozenLocationConflict;
+import vn.wms.order.client.InventoryClient;
+import vn.wms.order.client.ReceiptLocationCheckRequest;
+import vn.wms.order.repository.PurchaseBillRepository;
+import org.mockito.ArgumentCaptor;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,7 +35,11 @@ import java.time.LocalDate;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.hasSize;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -55,6 +66,16 @@ class GoodsReceiptIntegrationTest {
 
     @Autowired
     private GoodsReceiptNoteRepository goodsReceiptNoteRepository;
+
+    @Autowired
+    private PurchaseBillRepository purchaseBillRepository;
+
+    @jakarta.persistence.PersistenceContext
+    private jakarta.persistence.EntityManager entityManager;
+
+    /** inventory-service giả lập: mặc định không có vị trí đóng băng (mock trả null). */
+    @MockBean
+    private InventoryClient inventoryClient;
 
     private Supplier createSampleSupplier(String code, String name) {
         Supplier s = new Supplier();
@@ -491,5 +512,70 @@ class GoodsReceiptIntegrationTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.message").value(org.hamcrest.Matchers.containsString("Không thể xóa đơn mua hàng")));
+    }
+
+    @Test
+    @DisplayName("WMS-20.4 (TC-STK-01.10): phiếu nhập vào vị trí đang đóng băng kiểm kê bị từ chối 409 ngay khi lập, không ghi phiếu, hóa đơn, không đổi PO")
+    void createGrn_intoFrozenLocation_isRejectedUpFrontWithConflict() throws Exception {
+        Supplier supplier = createSampleSupplier("NCC-FRZ-01", "NCC Kiểm kê");
+        PurchaseOrder po = createSampleApprovedPo("PO-20261111-FRZ", supplier);
+        PurchaseOrderItem item1 = po.getItems().get(0);
+        PurchaseOrderItem item2 = po.getItems().get(1);
+        when(inventoryClient.checkReceiptLocations(any())).thenReturn(ApiResponse.ok(List.of(
+                new FrozenLocationConflict(7L, "ST-202611-01", 15L, "WH1-A-R01-B01", 101L))));
+
+        CreateGrnRequest req = new CreateGrnRequest(po.getId(), LocalDate.now(), "Nhập vào ô đang kiểm kê", List.of(
+                new CreateGrnItemRequest(item1.getId(), new BigDecimal("10.000"), BigDecimal.ZERO, null, "LOT-F1",
+                        null, null, 15L, "WH1-A-R01-B01", null),
+                // Dòng toàn bộ bị từ chối không cộng tồn nên không gửi đi kiểm tra
+                new CreateGrnItemRequest(item2.getId(), BigDecimal.ZERO, new BigDecimal("2.000"), "Móp", null,
+                        null, null, 16L, null, null)));
+
+        mockMvc.perform(post("/api/orders/goods-receipt-notes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.code").value("CONFLICT"))
+                .andExpect(jsonPath("$.message").value(containsString("WH1-A-R01-B01")))
+                .andExpect(jsonPath("$.message").value(containsString("ST-202611-01")))
+                .andExpect(jsonPath("$.data[0].sessionCode").value("ST-202611-01"));
+
+        ArgumentCaptor<ReceiptLocationCheckRequest> sent = ArgumentCaptor.forClass(ReceiptLocationCheckRequest.class);
+        verify(inventoryClient).checkReceiptLocations(sent.capture());
+        assertThat(sent.getValue().warehouseId()).isEqualTo(1L);
+        assertThat(sent.getValue().lines()).containsExactly(
+                new ReceiptLocationCheckRequest.Line(101L, 15L, "WH1-A-R01-B01"));
+
+        assertThat(goodsReceiptNoteRepository.findByPurchaseOrderIdOrderByIdDesc(po.getId())).isEmpty();
+        assertThat(purchaseBillRepository.findByPurchaseOrderIdOrderByIdDesc(po.getId())).isEmpty();
+        // Đọc lại từ CSDL (bỏ bản trong bộ nhớ của transaction test) để thấy đúng dữ liệu đã ghi
+        // (request MockMvc đã xóa ngữ cảnh doanh nghiệp khi kết thúc nên đặt lại doanh nghiệp của test).
+        entityManager.clear();
+        PurchaseOrder reloaded = vn.wms.common.tenant.TenantContext.callAs(1L,
+                () -> purchaseOrderRepository.findById(po.getId()).orElseThrow());
+        assertThat(reloaded.getStatus()).isEqualTo(OrderStatus.APPROVED);
+        assertThat(reloaded.getItems().get(0).getReceivedQuantity()).isEqualByComparingTo("0");
+    }
+
+    @Test
+    @DisplayName("WMS-20.4: không gọi được inventory-service để kiểm tra vị trí thì trả 503 và không lập phiếu nhập")
+    void createGrn_whenInventoryUnavailable_isRejectedWith503() throws Exception {
+        Supplier supplier = createSampleSupplier("NCC-FRZ-02", "NCC Mất kết nối");
+        PurchaseOrder po = createSampleApprovedPo("PO-20261111-DOWN", supplier);
+        when(inventoryClient.checkReceiptLocations(any())).thenThrow(new feign.FeignException.ServiceUnavailable(
+                "no instance", feign.Request.create(feign.Request.HttpMethod.POST, "/internal/inventory/receipts/location-check",
+                        java.util.Map.of(), null, java.nio.charset.StandardCharsets.UTF_8, new feign.RequestTemplate()),
+                null, java.util.Map.of()));
+
+        CreateGrnRequest req = new CreateGrnRequest(po.getId(), LocalDate.now(), null, List.of(
+                new CreateGrnItemRequest(po.getItems().get(0).getId(), new BigDecimal("5.000"), BigDecimal.ZERO, null,
+                        null, null, null, null, null, null)));
+
+        mockMvc.perform(post("/api/orders/goods-receipt-notes")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code").value("SERVICE_UNAVAILABLE"));
+        assertThat(goodsReceiptNoteRepository.findByPurchaseOrderIdOrderByIdDesc(po.getId())).isEmpty();
     }
 }

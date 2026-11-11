@@ -170,6 +170,14 @@ vai trò ở chế độ máy chủ; dùng `vn.wms.common.test.GatewayHeaders` (
 `/internal/inventory/kpi-metrics` và `/internal/orders/kpi-metrics` chỉ được notification-service gọi qua mạng nội bộ;
 `/internal/products` (product-service) cho tác vụ quét cảnh báo tồn kho hằng đêm của inventory-service đọc mức tồn an
 toàn và điểm đặt hàng lại; `/internal/auth/users/alert-recipients` (auth-service) trả người nhận email cảnh báo.
+order-service gọi đồng bộ các endpoint tồn kho nội bộ của inventory-service khi lập chứng từ (WMS-20.4,
+[MESSAGING.md](MESSAGING.md) mục 7.4), chuyển tiếp nguyên danh tính của người đang thao tác; vai trò và phạm vi kho đã
+được order-service kiểm tra trước khi gọi:
+
+| Endpoint | Gọi từ | Việc làm |
+| --- | --- | --- |
+| `POST /internal/inventory/receipts/location-check` | lập, xác nhận phiếu nhập | Trả các dòng sẽ cộng tồn vào vị trí đang đóng băng kiểm kê (không đổi dữ liệu) |
+
 api-gateway không định tuyến tới (route chỉ có `/api/**` và `/ws-wms/**`). Quy tắc:
 
 - Có người dùng chuyển tiếp (notification-service gắn lại `X-User-*` của người xem dashboard): xác thực như request

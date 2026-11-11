@@ -156,6 +156,11 @@ nhập kho vào ô, xuất kho chỉ định ô, duyệt xuất điều chuyển
 mới và xuất kho không chỉ định ô thì bỏ qua các ô đang đóng băng và lấy hàng ở ô khác. Màn hình khác nên hiển thị
 `message` của lỗi 409 cho người dùng; tag đỏ "Khóa kiểm kê" dùng `locations[].frozen` của đợt.
 
+Lập phiếu nhập kho (`POST /api/orders/goods-receipt-notes`, WMS-20.4) có dòng cộng tồn vào ô đang đóng băng (kể cả
+dòng không chọn ô mà kho cất mặc định vào ô đầu tiên đang đóng băng) nhận 409 `CONFLICT` ngay khi lập, thông báo
+"Vị trí [mã] (đợt [mã đợt]) đang đóng băng để kiểm kê, không thể lập phiếu nhập kho vào vị trí này..." và `data` là
+mảng các phần tử như trên; phiếu, hóa đơn mua và công nợ không được ghi.
+
 Gợi ý giao diện theo SRS: duyệt, từ chối, hủy đều có hộp thoại xác nhận lần hai; từ chối và điều chỉnh có ô lý do.
 Màn hình đếm mù không gọi `/variances` (nhân viên kho nhận 403).
 

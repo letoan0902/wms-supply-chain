@@ -8,6 +8,8 @@ import org.springframework.transaction.annotation.Transactional;
 import vn.wms.common.exception.ApiException;
 import vn.wms.common.messaging.event.OrderReceivedEvent;
 import vn.wms.common.messaging.event.ReceivedItemLine;
+import vn.wms.inventory.dto.FrozenLocationConflict;
+import vn.wms.inventory.dto.internal.ReceiptLocationCheckRequest;
 import vn.wms.inventory.entity.BinLocation;
 import vn.wms.inventory.entity.IncomingStock;
 import vn.wms.inventory.entity.InventoryLot;
@@ -22,6 +24,7 @@ import vn.wms.inventory.repository.StockReceiptRepository;
 import vn.wms.inventory.repository.WarehouseRepository;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -138,6 +141,28 @@ public class StockReceiptService {
         }
 
         log.info("Đã hoàn tất xử lý tăng OnHand và giảm Incoming stock cho phiếu nhập GRN '{}'", event.grnNumber());
+    }
+
+    /**
+     * Kiểm tra trước khi order-service lưu phiếu nhập (WMS-20.4): trả về các dòng sẽ cộng tồn vào vị trí đang đóng
+     * băng kiểm kê; danh sách rỗng nghĩa là nhập được. Vị trí được xác định bằng đúng quy tắc của
+     * {@link #processOrderReceived} nên không lệch với nơi hàng thực sự được cất. Kho không có vị trí nào thì ném lỗi
+     * 400 như luồng nhập, để phiếu không được lưu rồi mới hỏng ở luồng nền.
+     * Không đổi dữ liệu; listener {@code order.received} vẫn kiểm tra lại (chốt chặn cuối khi đợt kiểm kê bắt đầu
+     * giữa lúc kiểm tra và lúc sự kiện được xử lý).
+     */
+    @Transactional
+    public List<FrozenLocationConflict> findFrozenReceiptLocations(ReceiptLocationCheckRequest request) {
+        Warehouse warehouse = warehouseRepository.findById(request.warehouseId())
+                .orElseThrow(() -> ApiException.notFound("Không tìm thấy kho hàng với ID: " + request.warehouseId()));
+        List<FrozenLocationConflict> conflicts = new ArrayList<>();
+        for (ReceiptLocationCheckRequest.Line line : request.lines()) {
+            BinLocation binLocation = resolveBinLocation(warehouse, line.locationId(), line.locationCode());
+            if (stocktakeFreezeGuard != null) {
+                stocktakeFreezeGuard.findConflict(binLocation.getId(), line.productId()).ifPresent(conflicts::add);
+            }
+        }
+        return conflicts;
     }
 
     private void reduceIncomingStock(Long poId, String poNumber, Long warehouseId, Long productId, String skuCode, BigDecimal acceptedQty) {

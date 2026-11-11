@@ -12,6 +12,8 @@ import vn.wms.common.messaging.WmsEventPublisher;
 import vn.wms.common.messaging.WmsEvents;
 import vn.wms.common.messaging.event.OrderReceivedEvent;
 import vn.wms.common.messaging.event.ReceivedItemLine;
+import vn.wms.order.client.InventoryGateway;
+import vn.wms.order.client.ReceiptLocationCheckRequest;
 import vn.wms.order.dto.CreateGrnItemRequest;
 import vn.wms.order.dto.CreateGrnRequest;
 import vn.wms.order.dto.GrnResponse;
@@ -48,6 +50,7 @@ public class GoodsReceiptService {
     private final GoodsReceiptNoteRepository goodsReceiptNoteRepository;
     private final PurchaseOrderRepository purchaseOrderRepository;
     private final PurchaseBillService purchaseBillService;
+    private final InventoryGateway inventoryGateway;
 
     @Autowired(required = false)
     private WmsEventPublisher wmsEventPublisher;
@@ -57,11 +60,13 @@ public class GoodsReceiptService {
     public GoodsReceiptService(GoodsReceiptNoteRepository goodsReceiptNoteRepository,
                                PurchaseOrderRepository purchaseOrderRepository,
                                PurchaseBillService purchaseBillService,
-                               DocumentNumberService documentNumberService) {
+                               DocumentNumberService documentNumberService,
+                               InventoryGateway inventoryGateway) {
         this.goodsReceiptNoteRepository = goodsReceiptNoteRepository;
         this.purchaseOrderRepository = purchaseOrderRepository;
         this.purchaseBillService = purchaseBillService;
         this.documentNumberService = documentNumberService;
+        this.inventoryGateway = inventoryGateway;
     }
 
     /**
@@ -204,6 +209,10 @@ public class GoodsReceiptService {
         grn.setTotalRejectedQuantity(totalRejected);
         grn.setTotalAmount(totalAmount);
 
+        // Hỏi inventory-service trước khi lưu (WMS-20.4): vị trí nhận đang đóng băng kiểm kê thì trả 409 ngay, không ghi
+        // phiếu, hóa đơn mua và công nợ, thay vì để listener order.received từ chối rồi message vào dead-letter.
+        inventoryGateway.assertReceiptLocationsNotFrozen(locationCheckOf(grn));
+
         // 3. Cập nhật trạng thái của PO (COMPLETED nếu đã nhập đủ toàn bộ các mặt hàng, PARTIALLY_RECEIVED nếu còn dư)
         boolean allFullyReceived = po.getItems().stream()
                 .allMatch(item -> item.getRemainingQuantity().compareTo(BigDecimal.ZERO) <= 0);
@@ -243,6 +252,8 @@ public class GoodsReceiptService {
             throw ApiException.badRequest("Phiếu nhập kho '" + grn.getGrnNumber() + "' đã bị hủy, không thể xác nhận!");
         }
 
+        inventoryGateway.assertReceiptLocationsNotFrozen(locationCheckOf(grn));
+
         grn.setStatus(GoodsReceiptStatus.COMPLETED);
         if (confirmedBy != null && !confirmedBy.isBlank()) {
             grn.setReceivedBy(confirmedBy.trim());
@@ -255,6 +266,15 @@ public class GoodsReceiptService {
         publishOrderReceivedEvent(saved);
 
         return GrnResponse.from(saved);
+    }
+
+    /** Các dòng sẽ cộng tồn (số lượng đạt lớn hơn 0) cùng vị trí chọn trên phiếu, gửi cho inventory-service kiểm tra. */
+    private ReceiptLocationCheckRequest locationCheckOf(GoodsReceiptNote grn) {
+        List<ReceiptLocationCheckRequest.Line> lines = grn.getItems().stream()
+                .filter(i -> i.getAcceptedQuantity() != null && i.getAcceptedQuantity().compareTo(BigDecimal.ZERO) > 0)
+                .map(i -> new ReceiptLocationCheckRequest.Line(i.getProductId(), i.getLocationId(), i.getLocationCode()))
+                .toList();
+        return new ReceiptLocationCheckRequest(grn.getWarehouseId(), lines);
     }
 
     private void publishOrderReceivedEvent(GoodsReceiptNote grn) {

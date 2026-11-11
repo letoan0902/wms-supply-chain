@@ -6,6 +6,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import vn.wms.order.client.InventoryClient;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
@@ -50,6 +52,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles("test")
 @Transactional
 class PurchaseBillIntegrationTest {
+
+    /** Lập phiếu nhập hỏi inventory-service về vị trí đóng băng (WMS-20.4); mock trả rỗng là không có xung đột. */
+    @MockBean
+    private InventoryClient inventoryClient;
 
     @Autowired
     private MockMvc mockMvc;

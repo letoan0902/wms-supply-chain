@@ -1,7 +1,15 @@
 import axios from 'axios'
 import { api } from '../../services/api'
 import type { ApiResponse } from '../../types/api'
-import type { InOutBalanceParams, InOutBalanceReport, StockCardParams, StockCardReport } from './types'
+import type {
+  InOutBalanceParams,
+  InOutBalanceReport,
+  LotTraceCandidate,
+  LotTraceParams,
+  LotTraceReport,
+  StockCardParams,
+  StockCardReport,
+} from './types'
 
 /**
  * Các hàm gọi REST API báo cáo kho của inventory-service (tiền tố /api/inventory/reports, xem docs/api/BAO_CAO_KHO.md).
@@ -34,6 +42,23 @@ export async function fetchStockCard(params: StockCardParams, signal?: AbortSign
     signal,
   })
   return res.data.data
+}
+
+/** GET /inventory/reports/lot-trace: truy vết nguồn gốc một số lô (409 kèm data.candidates khi lô thuộc nhiều sản phẩm). */
+export async function fetchLotTrace(params: LotTraceParams, signal?: AbortSignal): Promise<LotTraceReport> {
+  const res = await api.get<ApiResponse<LotTraceReport>>(`${BASE}/lot-trace`, {
+    params: cleanParams(params),
+    signal,
+  })
+  return res.data.data
+}
+
+/** Danh sách sản phẩm dùng chung số lô trong lỗi 409 CONFLICT của truy vết lô; null nếu không phải lỗi này. */
+export function lotTraceCandidates(error: unknown): LotTraceCandidate[] | null {
+  if (!axios.isAxiosError(error) || error.response?.status !== 409) return null
+  const body = error.response.data as ApiResponse<{ candidates?: LotTraceCandidate[] } | undefined> | undefined
+  const candidates = body?.data?.candidates
+  return Array.isArray(candidates) ? candidates : null
 }
 
 export interface DownloadedFile {

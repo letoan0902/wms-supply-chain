@@ -3,6 +3,7 @@ import { Alert, Button, Card, Col, DatePicker, Empty, Row, Select, Space, Statis
 import type { TableColumnsType } from 'antd'
 import dayjs, { type Dayjs } from 'dayjs'
 import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import type { Warehouse } from '../../warehouses/types'
 import { fetchStockCard } from '../reportApi'
 import { exportStockCard } from '../reportExport'
@@ -106,7 +107,13 @@ export default function StockCardTab({ warehouses, warehousesLoading }: Props) {
       render: (_, l) =>
         l.lotNo ? (
           <div>
-            <div className="font-mono text-xs">{l.lotNo}</div>
+            <Link
+              className="font-mono text-xs"
+              to={`/reports/lot-trace?${new URLSearchParams({ lotNo: l.lotNo, productId: String(data?.productId ?? product?.id ?? '') })}`}
+              title="Truy vết nguồn gốc lô này"
+            >
+              {l.lotNo}
+            </Link>
             {l.expDate && <div className="text-xs text-gray-500">HSD {formatDate(l.expDate)}</div>}
           </div>
         ) : (

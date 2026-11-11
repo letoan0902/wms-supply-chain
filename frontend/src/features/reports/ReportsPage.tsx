@@ -1,6 +1,6 @@
-import { Alert, Tabs, Typography } from 'antd'
+import { Alert, Button, Tabs, Typography } from 'antd'
 import { useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { getStoredUser } from '../../utils/storage'
 import { fetchCategories } from '../products/productApi'
 import type { Category } from '../products/types'
@@ -19,6 +19,7 @@ type TabKey = 'in-out-balance' | 'stock-card'
 /** Màn hình báo cáo kho: Xuất - Nhập - Tồn theo kỳ và thẻ kho chi tiết, số liệu lấy từ sổ kho của inventory-service. */
 export default function ReportsPage() {
   const access = getReportAccess(getStoredUser())
+  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const activeTab: TabKey = searchParams.get('tab') === 'stock-card' ? 'stock-card' : 'in-out-balance'
 
@@ -54,14 +55,17 @@ export default function ReportsPage() {
 
   return (
     <div className="flex flex-col gap-4 w-full">
-      <div>
-        <Title level={4} className="!mb-0">
-          Báo cáo kho
-        </Title>
-        <Text type="secondary" className="text-xs">
-          Tồn đầu kỳ, nhập, xuất, tồn cuối kỳ và thẻ kho chi tiết, tính từ sổ kho
-          {access.allWarehouses ? ' của mọi kho trong doanh nghiệp' : ' của các kho bạn được phân công'}.
-        </Text>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <Title level={4} className="!mb-0">
+            Báo cáo kho
+          </Title>
+          <Text type="secondary" className="text-xs">
+            Tồn đầu kỳ, nhập, xuất, tồn cuối kỳ và thẻ kho chi tiết, tính từ sổ kho
+            {access.allWarehouses ? ' của mọi kho trong doanh nghiệp' : ' của các kho bạn được phân công'}.
+          </Text>
+        </div>
+        <Button onClick={() => navigate('/reports/lot-trace')}>Truy vết theo số lô</Button>
       </div>
 
       {warehouseState.error ? (

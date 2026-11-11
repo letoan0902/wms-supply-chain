@@ -1,4 +1,5 @@
 import {
+  ApartmentOutlined,
   ApiOutlined,
   AppstoreOutlined,
   AuditOutlined,
@@ -42,6 +43,7 @@ export const navigationItems: NavigationItem[] = [
   { path: '/sales', label: 'Bán hàng và xuất kho', icon: <ShoppingOutlined /> },
   { path: '/stocktakes', label: 'Kiểm kê', icon: <AuditOutlined />, sprint: 4 },
   { path: '/reports', label: 'Báo cáo', icon: <BarChartOutlined /> },
+  { path: '/reports/lot-trace', label: 'Truy vết theo lô', icon: <ApartmentOutlined /> },
   { path: '/users', label: 'Người dùng', icon: <TeamOutlined /> },
   { path: '/subscription', label: 'Gói dịch vụ', icon: <CreditCardOutlined /> },
   { path: '/settings/api-keys', label: 'API key', icon: <ApiOutlined /> },

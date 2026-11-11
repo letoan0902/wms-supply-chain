@@ -106,6 +106,8 @@ export const router = createBrowserRouter([
           { path: 'users', Component: lazy(() => import('../features/users/UsersPage')) },
           // Báo cáo kho: Xuất - Nhập - Tồn và thẻ kho (WMS-17.4)
           { path: 'reports', Component: lazy(() => import('../features/reports/ReportsPage')) },
+          // Truy vết nguồn gốc theo số lô (WMS-17.5)
+          { path: 'reports/lot-trace', Component: lazy(() => import('../features/reports/LotTracePage')) },
           // API key cho hệ thống ngoài (chỉ ADMIN)
           { path: 'settings/api-keys', Component: lazy(() => import('../features/apiKeys/ApiKeysPage')) },
           // Hồ sơ cá nhân & Đổi mật khẩu

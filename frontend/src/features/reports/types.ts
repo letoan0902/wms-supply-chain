@@ -152,3 +152,149 @@ export interface ProductOption {
   name: string
   uomCode?: string
 }
+
+/** Tham số của GET /inventory/reports/lot-trace. */
+export interface LotTraceParams {
+  lotNo: string
+  productId?: number
+}
+
+/** Một sản phẩm dùng chung số lô, trong `data.candidates` của lỗi 409 CONFLICT. */
+export interface LotTraceCandidate {
+  productId: number
+  skuCode: string | null
+  productName: string | null
+}
+
+/** Tổng hợp số lượng của lô trong phạm vi kho người xem (LotTraceResponse.Summary). */
+export interface LotTraceSummary {
+  totalReceived: Decimal
+  openingBalance: Decimal
+  totalAdjustedIn: Decimal
+  totalSalesDispatched: Decimal
+  totalTransferredOut: Decimal
+  totalOtherOut: Decimal
+  ledgerBalance: Decimal
+  currentOnHand: Decimal
+  currentReserved: Decimal
+}
+
+/** Phiếu điều chuyển mà lô đã đi theo (LotTraceResponse.TransferInfo). */
+export interface LotTraceTransfer {
+  transferId: number
+  transferNumber: string | null
+  status: string | null
+  destinationWarehouseId: number | null
+  destinationWarehouseCode: string | null
+  destinationWarehouseName: string | null
+  lotQuantityShipped: Decimal
+  itemReceivedQuantity: Decimal
+  itemDamagedQuantity: Decimal
+  destinationBinLocationCode: string | null
+  receivedAt: string | null
+  receivedBy: string | null
+  lotTrackedAtDestination: boolean
+}
+
+/** Một chứng từ nhập vào hoặc xuất ra của lô (LotTraceResponse.Flow). */
+export interface LotTraceFlow {
+  movementType: string
+  movementTypeLabel: string | null
+  occurredAt: string | null
+  documentType: string | null
+  documentId: number | null
+  documentNumber: string | null
+  referenceType: string | null
+  referenceId: number | null
+  referenceNumber: string | null
+  supplierId: number | null
+  warehouseId: number | null
+  warehouseCode: string | null
+  warehouseName: string | null
+  binLocationCodes: string[] | null
+  quantity: Decimal
+  performedBy: string | null
+  transfer: LotTraceTransfer | null
+}
+
+/** Một dòng tồn hiện tại của lô (LotTraceResponse.Location). */
+export interface LotTraceLocation {
+  stockItemId: number
+  warehouseId: number | null
+  warehouseCode: string | null
+  warehouseName: string | null
+  binLocationId: number | null
+  binLocationCode: string | null
+  quantity: Decimal
+  reservedQuantity: Decimal
+  availableQuantity: Decimal
+  locked: boolean
+  lockedReason: string | null
+  expDate: string | null
+  expired: boolean
+  daysUntilExpiry: number | null
+}
+
+/** Một biến động của lô theo thời gian (LotTraceResponse.TimelineEvent). */
+export interface LotTraceTimelineEvent {
+  movementId: number
+  occurredAt: string
+  movementType: string
+  movementTypeLabel: string | null
+  documentType: string | null
+  documentId: number | null
+  documentNumber: string | null
+  referenceType: string | null
+  referenceNumber: string | null
+  supplierId: number | null
+  warehouseId: number | null
+  warehouseCode: string | null
+  warehouseName: string | null
+  binLocationCode: string | null
+  counterpartWarehouseId: number | null
+  quantityIn: Decimal
+  quantityOut: Decimal
+  lotBalanceAfter: Decimal
+  performedBy: string | null
+}
+
+/** Hướng của nút cây: ROOT (lô), UPSTREAM (nguồn gốc), CURRENT (đang ở), DOWNSTREAM (đã đi). */
+export type TraceDirection = 'ROOT' | 'UPSTREAM' | 'CURRENT' | 'DOWNSTREAM'
+
+/** Nút của cây truy vết (LotTraceResponse.TraceNode). */
+export interface TraceNode {
+  key: string
+  nodeType: string
+  direction: string
+  title: string
+  quantity: Decimal
+  occurredAt: string | null
+  documentType: string | null
+  documentId: number | null
+  documentNumber: string | null
+  warehouseId: number | null
+  warehouseName: string | null
+  binLocationCode: string | null
+  children: TraceNode[] | null
+}
+
+/** `data` của GET /inventory/reports/lot-trace (LotTraceResponse). */
+export interface LotTraceReport {
+  lotNo: string
+  productId: number
+  skuCode: string | null
+  productName: string | null
+  uom: string | null
+  mfgDate: string | null
+  expDate: string | null
+  warehouseIds: number[] | null
+  summary: LotTraceSummary
+  origins: LotTraceFlow[]
+  currentLocations: LotTraceLocation[]
+  outflows: LotTraceFlow[]
+  timeline: LotTraceTimelineEvent[]
+  tree: TraceNode | null
+  notes: string[]
+  ledgerStartedAt: string | null
+  generatedAt: string
+}

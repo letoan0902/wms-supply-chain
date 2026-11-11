@@ -7,7 +7,7 @@ Tài liệu gồm bảng test case của bốn task QA, phần kiểm tra thủ 
 | --- | --- | --- | --- |
 | WMS-20.1 | TASK-123 | Luồng mua và nhập kho | `qa/postman/00-setup`, `qa/postman/10-inbound` |
 | WMS-20.2 | TASK-124 | Bán, xuất kho, điều chuyển, kiểm kê, sổ kho | `qa/postman/20-outbound-transfer-stocktake` |
-| WMS-22.5 | TASK-139 | Cách ly doanh nghiệp, giới hạn gói, hết hạn, API key | bổ sung ở commit sau |
+| WMS-22.5 | TASK-139 | Cách ly doanh nghiệp, giới hạn gói, hết hạn, API key | `qa/postman/30-isolation-plan-expiry` |
 | WMS-19.2 | TASK-52 | Tải đồng thời, bất biến tồn kho, chống nộp trùng | bổ sung ở commit sau |
 
 ## 1. Quy ước
@@ -18,7 +18,7 @@ Tài liệu gồm bảng test case của bốn task QA, phần kiểm tra thủ 
   ký) và doanh nghiệp của kịch bản tải đều mới. Mật khẩu kiểm thử là chuỗi giả `QaTest-<runId>-Mk`.
 - Mọi request có thêm test chung "Không có lỗi máy chủ (HTTP 5xx)".
 - Cột "Kết quả" để "chưa chạy"; người chạy ghi "đạt" hoặc "không đạt" kèm mã lỗi, ảnh hoặc dòng log của Postman CLI.
-- Số lượng request hiện có: `00-setup.postman_collection.json`: 20 request, `10-inbound.postman_collection.json`: 102 request, `20-outbound-transfer-stocktake.postman_collection.json`: 137 request.
+- Số lượng request hiện có: `00-setup.postman_collection.json`: 20 request, `10-inbound.postman_collection.json`: 102 request, `20-outbound-transfer-stocktake.postman_collection.json`: 137 request, `30-isolation-plan-expiry.postman_collection.json`: 219 request.
 
 ## 2. Hành vi dự kiến không đạt (lỗi cần sửa trước)
 
@@ -444,7 +444,413 @@ Cần chạy 10-inbound trước với cùng runId.
 | TC-RPT-02.2 | Truy vết lô LOT-A1 | Kế toán của A gọi `GET /api/inventory/reports/lot-trace?lotNo=LOT-A1&productId={{o_prod10}}` | 200; nguồn gốc RECEIPT từ phiếu nhập lần 1 của đơn mua ở collection 10; totalReceived 60; currentOnHand 60; cây có nút GOODS_RECEIPT, PURCHASE_ORDER, SUPPLIER | `20-outbound-transfer-stocktake` / TC-RPT-02.2 Truy vết lô LOT-A1 | chưa chạy |
 | TC-RPT-02.3 | Bán hàng không truy vết được lô | Bán hàng của A gọi `GET /api/inventory/reports/lot-trace?lotNo=LOT-A1` | 403 FORBIDDEN | `20-outbound-transfer-stocktake` / TC-RPT-02.3 Bán hàng không truy vết được lô | chưa chạy |
 
-## 5. Kiểm tra thủ công (không tự động hóa được ở đây)
+## 5. WMS-22.5 Cách ly doanh nghiệp, giới hạn gói, hết hạn và API key (30-isolation-plan-expiry)
+
+Phần cách ly lấy ID dữ liệu của A bằng API danh sách nên cần chạy 10 và 20 trước với cùng `runId`. Doanh nghiệp C được
+đăng ký ngay trong collection: chuyển TRIAL về FREE để thử giới hạn, đặt hết hạn bằng công cụ demo, thanh toán giả lập
+lên PRO rồi thử API key.
+
+#### TC-ISO-00 Đăng nhập và lấy ID dữ liệu của A
+
+| ID | Tên | Các bước | Kết quả mong đợi | Tự động hóa (collection / request) | Kết quả |
+| --- | --- | --- | --- | --- | --- |
+| TC-ISO-00.1 | Kiểm tra runId của lượt chạy | Kiểm tra biến môi trường `runId` đã được truyền (`--env-var runId=...`), rồi gọi `GET /api/auth/plans` | runId có giá trị (cùng runId đã dùng cho 00-setup); API công khai trả 200 | `30-isolation-plan-expiry` / TC-ISO-00.1 Kiểm tra runId của lượt chạy | chưa chạy |
+| TC-ISO-00.2 | Đăng nhập ADMIN của công ty A | Gọi `POST /api/auth/login` bằng tài khoản ADMIN của công ty A (tên đăng nhập và mật khẩu suy ra từ runId) | 200, có accessToken; roles chứa ADMIN; company.id đúng doanh nghiệp A | `30-isolation-plan-expiry` / TC-ISO-00.2 Đăng nhập ADMIN của công ty A | chưa chạy |
+| TC-ISO-00.3 | Đăng nhập ADMIN của công ty B | Gọi `POST /api/auth/login` bằng tài khoản ADMIN của công ty B (tên đăng nhập và mật khẩu suy ra từ runId) | 200, có accessToken; roles chứa ADMIN; company.id đúng doanh nghiệp B | `30-isolation-plan-expiry` / TC-ISO-00.3 Đăng nhập ADMIN của công ty B | chưa chạy |
+| TC-ISO-00.4 | Tra ID tài khoản WAREHOUSE_MANAGER của A | ADMIN của A gọi `GET /api/auth/users?keyword={{lookupUser}}&size=5` | 200, danh sách có đúng tài khoản WAREHOUSE_MANAGER vừa tạo | `30-isolation-plan-expiry` / TC-ISO-00.4 Tra ID tài khoản WAREHOUSE_MANAGER của A | chưa chạy |
+| TC-ISO-00.5 | Kho của A | ADMIN của A gọi `GET /api/inventory/warehouses` | 200, A có ít nhất một kho | `30-isolation-plan-expiry` / TC-ISO-00.5 Kho của A | chưa chạy |
+| TC-ISO-00.6 | Vị trí của A | ADMIN của A gọi `GET /api/inventory/locations?warehouseId={{A_wh}}` | 200, A có ít nhất một vị trí | `30-isolation-plan-expiry` / TC-ISO-00.6 Vị trí của A | chưa chạy |
+| TC-ISO-00.7 | Hàng hóa của A | ADMIN của A gọi `GET /api/products?size=5` | 200, A có ít nhất một hàng hóa | `30-isolation-plan-expiry` / TC-ISO-00.7 Hàng hóa của A | chưa chạy |
+| TC-ISO-00.8 | Danh mục của A | ADMIN của A gọi `GET /api/products/categories` | 200, A có ít nhất một danh mục | `30-isolation-plan-expiry` / TC-ISO-00.8 Danh mục của A | chưa chạy |
+| TC-ISO-00.9 | Đơn vị tính của A | ADMIN của A gọi `GET /api/products/uoms` | 200, A có ít nhất một đơn vị tính | `30-isolation-plan-expiry` / TC-ISO-00.9 Đơn vị tính của A | chưa chạy |
+| TC-ISO-00.10 | Nhà cung cấp của A | ADMIN của A gọi `GET /api/orders/suppliers` | 200, A có ít nhất một nhà cung cấp | `30-isolation-plan-expiry` / TC-ISO-00.10 Nhà cung cấp của A | chưa chạy |
+| TC-ISO-00.11 | Khách hàng của A | ADMIN của A gọi `GET /api/orders/customers` | 200, A có ít nhất một khách hàng | `30-isolation-plan-expiry` / TC-ISO-00.11 Khách hàng của A | chưa chạy |
+| TC-ISO-00.12 | Đơn mua của A | ADMIN của A gọi `GET /api/orders/purchase` | 200, A có ít nhất một đơn mua | `30-isolation-plan-expiry` / TC-ISO-00.12 Đơn mua của A | chưa chạy |
+| TC-ISO-00.13 | Đơn bán của A | ADMIN của A gọi `GET /api/orders/sales` | 200, A có ít nhất một đơn bán | `30-isolation-plan-expiry` / TC-ISO-00.13 Đơn bán của A | chưa chạy |
+| TC-ISO-00.14 | Phiếu nhập của A | ADMIN của A gọi `GET /api/orders/goods-receipt-notes` | 200, A có ít nhất một phiếu nhập | `30-isolation-plan-expiry` / TC-ISO-00.14 Phiếu nhập của A | chưa chạy |
+| TC-ISO-00.15 | Phiếu xuất của A | ADMIN của A gọi `GET /api/orders/goods-delivery-notes` | 200, A có ít nhất một phiếu xuất | `30-isolation-plan-expiry` / TC-ISO-00.15 Phiếu xuất của A | chưa chạy |
+| TC-ISO-00.16 | Hóa đơn mua của A | ADMIN của A gọi `GET /api/orders/purchase-bills` | 200, A có ít nhất một hóa đơn mua | `30-isolation-plan-expiry` / TC-ISO-00.16 Hóa đơn mua của A | chưa chạy |
+| TC-ISO-00.17 | Lệnh điều chuyển của A | ADMIN của A gọi `GET /api/inventory/transfers` | 200, A có ít nhất một lệnh điều chuyển | `30-isolation-plan-expiry` / TC-ISO-00.17 Lệnh điều chuyển của A | chưa chạy |
+| TC-ISO-00.18 | Đợt kiểm kê của A | ADMIN của A gọi `GET /api/inventory/stocktakes` | 200, A có ít nhất một đợt kiểm kê | `30-isolation-plan-expiry` / TC-ISO-00.18 Đợt kiểm kê của A | chưa chạy |
+| TC-ISO-00.19 | Phiếu điều chỉnh của A | ADMIN của A gọi `GET /api/inventory/stock-adjustments` | 200, A có ít nhất một phiếu điều chỉnh | `30-isolation-plan-expiry` / TC-ISO-00.19 Phiếu điều chỉnh của A | chưa chạy |
+| TC-ISO-00.20 | Lô còn hàng, chưa khóa của A | ADMIN của A gọi `GET /api/inventory/lots?hasStock=true&locked=false&size=5` | 200, A có ít nhất một lô | `30-isolation-plan-expiry` / TC-ISO-00.20 Lô còn hàng, chưa khóa của A | chưa chạy |
+| TC-ISO-00.21 | Tồn của hàng hóa A | ADMIN của A gọi `GET /api/inventory/stock/atp?productId={{A_lotProd}}&warehouseId={{A_lotWh}}` | 200, onHandQuantity > 0 | `30-isolation-plan-expiry` / TC-ISO-00.21 Tồn của hàng hóa A | chưa chạy |
+| TC-ISO-00.22 | A tạo API key | ADMIN của A gọi `POST /api/auth/api-keys` | 201 (gói TRIAL có quyền API) | `30-isolation-plan-expiry` / TC-ISO-00.22 A tạo API key | chưa chạy |
+| TC-ISO-00.23 | A tạo giao dịch thanh toán chờ | ADMIN của A gọi `POST /api/auth/payments` | 201, status PENDING, amount 499000 | `30-isolation-plan-expiry` / TC-ISO-00.23 A tạo giao dịch thanh toán chờ | chưa chạy |
+| TC-ISO-00.24 | A trích xuất file CSV bằng AI | ADMIN của A gọi `POST /api/ai/extractions`; multipart `file` = qa/postman/files/hang-hoa-qa.csv, `dataType` = PRODUCT (chạy với --working-dir qa/postman) | 200, extractionId, method HEADER_MATCHING khi AI_MOCK=true, 2 dòng | `30-isolation-plan-expiry` / TC-ISO-00.24 A trích xuất file CSV bằng AI | chưa chạy |
+| TC-ISO-00.25 | A hỏi trợ lý về tồn của hàng hóa | ADMIN của A gọi `POST /api/ai/chat` | 200, có conversationId | `30-isolation-plan-expiry` / TC-ISO-00.25 A hỏi trợ lý về tồn của hàng hóa | chưa chạy |
+| TC-ISO-00.26 | KPI thời gian thực của A | ADMIN của A gọi `GET /api/notifications/realtime/kpi` | 200 (ghi lại để so sánh) | `30-isolation-plan-expiry` / TC-ISO-00.26 KPI thời gian thực của A | chưa chạy |
+
+#### TC-ISO-01 Cách ly: người dùng
+
+| ID | Tên | Các bước | Kết quả mong đợi | Tự động hóa (collection / request) | Kết quả |
+| --- | --- | --- | --- | --- | --- |
+| TC-ISO-01.1 | B xem danh sách người dùng | ADMIN của B gọi `GET /api/auth/users?size=100` | 200, chỉ có người dùng của B | `30-isolation-plan-expiry` / TC-ISO-01.1 B xem danh sách người dùng | chưa chạy |
+| TC-ISO-01.2 | B xem người dùng của A theo ID | ADMIN của B gọi `GET /api/auth/users/{{uid_A_MANAGER}}` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-01.2 B xem người dùng của A theo ID | chưa chạy |
+| TC-ISO-01.3 | B sửa người dùng của A | ADMIN của B gọi `PUT /api/auth/users/{{uid_A_MANAGER}}` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-01.3 B sửa người dùng của A | chưa chạy |
+| TC-ISO-01.4 | B khóa người dùng của A | ADMIN của B gọi `PATCH /api/auth/users/{{uid_A_MANAGER}}/status` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-01.4 B khóa người dùng của A | chưa chạy |
+| TC-ISO-01.5 | B gán kho cho người dùng của A | ADMIN của B gọi `PUT /api/auth/users/{{uid_A_MANAGER}}/warehouses` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-01.5 B gán kho cho người dùng của A | chưa chạy |
+| TC-ISO-01.6 | Người dùng của A không đổi | ADMIN của A gọi `GET /api/auth/users/{{uid_A_MANAGER}}` | 200, vẫn bật, vai trò WAREHOUSE_MANAGER | `30-isolation-plan-expiry` / TC-ISO-01.6 Người dùng của A không đổi | chưa chạy |
+
+#### TC-ISO-02 Cách ly: kho
+
+| ID | Tên | Các bước | Kết quả mong đợi | Tự động hóa (collection / request) | Kết quả |
+| --- | --- | --- | --- | --- | --- |
+| TC-ISO-02.1 | B xem danh sách kho | ADMIN của B gọi `GET /api/inventory/warehouses` | 200, không có kho của A | `30-isolation-plan-expiry` / TC-ISO-02.1 B xem danh sách kho | chưa chạy |
+| TC-ISO-02.2 | B xem kho của A | ADMIN của B gọi `GET /api/inventory/warehouses/{{A_wh}}` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-02.2 B xem kho của A | chưa chạy |
+| TC-ISO-02.3 | B sửa kho của A | ADMIN của B gọi `PUT /api/inventory/warehouses/{{A_wh}}` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-02.3 B sửa kho của A | chưa chạy |
+| TC-ISO-02.4 | B ngưng kho của A | ADMIN của B gọi `PATCH /api/inventory/warehouses/{{A_wh}}/status` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-02.4 B ngưng kho của A | chưa chạy |
+| TC-ISO-02.5 | B xóa kho của A | ADMIN của B gọi `DELETE /api/inventory/warehouses/{{A_wh}}` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-02.5 B xóa kho của A | chưa chạy |
+| TC-ISO-02.6 | Kho của A không đổi | ADMIN của A gọi `GET /api/inventory/warehouses/{{A_wh}}` | 200, tên và trạng thái giữ nguyên | `30-isolation-plan-expiry` / TC-ISO-02.6 Kho của A không đổi | chưa chạy |
+
+#### TC-ISO-03 Cách ly: vị trí
+
+| ID | Tên | Các bước | Kết quả mong đợi | Tự động hóa (collection / request) | Kết quả |
+| --- | --- | --- | --- | --- | --- |
+| TC-ISO-03.1 | B lọc vị trí theo kho của A | ADMIN của B gọi `GET /api/inventory/locations?warehouseId={{A_wh}}` | 200 rỗng hoặc 404 NOT_FOUND, không lộ vị trí của A | `30-isolation-plan-expiry` / TC-ISO-03.1 B lọc vị trí theo kho của A | chưa chạy |
+| TC-ISO-03.2 | B xem vị trí của A | ADMIN của B gọi `GET /api/inventory/locations/{{A_loc}}` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-03.2 B xem vị trí của A | chưa chạy |
+| TC-ISO-03.3 | B sửa vị trí của A | ADMIN của B gọi `PUT /api/inventory/locations/{{A_loc}}` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-03.3 B sửa vị trí của A | chưa chạy |
+| TC-ISO-03.4 | B xóa vị trí của A | ADMIN của B gọi `DELETE /api/inventory/locations/{{A_loc}}` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-03.4 B xóa vị trí của A | chưa chạy |
+| TC-ISO-03.5 | Vị trí của A không đổi | ADMIN của A gọi `GET /api/inventory/locations/{{A_loc}}` | 200, vẫn hoạt động, đúng mã | `30-isolation-plan-expiry` / TC-ISO-03.5 Vị trí của A không đổi | chưa chạy |
+
+#### TC-ISO-04 Cách ly: tồn kho
+
+| ID | Tên | Các bước | Kết quả mong đợi | Tự động hóa (collection / request) | Kết quả |
+| --- | --- | --- | --- | --- | --- |
+| TC-ISO-04.1 | B đọc tồn của hàng hóa A ở kho A | ADMIN của B gọi `GET /api/inventory/stock/atp?productId={{A_lotProd}}&warehouseId={{A_lotWh}}` | 200 với onHandQuantity 0 hoặc 404; không lộ số tồn của A | `30-isolation-plan-expiry` / TC-ISO-04.1 B đọc tồn của hàng hóa A ở kho A | chưa chạy |
+| TC-ISO-04.2 | B đọc tồn theo lô sản phẩm của A | ADMIN của B gọi `POST /api/inventory/stock/atp/batch` | 200, tồn bằng 0 | `30-isolation-plan-expiry` / TC-ISO-04.2 B đọc tồn theo lô sản phẩm của A | chưa chạy |
+| TC-ISO-04.3 | B trừ tồn ở kho của A | ADMIN của B gọi `POST /api/inventory/stock/deduct` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-04.3 B trừ tồn ở kho của A | chưa chạy |
+| TC-ISO-04.4 | Tồn của A không đổi | ADMIN của A gọi `GET /api/inventory/stock/atp?productId={{A_lotProd}}&warehouseId={{A_lotWh}}` | 200, onHandQuantity như trước | `30-isolation-plan-expiry` / TC-ISO-04.4 Tồn của A không đổi | chưa chạy |
+
+#### TC-ISO-05 Cách ly: lô hàng
+
+| ID | Tên | Các bước | Kết quả mong đợi | Tự động hóa (collection / request) | Kết quả |
+| --- | --- | --- | --- | --- | --- |
+| TC-ISO-05.1 | B lọc lô theo hàng hóa của A | ADMIN của B gọi `GET /api/inventory/lots?productId={{A_lotProd}}` | 200, totalElements 0 | `30-isolation-plan-expiry` / TC-ISO-05.1 B lọc lô theo hàng hóa của A | chưa chạy |
+| TC-ISO-05.2 | B tìm lô theo số lô của A | ADMIN của B gọi `GET /api/inventory/lots?lotNo={{A_lotNo}}` | 200, không có lô của A | `30-isolation-plan-expiry` / TC-ISO-05.2 B tìm lô theo số lô của A | chưa chạy |
+| TC-ISO-05.3 | B khóa lô của A | ADMIN của B gọi `PUT /api/inventory/lots/{{A_lot}}/lock` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-05.3 B khóa lô của A | chưa chạy |
+| TC-ISO-05.4 | Lô của A vẫn chưa khóa | ADMIN của A gọi `GET /api/inventory/lots?productId={{A_lotProd}}&lotNo={{A_lotNo}}` | 200, lô locked = false | `30-isolation-plan-expiry` / TC-ISO-05.4 Lô của A vẫn chưa khóa | chưa chạy |
+
+#### TC-ISO-06 Cách ly: hàng hóa
+
+| ID | Tên | Các bước | Kết quả mong đợi | Tự động hóa (collection / request) | Kết quả |
+| --- | --- | --- | --- | --- | --- |
+| TC-ISO-06.1 | B xem danh sách hàng hóa | ADMIN của B gọi `GET /api/products?size=100` | 200, không có hàng của A | `30-isolation-plan-expiry` / TC-ISO-06.1 B xem danh sách hàng hóa | chưa chạy |
+| TC-ISO-06.2 | B xem hàng hóa của A | ADMIN của B gọi `GET /api/products/{{A_prod}}` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-06.2 B xem hàng hóa của A | chưa chạy |
+| TC-ISO-06.3 | B tra SKU của A | ADMIN của B gọi `GET /api/products/sku/{{A_prodSku}}` | 404 NOT_FOUND (B chưa có SKU này) | `30-isolation-plan-expiry` / TC-ISO-06.3 B tra SKU của A | chưa chạy |
+| TC-ISO-06.4 | B sửa hàng hóa của A | ADMIN của B gọi `PUT /api/products/{{A_prod}}` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-06.4 B sửa hàng hóa của A | chưa chạy |
+| TC-ISO-06.5 | B ngưng hàng hóa của A | ADMIN của B gọi `DELETE /api/products/{{A_prod}}` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-06.5 B ngưng hàng hóa của A | chưa chạy |
+| TC-ISO-06.6 | Hàng hóa của A không đổi | ADMIN của A gọi `GET /api/products/{{A_prod}}` | 200, tên, SKU, trạng thái giữ nguyên | `30-isolation-plan-expiry` / TC-ISO-06.6 Hàng hóa của A không đổi | chưa chạy |
+
+#### TC-ISO-07 Cách ly: danh mục
+
+| ID | Tên | Các bước | Kết quả mong đợi | Tự động hóa (collection / request) | Kết quả |
+| --- | --- | --- | --- | --- | --- |
+| TC-ISO-07.1 | B xem danh mục | ADMIN của B gọi `GET /api/products/categories` | 200, không có danh mục của A | `30-isolation-plan-expiry` / TC-ISO-07.1 B xem danh mục | chưa chạy |
+| TC-ISO-07.2 | B xem danh mục của A | ADMIN của B gọi `GET /api/products/categories/{{A_cat}}` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-07.2 B xem danh mục của A | chưa chạy |
+| TC-ISO-07.3 | B gắn danh mục của A vào hàng hóa mới | ADMIN của B gọi `POST /api/products`; danh mục không có API sửa, xóa: thử dùng ID danh mục của A khi tạo hàng hóa | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-07.3 B gắn danh mục của A vào hàng hóa mới | chưa chạy |
+
+#### TC-ISO-08 Cách ly: đơn vị tính
+
+| ID | Tên | Các bước | Kết quả mong đợi | Tự động hóa (collection / request) | Kết quả |
+| --- | --- | --- | --- | --- | --- |
+| TC-ISO-08.1 | B xem đơn vị tính | ADMIN của B gọi `GET /api/products/uoms` | 200, không có đơn vị tính của A | `30-isolation-plan-expiry` / TC-ISO-08.1 B xem đơn vị tính | chưa chạy |
+| TC-ISO-08.2 | B xem đơn vị tính của A | ADMIN của B gọi `GET /api/products/uoms/{{A_uom}}` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-08.2 B xem đơn vị tính của A | chưa chạy |
+| TC-ISO-08.3 | B dùng đơn vị tính của A | ADMIN của B gọi `POST /api/products`; đơn vị tính không có API sửa, xóa: thử dùng ID của A khi tạo hàng hóa | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-08.3 B dùng đơn vị tính của A | chưa chạy |
+
+#### TC-ISO-09 Cách ly: nhà cung cấp
+
+| ID | Tên | Các bước | Kết quả mong đợi | Tự động hóa (collection / request) | Kết quả |
+| --- | --- | --- | --- | --- | --- |
+| TC-ISO-09.1 | B xem danh sách nhà cung cấp | ADMIN của B gọi `GET /api/orders/suppliers?size=100` | 200 | `30-isolation-plan-expiry` / TC-ISO-09.1 B xem danh sách nhà cung cấp | chưa chạy |
+| TC-ISO-09.2 | B xem nhà cung cấp của A | ADMIN của B gọi `GET /api/orders/suppliers/{{A_sup}}` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-09.2 B xem nhà cung cấp của A | chưa chạy |
+| TC-ISO-09.3 | B xem công nợ nhà cung cấp của A | ADMIN của B gọi `GET /api/orders/suppliers/{{A_sup}}/transactions` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-09.3 B xem công nợ nhà cung cấp của A | chưa chạy |
+| TC-ISO-09.4 | B sửa nhà cung cấp của A | ADMIN của B gọi `PUT /api/orders/suppliers/{{A_sup}}` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-09.4 B sửa nhà cung cấp của A | chưa chạy |
+| TC-ISO-09.5 | B xóa nhà cung cấp của A | ADMIN của B gọi `DELETE /api/orders/suppliers/{{A_sup}}` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-09.5 B xóa nhà cung cấp của A | chưa chạy |
+| TC-ISO-09.6 | B ghi công nợ nhà cung cấp của A | ADMIN của B gọi `POST /api/orders/suppliers/{{A_sup}}/transactions` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-09.6 B ghi công nợ nhà cung cấp của A | chưa chạy |
+| TC-ISO-09.7 | Nhà cung cấp của A không đổi | ADMIN của A gọi `GET /api/orders/suppliers/{{A_sup}}` | 200, tên giữ nguyên, còn hoạt động | `30-isolation-plan-expiry` / TC-ISO-09.7 Nhà cung cấp của A không đổi | chưa chạy |
+
+#### TC-ISO-10 Cách ly: khách hàng
+
+| ID | Tên | Các bước | Kết quả mong đợi | Tự động hóa (collection / request) | Kết quả |
+| --- | --- | --- | --- | --- | --- |
+| TC-ISO-10.1 | B xem danh sách khách hàng | ADMIN của B gọi `GET /api/orders/customers?size=100` | 200 | `30-isolation-plan-expiry` / TC-ISO-10.1 B xem danh sách khách hàng | chưa chạy |
+| TC-ISO-10.2 | B xem khách hàng của A | ADMIN của B gọi `GET /api/orders/customers/{{A_cus}}` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-10.2 B xem khách hàng của A | chưa chạy |
+| TC-ISO-10.3 | B kiểm tra hạn mức khách hàng của A | ADMIN của B gọi `GET /api/orders/customers/{{A_cus}}/credit-check?orderAmount=1000` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-10.3 B kiểm tra hạn mức khách hàng của A | chưa chạy |
+| TC-ISO-10.4 | B sửa khách hàng của A | ADMIN của B gọi `PUT /api/orders/customers/{{A_cus}}` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-10.4 B sửa khách hàng của A | chưa chạy |
+| TC-ISO-10.5 | B xóa khách hàng của A | ADMIN của B gọi `DELETE /api/orders/customers/{{A_cus}}` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-10.5 B xóa khách hàng của A | chưa chạy |
+| TC-ISO-10.6 | Khách hàng của A không đổi | ADMIN của A gọi `GET /api/orders/customers/{{A_cus}}` | 200, tên giữ nguyên, không bị khóa nợ | `30-isolation-plan-expiry` / TC-ISO-10.6 Khách hàng của A không đổi | chưa chạy |
+
+#### TC-ISO-11 Cách ly: đơn mua
+
+| ID | Tên | Các bước | Kết quả mong đợi | Tự động hóa (collection / request) | Kết quả |
+| --- | --- | --- | --- | --- | --- |
+| TC-ISO-11.1 | B xem danh sách đơn mua | ADMIN của B gọi `GET /api/orders/purchase?size=100` | 200 | `30-isolation-plan-expiry` / TC-ISO-11.1 B xem danh sách đơn mua | chưa chạy |
+| TC-ISO-11.2 | B xem đơn mua của A | ADMIN của B gọi `GET /api/orders/purchase/{{A_po}}` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-11.2 B xem đơn mua của A | chưa chạy |
+| TC-ISO-11.3 | B tra số đơn mua của A | ADMIN của B gọi `GET /api/orders/purchase/number/{{A_poNumber}}` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-11.3 B tra số đơn mua của A | chưa chạy |
+| TC-ISO-11.4 | B duyệt đơn mua của A | ADMIN của B gọi `POST /api/orders/purchase/{{A_po}}/approve` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-11.4 B duyệt đơn mua của A | chưa chạy |
+| TC-ISO-11.5 | B hủy đơn mua của A | ADMIN của B gọi `POST /api/orders/purchase/{{A_po}}/cancel` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-11.5 B hủy đơn mua của A | chưa chạy |
+| TC-ISO-11.6 | B xóa đơn mua của A | ADMIN của B gọi `DELETE /api/orders/purchase/{{A_po}}` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-11.6 B xóa đơn mua của A | chưa chạy |
+| TC-ISO-11.7 | Đơn mua của A không đổi | ADMIN của A gọi `GET /api/orders/purchase/{{A_po}}` | 200, trạng thái giữ nguyên | `30-isolation-plan-expiry` / TC-ISO-11.7 Đơn mua của A không đổi | chưa chạy |
+
+#### TC-ISO-12 Cách ly: đơn bán
+
+| ID | Tên | Các bước | Kết quả mong đợi | Tự động hóa (collection / request) | Kết quả |
+| --- | --- | --- | --- | --- | --- |
+| TC-ISO-12.1 | B xem danh sách đơn bán | ADMIN của B gọi `GET /api/orders/sales?size=100` | 200 | `30-isolation-plan-expiry` / TC-ISO-12.1 B xem danh sách đơn bán | chưa chạy |
+| TC-ISO-12.2 | B xem đơn bán của A | ADMIN của B gọi `GET /api/orders/sales/{{A_so}}` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-12.2 B xem đơn bán của A | chưa chạy |
+| TC-ISO-12.3 | B tra số đơn bán của A | ADMIN của B gọi `GET /api/orders/sales/number/{{A_soNumber}}` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-12.3 B tra số đơn bán của A | chưa chạy |
+| TC-ISO-12.4 | B xem danh sách lấy hàng của đơn A | ADMIN của B gọi `GET /api/orders/sales/{{A_so}}/picking-list` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-12.4 B xem danh sách lấy hàng của đơn A | chưa chạy |
+| TC-ISO-12.5 | B xác nhận đơn bán của A | ADMIN của B gọi `POST /api/orders/sales/{{A_so}}/confirm` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-12.5 B xác nhận đơn bán của A | chưa chạy |
+| TC-ISO-12.6 | B hủy đơn bán của A | ADMIN của B gọi `POST /api/orders/sales/{{A_so}}/cancel` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-12.6 B hủy đơn bán của A | chưa chạy |
+| TC-ISO-12.7 | B xóa đơn bán của A | ADMIN của B gọi `DELETE /api/orders/sales/{{A_so}}` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-12.7 B xóa đơn bán của A | chưa chạy |
+| TC-ISO-12.8 | B lập phiếu xuất cho đơn bán của A | ADMIN của B gọi `POST /api/orders/goods-delivery-notes` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-12.8 B lập phiếu xuất cho đơn bán của A | chưa chạy |
+| TC-ISO-12.9 | Đơn bán của A không đổi | ADMIN của A gọi `GET /api/orders/sales/{{A_so}}` | 200, trạng thái giữ nguyên | `30-isolation-plan-expiry` / TC-ISO-12.9 Đơn bán của A không đổi | chưa chạy |
+
+#### TC-ISO-13 Cách ly: phiếu nhập
+
+| ID | Tên | Các bước | Kết quả mong đợi | Tự động hóa (collection / request) | Kết quả |
+| --- | --- | --- | --- | --- | --- |
+| TC-ISO-13.1 | B xem danh sách phiếu nhập | ADMIN của B gọi `GET /api/orders/goods-receipt-notes?size=100` | 200 | `30-isolation-plan-expiry` / TC-ISO-13.1 B xem danh sách phiếu nhập | chưa chạy |
+| TC-ISO-13.2 | B xem phiếu nhập của A | ADMIN của B gọi `GET /api/orders/goods-receipt-notes/{{A_grn}}` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-13.2 B xem phiếu nhập của A | chưa chạy |
+| TC-ISO-13.3 | B tra số phiếu nhập của A | ADMIN của B gọi `GET /api/orders/goods-receipt-notes/number/{{A_grnNumber}}` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-13.3 B tra số phiếu nhập của A | chưa chạy |
+| TC-ISO-13.4 | B xác nhận phiếu nhập của A | ADMIN của B gọi `POST /api/orders/goods-receipt-notes/{{A_grn}}/confirm` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-13.4 B xác nhận phiếu nhập của A | chưa chạy |
+| TC-ISO-13.5 | B lập phiếu nhập cho đơn mua của A | ADMIN của B gọi `POST /api/orders/goods-receipt-notes` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-13.5 B lập phiếu nhập cho đơn mua của A | chưa chạy |
+
+#### TC-ISO-14 Cách ly: phiếu xuất
+
+| ID | Tên | Các bước | Kết quả mong đợi | Tự động hóa (collection / request) | Kết quả |
+| --- | --- | --- | --- | --- | --- |
+| TC-ISO-14.1 | B xem danh sách phiếu xuất | ADMIN của B gọi `GET /api/orders/goods-delivery-notes?size=100` | 200 | `30-isolation-plan-expiry` / TC-ISO-14.1 B xem danh sách phiếu xuất | chưa chạy |
+| TC-ISO-14.2 | B xem phiếu xuất của A | ADMIN của B gọi `GET /api/orders/goods-delivery-notes/{{A_gdn}}` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-14.2 B xem phiếu xuất của A | chưa chạy |
+| TC-ISO-14.3 | B tra số phiếu xuất của A | ADMIN của B gọi `GET /api/orders/goods-delivery-notes/number/{{A_gdnNumber}}` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-14.3 B tra số phiếu xuất của A | chưa chạy |
+| TC-ISO-14.4 | B xác nhận xuất phiếu của A | ADMIN của B gọi `POST /api/orders/goods-delivery-notes/{{A_gdn}}/dispatch` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-14.4 B xác nhận xuất phiếu của A | chưa chạy |
+
+#### TC-ISO-15 Cách ly: hóa đơn mua và thanh toán nhà cung cấp
+
+| ID | Tên | Các bước | Kết quả mong đợi | Tự động hóa (collection / request) | Kết quả |
+| --- | --- | --- | --- | --- | --- |
+| TC-ISO-15.1 | B xem danh sách hóa đơn mua | ADMIN của B gọi `GET /api/orders/purchase-bills?size=100` | 200 | `30-isolation-plan-expiry` / TC-ISO-15.1 B xem danh sách hóa đơn mua | chưa chạy |
+| TC-ISO-15.2 | B xem hóa đơn mua của A | ADMIN của B gọi `GET /api/orders/purchase-bills/{{A_bill}}` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-15.2 B xem hóa đơn mua của A | chưa chạy |
+| TC-ISO-15.3 | B ghi thanh toán hóa đơn của A | ADMIN của B gọi `POST /api/orders/purchase-bills/{{A_bill}}/payments` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-15.3 B ghi thanh toán hóa đơn của A | chưa chạy |
+| TC-ISO-15.4 | Hóa đơn của A không đổi | ADMIN của A gọi `GET /api/orders/purchase-bills/{{A_bill}}` | 200, paidAmount giữ nguyên | `30-isolation-plan-expiry` / TC-ISO-15.4 Hóa đơn của A không đổi | chưa chạy |
+
+#### TC-ISO-16 Cách ly: điều chuyển
+
+| ID | Tên | Các bước | Kết quả mong đợi | Tự động hóa (collection / request) | Kết quả |
+| --- | --- | --- | --- | --- | --- |
+| TC-ISO-16.1 | B xem danh sách điều chuyển | ADMIN của B gọi `GET /api/inventory/transfers?size=100` | 200 | `30-isolation-plan-expiry` / TC-ISO-16.1 B xem danh sách điều chuyển | chưa chạy |
+| TC-ISO-16.2 | B xem lệnh điều chuyển của A | ADMIN của B gọi `GET /api/inventory/transfers/{{A_trf}}` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-16.2 B xem lệnh điều chuyển của A | chưa chạy |
+| TC-ISO-16.3 | B sửa lệnh điều chuyển của A | ADMIN của B gọi `PUT /api/inventory/transfers/{{A_trf}}` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-16.3 B sửa lệnh điều chuyển của A | chưa chạy |
+| TC-ISO-16.4 | B hủy lệnh điều chuyển của A | ADMIN của B gọi `DELETE /api/inventory/transfers/{{A_trf}}` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-16.4 B hủy lệnh điều chuyển của A | chưa chạy |
+| TC-ISO-16.5 | B xuất lệnh điều chuyển của A | ADMIN của B gọi `POST /api/inventory/transfers/{{A_trf}}/dispatch` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-16.5 B xuất lệnh điều chuyển của A | chưa chạy |
+| TC-ISO-16.6 | B nhận lệnh điều chuyển của A | ADMIN của B gọi `POST /api/inventory/transfers/{{A_trf}}/receive` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-16.6 B nhận lệnh điều chuyển của A | chưa chạy |
+| TC-ISO-16.7 | Lệnh điều chuyển của A không đổi | ADMIN của A gọi `GET /api/inventory/transfers/{{A_trf}}` | 200, trạng thái giữ nguyên | `30-isolation-plan-expiry` / TC-ISO-16.7 Lệnh điều chuyển của A không đổi | chưa chạy |
+
+#### TC-ISO-17 Cách ly: kiểm kê và phiếu điều chỉnh
+
+| ID | Tên | Các bước | Kết quả mong đợi | Tự động hóa (collection / request) | Kết quả |
+| --- | --- | --- | --- | --- | --- |
+| TC-ISO-17.1 | B xem danh sách đợt kiểm kê | ADMIN của B gọi `GET /api/inventory/stocktakes?size=100` | 200 | `30-isolation-plan-expiry` / TC-ISO-17.1 B xem danh sách đợt kiểm kê | chưa chạy |
+| TC-ISO-17.2 | B xem đợt kiểm kê của A | ADMIN của B gọi `GET /api/inventory/stocktakes/{{A_stk}}` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-17.2 B xem đợt kiểm kê của A | chưa chạy |
+| TC-ISO-17.3 | B xem dòng đếm của A | ADMIN của B gọi `GET /api/inventory/stocktakes/{{A_stk}}/count-lines` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-17.3 B xem dòng đếm của A | chưa chạy |
+| TC-ISO-17.4 | B hủy đợt kiểm kê của A | ADMIN của B gọi `POST /api/inventory/stocktakes/{{A_stk}}/cancel` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-17.4 B hủy đợt kiểm kê của A | chưa chạy |
+| TC-ISO-17.5 | B xem danh sách phiếu điều chỉnh | ADMIN của B gọi `GET /api/inventory/stock-adjustments?size=100` | 200 | `30-isolation-plan-expiry` / TC-ISO-17.5 B xem danh sách phiếu điều chỉnh | chưa chạy |
+| TC-ISO-17.6 | B xem phiếu điều chỉnh của A | ADMIN của B gọi `GET /api/inventory/stock-adjustments/{{A_adj}}` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-17.6 B xem phiếu điều chỉnh của A | chưa chạy |
+| TC-ISO-17.7 | Đợt kiểm kê của A không đổi | ADMIN của A gọi `GET /api/inventory/stocktakes/{{A_stk}}` | 200, trạng thái giữ nguyên | `30-isolation-plan-expiry` / TC-ISO-17.7 Đợt kiểm kê của A không đổi | chưa chạy |
+
+#### TC-ISO-18 Cách ly: báo cáo kho
+
+| ID | Tên | Các bước | Kết quả mong đợi | Tự động hóa (collection / request) | Kết quả |
+| --- | --- | --- | --- | --- | --- |
+| TC-ISO-18.1 | B xem báo cáo xuất nhập tồn của mình | ADMIN của B gọi `GET /api/inventory/reports/in-out-balance?fromDate={{d_m60}}&toDate={{d_today}}&size=200` | 200, không có dòng nào của sản phẩm A | `30-isolation-plan-expiry` / TC-ISO-18.1 B xem báo cáo xuất nhập tồn của mình | chưa chạy |
+| TC-ISO-18.2 | B xem báo cáo theo kho của A | ADMIN của B gọi `GET /api/inventory/reports/in-out-balance?warehouseId={{A_lotWh}}&fromDate={{d_m60}}&toDate={{d_today}}` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-18.2 B xem báo cáo theo kho của A | chưa chạy |
+| TC-ISO-18.3 | B xem thẻ kho của A | ADMIN của B gọi `GET /api/inventory/reports/stock-card?productId={{A_lotProd}}&warehouseId={{A_lotWh}}&fromDate={{d_m60}}&toDate={{d_today}}` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-18.3 B xem thẻ kho của A | chưa chạy |
+| TC-ISO-18.4 | B truy vết lô của A | ADMIN của B gọi `GET /api/inventory/reports/lot-trace?lotNo={{A_lotNo}}` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-18.4 B truy vết lô của A | chưa chạy |
+
+#### TC-ISO-19 Cách ly: cảnh báo tồn kho
+
+| ID | Tên | Các bước | Kết quả mong đợi | Tự động hóa (collection / request) | Kết quả |
+| --- | --- | --- | --- | --- | --- |
+| TC-ISO-19.1 | B xem cảnh báo của mình | ADMIN của B gọi `GET /api/inventory/alerts?size=100` | 200, không có cảnh báo của kho A | `30-isolation-plan-expiry` / TC-ISO-19.1 B xem cảnh báo của mình | chưa chạy |
+| TC-ISO-19.2 | B lọc cảnh báo theo kho của A | ADMIN của B gọi `GET /api/inventory/alerts?warehouseId={{A_lotWh}}` | 200 với totalElements 0 hoặc 404 | `30-isolation-plan-expiry` / TC-ISO-19.2 B lọc cảnh báo theo kho của A | chưa chạy |
+| TC-ISO-19.3 | B xem tổng hợp cảnh báo kho của A | ADMIN của B gọi `GET /api/inventory/alerts/summary?warehouseId={{A_lotWh}}` | 200 với total 0 hoặc 404 | `30-isolation-plan-expiry` / TC-ISO-19.3 B xem tổng hợp cảnh báo kho của A | chưa chạy |
+
+#### TC-ISO-20 Cách ly: thông báo và KPI
+
+| ID | Tên | Các bước | Kết quả mong đợi | Tự động hóa (collection / request) | Kết quả |
+| --- | --- | --- | --- | --- | --- |
+| TC-ISO-20.1 | KPI thời gian thực của B không đếm sự kiện của A | ADMIN của B gọi `GET /api/notifications/realtime/kpi`; B chưa lập đơn bán, chưa xuất kho; notification-service không có API danh sách thông báo nên kiểm tra qua KPI | 200, salesOrders 0, dispatchedOrders 0 | `30-isolation-plan-expiry` / TC-ISO-20.1 KPI thời gian thực của B không đếm sự kiện của A | chưa chạy |
+| TC-ISO-20.2 | B xem KPI dashboard với kho của A | ADMIN của B gọi `GET /api/notifications/dashboard/kpi-summary?warehouseId={{A_lotWh}}` | Không lỗi 5xx; nếu 200 thì không chứa mã, tên kho của A | `30-isolation-plan-expiry` / TC-ISO-20.2 B xem KPI dashboard với kho của A | chưa chạy |
+
+#### TC-ISO-21 Cách ly: API key
+
+| ID | Tên | Các bước | Kết quả mong đợi | Tự động hóa (collection / request) | Kết quả |
+| --- | --- | --- | --- | --- | --- |
+| TC-ISO-21.1 | B xem danh sách API key | ADMIN của B gọi `GET /api/auth/api-keys` | 200, không có key của A | `30-isolation-plan-expiry` / TC-ISO-21.1 B xem danh sách API key | chưa chạy |
+| TC-ISO-21.2 | B thu hồi API key của A | ADMIN của B gọi `DELETE /api/auth/api-keys/{{A_keyId}}` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-21.2 B thu hồi API key của A | chưa chạy |
+| TC-ISO-21.3 | Key của A vẫn hoạt động | ADMIN của A gọi `GET /api/auth/api-keys` | 200, key của A active = true | `30-isolation-plan-expiry` / TC-ISO-21.3 Key của A vẫn hoạt động | chưa chạy |
+| TC-ISO-21.4 | Key của A đọc được hàng hóa của chính A | Hệ thống ngoài (API key) gọi `GET /api/products?size=100` | 200, chỉ có hàng hóa của A (có SKU của A) | `30-isolation-plan-expiry` / TC-ISO-21.4 Key của A đọc được hàng hóa của chính A | chưa chạy |
+| TC-ISO-21.5 | A thu hồi key sau kiểm thử | ADMIN của A gọi `DELETE /api/auth/api-keys/{{A_keyId}}` | 200, active false | `30-isolation-plan-expiry` / TC-ISO-21.5 A thu hồi key sau kiểm thử | chưa chạy |
+
+#### TC-ISO-22 Cách ly: thanh toán
+
+| ID | Tên | Các bước | Kết quả mong đợi | Tự động hóa (collection / request) | Kết quả |
+| --- | --- | --- | --- | --- | --- |
+| TC-ISO-22.1 | B xem lịch sử thanh toán | ADMIN của B gọi `GET /api/auth/payments?size=100` | 200, không có giao dịch của A | `30-isolation-plan-expiry` / TC-ISO-22.1 B xem lịch sử thanh toán | chưa chạy |
+| TC-ISO-22.2 | B xem giao dịch của A | ADMIN của B gọi `GET /api/auth/payments/{{A_payOrder}}` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-22.2 B xem giao dịch của A | chưa chạy |
+| TC-ISO-22.3 | B xác nhận giả lập giao dịch của A | ADMIN của B gọi `POST /api/auth/payments/{{A_payOrder}}/mock-confirm` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-22.3 B xác nhận giả lập giao dịch của A | chưa chạy |
+| TC-ISO-22.4 | B hủy giao dịch của A | ADMIN của B gọi `POST /api/auth/payments/{{A_payOrder}}/cancel` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-22.4 B hủy giao dịch của A | chưa chạy |
+| TC-ISO-22.5 | Giao dịch của A vẫn chờ, thuê bao A không đổi | ADMIN của A gọi `GET /api/auth/payments/{{A_payOrder}}` | 200, status PENDING | `30-isolation-plan-expiry` / TC-ISO-22.5 Giao dịch của A vẫn chờ, thuê bao A không đổi | chưa chạy |
+| TC-ISO-22.6 | A hủy giao dịch sau kiểm thử | ADMIN của A gọi `POST /api/auth/payments/{{A_payOrder}}/cancel` | 200, CANCELLED | `30-isolation-plan-expiry` / TC-ISO-22.6 A hủy giao dịch sau kiểm thử | chưa chạy |
+| TC-ISO-22.7 | Thuê bao của B vẫn là dùng thử | ADMIN của B gọi `GET /api/auth/subscription` | 200, plan TRIAL | `30-isolation-plan-expiry` / TC-ISO-22.7 Thuê bao của B vẫn là dùng thử | chưa chạy |
+
+#### TC-ISO-23 Cách ly: trích xuất AI
+
+| ID | Tên | Các bước | Kết quả mong đợi | Tự động hóa (collection / request) | Kết quả |
+| --- | --- | --- | --- | --- | --- |
+| TC-ISO-23.1 | B xem kết quả trích xuất của A | ADMIN của B gọi `GET /api/ai/extractions/{{A_ext}}` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-23.1 B xem kết quả trích xuất của A | chưa chạy |
+| TC-ISO-23.2 | B nhập kết quả trích xuất của A | ADMIN của B gọi `POST /api/ai/extractions/{{A_ext}}/import` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-ISO-23.2 B nhập kết quả trích xuất của A | chưa chạy |
+| TC-ISO-23.3 | A vẫn xem được kết quả trích xuất | ADMIN của A gọi `GET /api/ai/extractions/{{A_ext}}` | 200 | `30-isolation-plan-expiry` / TC-ISO-23.3 A vẫn xem được kết quả trích xuất | chưa chạy |
+
+#### TC-ISO-24 Cách ly: trợ lý AI
+
+| ID | Tên | Các bước | Kết quả mong đợi | Tự động hóa (collection / request) | Kết quả |
+| --- | --- | --- | --- | --- | --- |
+| TC-ISO-24.1 | B dùng mã hội thoại của A | ADMIN của B gọi `POST /api/ai/chat` | 200, newConversation true, conversationId khác của A | `30-isolation-plan-expiry` / TC-ISO-24.1 B dùng mã hội thoại của A | chưa chạy |
+| TC-ISO-24.2 | B hỏi tồn của SKU chỉ có ở A | ADMIN của B gọi `POST /api/ai/chat` | 200, câu trả lời không chứa tên hàng của A (không tìm thấy trong dữ liệu của B) | `30-isolation-plan-expiry` / TC-ISO-24.2 B hỏi tồn của SKU chỉ có ở A | chưa chạy |
+
+#### TC-ISO-25 Hai doanh nghiệp dùng trùng mã
+
+B tạo dữ liệu trùng mã với A: được phép (ràng buộc duy nhất theo doanh nghiệp).
+
+| ID | Tên | Các bước | Kết quả mong đợi | Tự động hóa (collection / request) | Kết quả |
+| --- | --- | --- | --- | --- | --- |
+| TC-ISO-25.1 | B tạo đơn vị tính trùng mã với A | ADMIN của B gọi `POST /api/products/uoms` | 201 | `30-isolation-plan-expiry` / TC-ISO-25.1 B tạo đơn vị tính trùng mã với A | chưa chạy |
+| TC-ISO-25.2 | B tạo danh mục trùng mã với A | ADMIN của B gọi `POST /api/products/categories` | 201 | `30-isolation-plan-expiry` / TC-ISO-25.2 B tạo danh mục trùng mã với A | chưa chạy |
+| TC-ISO-25.3 | B tạo hàng hóa trùng SKU với A | ADMIN của B gọi `POST /api/products` | 201, ID khác hàng của A | `30-isolation-plan-expiry` / TC-ISO-25.3 B tạo hàng hóa trùng SKU với A | chưa chạy |
+| TC-ISO-25.4 | Tra SKU trùng trả hàng của chính mình | ADMIN của A gọi `GET /api/products/sku/{{A_prodSku}}` | 200, A nhận hàng của A | `30-isolation-plan-expiry` / TC-ISO-25.4 Tra SKU trùng trả hàng của chính mình | chưa chạy |
+| TC-ISO-25.5 | B tạo kho trùng mã với A | ADMIN của B gọi `POST /api/inventory/warehouses` | 201 | `30-isolation-plan-expiry` / TC-ISO-25.5 B tạo kho trùng mã với A | chưa chạy |
+| TC-ISO-25.6 | B tạo vị trí trùng mã với A | ADMIN của B gọi `POST /api/inventory/locations`; cùng khu, kệ, ô với vị trí đầu tiên của A trong kho trùng mã | 201, cùng mã vị trí với A | `30-isolation-plan-expiry` / TC-ISO-25.6 B tạo vị trí trùng mã với A | chưa chạy |
+| TC-ISO-25.7 | B tạo nhà cung cấp trùng mã với A | ADMIN của B gọi `POST /api/orders/suppliers` | 201 | `30-isolation-plan-expiry` / TC-ISO-25.7 B tạo nhà cung cấp trùng mã với A | chưa chạy |
+| TC-ISO-25.8 | B tạo khách hàng trùng mã với A | ADMIN của B gọi `POST /api/orders/customers` | 201 | `30-isolation-plan-expiry` / TC-ISO-25.8 B tạo khách hàng trùng mã với A | chưa chạy |
+| TC-ISO-25.9 | B lập đơn mua trùng số chứng từ với A | ADMIN của B gọi `POST /api/orders/purchase` | 201, poNumber trùng với A | `30-isolation-plan-expiry` / TC-ISO-25.9 B lập đơn mua trùng số chứng từ với A | chưa chạy |
+| TC-ISO-25.10 | B lập đơn bán trùng số chứng từ với A | ADMIN của B gọi `POST /api/orders/sales` | 201, soNumber trùng với A | `30-isolation-plan-expiry` / TC-ISO-25.10 B lập đơn bán trùng số chứng từ với A | chưa chạy |
+| TC-ISO-25.11 | Số đơn mua trùng: mỗi bên thấy đơn của mình | ADMIN của A gọi `GET /api/orders/purchase/number/{{A_poNumber}}` | 200, A nhận đơn của A | `30-isolation-plan-expiry` / TC-ISO-25.11 Số đơn mua trùng: mỗi bên thấy đơn của mình | chưa chạy |
+| TC-ISO-25.12 | Tên đăng nhập vẫn duy nhất toàn hệ thống | ADMIN của B gọi `POST /api/auth/users` | 409 CONFLICT (ngoại lệ mục 2.3.5: tên đăng nhập, email duy nhất toàn hệ thống) | `30-isolation-plan-expiry` / TC-ISO-25.12 Tên đăng nhập vẫn duy nhất toàn hệ thống | chưa chạy |
+
+#### TC-PLAN-01 Doanh nghiệp C chuyển về gói FREE
+
+| ID | Tên | Các bước | Kết quả mong đợi | Tự động hóa (collection / request) | Kết quả |
+| --- | --- | --- | --- | --- | --- |
+| TC-PLAN-01.1 | Đăng ký doanh nghiệp C | Khách gọi `POST /api/auth/companies/register` | 201, TRIAL, activationRequired false | `30-isolation-plan-expiry` / TC-PLAN-01.1 Đăng ký doanh nghiệp C | chưa chạy |
+| TC-PLAN-01.2 | Đăng nhập ADMIN của công ty C | Gọi `POST /api/auth/login` bằng tài khoản ADMIN của công ty C (tên đăng nhập và mật khẩu suy ra từ runId) | 200, có accessToken; roles chứa ADMIN; company.id đúng doanh nghiệp C | `30-isolation-plan-expiry` / TC-PLAN-01.2 Đăng nhập ADMIN của công ty C | chưa chạy |
+| TC-PLAN-01.3 | Doanh nghiệp mới nhận gói dùng thử | ADMIN của C gọi `GET /api/auth/subscription` | 200, plan TRIAL | `30-isolation-plan-expiry` / TC-PLAN-01.3 Doanh nghiệp mới nhận gói dùng thử | chưa chạy |
+| TC-PLAN-01.4 | Chuyển về gói Khởi Đầu | ADMIN của C gọi `POST /api/auth/subscription/downgrade` | 200 | `30-isolation-plan-expiry` / TC-PLAN-01.4 Chuyển về gói Khởi Đầu | chưa chạy |
+| TC-PLAN-01.5 | Thuê bao FREE với giới hạn đúng | ADMIN của C gọi `GET /api/auth/subscription` | 200, plan FREE, status ACTIVE, limits 3 / 1 / 200 / 20, apiAccess false | `30-isolation-plan-expiry` / TC-PLAN-01.5 Thuê bao FREE với giới hạn đúng | chưa chạy |
+| TC-PLAN-01.6 | Đang FREE không chuyển về FREE lần nữa | ADMIN của C gọi `POST /api/auth/subscription/downgrade` | 409 CONFLICT | `30-isolation-plan-expiry` / TC-PLAN-01.6 Đang FREE không chuyển về FREE lần nữa | chưa chạy |
+
+#### TC-PLAN-02 Giới hạn người dùng của gói FREE
+
+| ID | Tên | Các bước | Kết quả mong đợi | Tự động hóa (collection / request) | Kết quả |
+| --- | --- | --- | --- | --- | --- |
+| TC-PLAN-02.1 | Tạo tài khoản thứ 2 (WAREHOUSE_MANAGER) | ADMIN của C gọi `POST /api/auth/users` | 201 | `30-isolation-plan-expiry` / TC-PLAN-02.1 Tạo tài khoản thứ 2 (WAREHOUSE_MANAGER) | chưa chạy |
+| TC-PLAN-02.2 | Tạo tài khoản thứ 3 (WAREHOUSE_STAFF) | ADMIN của C gọi `POST /api/auth/users` | 201 | `30-isolation-plan-expiry` / TC-PLAN-02.2 Tạo tài khoản thứ 3 (WAREHOUSE_STAFF) | chưa chạy |
+| TC-PLAN-02.3 | Tạo tài khoản thứ 4 bị chặn | ADMIN của C gọi `POST /api/auth/users` | 403 PLAN_LIMIT_EXCEEDED, data {limit USERS, current 3, max 3, plan FREE} | `30-isolation-plan-expiry` / TC-PLAN-02.3 Tạo tài khoản thứ 4 bị chặn | chưa chạy |
+| TC-PLAN-02.4 | Mức dùng người dùng là 3 | ADMIN của C gọi `GET /api/auth/subscription` | 200, usage.users 3 | `30-isolation-plan-expiry` / TC-PLAN-02.4 Mức dùng người dùng là 3 | chưa chạy |
+| TC-PLAN-02.5 | Đăng nhập WAREHOUSE_MANAGER của công ty C | Gọi `POST /api/auth/login` bằng tài khoản WAREHOUSE_MANAGER của công ty C (tên đăng nhập và mật khẩu suy ra từ runId) | 200, có accessToken; roles chứa WAREHOUSE_MANAGER; company.id đúng doanh nghiệp C | `30-isolation-plan-expiry` / TC-PLAN-02.5 Đăng nhập WAREHOUSE_MANAGER của công ty C | chưa chạy |
+
+#### TC-PLAN-03 Giới hạn kho của gói FREE
+
+| ID | Tên | Các bước | Kết quả mong đợi | Tự động hóa (collection / request) | Kết quả |
+| --- | --- | --- | --- | --- | --- |
+| TC-PLAN-03.1 | Tạo kho thứ nhất | ADMIN của C gọi `POST /api/inventory/warehouses` | 201 | `30-isolation-plan-expiry` / TC-PLAN-03.1 Tạo kho thứ nhất | chưa chạy |
+| TC-PLAN-03.2 | Tạo kho thứ hai bị chặn | ADMIN của C gọi `POST /api/inventory/warehouses` | 403 PLAN_LIMIT_EXCEEDED, data {limit WAREHOUSES, current 1, max 1, plan FREE} | `30-isolation-plan-expiry` / TC-PLAN-03.2 Tạo kho thứ hai bị chặn | chưa chạy |
+
+#### TC-PLAN-04 Giới hạn SKU của gói FREE
+
+| ID | Tên | Các bước | Kết quả mong đợi | Tự động hóa (collection / request) | Kết quả |
+| --- | --- | --- | --- | --- | --- |
+| TC-PLAN-04.1 | Nhập hàng loạt 199 SKU | ADMIN của C gọi `POST /api/products/bulk`; body có 199 dòng QA-PL-001 đến QA-PL-199 | 200, created 199, failed 0 | `30-isolation-plan-expiry` / TC-PLAN-04.1 Nhập hàng loạt 199 SKU | chưa chạy |
+| TC-PLAN-04.2 | Lấy đơn vị tính tự tạo | ADMIN của C gọi `GET /api/products/uoms` | 200, có đơn vị Cái do nhập hàng loạt tạo | `30-isolation-plan-expiry` / TC-PLAN-04.2 Lấy đơn vị tính tự tạo | chưa chạy |
+| TC-PLAN-04.3 | Tạo SKU thứ 200 | ADMIN của C gọi `POST /api/products` | 201 | `30-isolation-plan-expiry` / TC-PLAN-04.3 Tạo SKU thứ 200 | chưa chạy |
+| TC-PLAN-04.4 | Tạo SKU thứ 201 bị chặn | ADMIN của C gọi `POST /api/products` | 403 PLAN_LIMIT_EXCEEDED, data {limit SKUS, current 200, max 200, plan FREE} | `30-isolation-plan-expiry` / TC-PLAN-04.4 Tạo SKU thứ 201 bị chặn | chưa chạy |
+| TC-PLAN-04.5 | Nhập hàng loạt vượt giới hạn SKU | ADMIN của C gọi `POST /api/products/bulk` | 200, failed 1, dòng FAILED kèm lý do vượt 200 SKU | `30-isolation-plan-expiry` / TC-PLAN-04.5 Nhập hàng loạt vượt giới hạn SKU | chưa chạy |
+
+#### TC-PLAN-05 Giới hạn lượt AI của gói FREE (AI_MOCK=true vẫn tính lượt)
+
+| ID | Tên | Các bước | Kết quả mong đợi | Tự động hóa (collection / request) | Kết quả |
+| --- | --- | --- | --- | --- | --- |
+| TC-PLAN-05.1 | Mức dùng AI ban đầu | ADMIN của C gọi `GET /api/ai/usage` | 200, used 0, max 20, plan FREE | `30-isolation-plan-expiry` / TC-PLAN-05.1 Mức dùng AI ban đầu | chưa chạy |
+| TC-PLAN-05.2 | Hỏi trợ lý cho tới hết lượt | ADMIN của C gọi `POST /api/ai/ask`; lặp lại request tới khi usage.used = usage.max (tối đa 25 lần) | mỗi lần 200 và used tăng 1, dừng ở used = 20 | `30-isolation-plan-expiry` / TC-PLAN-05.2 Hỏi trợ lý cho tới hết lượt | chưa chạy |
+| TC-PLAN-05.3 | Lượt AI thứ 21 bị chặn | ADMIN của C gọi `POST /api/ai/ask` | 403 PLAN_LIMIT_EXCEEDED, data {limit AI_REQUESTS, current 20, max 20, plan FREE} | `30-isolation-plan-expiry` / TC-PLAN-05.3 Lượt AI thứ 21 bị chặn | chưa chạy |
+| TC-PLAN-05.4 | Trợ lý hội thoại cũng bị chặn khi hết lượt | ADMIN của C gọi `POST /api/ai/chat` | 403 PLAN_LIMIT_EXCEEDED, limit AI_REQUESTS | `30-isolation-plan-expiry` / TC-PLAN-05.4 Trợ lý hội thoại cũng bị chặn khi hết lượt | chưa chạy |
+
+#### TC-PLAN-06 Gói FREE không tạo được API key
+
+| ID | Tên | Các bước | Kết quả mong đợi | Tự động hóa (collection / request) | Kết quả |
+| --- | --- | --- | --- | --- | --- |
+| TC-PLAN-06.1 | Tạo API key ở gói FREE | ADMIN của C gọi `POST /api/auth/api-keys` | 403 PLAN_LIMIT_EXCEEDED, data {limit API_ACCESS, current 0, max 0, plan FREE} | `30-isolation-plan-expiry` / TC-PLAN-06.1 Tạo API key ở gói FREE | chưa chạy |
+
+#### TC-EXP-01 Hết hạn: chỉ đọc
+
+Cần APP_DEMO_TOOLS=true cho auth-service (qa/docker-compose.qa.yml).
+
+| ID | Tên | Các bước | Kết quả mong đợi | Tự động hóa (collection / request) | Kết quả |
+| --- | --- | --- | --- | --- | --- |
+| TC-EXP-01.1 | Đặt thuê bao của C hết hạn bằng công cụ demo | ADMIN của C gọi `POST /api/auth/subscription/demo/expire` | 200 (404 nghĩa là chưa bật APP_DEMO_TOOLS) | `30-isolation-plan-expiry` / TC-EXP-01.1 Đặt thuê bao của C hết hạn bằng công cụ demo | chưa chạy |
+| TC-EXP-01.2 | Thuê bao ở trạng thái hết hạn, chỉ đọc | ADMIN của C gọi `GET /api/auth/subscription` | 200, status EXPIRED, readOnly true | `30-isolation-plan-expiry` / TC-EXP-01.2 Thuê bao ở trạng thái hết hạn, chỉ đọc | chưa chạy |
+| TC-EXP-01.3 | Đọc hàng hóa vẫn được | ADMIN của C gọi `GET /api/products?size=5` | 200 | `30-isolation-plan-expiry` / TC-EXP-01.3 Đọc hàng hóa vẫn được | chưa chạy |
+| TC-EXP-01.4 | Đọc đơn vị tính vẫn được | Quản lý kho của C gọi `GET /api/products/uoms` | 200 | `30-isolation-plan-expiry` / TC-EXP-01.4 Đọc đơn vị tính vẫn được | chưa chạy |
+| TC-EXP-01.5 | Tạo hàng hóa khi hết hạn | ADMIN của C gọi `POST /api/products` | 403 SUBSCRIPTION_EXPIRED | `30-isolation-plan-expiry` / TC-EXP-01.5 Tạo hàng hóa khi hết hạn | chưa chạy |
+| TC-EXP-01.6 | Sửa kho khi hết hạn | ADMIN của C gọi `PUT /api/inventory/warehouses/{{C_wh1}}` | 403 SUBSCRIPTION_EXPIRED | `30-isolation-plan-expiry` / TC-EXP-01.6 Sửa kho khi hết hạn | chưa chạy |
+| TC-EXP-01.7 | Ngưng hàng hóa khi hết hạn | ADMIN của C gọi `DELETE /api/products/{{C_prod1}}` | 403 SUBSCRIPTION_EXPIRED | `30-isolation-plan-expiry` / TC-EXP-01.7 Ngưng hàng hóa khi hết hạn | chưa chạy |
+| TC-EXP-01.8 | Tạo nhà cung cấp khi hết hạn | Quản lý kho của C gọi `POST /api/orders/suppliers` | 403 SUBSCRIPTION_EXPIRED | `30-isolation-plan-expiry` / TC-EXP-01.8 Tạo nhà cung cấp khi hết hạn | chưa chạy |
+| TC-EXP-01.9 | Khóa tài khoản khi hết hạn | ADMIN của C gọi `PATCH /api/auth/users/{{uid_C_STAFF}}/status` | 403 SUBSCRIPTION_EXPIRED | `30-isolation-plan-expiry` / TC-EXP-01.9 Khóa tài khoản khi hết hạn | chưa chạy |
+| TC-EXP-01.10 | Hỏi AI khi hết hạn | ADMIN của C gọi `POST /api/ai/ask` | 403 SUBSCRIPTION_EXPIRED | `30-isolation-plan-expiry` / TC-EXP-01.10 Hỏi AI khi hết hạn | chưa chạy |
+
+#### TC-EXP-02 Thanh toán giả lập mở lại quyền ghi
+
+Cần PAYOS_MOCK=true.
+
+| ID | Tên | Các bước | Kết quả mong đợi | Tự động hóa (collection / request) | Kết quả |
+| --- | --- | --- | --- | --- | --- |
+| TC-EXP-02.1 | Tạo giao dịch gói PRO theo tháng | ADMIN của C gọi `POST /api/auth/payments` | 201, PENDING, amount 499000, checkoutUrl trỏ tới /payment/mock?orderCode= | `30-isolation-plan-expiry` / TC-EXP-02.1 Tạo giao dịch gói PRO theo tháng | chưa chạy |
+| TC-EXP-02.2 | Thiếu chu kỳ thanh toán | ADMIN của C gọi `POST /api/auth/payments` | 400 VALIDATION_ERROR, data.cycle | `30-isolation-plan-expiry` / TC-EXP-02.2 Thiếu chu kỳ thanh toán | chưa chạy |
+| TC-EXP-02.3 | Quản lý kho không được tạo thanh toán | Quản lý kho của C gọi `POST /api/auth/payments` | 403 FORBIDDEN | `30-isolation-plan-expiry` / TC-EXP-02.3 Quản lý kho không được tạo thanh toán | chưa chạy |
+| TC-EXP-02.4 | Giao dịch đang chờ | ADMIN của C gọi `GET /api/auth/payments/{{C_payOrder}}` | 200, PENDING | `30-isolation-plan-expiry` / TC-EXP-02.4 Giao dịch đang chờ | chưa chạy |
+| TC-EXP-02.5 | Xác nhận thanh toán giả lập | ADMIN của C gọi `POST /api/auth/payments/{{C_payOrder}}/mock-confirm` | 200, PAID, paidAt có giá trị, reference MOCK-<orderCode> | `30-isolation-plan-expiry` / TC-EXP-02.5 Xác nhận thanh toán giả lập | chưa chạy |
+| TC-EXP-02.6 | Gói PRO hoạt động 30 ngày | ADMIN của C gọi `GET /api/auth/subscription` | 200, plan PRO, status ACTIVE, readOnly false, daysRemaining 30, apiAccess true | `30-isolation-plan-expiry` / TC-EXP-02.6 Gói PRO hoạt động 30 ngày | chưa chạy |
+| TC-EXP-02.7 | Xác nhận lại không cộng thêm ngày | ADMIN của C gọi `POST /api/auth/payments/{{C_payOrder}}/mock-confirm` | 200, vẫn PAID | `30-isolation-plan-expiry` / TC-EXP-02.7 Xác nhận lại không cộng thêm ngày | chưa chạy |
+| TC-EXP-02.8 | Ngày hết hạn không đổi sau lần xác nhận thứ hai | ADMIN của C gọi `GET /api/auth/subscription` | 200, expiresAt bằng lần đọc trước | `30-isolation-plan-expiry` / TC-EXP-02.8 Ngày hết hạn không đổi sau lần xác nhận thứ hai | chưa chạy |
+| TC-EXP-02.9 | Không hủy được giao dịch đã trả | ADMIN của C gọi `POST /api/auth/payments/{{C_payOrder}}/cancel` | 409 CONFLICT | `30-isolation-plan-expiry` / TC-EXP-02.9 Không hủy được giao dịch đã trả | chưa chạy |
+| TC-EXP-02.10 | Ghi lại được ngay, không cần đăng nhập lại | ADMIN của C gọi `POST /api/inventory/warehouses`; dùng token cấp từ trước khi hết hạn | 201 (gói PRO cho 20 kho) | `30-isolation-plan-expiry` / TC-EXP-02.10 Ghi lại được ngay, không cần đăng nhập lại | chưa chạy |
+| TC-EXP-02.11 | Tạo SKU vượt 200 sau khi lên PRO | ADMIN của C gọi `POST /api/products` | 201 (PRO không giới hạn SKU) | `30-isolation-plan-expiry` / TC-EXP-02.11 Tạo SKU vượt 200 sau khi lên PRO | chưa chạy |
+
+#### TC-KEY-01 API key cho hệ thống ngoài (doanh nghiệp C gói PRO)
+
+| ID | Tên | Các bước | Kết quả mong đợi | Tự động hóa (collection / request) | Kết quả |
+| --- | --- | --- | --- | --- | --- |
+| TC-KEY-01.1 | ADMIN tạo API key | ADMIN của C gọi `POST /api/auth/api-keys` | 201, key dạng wms_ + 43 ký tự, keyPrefix là 8 ký tự đầu | `30-isolation-plan-expiry` / TC-KEY-01.1 ADMIN tạo API key | chưa chạy |
+| TC-KEY-01.2 | Tên key để trống | ADMIN của C gọi `POST /api/auth/api-keys` | 400 VALIDATION_ERROR | `30-isolation-plan-expiry` / TC-KEY-01.2 Tên key để trống | chưa chạy |
+| TC-KEY-01.3 | Quản lý kho không được tạo key | Quản lý kho của C gọi `POST /api/auth/api-keys` | 403 FORBIDDEN | `30-isolation-plan-expiry` / TC-KEY-01.3 Quản lý kho không được tạo key | chưa chạy |
+| TC-KEY-01.4 | Đọc tồn bằng API key | Hệ thống ngoài (API key) gọi `GET /api/inventory/stock/atp?productId={{C_prodPro}}` | 200, đúng productId | `30-isolation-plan-expiry` / TC-KEY-01.4 Đọc tồn bằng API key | chưa chạy |
+| TC-KEY-01.5 | Đọc danh mục hàng hóa bằng API key | Hệ thống ngoài (API key) gọi `GET /api/products?size=50` | 200, chỉ hàng của C (SKU QA-PL-...) | `30-isolation-plan-expiry` / TC-KEY-01.5 Đọc danh mục hàng hóa bằng API key | chưa chạy |
+| TC-KEY-01.6 | Đọc đơn bán bằng API key | Hệ thống ngoài (API key) gọi `GET /api/orders/sales` | 200 | `30-isolation-plan-expiry` / TC-KEY-01.6 Đọc đơn bán bằng API key | chưa chạy |
+| TC-KEY-01.7 | Key của C không đọc được hàng hóa của A | Hệ thống ngoài (API key) gọi `GET /api/products/{{A_prod}}` | 404 NOT_FOUND | `30-isolation-plan-expiry` / TC-KEY-01.7 Key của C không đọc được hàng hóa của A | chưa chạy |
+| TC-KEY-01.8 | Ghi bằng API key bị từ chối | Hệ thống ngoài (API key) gọi `POST /api/products` | 403 FORBIDDEN | `30-isolation-plan-expiry` / TC-KEY-01.8 Ghi bằng API key bị từ chối | chưa chạy |
+| TC-KEY-01.9 | API key không gọi được API thuê bao | Hệ thống ngoài (API key) gọi `GET /api/auth/subscription` | 403 FORBIDDEN (ngoài /api/products, /api/inventory, /api/orders) | `30-isolation-plan-expiry` / TC-KEY-01.9 API key không gọi được API thuê bao | chưa chạy |
+| TC-KEY-01.10 | API key không gọi được AI | Hệ thống ngoài (API key) gọi `GET /api/ai/usage` | 403 FORBIDDEN | `30-isolation-plan-expiry` / TC-KEY-01.10 API key không gọi được AI | chưa chạy |
+| TC-KEY-01.11 | Key sai | Hệ thống ngoài (API key) gọi `GET /api/products` | 401 UNAUTHORIZED | `30-isolation-plan-expiry` / TC-KEY-01.11 Key sai | chưa chạy |
+| TC-KEY-01.12 | Danh sách key không lộ key đầy đủ | ADMIN của C gọi `GET /api/auth/api-keys` | 200, có key vừa tạo, active true, không có trường key | `30-isolation-plan-expiry` / TC-KEY-01.12 Danh sách key không lộ key đầy đủ | chưa chạy |
+| TC-KEY-01.13 | Thu hồi key | ADMIN của C gọi `DELETE /api/auth/api-keys/{{C_keyId}}` | 200, active false, revokedAt có giá trị | `30-isolation-plan-expiry` / TC-KEY-01.13 Thu hồi key | chưa chạy |
+| TC-KEY-01.14 | Thu hồi lần hai không đổi thời điểm | ADMIN của C gọi `DELETE /api/auth/api-keys/{{C_keyId}}` | 200, revokedAt giữ nguyên | `30-isolation-plan-expiry` / TC-KEY-01.14 Thu hồi lần hai không đổi thời điểm | chưa chạy |
+| TC-KEY-01.15 | Key đã thu hồi bị từ chối | Hệ thống ngoài (API key) gọi `GET /api/products` | 401 UNAUTHORIZED | `30-isolation-plan-expiry` / TC-KEY-01.15 Key đã thu hồi bị từ chối | chưa chạy |
+| TC-KEY-01.16 | Tạo key thứ hai để thử giới hạn tốc độ | ADMIN của C gọi `POST /api/auth/api-keys` | 201 | `30-isolation-plan-expiry` / TC-KEY-01.16 Tạo key thứ hai để thử giới hạn tốc độ | chưa chạy |
+| TC-KEY-01.17 | Gửi dồn 40 request trong một giây bằng một key | Hệ thống ngoài (API key) gọi `GET /api/products?size=1`; script gửi song song thêm 40 request cùng key bằng pm.sendRequest | ít nhất một phản hồi 429 TOO_MANY_REQUESTS kèm header Retry-After: 1 | `30-isolation-plan-expiry` / TC-KEY-01.17 Gửi dồn 40 request trong một giây bằng một key | chưa chạy |
+| TC-KEY-01.18 | Thu hồi key thứ hai | ADMIN của C gọi `DELETE /api/auth/api-keys/{{C_key2Id}}` | 200 | `30-isolation-plan-expiry` / TC-KEY-01.18 Thu hồi key thứ hai | chưa chạy |
+
+## 6. Kiểm tra thủ công (không tự động hóa được ở đây)
 
 | ID | Nội dung | Các bước | Kết quả mong đợi | Kết quả |
 | --- | --- | --- | --- | --- |
@@ -461,14 +867,14 @@ Cần chạy 10-inbound trước với cùng runId.
 | TC-MAN-11 | Xuất Excel báo cáo, giao diện điện thoại | Xuất báo cáo xuất nhập tồn, thẻ kho; mở các màn hình chính ở bề rộng 375 px | File mở được, số liệu khớp màn hình; bố cục không vỡ | chưa chạy |
 | TC-MAN-12 | Chuyển hết hạn bằng tác vụ định kỳ | Sửa `trial_ends_at` của một doanh nghiệp thử về quá khứ trong CSDL, chờ tối đa 5 phút không đăng nhập lại | Thuê bao chuyển EXPIRED, gateway chặn ghi | chưa chạy |
 
-## 6. Truy vết yêu cầu
+## 7. Truy vết yêu cầu
 
 Mã FR theo danh sách yêu cầu chức năng ở `docs/PROPOSAL_PHAN_CONG_PHAM_VI.md` mục 2 (SRS `docs/project-management/srs`
 dùng mã UC và tham chiếu các FR này); phần SaaS theo `docs/SAAS_SPEC.md`.
 
 | Yêu cầu | Test case |
 | --- | --- |
-| FR01 Đăng nhập, token | TC-SET-03, TC-IN-00, TC-OUT-00 |
+| FR01 Đăng nhập, token | TC-SET-03, TC-IN-00, TC-OUT-00, TC-ISO-00 |
 | FR02 Sáu vai trò, gán kho, lọc theo kho | TC-SET-04, TC-SET-05, TC-IN-03.11 đến TC-IN-03.22, TC-PREP-20.11 đến TC-PREP-20.22; các ca từ chối 403 ở mọi nhóm (TC-IN-01.5, 01.8, 02.7, 02.8, 03.4, 03.9, 04.5, 04.6, 05.5, 05.7, 05.8, 06.8, 08.7, 08.8, TC-OUT-02.3, 02.4, 03.2, 04.1, TC-TRF-01.2, 01.5, TC-STK-01.4, 01.14, 01.21, TC-RPT-01.7, 02.3) |
 | FR03 Quản lý đa kho | TC-IN-03.1 đến TC-IN-03.4, TC-PREP-20.5, TC-PREP-20.6 |
 | FR04 Vị trí Kho-Khu-Kệ-Ô, mã duy nhất | TC-IN-03.5 đến TC-IN-03.10, TC-IN-07.11 |
@@ -486,8 +892,14 @@ dùng mã UC và tham chiếu các FR này); phần SaaS theo `docs/SAAS_SPEC.md
 | FR17 Picking list, phiếu xuất trừ OnHand, giải phóng Reserved | TC-OUT-03, TC-OUT-04 |
 | FR19 Kiểm kê: đóng băng, snapshot, đếm mù, chênh lệch | TC-STK-01.3 đến TC-STK-01.18, TC-STK-02.1 đến TC-STK-02.5 |
 | FR20 Điều chỉnh, duyệt Quản lý kho và Kế toán, mở đóng băng | TC-STK-01.19 đến TC-STK-01.28, TC-STK-02.6 đến TC-STK-02.10 |
+| FR21 Cảnh báo tồn kho (phần cách ly) | TC-ISO-19 |
+| FR23 KPI (phần cách ly) | TC-ISO-20 |
 | FR25 Xuất nhập tồn, thẻ kho, truy vết lô | TC-IN-08.13, TC-RPT-01, TC-RPT-02 |
 | SRS UC-09 luồng 1a: nhập, xuất vào vị trí FROZEN bị từ chối | TC-STK-01.8, TC-STK-01.9, TC-STK-01.10 |
-| SAAS_SPEC 2.5, WMS-23.2 Giới hạn gói | TC-SET-01.2 |
-| SAAS_SPEC 2.6, WMS-23.1, WMS-23.2 Vòng đời thuê bao, chỉ đọc khi hết hạn | TC-SET-03.3 |
+| SAAS_SPEC 2.3 Tách dữ liệu theo doanh nghiệp (SRS UC-11) | TC-ISO-01 đến TC-ISO-25 |
+| SAAS_SPEC 2.5, WMS-23.2 Giới hạn gói | TC-SET-01.2, TC-PLAN-01 đến TC-PLAN-06 |
+| SAAS_SPEC 2.6, WMS-23.1, WMS-23.2 Vòng đời thuê bao, chỉ đọc khi hết hạn | TC-SET-03.3, TC-PLAN-01, TC-EXP-01 |
+| WMS-23.5a Thanh toán PayOS (giả lập) | TC-EXP-02, TC-ISO-22 |
 | WMS-23.6 Đăng ký, kích hoạt (tắt trên stack kiểm thử) | TC-SET-02; luồng kích hoạt thật ở mục kiểm tra thủ công |
+| WMS-24.1, WMS-24.2, WMS-24.4 AI (giả lập), lượt AI (SRS UC-12) | TC-ISO-23, TC-ISO-24, TC-PLAN-05 |
+| WMS-25.1 API key (SRS UC-13) | TC-KEY-01, TC-ISO-21, TC-PLAN-06 |

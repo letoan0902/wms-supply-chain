@@ -1,7 +1,7 @@
 # Bộ kiểm thử tự động WMS
 
 Thư mục `qa/` chứa bộ kiểm thử đầu cuối chạy qua api-gateway (`http://localhost:8080`) cho các task QA:
-WMS-20.1 (luồng mua, nhập kho), WMS-20.2 (bán, xuất kho, điều chuyển, kiểm kê).
+WMS-20.1 (luồng mua, nhập kho), WMS-20.2 (bán, xuất kho, điều chuyển, kiểm kê), WMS-22.5 (cách ly doanh nghiệp, giới hạn gói, hết hạn, API key).
 Bảng test case, hành vi dự kiến không đạt và truy vết yêu cầu ở [docs/TEST_PLAN.md](../docs/TEST_PLAN.md).
 
 ## 1. Thành phần
@@ -11,6 +11,7 @@ Bảng test case, hành vi dự kiến không đạt và truy vết yêu cầu �
 | `postman/00-setup.postman_collection.json` | Đăng ký doanh nghiệp A, B; tạo và đăng nhập tài khoản sáu vai trò của A |
 | `postman/10-inbound.postman_collection.json` | WMS-20.1: đơn vị tính, danh mục, hàng hóa, kho, vị trí, nhà cung cấp, đơn mua, phiếu nhập theo lô, hóa đơn mua, công nợ |
 | `postman/20-outbound-transfer-stocktake.postman_collection.json` | WMS-20.2: khách hàng, đơn bán, giữ chỗ, FEFO, phiếu xuất, điều chuyển, kiểm kê, sổ kho, truy vết lô |
+| `postman/30-isolation-plan-expiry.postman_collection.json` | WMS-22.5: B thử đọc, sửa, xóa dữ liệu của A ở mọi nhóm; giới hạn gói FREE; hết hạn và thanh toán giả lập; API key |
 | `postman/wms-qa.postman_environment.json` | Môi trường: `baseUrl` và `runId` (để trống, truyền khi chạy). Không chứa bí mật |
 | `postman/files/hang-hoa-qa.csv` | File mẫu cho API trích xuất bằng AI |
 | `docker-compose.qa.yml` | File compose bổ sung bật các công tắc cho stack kiểm thử |
@@ -53,7 +54,7 @@ Các biến khác giữ như `.env` (`MAIL_HOST` để trống là được). Kh
 ### 4.1. Một lệnh
 
 ```bash
-node qa/run-all.mjs                      # sinh runId mới, chạy 00-setup, 10-inbound, 20-outbound-transfer-stocktake
+node qa/run-all.mjs                      # sinh runId mới, chạy 00-setup, 10-inbound, 20-outbound-transfer-stocktake, 30-isolation-plan-expiry
 node qa/run-all.mjs --base-url http://<máy chủ>:8080 --output qa/results
 ```
 
@@ -68,7 +69,7 @@ từ `runId`). Chạy từ thư mục gốc repo:
 
 ```bash
 RUN_ID=qa$(date +%s)
-for c in 00-setup 10-inbound 20-outbound-transfer-stocktake; do
+for c in 00-setup 10-inbound 20-outbound-transfer-stocktake 30-isolation-plan-expiry; do
   postman collection run qa/postman/$c.postman_collection.json \
     -e qa/postman/wms-qa.postman_environment.json --env-var runId=$RUN_ID \
     --working-dir qa/postman --timeout-request 180000 || echo "$c có test lỗi"
@@ -79,14 +80,14 @@ PowerShell:
 
 ```powershell
 $runId = "qa" + [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
-foreach ($c in @("00-setup", "10-inbound", "20-outbound-transfer-stocktake")) {
+foreach ($c in @("00-setup", "10-inbound", "20-outbound-transfer-stocktake", "30-isolation-plan-expiry")) {
   postman collection run "qa/postman/$c.postman_collection.json" -e qa/postman/wms-qa.postman_environment.json `
     --env-var "runId=$runId" --working-dir qa/postman --timeout-request 180000
 }
 ```
 
 Thứ tự: `00-setup` luôn chạy trước. `20` tự tạo kho, hàng hóa và tồn riêng, chỉ ca TC-RPT-02 (truy vết lô của `10`) cần
-`10` chạy trước.
+`10` chạy trước. Phần TC-ISO của `30` lấy ID dữ liệu của A bằng API danh sách nên cần `10` và `20` chạy trước; phần TC-PLAN, TC-EXP, TC-KEY tự đăng ký doanh nghiệp C và chỉ cần `00-setup`.
 Mỗi collection tự đăng nhập lại ở thư mục đầu tiên nên chạy riêng được sau `00-setup` (token sống 15 phút, mỗi collection
 chạy xong trong vài phút).
 
@@ -115,6 +116,8 @@ Không cần xóa dữ liệu hay khởi động lại stack giữa các lượt
   mã doanh nghiệp do hệ thống sinh.
 - `10`, `20`: mã SKU, mã kho, mã đối tác, số lô viết cố định nhưng chỉ cần duy nhất trong doanh nghiệp, và A là doanh
   nghiệp mới của lượt chạy; số chứng từ do hệ thống cấp theo doanh nghiệp.
+- `30`: doanh nghiệp C mới theo `runId`; B tạo dữ liệu trùng mã với A trong chính B; giao dịch thanh toán, API key do hệ
+  thống sinh. Key và giao dịch chờ của A được thu hồi, hủy ở cuối nhóm tương ứng.
 
 Chạy lại một collection với `runId` cũ sẽ lỗi trùng mã (409) hoặc trùng tên đăng nhập: muốn chạy lại thì chạy từ
 `00-setup` với `runId` mới. Dữ liệu các lượt cũ chỉ làm cơ sở dữ liệu lớn dần; muốn xóa hết thì

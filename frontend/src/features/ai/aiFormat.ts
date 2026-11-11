@@ -43,6 +43,15 @@ export function lookupLabels(lookups: readonly string[] | null | undefined): str
   return labels
 }
 
+/** Thời điểm lập bản tóm tắt theo giờ máy người xem: "lúc 10:05 12/11"; `null` khi thiếu hoặc sai định dạng. */
+export function formatGeneratedAt(iso: string | null | undefined): string | null {
+  if (!iso) return null
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return null
+  const pad = (value: number) => String(value).padStart(2, '0')
+  return `lúc ${pad(date.getHours())}:${pad(date.getMinutes())} ${pad(date.getDate())}/${pad(date.getMonth() + 1)}`
+}
+
 /** Nội dung gửi đi (đã bỏ khoảng trắng hai đầu), `null` khi trống hoặc quá dài. */
 export function normalizeQuestion(text: string): string | null {
   const question = text.trim()

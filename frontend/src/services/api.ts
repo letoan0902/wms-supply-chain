@@ -11,6 +11,16 @@ import {
 
 const LOGIN_PATH = '/login'
 
+declare module 'axios' {
+  interface AxiosRequestConfig {
+    /**
+     * Không mở hộp thoại vượt giới hạn gói dùng chung cho lỗi PLAN_LIMIT_EXCEEDED của request này: màn hình tự báo
+     * nhẹ trong khối của mình (ví dụ khối tóm tắt bằng AI tự tải khi mở dashboard).
+     */
+    skipPlanLimitDialog?: boolean
+  }
+}
+
 /**
  * Axios instance dùng chung cho toàn bộ ứng dụng.
  * baseURL mặc định là '/api': Vite proxy (dev) hoặc Nginx (Docker) chuyển tiếp tới API Gateway.
@@ -96,7 +106,12 @@ api.interceptors.response.use(
     if (axios.isAxiosError<ApiErrorResponse>(error) && error.response?.status === 403) {
       const body = error.response.data as { code?: string; message?: string; data?: unknown } | undefined
       const code = body?.code
-      if ((code === SUBSCRIPTION_EXPIRED || code === PLAN_LIMIT_EXCEEDED) && subscriptionErrorListeners.size > 0) {
+      const skipDialog = code === PLAN_LIMIT_EXCEEDED && error.config?.skipPlanLimitDialog === true
+      if (
+        (code === SUBSCRIPTION_EXPIRED || code === PLAN_LIMIT_EXCEEDED) &&
+        !skipDialog &&
+        subscriptionErrorListeners.size > 0
+      ) {
         handledErrors.add(error)
         const payload: SubscriptionApiError = { code, message: body?.message ?? '', data: body?.data }
         subscriptionErrorListeners.forEach((listener) => listener(payload))

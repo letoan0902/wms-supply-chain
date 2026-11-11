@@ -1048,6 +1048,7 @@ Hợp đồng JSON cho khối "AI Summary" (WMS-18.3), `data`:
 - Hiển thị `bullets` thành danh sách và `actions` dưới tiêu đề "Gợi ý" (hoặc dùng `summary` là văn bản thường có xuống dòng). `generatedAt` là UTC, hiển thị "Cập nhật lúc ..." theo giờ máy; `fromCache = true` nghĩa là bản đã lưu, nút "Làm mới" gọi lại với `refresh=true` (tốn một lượt AI). `mode = "MOCK"` có thể hiện nhãn "Tóm tắt tự động (chưa dùng AI thật)".
 - Gọi với cùng `warehouseId` mà bộ lọc kho của dashboard đang chọn. Gọi khi mở dashboard, không gọi lại theo chu kỳ.
 - Lỗi: `PLAN_LIMIT_EXCEEDED` hiện lời nhắc nâng gói trong khối (không chặn cả dashboard); `FORBIDDEN` ẩn khối; `SERVICE_UNAVAILABLE` hiện `message` và nút thử lại.
+- Giao diện đã làm (WMS-18.3, `frontend/src/features/ai/components/AiSummaryCard.tsx`, chèn một dòng dưới thanh công cụ của `DashboardPage`): chờ bộ lọc kho của dashboard chọn xong rồi mới gọi (tránh hai lần tạo bản tóm tắt), mỗi kho gọi một lần trong một lần mở trang; "Làm mới" hỏi xác nhận vì tốn một lượt AI; mọi `403` khác `PLAN_LIMIT_EXCEEDED` ẩn khối. Lời gọi đặt `skipPlanLimitDialog: true` (cờ mới của axios dùng chung trong `frontend/src/services/api.ts`) để hết lượt AI chỉ báo trong khối, không mở hộp thoại khi vừa mở dashboard.
 
 Chưa kiểm chứng: chưa gọi Claude thật nên chất lượng câu chữ và thời gian thực tế chưa đo; notification-service hiện tính KPI từ số liệu thật nhưng thẻ "Giá trị tồn kho" luôn `null` (chưa có giá vốn).
 

@@ -36,6 +36,25 @@ export interface ChatReply {
   usage: AiUsage | null
 }
 
+/** `data` của GET /api/ai/summary (SummaryResponse): bản tóm tắt số liệu điều hành cho dashboard. */
+export interface AiSummary {
+  /** Toàn văn: các dòng "- " của bullets, rồi "Gợi ý:" và các dòng của actions */
+  summary: string
+  /** 3 đến 5 ý về các con số đáng chú ý */
+  bullets: string[]
+  /** 1 đến 2 hành động gợi ý */
+  actions: string[]
+  /** Thời điểm lập (UTC, ISO 8601); bản lấy từ bộ nhớ đệm giữ nguyên thời điểm lập */
+  generatedAt: string
+  /** Lấy từ bộ nhớ đệm 30 phút của máy chủ, không tốn lượt AI */
+  fromCache: boolean
+  mode: AiMode | string
+  warehouseId: number | null
+  /** Có dùng chỉ số tài chính (chỉ ADMIN, ACCOUNTANT được xem) */
+  financialsIncluded: boolean
+  usage: AiUsage | null
+}
+
 /** `data` của GET /api/ai/usage (AiUsageResponse). */
 export interface AiUsageInfo {
   used: number

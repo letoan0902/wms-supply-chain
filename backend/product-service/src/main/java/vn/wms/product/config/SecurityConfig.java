@@ -1,33 +1,17 @@
 package vn.wms.product.config;
 
-import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
-import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.web.SecurityFilterChain;
 
 /**
- * Cấu hình bảo mật TẠM THỜI của product-service.
- *
- * <p>TODO (Sprint 1): hiện cho phép mọi request (permitAll) để nhóm phát triển nghiệp vụ không bị chặn.
- * Khi RBAC hoàn thiện: đọc danh tính từ header X-User-Name / X-User-Roles do api-gateway chuyển tiếp
- * (hoặc tự kiểm tra JWT giống auth-service), rồi phân quyền bằng @PreAuthorize theo các vai trò trong
- * vn.wms.common.constant.Roles.
+ * Bảo mật của product-service (WMS-20.3): chuỗi bộ lọc dùng chung của module common
+ * ({@code WmsSecurityAutoConfiguration}) đọc danh tính từ header của api-gateway (X-User-Name, X-User-Roles,
+ * X-User-Warehouse-Ids, X-Company-Id) và trả 401/403 theo khung ApiResponse. {@code @EnableMethodSecurity} bật
+ * {@code @PreAuthorize} trên controller: mỗi API khai báo vai trò được gọi theo ma trận ở docs/SECURITY.md.
  */
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity
 public class SecurityConfig {
-
-    @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http
-                .csrf(AbstractHttpConfigurer::disable)
-                .formLogin(AbstractHttpConfigurer::disable)
-                .httpBasic(AbstractHttpConfigurer::disable)
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth.anyRequest().permitAll());
-        return http.build();
-    }
 }

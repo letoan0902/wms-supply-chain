@@ -46,7 +46,7 @@ public class GoodsDeliveryController {
 
     @GetMapping
     @Operation(summary = "Danh sách phiếu xuất kho có phân trang, tìm kiếm và lọc đa tiêu chí")
-    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'SALES', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'SALES', 'ACCOUNTANT', 'INTEGRATION')")
     public ApiResponse<PageResponse<GdnResponse>> list(
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) GoodsDeliveryStatus status,
@@ -63,28 +63,28 @@ public class GoodsDeliveryController {
 
     @GetMapping("/summary")
     @Operation(summary = "Báo cáo tổng quan tình hình xuất kho (GDN Metrics Summary)")
-    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'SALES', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'SALES', 'ACCOUNTANT', 'INTEGRATION')")
     public ApiResponse<GdnSummaryResponse> getSummary() {
         return ApiResponse.ok(goodsDeliveryService.getSummary());
     }
 
     @GetMapping("/{id}")
     @Operation(summary = "Chi tiết phiếu xuất kho theo ID kèm chi tiết dòng hàng")
-    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'SALES', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'SALES', 'ACCOUNTANT', 'INTEGRATION')")
     public ApiResponse<GdnResponse> getById(@PathVariable Long id) {
         return ApiResponse.ok(goodsDeliveryService.getById(id));
     }
 
     @GetMapping("/number/{gdnNumber}")
     @Operation(summary = "Chi tiết phiếu xuất kho theo Mã GDN")
-    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'SALES', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'SALES', 'ACCOUNTANT', 'INTEGRATION')")
     public ApiResponse<GdnResponse> getByGdnNumber(@PathVariable String gdnNumber) {
         return ApiResponse.ok(goodsDeliveryService.getByGdnNumber(gdnNumber));
     }
 
     @GetMapping("/so/{soId}")
     @Operation(summary = "Danh sách các phiếu xuất kho đã lập theo một đơn bán SO")
-    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'SALES', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'SALES', 'ACCOUNTANT', 'INTEGRATION')")
     public ApiResponse<List<GdnResponse>> listBySoId(@PathVariable Long soId) {
         return ApiResponse.ok(goodsDeliveryService.listBySoId(soId));
     }

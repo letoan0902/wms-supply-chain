@@ -2,6 +2,9 @@
 // KHÔNG dùng cho api-gateway (WebFlux) vì sẽ kéo Spring MVC vào classpath của gateway.
 plugins {
     id 'java-library'
+    // Bộ trợ giúp test dùng chung (header danh tính của gateway cho MockMvc): service khai báo
+    // testImplementation testFixtures(project(':common'))
+    id 'java-test-fixtures'
 }
 
 dependencies {
@@ -9,6 +12,8 @@ dependencies {
     // tránh ép các thư viện này vào service không cần.
     compileOnly 'org.springframework.boot:spring-boot-starter-web'
     compileOnly 'org.springframework.security:spring-security-core'
+    // Chuỗi bộ lọc dùng chung đọc danh tính từ header của gateway (WmsSecurityAutoConfiguration)
+    compileOnly 'org.springframework.boot:spring-boot-starter-security'
     compileOnly 'org.springframework.data:spring-data-commons'
     compileOnly 'org.springframework.boot:spring-boot-starter-data-jpa'
     // RabbitMQ (JSON converter, WmsEventPublisher) và Jackson: service nào dùng thì tự mang starter-amqp
@@ -26,6 +31,9 @@ dependencies {
     testImplementation 'org.springframework.boot:spring-boot-starter-validation'
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
     testImplementation 'org.springframework.security:spring-security-core'
+    testImplementation 'org.springframework.boot:spring-boot-starter-security'
+    // Actuator có chuỗi bảo mật mặc định riêng: test kiểm tra chuỗi dùng chung vẫn được dùng khi có actuator
+    testImplementation 'org.springframework.boot:spring-boot-starter-actuator'
     testImplementation 'org.springframework.data:spring-data-commons'
     testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     testImplementation 'org.springframework.boot:spring-boot-starter-amqp'
@@ -34,4 +42,10 @@ dependencies {
     testImplementation 'org.springframework.boot:spring-boot-starter-data-redis'
     // Test cách ly dữ liệu theo doanh nghiệp chạy JPA thật trên H2
     testRuntimeOnly 'com.h2database:h2'
+
+    // Test fixtures: header danh tính như api-gateway cho MockMvc và bộ kiểm tra ma trận phân quyền (WMS-20.3)
+    testFixturesApi 'org.springframework.boot:spring-boot-starter-test'
+    testFixturesImplementation 'jakarta.servlet:jakarta.servlet-api'
+    testFixturesImplementation 'org.springframework:spring-webmvc'
+    testFixturesImplementation 'org.springframework.security:spring-security-core'
 }

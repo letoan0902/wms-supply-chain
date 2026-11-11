@@ -54,6 +54,20 @@ public final class WmsEvents {
         public static final String ALERT_LOW_STOCK = "alert.low-stock";
 
         /**
+         * inventory-service: bản tổng hợp cảnh báo tồn kho của một kho cho một loại cảnh báo (hàng cận hạn, hết hạn,
+         * tồn lâu, tồn thấp) do tác vụ quét hằng ngày phát (WMS-15.1). Payload
+         * {@link vn.wms.common.messaging.event.StockAlertSummaryEvent}.
+         */
+        public static final String ALERT_STOCK_SUMMARY = "alert.stock-summary";
+
+        /**
+         * inventory-service: yêu cầu gửi MỘT email cảnh báo tồn kho cho MỘT người nhận (quản lý kho, admin của doanh
+         * nghiệp) cho một loại cảnh báo trong ngày (WMS-15.2). Payload
+         * {@link vn.wms.common.messaging.event.StockAlertDigestEvent}.
+         */
+        public static final String ALERT_STOCK_DIGEST = "alert.stock-digest";
+
+        /**
          * auth-service: doanh nghiệp vừa đăng ký hoặc xin gửi lại liên kết kích hoạt; notification-service gửi email
          * chứa liên kết (WMS-23.6). Payload {@code AccountEmailRequestedEvent} với {@code kind = ACTIVATION}.
          */
@@ -67,7 +81,8 @@ public final class WmsEvents {
 
         /** Danh sách mọi routing key sự kiện, dùng cho test và tài liệu. */
         public static final List<String> ALL = List.of(ORDER_CREATED, ORDER_DISPATCHED, ORDER_RECEIVED, INVENTORY_UPDATED,
-                ALERT_LOW_STOCK, AUTH_ACTIVATION_REQUESTED, AUTH_PASSWORD_RESET_REQUESTED);
+                ALERT_LOW_STOCK, ALERT_STOCK_SUMMARY, ALERT_STOCK_DIGEST, AUTH_ACTIVATION_REQUESTED,
+                AUTH_PASSWORD_RESET_REQUESTED);
 
         /** Mẫu binding: mọi sự kiện của domain đơn hàng. */
         public static final String ORDER_ALL = "order.#";

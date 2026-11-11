@@ -91,6 +91,16 @@ public class AiQuotaService {
         return record(false);
     }
 
+    /**
+     * Ghi nhận một câu hỏi đã có câu trả lời của trợ lý (WMS-24.4): cùng quy tắc với {@link #recordSuccess(AiReply)},
+     * câu trả lời bị từ chối không bị tính.
+     *
+     * @return số lượt đã dùng trong tháng sau lần ghi nhận này
+     */
+    public long recordAnswer(boolean refused) {
+        return record(refused);
+    }
+
     private long record(boolean refused) {
         PlanLimitChecker checker = planLimitChecker.getIfAvailable();
         if (checker == null) {

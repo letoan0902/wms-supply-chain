@@ -3,6 +3,7 @@ package vn.wms.inventory.controller;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -36,6 +37,7 @@ public class StockReportController {
 
     @GetMapping("/in-out-balance")
     @Operation(summary = "Báo cáo Xuất - Nhập - Tồn theo kỳ: tồn đầu, nhập, xuất, tồn cuối từng sản phẩm (và kho), kèm dòng tổng cộng")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'ACCOUNTANT')")
     public ApiResponse<InOutBalanceReportResponse> getInOutBalance(
             @RequestParam(required = false) Long warehouseId,
             @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
@@ -56,6 +58,7 @@ public class StockReportController {
 
     @GetMapping("/stock-card")
     @Operation(summary = "Thẻ kho chi tiết một sản phẩm tại một kho: tồn đầu kỳ, từng biến động theo thời gian với số dư lũy kế, tồn cuối kỳ")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'ACCOUNTANT')")
     public ApiResponse<StockCardResponse> getStockCard(
             @RequestParam Long productId,
             @RequestParam Long warehouseId,
@@ -69,6 +72,7 @@ public class StockReportController {
 
     @GetMapping("/lot-trace")
     @Operation(summary = "Truy vết nguồn gốc theo số lô: phiếu nhập, đơn mua, nhà cung cấp; vị trí hiện tại; điều chuyển và xuất bán (dạng cây và chuỗi thời gian)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'ACCOUNTANT')")
     public ApiResponse<LotTraceResponse> traceLot(
             @RequestParam String lotNo,
             @RequestParam(required = false) Long productId

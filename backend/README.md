@@ -243,6 +243,7 @@ Ngoài các biến dưới đây, mọi thuộc tính Spring đều ghi đè đ�
 | api-gateway | `JWT_SECRET` | như trên | Khóa kiểm tra chữ ký token |
 | api-gateway | `GATEWAY_JWT_ENABLED` | `false` | Bật kiểm tra JWT tại gateway |
 | api-gateway | `CORS_ALLOWED_ORIGINS` | `http://localhost:5173` | Origin frontend được phép (phân tách bằng dấu phẩy) |
+| product, inventory, order, notification, ai | `SECURITY_ALLOW_ANONYMOUS` | `true` | `true`: request không có danh tính của gateway được coi là nhà phát triển đủ vai trò (máy phát triển). Máy chủ đặt `false`: thiếu danh tính trả 401 (`docs/SECURITY.md`) |
 | notification-service | `MAIL_HOST` / `MAIL_PORT` | `localhost` / `1025` | Máy chủ SMTP |
 | notification-service | `MAIL_USERNAME` / `MAIL_PASSWORD` | rỗng | Tài khoản SMTP; rỗng thì gửi không xác thực. Có giá trị thì tự bật xác thực, cổng 587 tự bật STARTTLS, cổng 465 tự bật SSL |
 | notification-service | `MAIL_FROM` | `no-reply@wms.local` | Địa chỉ người gửi |
@@ -296,7 +297,10 @@ Trạng thái hiện tại là khung, có chủ đích để nhóm phát triển
 - `api-gateway` có sẵn `JwtAuthenticationGlobalFilter`: khi `GATEWAY_JWT_ENABLED=true` yêu cầu header Authorization dạng Bearer
   với token hợp lệ (trừ `/api/auth/login`, `/actuator/**` và request preflight CORS), thêm header `X-User-Name`, `X-User-Roles`
   cho service phía sau và luôn gỡ hai header này nếu client tự gửi. Mặc định TẮT.
-- Các service còn lại tạm `permitAll` (xem `config/SecurityConfig` trong mỗi service, có ghi TODO).
+- Các service nghiệp vụ (product, inventory, order, notification, ai) dùng chuỗi bộ lọc chung của module `common`
+  (`WmsSecurityAutoConfiguration`): header của gateway thành `Authentication` với authority `ROLE_<vai trò>`, mỗi API
+  khai báo vai trò bằng `@PreAuthorize` (đã bật `@EnableMethodSecurity`). Ma trận vai trò, chế độ phát triển
+  (`SECURITY_ALLOW_ANONYMOUS`) và API nội bộ `/internal/**` xem `docs/SECURITY.md` (WMS-20.3).
 - Hằng số vai trò dùng chung: `vn.wms.common.constant.Roles` (`ADMIN`, `WAREHOUSE_MANAGER`, `WAREHOUSE_STAFF`,
   `PURCHASING`, `SALES`, `ACCOUNTANT`).
 - Trước khi triển khai thật: đặt `JWT_SECRET` mạnh và giống nhau ở auth-service và gateway, đặt
@@ -357,7 +361,7 @@ Trạng thái hiện tại là khung, có chủ đích để nhóm phát triển
   Refresh Token trong HttpOnly cookie, khóa tài khoản tạm thời khi đăng nhập sai nhiều lần (theo `docs/ARCHITECTURE.md`).
 - [ ] api-gateway: bật `GATEWAY_JWT_ENABLED=true`, thêm kiểm tra quyền theo vai trò ở mức route và giới hạn tốc độ
   (rate limiting, dùng Redis qua `spring-boot-starter-data-redis-reactive`).
-- [ ] Các service nghiệp vụ: thay `permitAll` bằng phân quyền theo vai trò (đọc `X-User-Name` / `X-User-Roles` từ gateway hoặc kiểm tra JWT).
+- [x] Các service nghiệp vụ: thay `permitAll` bằng phân quyền theo vai trò (đọc `X-User-Name` / `X-User-Roles` từ gateway), xem `docs/SECURITY.md`.
 - [ ] product-service: CRUD sản phẩm, danh mục, đơn vị tính; tra cứu theo SKU và barcode (để `ProductClient` dùng).
 - [ ] inventory-service: nhập/xuất/điều chuyển/kiểm kê, phát sự kiện cảnh báo tồn kho thấp lên RabbitMQ (routing key `alert.*`).
 - [ ] order-service: dòng hàng của PO/SO, phiếu nhập GRN và phiếu xuất GDN.

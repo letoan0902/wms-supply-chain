@@ -30,4 +30,14 @@ public interface AiClient {
      *                      hiện tại không hỗ trợ (chế độ giả lập)
      */
     AiJsonReply generateJson(AiJsonRequest request);
+
+    /**
+     * Hỏi đáp có lịch sử và công cụ (trợ lý AI, WMS-24.4): gọi mô hình, chạy công cụ mô hình yêu cầu qua
+     * {@code executor}, gửi kết quả lại, lặp tới khi có câu trả lời, tối đa {@link AiChatRequest#maxToolRounds()} vòng
+     * công cụ và trong {@link AiChatRequest#timeout()}.
+     *
+     * @throws ApiException {@code SERVICE_UNAVAILABLE} khi không gọi được mô hình hoặc hết thời gian;
+     *                      {@code BAD_REQUEST} khi cài đặt hiện tại không hỗ trợ (chế độ giả lập)
+     */
+    AiChatReply chat(AiChatRequest request, AiToolExecutor executor);
 }

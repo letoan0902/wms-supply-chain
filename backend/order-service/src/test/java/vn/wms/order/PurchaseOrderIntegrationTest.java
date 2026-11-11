@@ -9,6 +9,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
+import vn.wms.common.test.GatewayHeaders;
 import vn.wms.order.dto.CreatePurchaseOrderRequest;
 import vn.wms.order.dto.PurchaseOrderItemRequest;
 import vn.wms.order.dto.RejectPurchaseOrderRequest;
@@ -208,7 +209,7 @@ class PurchaseOrderIntegrationTest {
 
         // Phê duyệt đơn mua với header X-User-Name
         mockMvc.perform(post("/api/orders/purchase/" + orderId + "/approve")
-                        .header("X-User-Name", "quanlykho"))
+                        .with(GatewayHeaders.asUser("quanlykho", 1L, List.of("WAREHOUSE_MANAGER"), List.of())))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.status").value("APPROVED"))
@@ -251,7 +252,7 @@ class PurchaseOrderIntegrationTest {
         mockMvc.perform(post("/api/orders/purchase/" + orderId + "/reject")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(rejectReq))
-                        .header("X-User-Name", "giamdockho"))
+                        .with(GatewayHeaders.asUser("giamdockho", 1L, List.of("WAREHOUSE_MANAGER"), List.of())))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("REJECTED"))
                 .andExpect(jsonPath("$.data.rejectedReason").value("Đơn giá quá cao so với báo giá NCC khác"));

@@ -13,6 +13,11 @@ public enum RealtimeEventType {
 
     /** Tồn kho chạm ngưỡng an toàn (từ sự kiện alert.low-stock). */
     LOW_STOCK(RealtimeEventType.CHANNEL_ALERTS),
+    /**
+     * Bản tổng hợp cảnh báo tồn kho hằng ngày của một kho (từ sự kiện alert.stock-summary, WMS-15.2); payload là
+     * {@code StockAlertSummaryEvent} với {@code kind} NEAR_EXPIRY, EXPIRED, DEAD_STOCK hoặc LOW_STOCK.
+     */
+    STOCK_ALERT(RealtimeEventType.CHANNEL_ALERTS),
     /** Đơn mua hoặc đơn bán mới (order.created). */
     ORDER_CREATED(RealtimeEventType.CHANNEL_ORDERS),
     /** Đơn đã được kho xử lý xong (order.dispatched). */

@@ -12,6 +12,7 @@ import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.mail.MailSendException;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.mail.javamail.JavaMailSender;
 import vn.wms.common.messaging.event.AccountEmailKind;
 import vn.wms.common.messaging.event.AccountEmailRequestedEvent;
@@ -49,9 +50,10 @@ class AccountEmailServiceTest {
     private final StringRedisTemplate redis = mock(StringRedisTemplate.class);
     @SuppressWarnings("unchecked")
     private final ValueOperations<String, String> valueOps = mock(ValueOperations.class);
-    private final EmailService emailService = new EmailService(mailSender,
+    private final EmailService emailService = new EmailService(providerOf(mailSender),
             new NotificationProperties(new NotificationProperties.Mail("no-reply@wms.local"),
-                    new NotificationProperties.Rabbitmq("wms.events", "notification.alerts", "alert.#")));
+                    new NotificationProperties.Rabbitmq("wms.events", "notification.alerts", "alert.#")),
+            "smtp.example.test", "mailer");
 
     private final AccountEmailRequestedEvent activation = new AccountEmailRequestedEvent(AccountEmailKind.ACTIVATION,
             COMPANY_ID, "Công ty <Kho> Mẫu", "an@example.com", "Nguyễn Văn An", LINK,
@@ -66,6 +68,31 @@ class AccountEmailServiceTest {
     @AfterEach
     void clearTenant() {
         TenantContext.clear();
+    }
+
+    /** EmailService nhận JavaMailSender qua ObjectProvider (bean có thể vắng khi chưa cấu hình SMTP). */
+    private static ObjectProvider<JavaMailSender> providerOf(JavaMailSender sender) {
+        return new ObjectProvider<>() {
+            @Override
+            public JavaMailSender getObject() {
+                return sender;
+            }
+
+            @Override
+            public JavaMailSender getObject(Object... args) {
+                return sender;
+            }
+
+            @Override
+            public JavaMailSender getIfAvailable() {
+                return sender;
+            }
+
+            @Override
+            public JavaMailSender getIfUnique() {
+                return sender;
+            }
+        };
     }
 
     private AccountEmailService service(String host, String username) {
@@ -109,7 +136,7 @@ class AccountEmailServiceTest {
                 () -> service("smtp.gmail.com", "").send(activation, "msg-2"));
 
         verify(mailSender, never()).send(any(MimeMessage.class));
-        assertThat(entry.getStatus()).isEqualTo(NotificationStatus.FAILED);
+        assertThat(entry.getStatus()).isEqualTo(NotificationStatus.LOGGED);
         assertThat(entry.getErrorMessage()).isEqualTo(AccountEmailService.SMTP_NOT_CONFIGURED);
         String logs = output.getAll();
         assertThat(logs).contains("an@example.com", LINK);

@@ -40,6 +40,7 @@ import {
   YAxis,
 } from 'recharts'
 import * as XLSX from 'xlsx'
+import AiSummaryCard from '../features/ai/components/AiSummaryCard'
 import { fetchWarehouses } from '../features/warehouses/warehouseApi'
 import type { Warehouse } from '../features/warehouses/types'
 import { formatCurrency, formatNumber } from '../utils/format'
@@ -288,6 +289,8 @@ export default function DashboardPage() {
           )}
         </Space>
       </div>
+
+      <AiSummaryCard warehouseId={selectedWarehouseId === 'all' ? null : selectedWarehouseId} ready={!loadingWarehouses} />
 
       {/* 2. Banner Thông báo Phân quyền theo vai trò (SRS 2.5.1 & 2.5.2) */}
       {isWarehouseStaff && (

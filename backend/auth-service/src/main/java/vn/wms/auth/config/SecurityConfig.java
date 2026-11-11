@@ -58,6 +58,9 @@ public class SecurityConfig {
                     .requestMatchers(HttpMethod.POST, "/api/auth/companies/activate",
                             "/api/auth/companies/resend-activation",
                             "/api/auth/password/forgot", "/api/auth/password/reset").permitAll()
+                    // Endpoint nội bộ giữa các service (WMS-15.2): gateway không có route tới /internal/**,
+                    // doanh nghiệp lấy từ header X-Company-Id do OpenFeign chuyển tiếp
+                    .requestMatchers("/internal/auth/**").permitAll()
                     .requestMatchers("/api/auth/**", "/actuator/**",
                             "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                     .anyRequest().authenticated())

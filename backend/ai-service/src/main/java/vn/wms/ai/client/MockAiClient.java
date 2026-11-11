@@ -31,6 +31,15 @@ public class MockAiClient implements AiClient {
         throw new ApiException(ErrorCode.BAD_REQUEST, NEEDS_REAL_AI_MESSAGE);
     }
 
+    /**
+     * Trợ lý AI ở chế độ giả lập không đi qua đây: {@code vn.wms.ai.assistant.MockAssistant} tự nhận diện câu hỏi và
+     * chạy thẳng công cụ tra cứu, nên không có câu trả lời nào được bịa ra.
+     */
+    @Override
+    public AiChatReply chat(AiChatRequest request, AiToolExecutor executor) {
+        throw new ApiException(ErrorCode.BAD_REQUEST, "Chế độ AI giả lập không hỗ trợ hội thoại có công cụ.");
+    }
+
     /** Thông báo khi một chức năng chỉ chạy được với Claude thật. */
     public static final String NEEDS_REAL_AI_MESSAGE = "Hệ thống đang chạy chế độ AI giả lập nên chỉ đọc được file "
             + "Excel (xlsx, xls) và CSV. File PDF và hình ảnh cần AI thật: quản trị viên cần cấu hình khóa AI và tắt "

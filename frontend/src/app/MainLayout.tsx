@@ -24,6 +24,10 @@ import NotificationBell from '../features/realtime/components/NotificationBell'
 import { useWebSocket } from '../features/realtime/useWebSocket'
 import { navigationItems } from './navigation'
 import { ROLE_CONFIG } from '../features/users/types'
+import SubscriptionLayer from '../features/subscription/components/SubscriptionLayer'
+import { READ_ONLY_ALLOWED_CLASS } from '../features/subscription/readOnlyGuard'
+import { useSubscriptionStore } from '../features/subscription/subscriptionStore'
+import AiChatWidget from '../features/ai/components/AiChatWidget'
 
 const { Header, Sider, Content } = Layout
 
@@ -78,6 +82,7 @@ export default function MainLayout() {
       setLogoutLoading(false)
       setLogoutModalOpen(false)
       clearAuth()
+      useSubscriptionStore.getState().reset()
       navigate('/login', { replace: true })
     }
   }
@@ -197,7 +202,12 @@ export default function MainLayout() {
           <div className="flex shrink-0 items-center gap-2 sm:gap-4">
             <NotificationBell />
             {/* User profile trigger */}
-            <Dropdown menu={{ items: userMenu }} placement="bottomRight" trigger={['click']}>
+            <Dropdown
+              menu={{ items: userMenu }}
+              placement="bottomRight"
+              trigger={['click']}
+              rootClassName={READ_ONLY_ALLOWED_CLASS}
+            >
               <button
                 type="button"
                 className="flex cursor-pointer items-center gap-2.5 border-0 bg-transparent px-2.5 py-1.5 rounded-lg hover:bg-slate-100/70 transition-colors select-none text-left"
@@ -219,12 +229,18 @@ export default function MainLayout() {
           </div>
         </Header>
 
+        {/* Dải nhắc dùng thử, dải hết hạn, chế độ chỉ đọc và hộp thoại gói dịch vụ dùng chung */}
+        <SubscriptionLayer />
+
         <Content className="p-4 md:p-6">
           <Suspense fallback={<PageLoading tip="Đang tải dữ liệu phân hệ..." />}>
             <Outlet />
           </Suspense>
         </Content>
       </Layout>
+
+      {/* Nút và khung chat trợ lý AI nổi ở góc phải dưới của mọi trang */}
+      <AiChatWidget />
 
       {/* Modal Xác nhận Đăng xuất */}
       <Modal

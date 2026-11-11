@@ -78,7 +78,7 @@ Báo cáo và Dashboard do notification-service tổng hợp từ dữ liệu c�
 | Thành phần | Vai trò |
 | --- | --- |
 | MySQL 8.0 | Lưu dữ liệu nghiệp vụ, 5 schema độc lập; tài khoản ứng dụng `wms` chỉ có quyền trên 5 schema này (xem `docker/mysql/init.sql`) |
-| Redis 7 | Cache dữ liệu đọc nhiều, đặc biệt là dữ liệu tồn kho của inventory-service |
+| Redis 7 | Cache dữ liệu đọc nhiều: tổng tồn và tồn khả dụng của inventory-service (khóa `wms:stock:{companyId}:...`, xóa sau mỗi thay đổi tồn, xem [PERFORMANCE.md](PERFORMANCE.md)), bộ nhớ đệm thuê bao, bộ đếm giới hạn gói và KPI |
 | RabbitMQ 3 | Truyền sự kiện bất đồng bộ giữa các service (nhập kho, xuất kho, cảnh báo tồn) |
 | Eureka | Đăng ký và tra cứu service theo tên, cho phép Gateway và các service gọi nhau mà không cần địa chỉ cố định |
 | Config Server | Cấu hình tập trung theo từng service; bí mật được truyền qua biến môi trường |

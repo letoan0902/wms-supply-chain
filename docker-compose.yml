@@ -259,6 +259,9 @@ services:
       <<: [*backend-env, *db-credentials]
       DB_URL: jdbc:mysql://mysql:3306/inventory_db
       TENANT_DEFAULT_COMPANY_ID: ${TENANT_DEFAULT_COMPANY_ID:-1}
+      # Bộ nhớ đệm Redis cho tổng tồn và tồn khả dụng (WMS-19.1, docs/PERFORMANCE.md)
+      STOCK_CACHE_ENABLED: ${STOCK_CACHE_ENABLED:-true}
+      STOCK_CACHE_TTL: ${STOCK_CACHE_TTL:-60s}
     depends_on: *depends-on-core
     ports:
       - "127.0.0.1:8083:8083"
@@ -292,10 +295,12 @@ services:
     environment:
       <<: [*backend-env, *db-credentials]
       DB_URL: jdbc:mysql://mysql:3306/notification_db
-      MAIL_HOST: ${MAIL_HOST:-smtp.gmail.com}
+      # SMTP gửi email cảnh báo tồn kho (WMS-15.2). MAIL_HOST rỗng: không gửi, nội dung email được ghi vào log.
+      MAIL_HOST: ${MAIL_HOST:-}
       MAIL_PORT: ${MAIL_PORT:-587}
       MAIL_USERNAME: ${MAIL_USERNAME:-}
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:-}
       # Hub WebSocket /ws-wms (WMS-02.3, docs/MESSAGING.md mục 8). JWT_SECRET đã có trong x-backend-env.
       # GATEWAY_JWT_ENABLED=true thì frame STOMP CONNECT phải mang Bearer token hợp lệ (cùng công tắc với api-gateway).
       GATEWAY_JWT_ENABLED: ${GATEWAY_JWT_ENABLED:-false}

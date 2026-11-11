@@ -56,7 +56,7 @@ public class CustomerController {
 
     @GetMapping
     @Operation(summary = "Danh sách khách hàng có phân trang, tìm kiếm và lọc theo loại / trạng thái / vượt hạn mức")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SALES', 'ACCOUNTANT', 'WAREHOUSE_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SALES', 'ACCOUNTANT', 'WAREHOUSE_MANAGER', 'INTEGRATION')")
     public ApiResponse<PageResponse<CustomerResponse>> list(
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) CustomerType type,
@@ -69,28 +69,28 @@ public class CustomerController {
 
     @GetMapping("/summary")
     @Operation(summary = "Báo cáo tổng quan công nợ & tình hình khách hàng")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SALES', 'ACCOUNTANT', 'WAREHOUSE_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SALES', 'ACCOUNTANT', 'WAREHOUSE_MANAGER', 'INTEGRATION')")
     public ApiResponse<CustomerDebtSummaryResponse> getDebtSummary() {
         return ApiResponse.ok(customerService.getDebtSummary());
     }
 
     @GetMapping("/{id}")
     @Operation(summary = "Chi tiết hồ sơ khách hàng theo ID")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SALES', 'ACCOUNTANT', 'WAREHOUSE_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SALES', 'ACCOUNTANT', 'WAREHOUSE_MANAGER', 'INTEGRATION')")
     public ApiResponse<CustomerResponse> getById(@PathVariable Long id) {
         return ApiResponse.ok(customerService.getById(id));
     }
 
     @GetMapping("/code/{code}")
     @Operation(summary = "Chi tiết hồ sơ khách hàng theo Mã")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SALES', 'ACCOUNTANT', 'WAREHOUSE_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SALES', 'ACCOUNTANT', 'WAREHOUSE_MANAGER', 'INTEGRATION')")
     public ApiResponse<CustomerResponse> getByCode(@PathVariable String code) {
         return ApiResponse.ok(customerService.getByCode(code));
     }
 
     @GetMapping("/{id}/credit-check")
     @Operation(summary = "Kiểm tra hạn mức công nợ (Credit Check) trước khi tạo / duyệt đơn bán hàng (FR14)")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SALES', 'ACCOUNTANT', 'WAREHOUSE_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SALES', 'ACCOUNTANT', 'WAREHOUSE_MANAGER', 'INTEGRATION')")
     public ApiResponse<CustomerCreditCheckResponse> checkCredit(
             @PathVariable Long id,
             @RequestParam(required = false) BigDecimal orderAmount) {
@@ -141,7 +141,7 @@ public class CustomerController {
 
     @GetMapping("/{id}/transactions")
     @Operation(summary = "Lịch sử biến động công nợ của khách hàng")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SALES', 'ACCOUNTANT', 'WAREHOUSE_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SALES', 'ACCOUNTANT', 'WAREHOUSE_MANAGER', 'INTEGRATION')")
     public ApiResponse<PageResponse<CustomerTransactionResponse>> listTransactions(
             @PathVariable Long id,
             @ParameterObject @PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {

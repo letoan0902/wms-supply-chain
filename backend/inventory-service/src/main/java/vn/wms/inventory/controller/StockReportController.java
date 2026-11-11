@@ -10,7 +10,9 @@ import org.springframework.web.bind.annotation.RestController;
 import vn.wms.common.api.ApiResponse;
 import vn.wms.inventory.dto.report.InOutBalanceQuery;
 import vn.wms.inventory.dto.report.InOutBalanceReportResponse;
+import vn.wms.inventory.dto.report.LotTraceResponse;
 import vn.wms.inventory.dto.report.StockCardResponse;
+import vn.wms.inventory.service.report.LotTraceService;
 import vn.wms.inventory.service.report.StockReportService;
 
 import java.time.LocalDate;
@@ -25,9 +27,11 @@ import java.time.LocalDate;
 public class StockReportController {
 
     private final StockReportService stockReportService;
+    private final LotTraceService lotTraceService;
 
-    public StockReportController(StockReportService stockReportService) {
+    public StockReportController(StockReportService stockReportService, LotTraceService lotTraceService) {
         this.stockReportService = stockReportService;
+        this.lotTraceService = lotTraceService;
     }
 
     @GetMapping("/in-out-balance")
@@ -61,5 +65,14 @@ public class StockReportController {
             @RequestParam(required = false, defaultValue = "50") int size
     ) {
         return ApiResponse.ok(stockReportService.getStockCard(productId, warehouseId, fromDate, toDate, page, size));
+    }
+
+    @GetMapping("/lot-trace")
+    @Operation(summary = "Truy vết nguồn gốc theo số lô: phiếu nhập, đơn mua, nhà cung cấp; vị trí hiện tại; điều chuyển và xuất bán (dạng cây và chuỗi thời gian)")
+    public ApiResponse<LotTraceResponse> traceLot(
+            @RequestParam String lotNo,
+            @RequestParam(required = false) Long productId
+    ) {
+        return ApiResponse.ok(lotTraceService.trace(lotNo, productId));
     }
 }

@@ -75,6 +75,11 @@ public interface StockMovementRepository extends JpaRepository<StockMovement, Lo
     @Query("SELECT DISTINCT m.productId FROM StockMovement m WHERE m.lotNo = :lotNo")
     List<Long> findDistinctProductIdsByLotNo(@Param("lotNo") String lotNo);
 
+    /** Các sản phẩm khác nhau có dòng sổ mang số lô này trong các kho được xem (WMS-17.2). */
+    @Query("SELECT DISTINCT m.productId FROM StockMovement m WHERE m.lotNo = :lotNo AND m.warehouseId IN :warehouseIds")
+    List<Long> findDistinctProductIdsByLotNoInWarehouses(@Param("lotNo") String lotNo,
+                                                         @Param("warehouseIds") Collection<Long> warehouseIds);
+
     /** Toàn bộ dòng sổ của một số lô của một sản phẩm, theo thứ tự thời gian. */
     List<StockMovement> findByLotNoAndProductIdOrderByOccurredAtAscIdAsc(String lotNo, Long productId);
 

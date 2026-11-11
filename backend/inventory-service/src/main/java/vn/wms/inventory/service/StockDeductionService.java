@@ -54,6 +54,10 @@ public class StockDeductionService {
     @Autowired
     private StocktakeFreezeGuard stocktakeFreezeGuard;
 
+    /** Ghi sổ kho cho mỗi lần trừ tồn (WMS-17.1). */
+    @Autowired
+    private StockMovementRecorder stockMovementRecorder;
+
     public StockDeductionService(StockItemRepository stockItemRepository,
                                  StockReservationRepository stockReservationRepository,
                                  WarehouseRepository warehouseRepository,
@@ -197,6 +201,7 @@ public class StockDeductionService {
                     request.orderNumber(), now);
         }
 
+        stockMovementRecorder.recordIssue(request, warehouse, deductedDetails, dispatchedBy, now);
         log.info("Hoàn tất trừ tồn kho với Khóa bi quan. Đơn: {}, Tổng số lượng đã xuất: {}",
                 request.orderNumber(), grandTotalDeducted);
 

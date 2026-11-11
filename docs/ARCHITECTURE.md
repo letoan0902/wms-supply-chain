@@ -135,8 +135,12 @@ SO -> kiểm tra ATP -> CONFIRMED (giữ hàng mềm) -> Picking List -> GDN (xu
   tính chênh lệch và giá trị. Điều chỉnh kho chỉ có hiệu lực sau khi Quản lý kho và Kế toán phê duyệt, đồng thời lưu audit log.
 - **Chống âm kho**: mọi thao tác thay đổi tồn dùng khóa bi quan (`PESSIMISTIC_WRITE`) trên bản ghi tồn để không bị âm kho khi
   nhiều giao dịch xảy ra đồng thời.
-- **Báo cáo và Dashboard (FR23 đến FR25)**: notification-service tổng hợp số liệu tồn kho, nhập xuất tồn, đơn chờ xử lý và công nợ
-  để hiển thị thẻ KPI, biểu đồ và bảng giao dịch gần nhất.
+- **Báo cáo và Dashboard (FR23 đến FR25)**: notification-service tổng hợp số liệu tồn kho, đơn chờ xử lý và công nợ
+  để hiển thị thẻ KPI, biểu đồ và bảng giao dịch gần nhất. Báo cáo Xuất - Nhập - Tồn, thẻ kho chi tiết và truy vết theo
+  số lô do inventory-service phục vụ (`/api/inventory/reports/**`), tính từ sổ kho `stock_movements`: mọi thao tác đổi
+  tồn (nhập GRN, xuất bán, xuất và nhận điều chuyển, sau này là điều chỉnh kiểm kê) ghi đúng một dòng sổ trong cùng
+  transaction. Sổ kho bắt đầu từ migration V13 với một dòng số dư mở sổ cho mỗi dòng tồn đang có; kỳ báo cáo bắt đầu
+  trước mốc này trả tồn đầu, nhập, xuất là null kèm giải thích. Tồn kho chưa có giá vốn nên các cột giá trị tiền là null.
 
 ### 5.4. API kiểm kê (inventory-service, `/api/inventory/stocktakes`)
 

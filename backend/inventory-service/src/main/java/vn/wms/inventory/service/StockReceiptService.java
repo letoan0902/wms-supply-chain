@@ -2,6 +2,7 @@ package vn.wms.inventory.service;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.wms.common.exception.ApiException;
@@ -43,6 +44,10 @@ public class StockReceiptService {
     /** Chặn nhập vào vị trí đang đóng băng kiểm kê (WMS-14.1). */
     @org.springframework.beans.factory.annotation.Autowired
     private StocktakeFreezeGuard stocktakeFreezeGuard;
+
+    /** Ghi sổ kho cho mỗi lần cộng tồn (WMS-17.1). */
+    @Autowired
+    private StockMovementRecorder stockMovementRecorder;
 
     public StockReceiptService(IncomingStockRepository incomingStockRepository,
                                StockItemRepository stockItemRepository,
@@ -126,6 +131,7 @@ public class StockReceiptService {
 
             // 3. Tăng tồn OnHand vào bảng stock_items
             updateStockItem(binLocation, line, lotNumber, acceptedQty);
+            stockMovementRecorder.recordReceipt(event, binLocation, line, lotNumber, acceptedQty);
 
             // 4. Lưu tồn chi tiết theo Lô & Vị trí ô vào bảng inventory_lots (WMS-10.2 - FR12)
             updateInventoryLot(binLocation, line, lotNumber, acceptedQty);

@@ -72,6 +72,10 @@ public class StockTransferService {
     @Autowired
     private StocktakeFreezeGuard stocktakeFreezeGuard;
 
+    /** Ghi sổ kho cho mỗi lần cộng tồn tại kho đích (WMS-17.1); xuất kho nguồn được ghi trong StockDeductionService. */
+    @Autowired
+    private StockMovementRecorder stockMovementRecorder;
+
     public StockTransferService(
             StockTransferRepository stockTransferRepository,
             StockTransferItemRepository stockTransferItemRepository,
@@ -523,6 +527,7 @@ public class StockTransferService {
                 BigDecimal afterQty = (savedItem != null && savedItem.getQuantity() != null)
                         ? savedItem.getQuantity()
                         : destStockItem.getQuantity();
+                stockMovementRecorder.recordTransferIn(transfer, item, destBinLocation, savedItem != null ? savedItem : destStockItem, receivedQty, currentUser);
 
                 // Phát sự kiện inventory.updated cho SKU tại kho đích
                 publishInventoryUpdated(

@@ -52,6 +52,19 @@ Tất cả nằm trong gói `vn.wms.common.tenant`, được `WmsTenantAutoConfi
 
 Thứ tự triển khai lên máy chủ: auth-service cấp `companyId` trong token (WMS-22.2) và gateway bản này phải lên cùng lúc với service đầu tiên bật `app.tenant.required`. Người dùng đang đăng nhập sẽ phải đăng nhập lại một lần.
 
+### 2.2. notification-service (WMS-22.4c)
+
+| Phần | Cách tách theo doanh nghiệp |
+| --- | --- |
+| Bảng `notification_logs` | Bảng duy nhất của service, kế thừa `TenantEntity` (migration V2: dữ liệu cũ gán doanh nghiệp 1, `company_id` NOT NULL, index `(company_id, status)`, `(company_id, created_at)`). `app.tenant.required: true` |
+| Listener RabbitMQ | Ba listener đọc doanh nghiệp từ header `x-wms-company-id`, không có thì trường `companyId` của JSON, rồi xử lý trong `TenantContext.runAs`. Sự kiện không có doanh nghiệp: một dòng log cảnh báo rồi bỏ qua (không ném lỗi, không thử lại, không gửi email) |
+| KPI thời gian thực trên Redis | `wms:notification:kpi:{companyId}:{yyyy-MM-dd}` và khóa chống đếm trùng `wms:notification:kpi:{companyId}:processed:{messageId}` |
+| Cache KPI dashboard (WMS-16.1) | `wms:kpi:company:{companyId}:summary:{warehouseId hoặc all}:{dateRange}`; lời gọi sang order-service, inventory-service chuyển tiếp `X-Company-Id` |
+| WebSocket `/ws-wms` | Kênh `/topic/company/{companyId}/alerts`, `/orders`, `/inventory`, `/kpi`. Doanh nghiệp của phiên lấy từ claim `companyId` của JWT đã kiểm tra chữ ký ở frame CONNECT; SUBSCRIBE kênh của doanh nghiệp khác bị từ chối. `/ws-wms/**` nằm trong `app.tenant.public-paths` vì handshake không mang `X-Company-Id` |
+| Email cảnh báo | Gửi và ghi nhật ký trong ngữ cảnh doanh nghiệp của sự kiện; người nhận do service phát chọn trong doanh nghiệp của nó, notification-service không gọi auth-service tra người nhận |
+
+`/api/notifications/health-info` cũng nằm trong `public-paths` vì chỉ trả cấu hình RabbitMQ và SMTP, không có dữ liệu của doanh nghiệp nào. Chi tiết hợp đồng tin nhắn ở [MESSAGING.md](MESSAGING.md) mục 8.
+
 ## 3. Hành vi cần nắm trước khi dùng
 
 1. **Thêm mới**: `company_id` được gán bằng doanh nghiệp trong `TenantContext`. Entity không có setter cho `companyId`. Lưu khi chưa xác định doanh nghiệp bị từ chối với `COMPANY_REQUIRED`.
@@ -65,6 +78,14 @@ Thứ tự triển khai lên máy chủ: auth-service cấp `companyId` trong to
 ## 4. Các bước chuyển một service
 
 Làm lần lượt, mỗi service một Pull Request. inventory-service là mẫu (WMS-22.3, WMS-22.4a).
+
+Tình trạng chuyển đổi:
+
+| Service | Trạng thái | Migration | Bảng |
+| --- | --- | --- | --- |
+| inventory-service | Đã chuyển (WMS-22.4a) | `V6` | `warehouses`, `bin_locations`, `stock_items`, `stock_reservations`, `incoming_stocks`, `inventory_lots`; các bảng tạo sau có `company_id` ngay từ đầu |
+| product-service | Đã chuyển (WMS-22.4b) | `V4` | `categories`, `uoms`, `products`, `unit_conversions`. Đơn vị tính mẫu do `V3` thêm thuộc doanh nghiệp 1; doanh nghiệp mới bắt đầu với danh mục rỗng |
+| order-service, notification-service | Chưa chuyển | | |
 
 ### Bước 1: migration
 
@@ -107,7 +128,7 @@ public class Warehouse extends TenantEntity {
 
 - Tìm các câu `nativeQuery = true` và thêm điều kiện `company_id`.
 - Chỗ nào dùng `findById(id).isPresent()` hoặc `ifPresent` để kiểm tra tồn tại thì đổi sang `existsById`.
-- Bộ sinh số chứng từ (PO, SO) đếm theo doanh nghiệp: nếu đang đếm bằng JPQL thì đã tự đúng, nếu đếm bằng SQL gốc thì thêm điều kiện.
+- Bộ sinh số chứng từ (PO, SO) đếm theo doanh nghiệp: nếu đang đếm bằng JPQL thì đã tự đúng, nếu đếm bằng SQL gốc thì thêm điều kiện. Bộ đếm giữ trong bộ nhớ (map theo ngày) dùng chung cho mọi doanh nghiệp là sai: doanh nghiệp sau không bao giờ nhận số `0001`; xem cách order-service dùng bảng `document_sequences` ở cuối mục này.
 - Tác vụ `@Scheduled` chạy cho mọi doanh nghiệp: lấy danh sách `company_id` bằng một câu SQL gốc `SELECT DISTINCT company_id ...`, rồi với từng giá trị gọi `TenantContext.runAs(companyId, () -> service.xuLy())`.
 
 ### Bước 4: bật kiểm tra bắt buộc
@@ -123,7 +144,7 @@ app:
 
 Trong `docker-compose.yml` (môi trường phát triển) thêm `TENANT_DEFAULT_COMPANY_ID: ${TENANT_DEFAULT_COMPANY_ID:-1}` cho service đó, để khi gateway tắt kiểm tra JWT hoặc gọi thẳng vào service vẫn có doanh nghiệp 1. `deploy/docker-compose.prod.yml` là lớp phủ lên file gốc nên phải đặt lại `TENANT_DEFAULT_COMPANY_ID: ""` cho chính service đó: trên máy chủ, request không có doanh nghiệp phải bị từ chối chứ không được rơi vào doanh nghiệp 1.
 
-Các service chưa chuyển đổi (order-service, product-service, notification-service) cũng nhận doanh nghiệp mặc định ở máy phát triển nhưng chưa bật `required`. Nhờ vậy sự kiện chúng phát ra và lời gọi OpenFeign sang service đã chuyển đổi vẫn mang doanh nghiệp, kể cả khi chạy không qua gateway. Chạy service bằng IDE thì đặt biến môi trường `TENANT_DEFAULT_COMPANY_ID=1`.
+Các service nghiệp vụ (inventory-service, product-service, order-service, notification-service) đều đã chuyển đổi và bật `required`. Ở máy phát triển chúng nhận doanh nghiệp mặc định 1 nên sự kiện phát ra và lời gọi OpenFeign giữa các service vẫn mang doanh nghiệp, kể cả khi chạy không qua gateway. Chạy service bằng IDE thì đặt biến môi trường `TENANT_DEFAULT_COMPANY_ID=1`.
 
 Service có API không cần doanh nghiệp (ví dụ webhook) khai báo thêm `app.tenant.public-paths`.
 
@@ -137,6 +158,14 @@ Không phải làm gì nếu service phát sự kiện bằng `WmsEventPublisher
 ### Bước 6: test cách ly
 
 Mỗi service có ít nhất một lớp test theo mẫu ở mục 5 và phải xanh trên CI trước khi merge.
+
+### order-service đã chuyển đổi (WMS-22.4b)
+
+- Migration `V9__multi_tenant_company_id.sql` thêm `company_id` cho toàn bộ 14 bảng nghiệp vụ: `suppliers`, `customers`, `supplier_transactions`, `customer_transactions`, `purchase_orders`, `po_items`, `sales_orders`, `so_items`, `goods_receipt_notes`, `goods_receipt_note_items`, `purchase_bills`, `purchase_bill_items`, `goods_delivery_notes`, `goods_delivery_note_items`. Dữ liệu cũ thuộc doanh nghiệp 1, bảng con lấy theo bảng cha. Ràng buộc duy nhất: `(company_id, code)` cho nhà cung cấp và khách hàng, `(company_id, po_number)`, `(company_id, so_number)`, `(company_id, grn_number)`, `(company_id, bill_number)`, `(company_id, gdn_number)`. Mã số thuế tra theo index `(company_id, tax_code)`. `uk_purchase_bills_grn (grn_id)` giữ nguyên vì `grn_id` là khóa chính toàn hệ thống.
+- Số chứng từ (PO, SO, GRN, GDN, PB) cấp từ bảng `document_sequences` (một dòng cho mỗi doanh nghiệp và mỗi tiền tố như `PO-20261110-`), qua `DocumentNumberService`: transaction riêng có khóa dòng, commit ngay, nên hai yêu cầu đồng thời không nhận trùng số, hai doanh nghiệp đều bắt đầu từ `...-0001`. Lần đầu gặp một tiền tố, bộ đếm khởi tạo từ số lớn nhất đã có của doanh nghiệp. Bộ đếm trong bộ nhớ dùng chung cho mọi doanh nghiệp trước đây đã bỏ.
+- order-service không có SQL gốc, không có `@RabbitListener`, không có `@Scheduled`. Sự kiện `order.created`, `order.received`, `order.dispatched` phát qua `WmsEventPublisher` nên tự mang `x-wms-company-id`; sự kiện duyệt PO phát sau commit ghi sẵn `companyId` trong sự kiện Spring nội bộ rồi phát dưới `TenantContext.callAs`. Lời gọi OpenFeign sang inventory-service và product-service đi qua `TenantFeignRequestInterceptor` (đăng ký tự động cho mọi Feign client).
+- Endpoint nội bộ `/internal/orders/kpi-metrics` chỉ dùng JPQL nên chỉ tính số liệu của doanh nghiệp trong header `X-Company-Id`.
+- Test: `OrderTenantIsolationTest`, `PartnerBulkImportIntegrationTest`. Test `@Transactional` có sẵn nhận doanh nghiệp 1 từ `TenantTestExecutionListener` (đăng ký trong `src/test/resources/META-INF/spring.factories`), chạy trước khi Spring mở transaction của test; test tự tạo luồng mới thì bọc phần việc trong `TenantContext.runAs`.
 
 ## 5. Mẫu test cách ly
 
@@ -179,6 +208,8 @@ class WarehouseIsolationTest {
 ```
 
 Test đang có của service sau khi chuyển đổi cần đặt doanh nghiệp: thêm header `X-Company-Id` vào request của MockMvc, hoặc đặt `app.tenant.default-company-id=1` trong `application-test.yml`, hoặc gọi `TenantContext.setCompanyId(1L)` trong `@BeforeEach` và `TenantContext.clear()` trong `@AfterEach` với test gọi thẳng service.
+
+Lớp test đặt `@Transactional` mở transaction (và phiên Hibernate) trước `@BeforeEach`, nên đặt doanh nghiệp trong `@BeforeEach` là quá muộn: phiên đã mở dưới "không doanh nghiệp". product-service dùng một `TestExecutionListener` có thứ tự nhỏ hơn `TransactionalTestExecutionListener` để đặt doanh nghiệp trước khi transaction mở (`DefaultCompanyTestExecutionListener`, khai báo bằng `@TestExecutionListeners(listeners = ..., mergeMode = MERGE_WITH_DEFAULTS)`).
 
 ## 6. Cấu hình
 

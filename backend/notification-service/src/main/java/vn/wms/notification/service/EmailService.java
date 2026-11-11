@@ -29,4 +29,23 @@ public class EmailService {
         message.setText(content);
         mailSender.send(message);
     }
+
+    /**
+     * Gửi một email HTML mã hóa UTF-8 (email kích hoạt và đặt lại mật khẩu, WMS-23.6); ném MailException nếu SMTP lỗi
+     * hoặc không dựng được thư.
+     */
+    public void sendHtml(String to, String subject, String html) {
+        jakarta.mail.internet.MimeMessage message = mailSender.createMimeMessage();
+        try {
+            org.springframework.mail.javamail.MimeMessageHelper helper =
+                    new org.springframework.mail.javamail.MimeMessageHelper(message, false, "UTF-8");
+            helper.setFrom(properties.mail().from());
+            helper.setTo(to);
+            helper.setSubject(subject);
+            helper.setText(html, true);
+        } catch (jakarta.mail.MessagingException ex) {
+            throw new org.springframework.mail.MailPreparationException("Không dựng được email HTML", ex);
+        }
+        mailSender.send(message);
+    }
 }

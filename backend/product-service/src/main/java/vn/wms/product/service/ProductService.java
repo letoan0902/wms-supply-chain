@@ -8,7 +8,6 @@ import vn.wms.common.api.PageResponse;
 import vn.wms.common.exception.ApiException;
 import vn.wms.common.plan.PlanLimit;
 import vn.wms.common.plan.PlanLimitChecker;
-import vn.wms.common.tenant.TenantContext;
 import vn.wms.product.dto.CreateProductRequest;
 import vn.wms.product.dto.ProductResponse;
 import vn.wms.product.dto.UpdateProductRequest;
@@ -24,10 +23,13 @@ import java.math.BigDecimal;
 /**
  * Nghiệp vụ danh mục SKU / sản phẩm.
  *
- * <p>Giới hạn số SKU theo gói (WMS-23.2): tạo SKU mới hoặc bật lại SKU đã ngưng phải qua {@link PlanLimitChecker}.
- * product-service chưa tách dữ liệu theo doanh nghiệp (WMS-22.4b) nên dùng
- * {@link PlanLimitChecker#assertCanCreateIfTenant}: request không mang X-Company-Id (gọi trực tiếp, test cũ) thì bỏ
- * qua kiểm tra thay vì báo lỗi COMPANY_REQUIRED. Checker là tùy chọn (không có Redis thì bỏ qua).
+ * <p>Dữ liệu tách theo doanh nghiệp (WMS-22.4b): {@link Product}, {@link Category}, {@link Uom} kế thừa
+ * {@code TenantEntity}, nên mọi truy vấn của repository (kể cả kiểm tra trùng SKU, mã vạch) chỉ xét doanh nghiệp
+ * trong {@link vn.wms.common.tenant.TenantContext}; tìm theo ID một bản ghi của doanh nghiệp khác ném
+ * {@code NOT_FOUND}.
+ *
+ * <p>Giới hạn số SKU theo gói (WMS-23.2): tạo SKU mới hoặc bật lại SKU đã ngưng phải qua {@link PlanLimitChecker},
+ * đếm số SKU đang hoạt động của chính doanh nghiệp. Checker là tùy chọn (không có Redis thì bỏ qua).
  */
 @Service
 public class ProductService {
@@ -192,18 +194,22 @@ public class ProductService {
         }
     }
 
-    /** Kiểm tra giới hạn số SKU của gói trước khi có thêm một SKU đang hoạt động (tạo mới hoặc bật lại). */
+    /**
+     * Kiểm tra giới hạn số SKU của gói trước khi doanh nghiệp có thêm một SKU đang hoạt động (tạo mới, nhập hàng
+     * loạt hoặc bật lại). Số đếm chỉ gồm SKU của doanh nghiệp hiện tại; thiếu doanh nghiệp thì ném
+     * {@code COMPANY_REQUIRED}.
+     */
     private void assertCanActivateSku() {
         PlanLimitChecker checker = planLimitChecker != null ? planLimitChecker.getIfAvailable() : null;
         if (checker != null) {
-            checker.assertCanCreateIfTenant(PlanLimit.SKUS, productRepository::countByActiveTrue);
+            checker.assertCanCreate(PlanLimit.SKUS, productRepository.countByActiveTrue());
         }
     }
 
-    /** Ghi số SKU đang hoạt động vào bộ nhớ đệm mức sử dụng (bỏ qua khi chưa có doanh nghiệp trong ngữ cảnh). */
+    /** Ghi số SKU đang hoạt động của doanh nghiệp hiện tại vào bộ nhớ đệm mức sử dụng. */
     private void reportSkuUsage() {
         PlanLimitChecker checker = planLimitChecker != null ? planLimitChecker.getIfAvailable() : null;
-        if (checker != null && TenantContext.isSet()) {
+        if (checker != null) {
             checker.reportUsage(PlanLimit.SKUS, productRepository.countByActiveTrue());
         }
     }

@@ -81,6 +81,26 @@ app:
       enabled: ${AUTH_DEV_LOGIN_ENABLED:true}
       password: ${AUTH_DEV_PASSWORD:change_me}
   demo-tools: ${APP_DEMO_TOOLS:false}
+  # Địa chỉ gốc của giao diện, dùng dựng liên kết trong email kích hoạt và đặt lại mật khẩu (WMS-23.6):
+  # {APP_FRONTEND_URL}/activate?token=..., {APP_FRONTEND_URL}/reset-password?token=...
+  # Để trống thì dùng gốc của PAYOS_RETURN_URL (mặc định http://localhost:5173).
+  frontend-url: ${APP_FRONTEND_URL:}
+  registration:
+    # true (mặc định, bắt buộc ở production): doanh nghiệp mới ở trạng thái PENDING cho tới khi bấm liên kết kích hoạt
+    # trong email. Chỉ đặt false trên máy phát triển không có mail để đăng ký xong đăng nhập được ngay.
+    require-activation: ${REGISTRATION_REQUIRE_ACTIVATION:true}
+  # Liên kết dùng một lần (WMS-23.6, vn.wms.auth.account): hiệu lực, giới hạn gửi lại và xử lý nền để phản hồi của
+  # API gửi lại kích hoạt và quên mật khẩu không để lộ email có tồn tại hay không.
+  account-email:
+    async: true
+    activation-ttl: 24h
+    password-reset-ttl: 30m
+    resend-interval: 1m
+  # API key cho hệ thống ngoài (WMS-25.1, xem vn.wms.auth.apikey.service.ApiKeyScheduler): chu kỳ ghi lại toàn bộ
+  # khóa wms:apikey:{sha256} lên Redis và chu kỳ đổ lần dùng gần nhất (gateway ghi trên Redis) vào cột last_used_at.
+  api-key:
+    sync-interval-ms: 300000
+    last-used-flush-ms: 60000
   # Thanh toán PayOS (WMS-23.5a). Ba khóa chỉ đặt trong .env trên máy chủ, không commit, không ghi log.
   # Để trống URL thì dùng http://localhost:5173/payment/result (máy phát triển chạy Vite).
   payos:

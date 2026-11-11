@@ -91,11 +91,12 @@ springdoc:
   api-docs:
     path: /v3/api-docs
 
-# Tách dữ liệu theo doanh nghiệp (docs/MULTI_TENANT.md). Service này chưa chuyển sang TenantEntity nên chưa bật
-# required; doanh nghiệp mặc định chỉ để sự kiện phát ra và lời gọi sang service khác mang đúng doanh nghiệp
-# khi chạy ở máy phát triển không qua gateway. Trên máy chủ biến này để rỗng.
+# Tách dữ liệu theo doanh nghiệp (docs/MULTI_TENANT.md, WMS-22.4b): request không xác định được doanh nghiệp nhận
+# 403 COMPANY_REQUIRED. Doanh nghiệp mặc định chỉ dành cho máy phát triển chạy không qua gateway (docker-compose.yml
+# đặt 1); trên máy chủ biến này để rỗng (deploy/docker-compose.prod.yml).
 app:
   tenant:
+    required: true
     default-company-id: ${TENANT_DEFAULT_COMPANY_ID:}
 
 ---

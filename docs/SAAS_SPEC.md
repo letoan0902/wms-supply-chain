@@ -96,6 +96,7 @@ Toàn thêm toàn bộ các mã dưới đây vào `ErrorCode` của module `com
 | `PLAN_LIMIT_EXCEEDED` | 403 | Tạo mới vượt giới hạn của gói. Trường `data` gồm `limit` (`USERS`, `WAREHOUSES`, `SKUS`, `AI_REQUESTS`, `API_ACCESS`), `current`, `max`, `plan` |
 | `PAYMENT_INVALID` | 400 | Webhook thanh toán sai chữ ký, sai số tiền hoặc mã đơn không tồn tại |
 | `TOKEN_INVALID` | 400 | Mã kích hoạt hoặc mã đặt lại mật khẩu sai, đã dùng hoặc hết hạn |
+| `TOO_MANY_REQUESTS` | 429 | API key gọi quá giới hạn tốc độ (thêm ở WMS-25.1, gateway trả) |
 
 Các trường hợp còn lại dùng mã đã có (`VALIDATION_ERROR`, `CONFLICT`, `NOT_FOUND`, `UNAUTHORIZED`, `FORBIDDEN`). Frontend xử lý theo `code`, không theo nội dung `message`.
 
@@ -135,7 +136,7 @@ TRIAL/ACTIVE --(chọn gói Khởi Đầu)--> FREE/ACTIVE --(thanh toán)--> PRO
 
 - Mỗi lần thanh toán thành công: `expires_at = max(thời điểm hiện tại, mốc hết hạn đang còn hiệu lực) + 30 hoặc 365 ngày`. Thanh toán sớm không bị mất ngày còn lại.
 - Chuyển về `FREE` chỉ được phép khi đang `TRIAL` hoặc khi thuê bao đã `EXPIRED`. Đang `PRO` còn hạn thì chờ hết hạn.
-- Khi `EXPIRED`: mọi request `POST`, `PUT`, `PATCH`, `DELETE` trả `SUBSCRIPTION_EXPIRED`, trừ đăng nhập, làm mới token, đăng xuất, đổi mật khẩu và các API dưới `/api/auth/subscription/**`, `/api/auth/payments/**`. Request `GET` vẫn chạy bình thường.
+- Khi `EXPIRED`: mọi request `POST`, `PUT`, `PATCH`, `DELETE` trả `SUBSCRIPTION_EXPIRED`, trừ đăng nhập, làm mới token, đăng xuất, đổi mật khẩu, thu hồi API key (`DELETE /api/auth/api-keys/{id}`) và các API dưới `/api/auth/subscription/**`, `/api/auth/payments/**`. Request `GET` vẫn chạy bình thường.
 
 ### 2.7. Bộ nhớ đệm thuê bao trên Redis
 
@@ -372,6 +373,42 @@ Người làm: Việt. Ngày: 10/11 đến 12/11. Jira: TASK-137. Phụ thuộc:
 3. File có 3 dòng lỗi (thiếu tên, trùng SKU đã có, trùng SKU trong file): 47 dòng còn lại vẫn vào, 3 dòng lỗi có `row` và `message` đúng.
 4. Nhập lại đúng file đó: tất cả `SKIPPED`, không sinh bản ghi trùng.
 
+**Phần product-service đã làm** (11/11, migration `V4`)
+
+- Migration `V4__multi_tenant_company_id.sql`: thêm `company_id BIGINT NOT NULL` cho `categories`, `uoms`, `products`, `unit_conversions` (dữ liệu cũ thuộc doanh nghiệp 1, quy đổi lấy doanh nghiệp từ sản phẩm); ràng buộc duy nhất `uk_categories_company_code`, `uk_uoms_company_code`, `uk_products_company_sku`, `uk_products_company_barcode`; index `idx_products_company_active`, `idx_unit_conversions_company`. MySQL cho phép nhiều dòng `barcode` NULL trong chỉ mục duy nhất nên hàng hóa chưa có mã vạch vẫn tạo được không giới hạn như trước.
+- Bốn entity kế thừa `TenantEntity`; `app.tenant.required: true`. Không có câu SQL gốc nào, mọi kiểm tra trùng (SKU, mã vạch, mã danh mục, mã đơn vị tính, cặp quy đổi) tự xét trong doanh nghiệp. Xem, sửa, xóa theo ID của doanh nghiệp khác, kể cả dùng ID danh mục hoặc đơn vị tính của doanh nghiệp khác khi tạo hàng hóa, quy đổi, đều trả `404`.
+- Đơn vị tính mẫu do `V3` thêm (`PCS`, `BOTTLE`, `CAN`, `PACK`, `BOX`, `CTN`, `PLT`, `KG`, `BAG`) thuộc doanh nghiệp 1. Doanh nghiệp mới đăng ký bắt đầu với danh mục và đơn vị tính rỗng; API nhập hàng loạt tự tạo khi cần.
+- Giới hạn SKU (WMS-23.2) đếm SKU đang hoạt động của chính doanh nghiệp (`assertCanCreate` thay cho `assertCanCreateIfTenant`), `wms:usage:{companyId}` trường `skus` ghi số của doanh nghiệp đó.
+- product-service không phát, không nhận sự kiện RabbitMQ. Hiện không service nào gọi product-service: `ProductClient` của order-service và inventory-service đã khai báo nhưng chưa được dùng; khi dùng, `TenantFeignRequestInterceptor` của `common` (tự đăng ký cho mọi Feign client) chuyển tiếp `X-Company-Id`. Lời gọi từ listener hoặc tác vụ định kỳ phải bọc trong `TenantContext.runAs`.
+
+`POST /api/products/bulk`
+
+- Quyền: như `POST /api/products` (product-service chưa phân quyền theo vai trò, mọi tài khoản đã đăng nhập đều gọi được; cần doanh nghiệp, thiếu thì `403 COMPANY_REQUIRED`).
+- Body: `{ "items": [ { "sku", "name", "barcode", "description", "categoryName", "uomName", "purchasePrice", "sellingPrice", "vatRate", "safetyStock", "reorderPoint", "maxStock" } ] }`, từ 1 đến 500 dòng. Body trống, thiếu `items`, danh sách rỗng hoặc quá 500 dòng trả `400 VALIDATION_ERROR`.
+- Kết quả `200`, `data` là `{ "total", "created", "skipped", "failed", "results": [ { "row", "status", "id", "code", "message" } ] }`; `code` là SKU sau khi chuẩn hóa (cắt khoảng trắng, viết hoa), `id` là ID hàng vừa tạo hoặc hàng đã có.
+- Thứ tự xét một dòng: SKU đã xuất hiện ở dòng trước trong file thì `FAILED` ("Mã SKU 'X' bị lặp lại trong file (đã có ở dòng N)"); kiểm tra dữ liệu bằng đúng ràng buộc của API tạo một hàng hóa cộng `uomName` bắt buộc (tối đa 100 ký tự), `categoryName` tối đa 150 ký tự, nhiều lỗi nối bằng dấu chấm phẩy; SKU đã có trong doanh nghiệp thì `SKIPPED`, không ghi đè; còn lại tạo qua đúng nghiệp vụ của `POST /api/products`, nên trùng mã vạch và vượt giới hạn SKU của gói thành `FAILED` kèm thông báo của lỗi đó (ví dụ "Gói Khởi Đầu chỉ cho phép tối đa 200 SKU. Nâng cấp gói để thêm SKU mới.").
+- `categoryName`, `uomName` tìm theo tên (không phân biệt hoa thường và khoảng trắng hai đầu), không thấy thì tìm theo mã; vẫn không có thì tạo mới cho doanh nghiệp với mã sinh từ tên (bỏ dấu, viết hoa, ví dụ "Thùng" thành `THUNG`, trùng thì thêm `-2`). Danh mục, đơn vị tính tạo ở một dòng được các dòng sau trong cùng file dùng lại.
+- Mỗi dòng là một transaction riêng (`REQUIRES_NEW` trong bean `ProductBulkRowImporter`): dòng lỗi rollback cả danh mục, đơn vị tính vừa tạo cho nó, không ảnh hưởng dòng khác.
+- Lớp kết quả dùng chung ở `vn.wms.common.bulk` (`BulkRequest`, `BulkResult`, `BulkRowResult`, `BulkRowStatus`). order-service hiện có lớp riêng cùng cấu trúc JSON trong `vn.wms.order.dto.bulk`.
+
+**Phần order-service đã làm** (11/11, migration `V9`)
+
+- Tách dữ liệu toàn bộ 14 bảng của order-service, không chỉ tám bảng ở phần 1: thêm cả phiếu nhập (`goods_receipt_notes`, `goods_receipt_note_items`), hóa đơn mua (`purchase_bills`, `purchase_bill_items`), phiếu xuất (`goods_delivery_notes`, `goods_delivery_note_items`). Số chứng từ duy nhất trong một doanh nghiệp: `(company_id, po_number)`, `so_number`, `grn_number`, `bill_number`, `gdn_number`. Bật `app.tenant.required: true`; thiếu doanh nghiệp nhận `403 COMPANY_REQUIRED`.
+- Số chứng từ PO, SO, GRN, GDN, PB cấp theo từng doanh nghiệp từ bảng mới `document_sequences` (khóa dòng trong transaction riêng), giữ định dạng 4 chữ số đang dùng: hai doanh nghiệp cùng có `PO-20261110-0001`.
+- Sự kiện mang `x-wms-company-id` (tự động qua `WmsEventPublisher`, payload không đổi). Lời gọi OpenFeign sang inventory-service, product-service chuyển tiếp `X-Company-Id`. `/internal/orders/kpi-metrics` chỉ trả số liệu của doanh nghiệp gọi. Chi tiết kỹ thuật ở [MULTI_TENANT.md](MULTI_TENANT.md), mục 4.
+
+**API nhập hàng loạt đã làm (order-service)**
+
+| API | Vai trò | Body |
+| --- | --- | --- |
+| `POST /api/orders/suppliers/bulk` | Như `POST /api/orders/suppliers` (hiện chưa giới hạn vai trò) | `{ "items": [CreateSupplierRequest, ...] }`: `code`, `name` (bắt buộc), `taxCode`, `contactName`, `email`, `phone`, `address`, `bankAccount`, `bankName`, `paymentTerms`, `creditLimit`, `initialDebt` |
+| `POST /api/orders/customers/bulk` | Như `POST /api/orders/customers` (khai báo `ADMIN`, `SALES`, `ACCOUNTANT`) | `{ "items": [CreateCustomerRequest, ...] }`: `code`, `name`, `customerType` (`WHOLESALE`/`RETAIL`, bắt buộc), `taxCode`, `contactName`, `email`, `phone`, `address`, `paymentTerms`, `creditLimit`, `initialDebt`, `notes` |
+
+- Thiếu body, `items` rỗng hoặc hơn 500 dòng: `400 VALIDATION_ERROR` (với `items` rỗng hoặc quá dài, `data.items` là lý do). Còn lại luôn `200`, `data` = `{ total, created, skipped, failed, results: [{ row, status, id, code, message }] }`. `code` là mã đã chuẩn hóa (viết hoa, bỏ khoảng trắng hai đầu); `id` là bản ghi vừa tạo (`CREATED`) hoặc đang có (`SKIPPED`), `null` khi `FAILED`.
+- Thứ tự xét mỗi dòng: kiểm tra ràng buộc như API tạo đơn lẻ (lỗi gộp các thông báo bằng `; `) -> mã trùng một dòng hợp lệ phía trên: `FAILED` "trùng với dòng N" -> mã đã có trong doanh nghiệp: `SKIPPED`, không ghi đè -> tạo bằng đúng service tạo đơn lẻ (trùng mã số thuế trong doanh nghiệp, kể cả với dòng phía trên vừa tạo: `FAILED`; công nợ ban đầu ghi giao dịch như tạo đơn lẻ).
+- Mỗi dòng một transaction riêng (`REQUIRES_NEW`). Nhập lại cùng file: mọi dòng hợp lệ thành `SKIPPED`; dòng sai dữ liệu và dòng lặp mã trong file vẫn `FAILED` như lần đầu.
+- order-service chưa bật kiểm tra vai trò (không có method security, `@PreAuthorize` chỉ là khai báo), nên API nhập hàng loạt có cùng quyền thực tế với API tạo đơn lẻ.
+
 ### WMS-22.4c [Backend] notification-service: thông báo, KPI và báo cáo theo doanh nghiệp
 
 Người làm: Toàn. Ngày: 16/11. Jira: TASK-138. Phụ thuộc: WMS-22.1.
@@ -388,6 +425,16 @@ Người làm: Toàn. Ngày: 16/11. Jira: TASK-138. Phụ thuộc: WMS-22.1.
 
 1. A tạo đơn hàng: chỉ người dùng của A nhận thông báo; KPI của B không đổi.
 2. Người dùng của B đăng ký kênh của A bị từ chối.
+
+**Đã làm (11/11)**
+
+- Dữ liệu: `notification_logs` là bảng duy nhất của service (chưa có bảng báo cáo), kế thừa `TenantEntity`; migration `V2__multi_tenant_company_id.sql` thêm `company_id`, gán dữ liệu cũ cho doanh nghiệp 1, đặt NOT NULL, thêm index `(company_id, status)` và `(company_id, created_at)`. `app.tenant.required: true`, `default-company-id: ${TENANT_DEFAULT_COMPANY_ID:}` (compose dev 1, máy chủ rỗng). Đường dẫn bỏ qua kiểm tra doanh nghiệp: `/ws-wms/**`, `/api/notifications/health-info`.
+- Listener: `AlertEventsListener`, `OrderEventsListener`, `InventoryEventsListener` lấy doanh nghiệp từ header `x-wms-company-id`, không có thì trường `companyId` của JSON, rồi xử lý trong `TenantContext.runAs`. Thiếu doanh nghiệp: ghi một dòng log cảnh báo và bỏ qua, không ném lỗi, không thử lại, không gửi email.
+- KPI: khóa Redis `wms:notification:kpi:{companyId}:{yyyy-MM-dd}` và `wms:notification:kpi:{companyId}:processed:{messageId}`. `GET /api/notifications/realtime/kpi` trả bộ đếm của doanh nghiệp trong `X-Company-Id`, thiếu thì `403 COMPANY_REQUIRED`. Cache của `GET /api/notifications/dashboard/kpi-summary` đã theo doanh nghiệp: `wms:kpi:company:{companyId}:summary:...`.
+- WebSocket: kênh `/topic/company/{companyId}/alerts`, `/orders`, `/inventory`, `/kpi` thay cho bốn topic dùng chung. Frame CONNECT gửi `Authorization: Bearer <accessToken>`; máy chủ kiểm tra chữ ký bằng `JWT_SECRET` như gateway và lấy doanh nghiệp từ claim `companyId`. Bật `GATEWAY_JWT_ENABLED` (máy chủ): thiếu, sai token hoặc token không có `companyId` bị từ chối ở CONNECT. Tắt (máy phát triển): token không bắt buộc, phiên không có token dùng doanh nghiệp mặc định. SUBSCRIBE chỉ được vào kênh của doanh nghiệp của phiên; kênh doanh nghiệp khác, phiên chưa xác thực, topic cũ đều nhận frame ERROR.
+- Email: gửi và ghi nhật ký dưới doanh nghiệp của sự kiện; không có doanh nghiệp thì không gửi. Người nhận nằm sẵn trong tin (`recipient`) do service phát chọn trong doanh nghiệp của nó; notification-service hiện không gọi auth-service tra người nhận.
+- Frontend: `realtimeConnection.ts` đăng ký `realtimeTopics(companyId)`, `companyId` lấy từ claim của token gửi ở CONNECT, không có thì từ `company.id` lưu lúc đăng nhập (`LoginPage` lưu thêm `company`).
+- Test: cách ly nhật ký (B không đọc, không xóa được bản ghi của A), sự kiện của A chỉ tăng KPI và chỉ tới kênh của A, sự kiện thiếu doanh nghiệp bị bỏ qua, quyền SUBSCRIBE (đúng doanh nghiệp được, doanh nghiệp khác và phiên chưa xác thực bị từ chối) cả ở mức interceptor lẫn kết nối WebSocket thật.
 
 ### WMS-22.5 [QA] Kiểm thử cách ly dữ liệu, giới hạn gói và hết hạn
 
@@ -487,7 +534,7 @@ Phần `data` của `GET /api/auth/subscription` ngay sau khi đăng ký:
 
 - Tên đăng nhập hoặc email đã tồn tại trả `409 CONFLICT`, nêu rõ trường nào trùng. Mỗi email chỉ đăng ký được một doanh nghiệp.
 - Mã doanh nghiệp do hệ thống sinh, người dùng không nhập.
-- Trạng thái doanh nghiệp sau đăng ký là `ACTIVE` cho tới khi WMS-23.6 thêm bước kích hoạt qua email.
+- Trạng thái doanh nghiệp sau đăng ký: từ WMS-23.6 là `PENDING` cho tới khi bấm liên kết kích hoạt trong email (tắt được bằng `REGISTRATION_REQUIRE_ACTIVATION=false` trên máy phát triển, xem WMS-23.6).
 - Việc chuyển sang `EXPIRED` do một tác vụ định kỳ 5 phút một lần thực hiện, đồng thời kiểm tra lại khi đăng nhập và khi gọi `GET /api/auth/subscription`.
 - Mỗi thay đổi thuê bao ghi lại bộ nhớ đệm theo mục 2.7.
 - Viết phần kích hoạt gói thành một hàm dùng chung của `SubscriptionService` (nhận doanh nghiệp, gói, chu kỳ) để WMS-23.5a gọi lại khi thanh toán thành công.
@@ -535,11 +582,11 @@ Người làm: Toàn. Ngày: 10/11. Jira: TASK-143. Phụ thuộc: WMS-23.1.
 
 - `common`, gói `vn.wms.common.plan`: `PlanLimitChecker` tự đăng ký khi service có bean `StringRedisTemplate`; tắt bằng `app.plan-limit.enabled=false` (test không có Redis đặt sẵn giá trị này). Service tiêm dạng tùy chọn (`ObjectProvider<PlanLimitChecker>`).
   - `assertCanCreate(limit, currentCount)`: `currentCount` là số bản ghi đang hoạt động trước khi tạo; `currentCount >= max` (và `max != -1`) thì ném `PLAN_LIMIT_EXCEEDED`, `data` là `{limit, current, max, plan}`.
-  - `assertCanCreateIfTenant(limit, supplier)`: bỏ qua khi chưa có doanh nghiệp trong ngữ cảnh, dùng cho service chưa tách dữ liệu (product-service).
+  - `assertCanCreateIfTenant(limit, supplier)`: bỏ qua khi chưa có doanh nghiệp trong ngữ cảnh, dùng cho service chưa tách dữ liệu (product-service dùng tới trước WMS-22.4b, nay không còn service nào dùng).
   - `reportUsage(limit, count)`, `incrementMonthlyAiUsage()`, `assertAiQuota()` cho ai-service.
 - `ApiException.withData(code, message, data)`: `GlobalExceptionHandler` trả `data` kèm lỗi.
 - Gateway: `SubscriptionGlobalFilter` (order -99, ngay sau bộ lọc JWT) gắn `X-Plan` và chặn ghi khi `EXPIRED`. Danh sách ngoại lệ ở `gateway.subscription.write-allowed-paths`; tắt cả bộ lọc bằng `GATEWAY_SUBSCRIPTION_ENABLED=false`. Bộ lọc chỉ có tác dụng khi bật kiểm tra JWT (mới có `X-Company-Id`).
-- inventory-service kiểm tra số kho khi tạo kho đang hoạt động và khi bật lại kho đã ngưng (PATCH trạng thái hoặc PUT có `active: true`); product-service kiểm tra số SKU khi tạo và khi bật lại SKU đã xóa mềm. product-service hiện đếm SKU trên toàn bảng cho tới khi xong WMS-22.4b.
+- inventory-service kiểm tra số kho khi tạo kho đang hoạt động và khi bật lại kho đã ngưng (PATCH trạng thái hoặc PUT có `active: true`); product-service kiểm tra số SKU khi tạo, khi nhập hàng loạt và khi bật lại SKU đã xóa mềm. Từ WMS-22.4b product-service đếm SKU của chính doanh nghiệp.
 - Phần 2 (auth-service, nhánh `wms-23-2b`):
   - `UserPlanLimitGuard` kiểm tra `USERS` (số tài khoản `enabled = true` của doanh nghiệp) trước khi tạo tài khoản (`POST /api/auth/users`, `POST /api/auth/register`) và trước khi mở khóa (`PATCH .../status` hoặc `PUT` có `enabled: true`); sau mỗi lần tạo, mở khóa, khóa thì ghi lại `users` vào `wms:usage:{companyId}` sau khi commit. auth-service không dùng `TenantContext` nên gọi bản nhận doanh nghiệp trực tiếp `assertCanCreate(companyId, limit, currentCount)`, `reportUsage(companyId, limit, count)` (thêm vào `PlanLimitChecker`, bản cũ giữ nguyên). Đăng ký doanh nghiệp mới không bị chặn.
   - `GET /api/auth/subscription` trả đủ bốn số `usage` (cách đọc ở mục API của WMS-23.1); Redis lỗi thì ba số đọc từ Redis là `null`.
@@ -674,26 +721,47 @@ Chạy trọn bước 5 của kịch bản demo trong SAAS_PLAN.md: hết hạn,
 
 ### WMS-23.6 [Backend] Kích hoạt doanh nghiệp qua email và đặt lại mật khẩu
 
-Người làm: Phương Anh. Ngày: 18/11. Jira: TASK-149. Phụ thuộc: WMS-23.1.
+Người làm: Toàn. Ngày: 11/11. Jira: TASK-149. Phụ thuộc: WMS-23.1.
 
-**API**
+**API (đã làm)**
 
-| API | Mô tả |
-| --- | --- |
-| `POST /api/auth/companies/register` (sửa) | Doanh nghiệp tạo ra ở trạng thái `PENDING`; gửi email chứa liên kết `{địa chỉ frontend}/activate?token=...` tới email đăng ký |
-| `POST /api/auth/companies/activate` | Body: `token`. Hợp lệ: doanh nghiệp thành `ACTIVE`, ghi `activated_at`. Sai, đã dùng hoặc quá 24 giờ: `400 TOKEN_INVALID` |
-| `POST /api/auth/companies/resend-activation` | Body: `email`. Luôn trả `200` dù email có tồn tại hay không. Mỗi email tối đa một lần mỗi phút |
-| `POST /api/auth/password/forgot` | Body: `email`. Luôn trả `200`. Nếu email thuộc một tài khoản đang bật thì gửi liên kết `{địa chỉ frontend}/reset-password?token=...`, hiệu lực 30 phút |
-| `POST /api/auth/password/reset` | Body: `token`, `newPassword`. Hợp lệ: đổi mật khẩu, vô hiệu mọi refresh token của tài khoản. Không hợp lệ: `400 TOKEN_INVALID` |
+| API | Ai gọi | Mô tả |
+| --- | --- | --- |
+| `POST /api/auth/companies/register` (sửa) | Công khai | Doanh nghiệp tạo ra ở trạng thái `PENDING`, `activated_at` rỗng; phát sự kiện `auth.activation-requested` để notification-service gửi liên kết `{APP_FRONTEND_URL}/activate?token=...` (hiệu lực 24 giờ) tới email đăng ký. `data` thêm `activationRequired` (`true`); `company.status` là `PENDING`. Không trả token |
+| `POST /api/auth/companies/activate` | Công khai | Body: `token`. Hợp lệ: `200`, doanh nghiệp thành `ACTIVE`, ghi `activated_at`, ghi lại bộ nhớ đệm thuê bao; `data`: `companyCode`, `companyName`, `status`, `activatedAt`, `username` (ADMIN nhận liên kết, để điền sẵn ở trang đăng nhập). Sai, đã dùng, quá 24 giờ, hoặc doanh nghiệp đã bị tạm khóa: `400 TOKEN_INVALID`. Thiếu `token`: `400 VALIDATION_ERROR` |
+| `POST /api/auth/companies/resend-activation` | Công khai | Body: `email`. Luôn `200` với cùng thông báo, không có `data`. Chỉ gửi khi email thuộc tài khoản đang bật của doanh nghiệp còn `PENDING`; liên kết mới làm liên kết cũ hết dùng được. Mỗi email tối đa một lần mỗi phút. Email sai định dạng: `400 VALIDATION_ERROR` |
+| `POST /api/auth/password/forgot` | Công khai | Body: `email`. Luôn `200` với cùng thông báo. Chỉ tài khoản đang bật của doanh nghiệp `ACTIVE` nhận liên kết `{APP_FRONTEND_URL}/reset-password?token=...`, hiệu lực 30 phút; liên kết đặt lại cũ hết dùng được. Mỗi email tối đa một lần mỗi phút |
+| `POST /api/auth/password/reset` | Công khai | Body: `token`, `newPassword` (6 đến 72 ký tự như đổi mật khẩu). Hợp lệ: `200`, đổi mật khẩu, vô hiệu mọi liên kết đặt lại khác và refresh token của tài khoản (xóa `refresh:{username}` trên Redis). Mã sai, đã dùng, quá 30 phút, tài khoản bị khóa hoặc doanh nghiệp không còn hoạt động: `400 TOKEN_INVALID`. Mật khẩu không hợp lệ: `400 VALIDATION_ERROR` |
 
-**Quy tắc nghiệp vụ**
+Đăng nhập (và làm mới token) khi doanh nghiệp còn `PENDING`: `403 COMPANY_INACTIVE`, thông báo hướng dẫn mở email kích hoạt, `data` là `{"companyStatus": "PENDING"}` để giao diện phân biệt với doanh nghiệp bị tạm khóa (`SUSPENDED` giữ thông báo cũ, không có `data`). Mật khẩu sai vẫn trả `401` như trước, nên chỉ người biết mật khẩu mới thấy trạng thái `PENDING`.
 
-- Mã trong liên kết sinh ngẫu nhiên, chỉ lưu bản băm, dùng một lần.
-- 30 ngày dùng thử vẫn tính từ lúc đăng ký.
-- Đăng nhập khi doanh nghiệp còn `PENDING` nhận `403 COMPANY_INACTIVE`.
-- auth-service không gửi mail trực tiếp: phát sự kiện qua RabbitMQ để notification-service gửi bằng `EmailService` đã có. Tên sự kiện và cấu trúc bổ sung vào `docs/MESSAGING.md` trong cùng Pull Request.
-- Môi trường không cấu hình SMTP: notification-service ghi liên kết ra log để nhóm test.
-- Kèm hai trang frontend nhỏ `/activate` (gọi API rồi báo kết quả) và `/reset-password` (form mật khẩu mới), và nối trang `/forgot-password` đã có với API.
+**Dữ liệu**
+
+Bảng `account_tokens` (migration `V8__create_account_tokens.sql`): `company_id`, `user_id` (có thể rỗng), `type` (`COMPANY_ACTIVATION`, `PASSWORD_RESET`), `token_hash` (hex SHA-256, 64 ký tự, duy nhất), `expires_at`, `used_at` (đã dùng hoặc đã bị thay bằng mã mới hơn), bốn cột audit. Migration không đổi `companies`: hai công ty mẫu và các doanh nghiệp đã đăng ký trước đó giữ nguyên `ACTIVE`.
+
+**Quy tắc nghiệp vụ (đã làm)**
+
+- Mã gồm 32 byte ngẫu nhiên từ `SecureRandom`, mã hóa Base64 URL-safe không đệm (43 ký tự). Chỉ lưu SHA-256; mã gốc chỉ nằm trong liên kết. Dùng mã khóa dòng (`PESSIMISTIC_WRITE`) nên hai lần bấm cùng lúc chỉ một lần thành công. Mã kích hoạt không dùng được để đặt lại mật khẩu và ngược lại.
+- 30 ngày dùng thử vẫn tính từ lúc đăng ký; kích hoạt không đổi thuê bao.
+- auth-service không gửi mail: phát `auth.activation-requested` hoặc `auth.password-reset-requested` (payload `AccountEmailRequestedEvent`, header `x-wms-company-id` là doanh nghiệp của người nhận) sau khi transaction commit, xem `docs/MESSAGING.md` mục 3 và 8.7. notification-service gửi email HTML tiếng Việt và ghi `notification_logs` dưới doanh nghiệp đó.
+- Không để lộ email có tồn tại: hai API nhận email trả cùng nội dung, việc tra cứu, phát mã và phát sự kiện chạy ở luồng nền (`app.account-email.async`, mặc định `true`) nên thời gian trả lời như nhau. Giới hạn một lần mỗi phút đếm bằng khóa Redis `wms:auth:mail-throttle:{activation|password-reset}:{sha256(email)}` (không lưu email gốc); Redis lỗi thì cho qua.
+- Không ghi mã hay liên kết ra log ở auth-service. Môi trường chưa cấu hình SMTP (không có `MAIL_HOST`, hoặc có host nhưng không có `MAIL_USERNAME` và host không phải máy cục bộ): notification-service không gửi, ghi đúng một dòng INFO gồm người nhận và liên kết đầy đủ để nhóm bấm thử (`docker compose logs notification-service | grep "liên kết"`), nhật ký ghi `FAILED`.
+- Access token đã cấp trước khi đặt lại mật khẩu vẫn dùng được tới khi hết hạn (tối đa 15 phút), sau đó không làm mới được.
+
+**Cấu hình**
+
+| Biến | Mặc định | Ghi chú |
+| --- | --- | --- |
+| `APP_FRONTEND_URL` | rỗng: dùng gốc của `PAYOS_RETURN_URL`, cuối cùng là `http://localhost:5173` | docker-compose đặt `http://localhost`, production `https://<DOMAIN>` |
+| `REGISTRATION_REQUIRE_ACTIVATION` | `true` (kể cả khi để trống) | Chỉ đặt `false` trên máy phát triển không có mail: đăng ký xong là `ACTIVE`, không phát liên kết. Production luôn để mặc định |
+
+**Giao diện (đã làm)**
+
+- `/activate`: đọc `token`, gọi API đúng một lần; thành công thì có nút Đăng nhập (điền sẵn tên đăng nhập); `TOKEN_INVALID` thì báo liên kết không dùng được kèm form gửi lại email kích hoạt.
+- `/reset-password`: mật khẩu mới và nhập lại, gọi API rồi chuyển sang `/login`; `TOKEN_INVALID` thì dẫn tới `/forgot-password`.
+- `/forgot-password`: chỉ còn ô email, gọi API và luôn hiện nguyên thông báo trung lập của máy chủ.
+- `/login`: lỗi `COMPANY_INACTIVE` với `data.companyStatus = PENDING` hiện thông báo kèm form gửi lại email kích hoạt.
+- Trang `/register` thuộc WMS-23.3b: khi `data.activationRequired` là `true`, hiện hướng dẫn mở email để kích hoạt thay vì chuyển sang đăng nhập.
 
 **Tiêu chí nghiệm thu**
 
@@ -701,6 +769,8 @@ Người làm: Phương Anh. Ngày: 18/11. Jira: TASK-149. Phụ thuộc: WMS-23
 2. Liên kết kích hoạt dùng lần hai nhận `TOKEN_INVALID`.
 3. Quên mật khẩu: nhận email, đặt mật khẩu mới, đăng nhập bằng mật khẩu mới được, mật khẩu cũ không còn dùng được.
 4. Nhập email không tồn tại ở form quên mật khẩu: vẫn hiện thông báo như bình thường.
+
+Bốn tiêu chí có test tích hợp trong `AccountEmailIntegrationTest` (auth-service); phần gửi email có `AccountEmailServiceTest`, `AccountEmailListenerTest`, `AccountEmailFlowIntegrationTest` (notification-service).
 
 ### WMS-24.1 [Backend] ai-service: khung dịch vụ AI
 
@@ -760,6 +830,78 @@ Người làm: Toàn. Ngày: 12/11. Jira: TASK-152. Phụ thuộc: WMS-24.1, WMS
 - File không đọc được hoặc không có dữ liệu phù hợp: báo lỗi rõ ràng, không trừ lượt.
 - Vai trò: `PRODUCT` và `SUPPLIER` cho `ADMIN`, `WAREHOUSE_MANAGER`, `PURCHASING`; `CUSTOMER` cho `ADMIN`, `SALES`.
 
+**Đã làm (12/11)**
+
+Mọi API bọc trong `ApiResponse`, cần `X-Company-Id` (thiếu thì `403 COMPANY_REQUIRED`). Vai trò kiểm tra tường minh từ `X-User-Roles` theo `dataType` (sai vai trò: `403 FORBIDDEN`); không có header người dùng (gateway tắt JWT ở máy phát triển) thì cho qua, cùng quy ước với `UserContext.requireWarehouseWriteAccess`.
+
+Cách trích xuất:
+
+- Excel, CSV đọc ngay trong ai-service (xlsx đọc kiểu luồng bằng Apache POI, xls qua HSSF, CSV UTF-8 có hoặc không có BOM, tự nhận dấu phẩy, chấm phẩy, tab, ô có ngoặc kép). Lấy trang tính đầu tiên có dữ liệu; dòng tiêu đề là dòng đầu tiên có từ hai ô trở lên trong 10 dòng đầu (bỏ được dòng tên bảng). Claude chỉ nhận tiêu đề và 5 dòng mẫu, trả cột nguồn của từng trường kèm độ tin cậy; server tự áp cho mọi dòng nên chính xác cho từng ô và nhanh (một lần gọi ngắn).
+- PDF, ảnh png/jpg gửi Claude dạng khối tài liệu, hình ảnh; Claude trả từng dòng kèm độ tin cậy từng ô (gọi kiểu stream, chờ tối đa 180 giây).
+- Hai kiểu gọi đều dùng structured outputs (lược đồ JSON cố định theo loại dữ liệu), lời dặn cố định đặt đầu và đánh dấu bộ nhớ đệm prompt, cùng mô hình, effort, quy tắc không tham số lấy mẫu của WMS-24.1. `stop_reason = refusal` trả `400` "AI từ chối xử lý nội dung file này"; `max_tokens` không dùng kết quả dở mà trả `400` yêu cầu tách file nhỏ hơn; cả hai không trừ lượt.
+- Chế độ giả lập (`AI_MOCK=true` hoặc chưa có khóa): Excel, CSV vẫn chạy thật, ghép cột theo tên tiêu đề (tiếng Việt, tiếng Anh, không phân biệt hoa thường và dấu, ví dụ "Ma hang", "ĐVT", "Giá nhập (VNĐ)") với `method = HEADER_MATCHING`; PDF, ảnh trả `400` báo cần AI thật, không bịa dòng.
+- Chuẩn hóa từng ô: cắt khoảng trắng; số kiểu Việt Nam và quốc tế ("1.250.000", "1,250,000", "1.250.000,5", "12,5", "150.000 đ"); thuế suất "10%", "10" và "0,1" đều thành 10 (trường hợp "0,1" có cảnh báo); loại khách hàng "sỉ", "đại lý", "bán lẻ", "cá nhân" thành `WHOLESALE`, `RETAIL`. Độ tin cậy của ô bắt đầu từ độ tin cậy ghép cột (hoặc do Claude đánh giá với PDF, ảnh), hạ xuống khi kiểm tra tại chỗ thấy vấn đề, kèm cảnh báo tiếng Việt: thiếu trường bắt buộc 0; không phải số 0,2; âm, quá dài 0,3; sai mẫu SKU, sai email 0,4; trùng mã với dòng trên, quá số chữ số thập phân 0,5; thuế suất viết dạng tỉ lệ 0,7. Trường không có cột nào khớp: ô trống, độ tin cậy 1 (trường bắt buộc thì 0).
+- Quá 200 dòng: lấy 200 dòng đầu, `truncated = true` và một cảnh báo chung. Lỗi file (định dạng không hỗ trợ, nội dung không khớp phần mở rộng, quá 10 MB, file hỏng hoặc có mật khẩu, CSV không phải UTF-8, trang tính trống, chỉ có tiêu đề, không có cột nào khớp) đều trả `400 BAD_REQUEST` với thông báo tiếng Việt và không trừ lượt.
+- Đếm lượt giống `POST /api/ai/ask`: kiểm tra hạn mức sau khi đọc được file và trước khi gọi Claude (hết lượt: `403 PLAN_LIMIT_EXCEEDED`), chỉ tăng bộ đếm sau khi đã lưu kết quả. Kết quả giả lập vẫn bị tính trừ khi `AI_MOCK_COUNTS_USAGE=false`.
+- Kết quả lưu trên Redis khóa `wms:ai:extraction:{companyId}:{extractionId}`, sống 1 giờ; mã trích xuất của doanh nghiệp khác hoặc đã hết hạn trả `404 NOT_FOUND`. Không lưu được lên Redis thì `503`, không trừ lượt.
+- Nhập: ai-service gọi `POST /api/products/bulk` (product-service) hoặc `POST /api/orders/suppliers/bulk`, `/api/orders/customers/bulk` (order-service) qua Eureka, chuyển tiếp `X-Company-Id`, `X-User-Name`, `X-User-Roles`, `X-User-Warehouse-Ids`, `X-Plan` của người bấm để service phía sau tự kiểm tra quyền, giới hạn gói, thuê bao. Lỗi nghiệp vụ của service phía sau (400, 401, 403, 409 kèm `code`, `data`) trả lại nguyên mã; service chưa chạy, chưa có API (404) hoặc lỗi 5xx trả `503`. Hai lần bấm cùng lúc: lần sau `409 CONFLICT`; bấm lại sau khi xong thì API nhập hàng loạt trả `SKIPPED` cho mã đã có.
+- Giới hạn tải file: `spring.servlet.multipart.max-file-size = 10MB` ở ai-service (file lớn hơn trả `400` "tối đa 10 MB"); nginx của frontend có `location /api/ai/` nhận tới 11 MB (mặc định nginx chỉ 1 MB) và chờ tới 200 giây. api-gateway và Caddy không giới hạn dung lượng body nên không đổi.
+
+Hợp đồng JSON cho giao diện (WMS-24.3):
+
+`POST /api/ai/extractions` (multipart `file`, `dataType`) và `GET /api/ai/extractions/{id}` trả `data`:
+
+```json
+{
+  "extractionId": "3f1c2b9e-1111-4a2b-9c3d-0123456789ab",
+  "dataType": "PRODUCT",
+  "fileName": "hang-hoa.xlsx",
+  "fileType": "XLSX",
+  "method": "COLUMN_MAPPING",
+  "totalRows": 50,
+  "truncated": false,
+  "columns": [
+    { "field": "sku", "label": "Mã SKU", "type": "SKU", "required": true, "maxLength": 64, "options": [],
+      "sourceColumn": 1, "sourceHeader": "Mã hàng", "mappingConfidence": 0.95 },
+    { "field": "uomName", "label": "Đơn vị tính", "type": "TEXT", "required": true, "maxLength": 100, "options": [],
+      "sourceColumn": null, "sourceHeader": null, "mappingConfidence": null }
+  ],
+  "rows": [
+    { "row": 1, "sourceRow": 2,
+      "values": { "sku": "SP001", "name": "Nước suối", "uomName": null, "purchasePrice": 150000, "vatRate": 10 },
+      "confidence": { "sku": 0.95, "name": 0.95, "uomName": 0.0, "purchasePrice": 0.95, "vatRate": 0.95 },
+      "warnings": ["Thiếu Đơn vị tính (bắt buộc)"] }
+  ],
+  "warnings": ["Không tìm thấy cột Đơn vị tính (bắt buộc) trong file, hãy nhập bổ sung trong bảng xem trước."],
+  "createdAt": "2026-11-12T03:00:00Z",
+  "expiresAt": "2026-11-12T04:00:00Z",
+  "usage": { "used": 4, "max": 20 }
+}
+```
+
+- `columns` luôn đủ mọi trường của loại dữ liệu theo thứ tự hiển thị; `values` và `confidence` của mỗi dòng có đủ các khóa đó (ví dụ trên rút gọn). `type`: `TEXT`, `SKU`, `EMAIL`, `NUMBER`, `PERCENT`, `ENUM` (`options` liệt kê giá trị hợp lệ, hiện chỉ `customerType`: `WHOLESALE`, `RETAIL`).
+- Trường số là số JSON; ô không đọc được thành số giữ nguyên chuỗi gốc kèm cảnh báo để người dùng sửa. `sourceRow` là số dòng trong file Excel, CSV (`null` với PDF, ảnh). `sourceColumn`, `sourceHeader`, `mappingConfidence` là `null` khi không có cột khớp hoặc khi AI đọc PDF, ảnh.
+- `method`: `COLUMN_MAPPING` (Claude ghép cột), `HEADER_MATCHING` (chế độ giả lập), `AI_DOCUMENT` (Claude đọc PDF, ảnh). `usage` chỉ có trong kết quả `POST` (`max = -1` là không giới hạn), là `null` khi `GET`.
+
+Trường theo `dataType` (đúng tên trường của API nhập hàng loạt):
+
+| `dataType` | Trường (in đậm là bắt buộc) |
+| --- | --- |
+| `PRODUCT` | **`sku`**, **`name`**, `barcode`, `description`, `categoryName`, **`uomName`**, `purchasePrice`, `sellingPrice`, `vatRate`, `safetyStock`, `reorderPoint`, `maxStock` |
+| `SUPPLIER` | **`code`**, **`name`**, `taxCode`, `contactName`, `email`, `phone`, `address`, `bankAccount`, `bankName`, `paymentTerms`, `creditLimit`, `initialDebt` |
+| `CUSTOMER` | **`code`**, **`name`**, **`customerType`**, `taxCode`, `contactName`, `email`, `phone`, `address`, `paymentTerms`, `creditLimit`, `initialDebt`, `notes` |
+
+`POST /api/ai/extractions/{id}/import` nhận:
+
+```json
+{ "rows": [ { "row": 1, "values": { "sku": "SP001", "name": "Nước suối", "uomName": "Chai", "purchasePrice": 150000 } } ] }
+```
+
+- Từ 1 đến 200 dòng (rỗng: `400 VALIDATION_ERROR`, `data.rows`). `row` chỉ để giao diện đối chiếu, không gửi đi; trường lạ bị bỏ, ô rỗng không gửi. Ô số nhận cả số JSON lẫn chuỗi "150.000"; ô số hoặc loại khách hàng không đọc được làm cả lần nhập trả `400 VALIDATION_ERROR` với `data` dạng `{ "rows[0].values.purchasePrice": "Giá nhập phải là số" }` (chỉ số `rows[i]` từ 0).
+- Trả nguyên kết quả của API nhập hàng loạt: `{ "total", "created", "skipped", "failed", "results": [ { "row", "status": "CREATED" | "SKIPPED" | "FAILED", "id", "code", "message" } ] }`. `results[k].row` là thứ tự trong mảng `rows` đã gửi (từ 1), không phải `row` của bảng xem trước.
+
+Chưa kiểm chứng: chưa gọi Claude thật (CI không có khóa), nên chất lượng ghép cột, đọc PDF, ảnh và thời gian thực tế chưa đo; API nhập hàng loạt của WMS-22.4b chưa có trên nhánh này, ai-service gọi theo hợp đồng ở mục WMS-22.4b và được kiểm thử bằng máy chủ giả lập.
+
 **Tiêu chí nghiệm thu**
 
 File Excel 50 dòng có tiêu đề cột rõ ràng: trích xuất đúng trên 90% số ô, dưới 30 giây; bấm nhập xong thấy dữ liệu trong danh mục của đúng doanh nghiệp.
@@ -800,7 +942,7 @@ Hỏi "tạo kho thế nào" nhận hướng dẫn đúng các bước trên gia
 
 ### WMS-25.1 [Backend] API key cho hệ thống ngoài
 
-Người làm: Toàn. Ngày: 17/11. Jira: TASK-156. Phụ thuộc: WMS-22.3.
+Người làm: Toàn. Ngày: 17/11 (làm sớm ngày 11/11). Jira: TASK-156. Phụ thuộc: WMS-22.3.
 
 **Mô tả chức năng**
 
@@ -814,6 +956,54 @@ Người làm: Toàn. Ngày: 17/11. Jira: TASK-156. Phụ thuộc: WMS-22.3.
 **Tiêu chí nghiệm thu**
 
 Gọi `curl` với API key đọc được tồn kho của đúng doanh nghiệp; gọi `POST` bằng key bị từ chối; key đã thu hồi nhận `401`.
+
+**Đã làm (nhánh `t-25-1`)**
+
+*Dạng key.* `wms_` cộng 43 ký tự base64url (không đệm) của 32 byte ngẫu nhiên sinh bằng `SecureRandom`, tổng 47 ký tự. `key_prefix` là 8 ký tự đầu (gồm cả `wms_`). Cơ sở dữ liệu và Redis chỉ có SHA-256 của key (hex chữ thường 64 ký tự, tính trên chuỗi key mã hóa UTF-8); key gốc chỉ có trong kết quả tạo, không ghi log, không lưu ở đâu.
+
+*Dữ liệu.* Migration V7 của auth-service tạo bảng `api_keys`: `id`, `company_id` (khóa ngoại `companies`), `name` (tối đa 100 ký tự), `key_prefix` (8), `key_hash` (64, duy nhất toàn hệ thống), `last_used_at`, `revoked_at` (khác NULL là đã thu hồi), `created_by_user` (khóa ngoại `users`), bốn cột audit; chỉ mục `(company_id, revoked_at)`. auth-service lọc tường minh theo `companyId` trong JWT, không dùng `@TenantId`. Key không bị xóa khỏi bảng, chỉ thu hồi.
+
+*API của auth-service.* Mọi API cần JWT của `ADMIN`; tài khoản khác nhận `403 FORBIDDEN`, chưa đăng nhập nhận `401 UNAUTHORIZED`.
+
+| API | Mô tả |
+| --- | --- |
+| `POST /api/auth/api-keys` | Body `{ "name": "Website bán hàng" }` (2 đến 100 ký tự). Trả `201`, `data`: `id`, `name`, `keyPrefix`, `key` (key đầy đủ, chỉ lần này), `createdAt`. Lỗi: gói không có `apiAccess` (gói `FREE`) trả `403 PLAN_LIMIT_EXCEEDED`, `data = { limit: "API_ACCESS", current: <số key đang hoạt động>, max: 0, plan: "FREE" }`; thuê bao `EXPIRED` trả `403 SUBSCRIPTION_EXPIRED` (gateway chặn trước); đã có 5 key đang hoạt động trả `409 CONFLICT`; tên trống trả `400 VALIDATION_ERROR`. Gói và trạng thái đọc từ cơ sở dữ liệu của auth-service, không qua bộ nhớ đệm |
+| `GET /api/auth/api-keys` | `data` là mảng, mới nhất trước, gồm cả key đã thu hồi: `id`, `name`, `keyPrefix`, `active`, `createdAt`, `createdBy` (tên đăng nhập người tạo), `lastUsedAt` (cập nhật mỗi phút, có thể `null`), `revokedAt` |
+| `DELETE /api/auth/api-keys/{id}` | Thu hồi, trả một phần tử như trong danh sách với `active = false`. Gọi lại với key đã thu hồi vẫn trả `200`, không đổi `revokedAt`. Key của doanh nghiệp khác hoặc không tồn tại trả `404 NOT_FOUND`. Gọi được cả khi thuê bao đã hết hạn (`/api/auth/api-keys/*` nằm trong `gateway.subscription.write-allowed-paths`) |
+
+*Cách gateway kiểm tra key.* Tên khóa nằm ở `vn.wms.common.plan.ApiKeyCacheKeys` (gateway khai báo lại vì không phụ thuộc `common`):
+
+| Khóa Redis | Kiểu | Ai ghi | Nội dung |
+| --- | --- | --- | --- |
+| `wms:apikey:{sha256}` | hash | auth-service | `companyId`, `keyId`, `prefix`. Ghi sau khi giao dịch tạo key commit, xóa sau khi giao dịch thu hồi commit. Tác vụ định kỳ (`app.api-key.sync-interval-ms`, mặc định 5 phút) ghi lại mọi key đang hoạt động và xóa khóa của key đã thu hồi, nên Redis bị xóa dữ liệu hoặc một lần ghi lỗi tự lành trong một chu kỳ |
+| `wms:apikey:last-used` | hash | gateway | Trường `{keyId}`, giá trị epoch mili giây của request hợp lệ gần nhất (một lệnh HSET mỗi request). auth-service đổ vào cột `last_used_at` mỗi `app.api-key.last-used-flush-ms` (mặc định 1 phút), chỉ ghi khi mới hơn; không có lần ghi cơ sở dữ liệu nào theo từng request |
+| `wms:apikey:rate:{keyId}:{epochSecond}` | chuỗi số | gateway | Bộ đếm request của key trong một giây (INCR, tự hết hạn sau 2 giây) |
+
+Bộ lọc `ApiKeyAuthenticationGlobalFilter` (order -101, ngay trước bộ lọc JWT) xử lý request có `X-Api-Key` và không có `Authorization`, theo thứ tự:
+
+1. Key sai dạng (`wms_` cộng 20 đến 200 ký tự base64url) hoặc không có `wms:apikey:{sha256}`: `401 UNAUTHORIZED` ("API key không hợp lệ hoặc đã bị thu hồi"). Key đã thu hồi bị từ chối ngay khi auth-service commit việc thu hồi. Không đọc được Redis: `503 SERVICE_UNAVAILABLE` (không xác thực được thì không cho qua).
+2. Chỉ `GET` trên `gateway.api-key.allowed-paths` (mặc định `/api/products/**`, `/api/inventory/**`, `/api/orders/**`); phương thức hoặc đường dẫn khác: `403 FORBIDDEN`.
+3. Đọc `wms:subscription:{companyId}`: `status = EXPIRED` trả `403 SUBSCRIPTION_EXPIRED`; `apiAccess` khác `true` (gói `FREE`) trả `403 PLAN_LIMIT_EXCEEDED` với `data = { limit: "API_ACCESS", plan }`. Thiếu hash hoặc Redis lỗi thì cho qua (fail open, cùng quy tắc mục 2.7; auth-service ghi lại hash mỗi 5 phút nên khoảng thiếu ngắn).
+4. Giới hạn tốc độ: quá `gateway.api-key.rate-limit-per-second` (biến `API_KEY_RATE_LIMIT_PER_SECOND`, mặc định 20) request trong cùng một giây trả `429 TOO_MANY_REQUESTS` kèm header `Retry-After: 1`. Redis lỗi thì cho qua. Bộ lọc `RequestRateLimiter` chung của gateway (theo `X-User-Name`) vẫn áp dụng thêm với ngưỡng 20 mỗi giây, sức chứa 40.
+5. Gỡ mọi header `X-User-*`, `X-Company-Id`, `X-Plan`, `X-Warehouse-Ids` và chính `X-Api-Key` do client gửi; gắn `X-Company-Id` của key, `X-User-Roles: INTEGRATION`, `X-User-Name: apikey-{keyId}` (không gắn kho). `SubscriptionGlobalFilter` sau đó gắn `X-Plan` như với request JWT.
+
+Request có cả `Authorization` lẫn `X-Api-Key` được xử lý như request JWT (key bị gỡ, không chuyển xuống service). Hành vi của request JWT không đổi. Tắt cả cơ chế bằng `GATEWAY_API_KEY_ENABLED=false`. Bộ lọc chạy cả khi `GATEWAY_JWT_ENABLED=false`. Thân lỗi cùng khung `{ success: false, code, message }`, thêm `data` với `PLAN_LIMIT_EXCEEDED`.
+
+*Vai trò `INTEGRATION` ở service nghiệp vụ.* Hằng số `Roles.INTEGRATION` không nằm trong `Roles.ALL` nên không gán được cho tài khoản. `UserContext.isGlobalReadScope` coi `INTEGRATION` là đọc được mọi kho của doanh nghiệp (giống `ADMIN`, `ACCOUNTANT` khi đọc); `requireWarehouseWriteAccess` vẫn từ chối. Bộ lọc `IntegrationAccessFilter` của module `common` (tự đăng ký ở mọi service servlet, chạy ngay sau `TenantFilter`) trả `403 FORBIDDEN` cho mọi request mang vai trò `INTEGRATION` mà không phải `GET`/`HEAD` hoặc nằm ngoài ba nhóm đường dẫn trên, để vai trò này chỉ đọc kể cả khi request không qua gateway. product-service và order-service không kiểm tra vai trò khi đọc nên không phải sửa; dữ liệu vẫn lọc theo `X-Company-Id`.
+
+*Ví dụ cho tài liệu tích hợp (WMS-25.2).*
+
+```bash
+# Tồn khả dụng của một sản phẩm trên mọi kho của doanh nghiệp (thêm &warehouseId= để lọc một kho)
+curl -H "X-Api-Key: $WMS_API_KEY" "https://<gateway>/api/inventory/stock/atp?productId=15"
+# Danh mục hàng hóa và đơn bán
+curl -H "X-Api-Key: $WMS_API_KEY" "https://<gateway>/api/products?page=0&size=20"
+curl -H "X-Api-Key: $WMS_API_KEY" "https://<gateway>/api/orders/sales"
+# Ghi bằng key: 403 FORBIDDEN; key đã thu hồi: 401 UNAUTHORIZED
+curl -X POST -H "X-Api-Key: $WMS_API_KEY" "https://<gateway>/api/products"
+```
+
+*Màn hình.* `/settings/api-keys` (mục "API key" trên menu, sau "Người dùng"); tài khoản không phải `ADMIN` thấy trang 403. Tạo key theo tên gợi nhớ; hộp thoại hiện key đúng một lần với nút sao chép và cảnh báo không xem lại được; danh sách; thu hồi có xác nhận. `PLAN_LIMIT_EXCEEDED` và `SUBSCRIPTION_EXPIRED` hiện lời nhắc kèm nút sang `/subscription`.
 
 ### WMS-25.2 [Docs] Hướng dẫn tích hợp và Swagger công khai
 

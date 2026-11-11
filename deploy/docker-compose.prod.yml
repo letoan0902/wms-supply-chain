@@ -114,6 +114,12 @@ services:
       RATE_LIMIT_ENABLED: ${RATE_LIMIT_ENABLED:-true}
       RATE_LIMIT_REPLENISH_RATE: ${RATE_LIMIT_REPLENISH_RATE:-20}
       RATE_LIMIT_BURST_CAPACITY: ${RATE_LIMIT_BURST_CAPACITY:-40}
+      # API key cho hệ thống ngoài (WMS-25.1): bật/tắt và số request tối đa mỗi giây của một key.
+      GATEWAY_API_KEY_ENABLED: ${GATEWAY_API_KEY_ENABLED:-true}
+      API_KEY_RATE_LIMIT_PER_SECOND: ${API_KEY_RATE_LIMIT_PER_SECOND:-20}
+      # Tài liệu OpenAPI tổng hợp (WMS-21.1): máy phát triển mặc định bật, máy chủ mặc định TẮT để không công bố mô tả API
+      # (/swagger-ui.html và /v3/api-docs/* trả 404). Cần xem tạm thì đặt SWAGGER_ENABLED=true trong .env rồi tạo lại gateway.
+      SWAGGER_ENABLED: ${SWAGGER_ENABLED:-false}
 
   # --------------------------------------------------------------------------
   # Doanh nghiệp mặc định: file compose gốc đặt TENANT_DEFAULT_COMPANY_ID=1 cho máy phát triển. Trên máy chủ phải để
@@ -148,6 +154,9 @@ services:
       PAYOS_MOCK: ${PAYOS_MOCK:-true}
       PAYOS_RETURN_URL: ${PAYOS_RETURN_URL:-https://${DOMAIN:-wms.toanmarket.me}/payment/result}
       PAYOS_CANCEL_URL: ${PAYOS_CANCEL_URL:-https://${DOMAIN:-wms.toanmarket.me}/payment/result}
+      # Liên kết trong email kích hoạt và đặt lại mật khẩu (WMS-23.6) trỏ về tên miền production; luôn bắt buộc kích hoạt.
+      APP_FRONTEND_URL: ${APP_FRONTEND_URL:-https://${DOMAIN:-wms.toanmarket.me}}
+      REGISTRATION_REQUIRE_ACTIVATION: ${REGISTRATION_REQUIRE_ACTIVATION:-true}
 
   # --------------------------------------------------------------------------
   # inventory-service: file gốc đặt TENANT_DEFAULT_COMPANY_ID mặc định 1 cho môi trường phát triển.

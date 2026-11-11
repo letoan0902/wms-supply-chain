@@ -21,6 +21,11 @@ dependencies {
     // SDK chính thức của Anthropic để gọi Claude (không dùng Spring AI, xem docs/SAAS_SPEC.md mục WMS-24.1)
     implementation "com.anthropic:anthropic-java:${anthropicJavaVersion}"
 
+    // Trích xuất tài liệu (WMS-24.2): đọc Excel (xlsx đọc kiểu luồng, xls qua HSSF) và CSV ngay trong service,
+    // chỉ hỏi Claude cách ghép cột nên rẻ và chính xác cho từng ô.
+    implementation "org.apache.poi:poi-ooxml:${apachePoiVersion}"
+    implementation "org.apache.commons:commons-csv:${commonsCsvVersion}"
+
     // Tài liệu API: /swagger-ui.html
     implementation "org.springdoc:springdoc-openapi-starter-webmvc-ui:${springdocVersion}"
 

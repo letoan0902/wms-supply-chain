@@ -9,6 +9,8 @@ import { navigationItems } from './navigation'
 
 const LoginPage = lazy(() => import('../features/auth/LoginPage'))
 const ForgotPasswordPage = lazy(() => import('../features/auth/ForgotPasswordPage'))
+const ActivatePage = lazy(() => import('../features/auth/ActivatePage'))
+const ResetPasswordPage = lazy(() => import('../features/auth/ResetPasswordPage'))
 const LandingPage = lazy(() => import('../features/landing/LandingPage'))
 
 // Các chức năng chưa phát triển dùng trang giữ chỗ, thay bằng trang thật khi hoàn thành
@@ -53,6 +55,22 @@ export const router = createBrowserRouter([
     ),
   },
   {
+    path: '/activate',
+    element: (
+      <Suspense fallback={<PageLoading fullScreen tip="Đang tải trang..." />}>
+        <ActivatePage />
+      </Suspense>
+    ),
+  },
+  {
+    path: '/reset-password',
+    element: (
+      <Suspense fallback={<PageLoading fullScreen tip="Đang tải trang..." />}>
+        <ResetPasswordPage />
+      </Suspense>
+    ),
+  },
+  {
     path: '/',
     element: <ProtectedRoute />,
     children: [
@@ -78,6 +96,8 @@ export const router = createBrowserRouter([
           { path: 'users', Component: lazy(() => import('../features/users/UsersPage')) },
           // Báo cáo Nhập-Xuất-Tồn kho & Thống kê (UC-10 - SRS Mục 2.5)
           { path: 'reports', Component: lazy(() => import('../pages/ReportsPage')) },
+          // API key cho hệ thống ngoài (chỉ ADMIN)
+          { path: 'settings/api-keys', Component: lazy(() => import('../features/apiKeys/ApiKeysPage')) },
           // Hồ sơ cá nhân & Đổi mật khẩu
           { path: 'profile', Component: lazy(() => import('../features/profile/ProfilePage')) },
           ...placeholderRoutes,

@@ -19,8 +19,13 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import vn.wms.common.api.ApiResponse;
+import vn.wms.common.api.ErrorCode;
 import vn.wms.common.api.PageResponse;
+import vn.wms.common.exception.ApiException;
 import vn.wms.order.dto.CreateCustomerRequest;
+import vn.wms.order.dto.bulk.BulkCreateCustomerRequest;
+import vn.wms.order.dto.bulk.BulkImportResponse;
+import vn.wms.order.service.PartnerBulkImportService;
 import vn.wms.order.dto.CustomerCreditCheckResponse;
 import vn.wms.order.dto.CustomerDebtSummaryResponse;
 import vn.wms.order.dto.CustomerResponse;
@@ -42,9 +47,11 @@ import java.net.URI;
 public class CustomerController {
 
     private final CustomerService customerService;
+    private final PartnerBulkImportService bulkImportService;
 
-    public CustomerController(CustomerService customerService) {
+    public CustomerController(CustomerService customerService, PartnerBulkImportService bulkImportService) {
         this.customerService = customerService;
+        this.bulkImportService = bulkImportService;
     }
 
     @GetMapping
@@ -98,6 +105,21 @@ public class CustomerController {
         return ResponseEntity
                 .created(URI.create("/api/orders/customers/" + created.id()))
                 .body(ApiResponse.ok(created));
+    }
+
+    /**
+     * Nhập hàng loạt khách hàng (WMS-22.4b). Cùng quyền với API tạo một khách hàng. Luôn trả 200 kèm kết quả
+     * từng dòng; chỉ body rỗng, danh sách rỗng hoặc quá 500 dòng mới trả 400 VALIDATION_ERROR.
+     */
+    @PostMapping("/bulk")
+    @Operation(summary = "Nhập hàng loạt khách hàng (tối đa 500 dòng, mã đã có thì bỏ qua)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SALES', 'ACCOUNTANT')")
+    public ApiResponse<BulkImportResponse> bulkCreate(
+            @Valid @RequestBody(required = false) BulkCreateCustomerRequest request) {
+        if (request == null) {
+            throw new ApiException(ErrorCode.VALIDATION_ERROR, "Danh sách khách hàng cần nhập không được để trống");
+        }
+        return ApiResponse.ok(bulkImportService.importCustomers(request.items()));
     }
 
     @PutMapping("/{id}")

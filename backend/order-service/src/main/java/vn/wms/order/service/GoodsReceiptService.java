@@ -33,8 +33,6 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -54,14 +52,16 @@ public class GoodsReceiptService {
     @Autowired(required = false)
     private WmsEventPublisher wmsEventPublisher;
 
-    private final ConcurrentHashMap<String, AtomicInteger> dailySequences = new ConcurrentHashMap<>();
+    private final DocumentNumberService documentNumberService;
 
     public GoodsReceiptService(GoodsReceiptNoteRepository goodsReceiptNoteRepository,
                                PurchaseOrderRepository purchaseOrderRepository,
-                               PurchaseBillService purchaseBillService) {
+                               PurchaseBillService purchaseBillService,
+                               DocumentNumberService documentNumberService) {
         this.goodsReceiptNoteRepository = goodsReceiptNoteRepository;
         this.purchaseOrderRepository = purchaseOrderRepository;
         this.purchaseBillService = purchaseBillService;
+        this.documentNumberService = documentNumberService;
     }
 
     /**
@@ -387,33 +387,13 @@ public class GoodsReceiptService {
     }
 
     /**
-     * Sinh mã chứng từ nhập kho: GRN-YYYYMMDD-XXXX (FR11, CONVENTIONS.md).
+     * Sinh mã chứng từ nhập kho: GRN-YYYYMMDD-XXXX (FR11, CONVENTIONS.md), đánh số riêng cho từng doanh nghiệp
+     * (WMS-22.4b).
      */
     public String generateGrnNumber(LocalDate date) {
-        String dateStr = date.format(DATE_FORMATTER);
-        String prefix = "GRN-" + dateStr + "-";
-
-        AtomicInteger counter = dailySequences.computeIfAbsent(dateStr, key -> {
-            int maxSeq = goodsReceiptNoteRepository.findTopByGrnNumberStartingWithOrderByGrnNumberDesc(prefix)
-                    .map(GoodsReceiptNote::getGrnNumber)
-                    .map(latestCode -> {
-                        try {
-                            String suffix = latestCode.substring(prefix.length());
-                            return Integer.parseInt(suffix);
-                        } catch (Exception e) {
-                            return 0;
-                        }
-                    })
-                    .orElse(0);
-            return new AtomicInteger(maxSeq);
-        });
-
-        String candidate;
-        do {
-            int nextSeq = counter.incrementAndGet();
-            candidate = String.format("%s%04d", prefix, nextSeq);
-        } while (goodsReceiptNoteRepository.existsByGrnNumber(candidate));
-
-        return candidate;
+        return documentNumberService.next("GRN-" + date.format(DATE_FORMATTER) + "-",
+                prefix -> goodsReceiptNoteRepository.findTopByGrnNumberStartingWithOrderByGrnNumberDesc(prefix)
+                        .map(GoodsReceiptNote::getGrnNumber),
+                goodsReceiptNoteRepository::existsByGrnNumber);
     }
 }

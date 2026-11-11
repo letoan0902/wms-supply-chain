@@ -1,8 +1,15 @@
 package vn.wms.ai.client;
 
 import org.junit.jupiter.api.Test;
+import vn.wms.common.api.ErrorCode;
+import vn.wms.common.exception.ApiException;
+
+import java.time.Duration;
+import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class MockAiClientTest {
 
@@ -25,6 +32,18 @@ class MockAiClientTest {
         AiRequest request = new AiRequest("dặn", "Tồn kho SKU-001 là bao nhiêu?", 100);
 
         assertThat(client.ask(request)).isEqualTo(client.ask(request));
+    }
+
+    @Test
+    void generateJsonNeverFabricatesDataAndAsksForRealAi() {
+        AiJsonRequest request = new AiJsonRequest("dặn", List.of(new AiContentPart.Pdf(new byte[]{1})),
+                Map.of("type", "object"), 100, Duration.ofSeconds(10));
+
+        assertThatThrownBy(() -> client.generateJson(request))
+                .isInstanceOfSatisfying(ApiException.class, ex -> {
+                    assertThat(ex.getErrorCode()).isEqualTo(ErrorCode.BAD_REQUEST);
+                    assertThat(ex.getMessage()).contains("cần AI thật").contains("không bị tính");
+                });
     }
 
     @Test

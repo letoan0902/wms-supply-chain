@@ -68,12 +68,14 @@ public final class UserContext {
     /**
      * Kiểm tra người dùng có quyền xem toàn bộ kho (Global Read Scope) hay không.
      * Theo tài liệu đặc tả: ADMIN và ACCOUNTANT được phép xem báo cáo và dữ liệu tất cả các kho.
+     * INTEGRATION (hệ thống ngoài gọi bằng API key, WMS-25.1) cũng đọc được mọi kho của doanh nghiệp sở hữu key;
+     * vai trò này chỉ đọc, mọi request ghi bị {@code IntegrationAccessFilter} chặn trước khi tới controller.
      */
     public static boolean isGlobalReadScope(CurrentUser user) {
         if (user == null) {
             return false;
         }
-        return user.hasRole(Roles.ADMIN) || user.hasRole(Roles.ACCOUNTANT);
+        return user.hasRole(Roles.ADMIN) || user.hasRole(Roles.ACCOUNTANT) || user.hasRole(Roles.INTEGRATION);
     }
 
     /**

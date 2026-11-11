@@ -29,6 +29,10 @@ public class StockReservationService {
     private final StockItemRepository stockItemRepository;
     private final InventoryLotRepository inventoryLotRepository;
 
+    /** Không giữ chỗ đơn mới ở vị trí đang đóng băng kiểm kê (WMS-14.1). */
+    @org.springframework.beans.factory.annotation.Autowired
+    private StocktakeFreezeGuard stocktakeFreezeGuard;
+
     public StockReservationService(StockReservationRepository stockReservationRepository,
                                    StockItemRepository stockItemRepository,
                                    InventoryLotRepository inventoryLotRepository) {
@@ -80,6 +84,7 @@ public class StockReservationService {
             List<StockItem> availableItems = event.warehouseId() != null
                     ? stockItemRepository.findAvailableStockItemsByProductIdAndWarehouseIdForUpdate(productId, event.warehouseId(), today)
                     : stockItemRepository.findAvailableStockItemsByProductIdForUpdate(productId, today);
+            if (stocktakeFreezeGuard != null) availableItems = stocktakeFreezeGuard.excludeFrozen(availableItems);
 
             for (StockItem stockItem : availableItems) {
                 BigDecimal available = stockItem.getQuantity().subtract(stockItem.getReservedQuantity()).max(BigDecimal.ZERO);

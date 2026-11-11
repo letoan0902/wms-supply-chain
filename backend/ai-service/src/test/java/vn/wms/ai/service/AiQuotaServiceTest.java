@@ -147,6 +147,17 @@ class AiQuotaServiceTest {
     }
 
     @Test
+    void successfulRequestWithoutReply_incrementsOnceAndFollowsMockRule() {
+        when(valueOperations.increment(startsWith(AI_KEY_PREFIX))).thenReturn(7L);
+
+        assertThat(liveService().recordSuccessfulRequest()).isEqualTo(7L);
+        verify(valueOperations).increment(startsWith(AI_KEY_PREFIX));
+
+        assertThat(service(AiMode.MOCK, AiTestSupport.properties(true, false)).recordSuccessfulRequest()).isZero();
+        verify(valueOperations).increment(anyString());
+    }
+
+    @Test
     void refusal_isNotCounted() {
         when(valueOperations.get(startsWith(AI_KEY_PREFIX))).thenReturn("5");
 

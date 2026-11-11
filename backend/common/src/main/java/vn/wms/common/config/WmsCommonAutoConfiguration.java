@@ -1,10 +1,14 @@
 package vn.wms.common.config;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.json.JsonMapper;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.data.domain.AuditorAware;
@@ -13,6 +17,7 @@ import org.springframework.web.servlet.DispatcherServlet;
 import vn.wms.common.exception.GlobalExceptionHandler;
 import vn.wms.common.exception.SecurityExceptionPassthroughAdvice;
 import vn.wms.common.persistence.RequestHeaderAuditorAware;
+import vn.wms.common.security.IntegrationAccessFilter;
 
 /**
  * Tự cấu hình cho thư viện common: các service chỉ cần thêm {@code implementation project(':common')},
@@ -27,6 +32,22 @@ public class WmsCommonAutoConfiguration {
     @ConditionalOnMissingBean(GlobalExceptionHandler.class)
     public GlobalExceptionHandler globalExceptionHandler() {
         return new GlobalExceptionHandler();
+    }
+
+    /**
+     * Chặn mọi request ghi hoặc nằm ngoài hàng hóa, tồn kho, đơn hàng của vai trò INTEGRATION (API key, WMS-25.1).
+     * Chạy ngay sau TenantFilter, trước chuỗi bộ lọc của Spring Security.
+     */
+    @Bean
+    @ConditionalOnMissingBean(name = "wmsIntegrationAccessFilterRegistration")
+    public FilterRegistrationBean<IntegrationAccessFilter> wmsIntegrationAccessFilterRegistration(
+            ObjectProvider<ObjectMapper> objectMapper) {
+        IntegrationAccessFilter filter = new IntegrationAccessFilter(
+                objectMapper.getIfAvailable(() -> JsonMapper.builder().findAndAddModules().build()));
+        FilterRegistrationBean<IntegrationAccessFilter> registration = new FilterRegistrationBean<>(filter);
+        registration.setOrder(WmsTenantAutoConfiguration.TENANT_FILTER_ORDER + 1);
+        registration.addUrlPatterns("/*");
+        return registration;
     }
 
     /**

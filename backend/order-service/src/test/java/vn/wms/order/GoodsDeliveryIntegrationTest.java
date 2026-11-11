@@ -15,6 +15,7 @@ import org.springframework.transaction.annotation.Transactional;
 import vn.wms.common.exception.ApiException;
 import vn.wms.common.messaging.WmsEventPublisher;
 import vn.wms.common.messaging.WmsEvents;
+import vn.wms.common.tenant.TenantContext;
 import vn.wms.order.dto.CreateGdnItemRequest;
 import vn.wms.order.dto.CreateGdnRequest;
 import vn.wms.order.entity.Customer;
@@ -26,6 +27,7 @@ import vn.wms.order.entity.SalesOrderItem;
 import vn.wms.order.repository.CustomerRepository;
 import vn.wms.order.repository.GoodsDeliveryNoteRepository;
 import vn.wms.order.repository.SalesOrderRepository;
+import vn.wms.order.support.TenantTestExecutionListener;
 import vn.wms.order.service.GoodsDeliveryService;
 
 import java.math.BigDecimal;
@@ -398,7 +400,9 @@ class GoodsDeliveryIntegrationTest {
                 executor.submit(() -> {
                     try {
                         start.await();
-                        goodsDeliveryService.create(req, "thukho");
+                        // Luồng mới không mang TenantContext: chạy dưới doanh nghiệp của test (docs/MULTI_TENANT.md mục 3.7)
+                        TenantContext.runAs(TenantTestExecutionListener.DEFAULT_TEST_COMPANY,
+                                () -> goodsDeliveryService.create(req, "thukho"));
                         success.incrementAndGet();
                     } catch (ApiException ex) {
                         rejected.incrementAndGet();
@@ -447,7 +451,8 @@ class GoodsDeliveryIntegrationTest {
                 executor.submit(() -> {
                     try {
                         start.await();
-                        goodsDeliveryService.dispatch(gdnId, "thukho");
+                        TenantContext.runAs(TenantTestExecutionListener.DEFAULT_TEST_COMPANY,
+                                () -> goodsDeliveryService.dispatch(gdnId, "thukho"));
                     } catch (Exception ignored) {
                         // Kết quả kiểm tra qua số lần phát sự kiện bên dưới
                     } finally {

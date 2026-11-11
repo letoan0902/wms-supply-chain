@@ -3,7 +3,11 @@ package vn.wms.ai.client;
 import com.anthropic.client.AnthropicClient;
 import com.anthropic.core.JsonValue;
 import com.anthropic.core.ObjectMappers;
+import com.anthropic.core.RequestOptions;
 import com.anthropic.core.http.Headers;
+import com.anthropic.core.http.StreamResponse;
+import com.anthropic.models.beta.messages.BetaRawMessageStreamEvent;
+import org.mockito.ArgumentCaptor;
 import com.anthropic.errors.AnthropicIoException;
 import com.anthropic.errors.RateLimitException;
 import com.anthropic.errors.UnauthorizedException;
@@ -27,8 +31,10 @@ import vn.wms.common.exception.ApiException;
 
 import java.net.ConnectException;
 import java.net.SocketTimeoutException;
+import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -196,6 +202,126 @@ class AnthropicAiClientTest {
         assertThat(ex.getErrorCode()).isEqualTo(ErrorCode.SERVICE_UNAVAILABLE);
         assertThat(ex.getMessage()).contains(messagePart);
         return ex;
+    }
+
+    // ------------------------------------------------------------------ generateJson (trích xuất, WMS-24.2)
+
+    private static final Map<String, Object> SCHEMA = Map.of("type", "object",
+            "properties", Map.of("ok", Map.of("type", "boolean")),
+            "required", List.of("ok"), "additionalProperties", false);
+
+    private static AiJsonRequest jsonRequest(AiContentPart... parts) {
+        return new AiJsonRequest("Lời dặn cố định", List.of(parts), SCHEMA, 32000, Duration.ofSeconds(180));
+    }
+
+    @Test
+    void buildJsonParams_sendsSchemaDocumentImageAndCachedSystemWithoutSamplingParameters() {
+        MessageCreateParams params = client.buildJsonParams(jsonRequest(
+                new AiContentPart.Pdf("%PDF-1.7".getBytes(StandardCharsets.US_ASCII)),
+                new AiContentPart.Image(new byte[]{1, 2, 3}, "image/png"),
+                new AiContentPart.Text("Trích xuất danh sách")));
+        JsonNode body = ObjectMappers.jsonMapper().valueToTree(params._body());
+
+        assertThat(body.path("model").asText()).isEqualTo("claude-sonnet-5-5");
+        assertThat(body.path("max_tokens").asLong()).isEqualTo(32000);
+        assertThat(body.path("system").get(0).path("text").asText()).isEqualTo("Lời dặn cố định");
+        assertThat(body.path("system").get(0).path("cache_control").path("type").asText()).isEqualTo("ephemeral");
+        assertThat(body.path("output_config").path("effort").asText()).isEqualTo("low");
+        JsonNode format = body.path("output_config").path("format");
+        assertThat(format.path("type").asText()).isEqualTo("json_schema");
+        assertThat(format.path("schema").path("additionalProperties").asBoolean(true)).isFalse();
+        assertThat(format.path("schema").path("required").get(0).asText()).isEqualTo("ok");
+        JsonNode content = body.path("messages").get(0).path("content");
+        assertThat(content.get(0).path("type").asText()).isEqualTo("document");
+        assertThat(content.get(0).path("source").path("type").asText()).isEqualTo("base64");
+        assertThat(content.get(0).path("source").path("media_type").asText()).isEqualTo("application/pdf");
+        assertThat(content.get(0).path("source").path("data").asText())
+                .isEqualTo(Base64.getEncoder().encodeToString("%PDF-1.7".getBytes(StandardCharsets.US_ASCII)));
+        assertThat(content.get(1).path("type").asText()).isEqualTo("image");
+        assertThat(content.get(1).path("source").path("media_type").asText()).isEqualTo("image/png");
+        assertThat(content.get(2).path("type").asText()).isEqualTo("text");
+        assertThat(content.get(2).path("text").asText()).isEqualTo("Trích xuất danh sách");
+        assertThat(body.path("fallbacks").asText()).isEqualTo("default");
+        for (String forbidden : List.of("temperature", "top_p", "top_k", "thinking", "budget_tokens")) {
+            assertThat(body.has(forbidden)).as("không được gửi %s", forbidden).isFalse();
+        }
+    }
+
+    private static BetaRawMessageStreamEvent event(String json) {
+        try {
+            return ObjectMappers.jsonMapper().readValue(json, BetaRawMessageStreamEvent.class);
+        } catch (Exception ex) {
+            throw new IllegalStateException(ex);
+        }
+    }
+
+    private static StreamResponse<BetaRawMessageStreamEvent> stream(String stopReason, String... textDeltas) {
+        List<BetaRawMessageStreamEvent> events = new ArrayList<>();
+        events.add(event("""
+                {"type":"message_start","message":{"id":"msg_1","type":"message","role":"assistant",
+                 "model":"claude-sonnet-5-5","content":[],"stop_reason":null,"stop_sequence":null,
+                 "usage":{"input_tokens":900,"output_tokens":1}}}"""));
+        events.add(event("{\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}"));
+        for (String delta : textDeltas) {
+            events.add(event("{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":"
+                    + ObjectMappers.jsonMapper().valueToTree(delta) + "}}"));
+        }
+        events.add(event("{\"type\":\"content_block_stop\",\"index\":0}"));
+        events.add(event("{\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"" + stopReason
+                + "\",\"stop_sequence\":null},\"usage\":{\"output_tokens\":42}}"));
+        events.add(event("{\"type\":\"message_stop\"}"));
+        return new StreamResponse<>() {
+            @Override
+            public java.util.stream.Stream<BetaRawMessageStreamEvent> stream() {
+                return events.stream();
+            }
+
+            @Override
+            public void close() {
+            }
+        };
+    }
+
+    @Test
+    void generateJson_streamsAndAccumulatesTheFinalMessageWithRequestTimeout() {
+        when(messageService.createStreaming(any(MessageCreateParams.class), any(RequestOptions.class)))
+                .thenReturn(stream("end_turn", "{\"ok\":", "true}"));
+
+        AiJsonReply reply = client.generateJson(jsonRequest(new AiContentPart.Text("x")));
+
+        assertThat(reply).isEqualTo(AiJsonReply.completed("{\"ok\":true}", "end_turn", 900, 42));
+        ArgumentCaptor<RequestOptions> options = ArgumentCaptor.forClass(RequestOptions.class);
+        verify(messageService).createStreaming(any(MessageCreateParams.class), options.capture());
+        assertThat(options.getValue().timeout()).hasValueSatisfying(
+                timeout -> assertThat(timeout.request()).isEqualTo(Duration.ofSeconds(180)));
+    }
+
+    @Test
+    void generateJson_maxTokensIsMarkedTruncatedAndRefusalSkipsContent() {
+        when(messageService.createStreaming(any(MessageCreateParams.class), any(RequestOptions.class)))
+                .thenReturn(stream("max_tokens", "{\"rows\":["))
+                .thenReturn(stream("refusal", "không dùng"));
+
+        AiJsonReply truncated = client.generateJson(jsonRequest(new AiContentPart.Text("x")));
+        AiJsonReply refused = client.generateJson(jsonRequest(new AiContentPart.Text("x")));
+
+        assertThat(truncated.truncated()).isTrue();
+        assertThat(truncated.refused()).isFalse();
+        assertThat(refused.refused()).isTrue();
+        assertThat(refused.json()).isEmpty();
+    }
+
+    @Test
+    void generateJson_sdkErrorsAreServiceUnavailableWithExtractionTimeout() {
+        when(messageService.createStreaming(any(MessageCreateParams.class), any(RequestOptions.class)))
+                .thenThrow(new AnthropicIoException("Request failed", new SocketTimeoutException("timeout")));
+
+        Throwable thrown = catchThrowable(() -> client.generateJson(jsonRequest(new AiContentPart.Text("x"))));
+
+        assertThat(thrown).isInstanceOfSatisfying(ApiException.class, ex -> {
+            assertThat(ex.getErrorCode()).isEqualTo(ErrorCode.SERVICE_UNAVAILABLE);
+            assertThat(ex.getMessage()).contains("180 giây, lượt này không bị tính");
+        });
     }
 
     @Test

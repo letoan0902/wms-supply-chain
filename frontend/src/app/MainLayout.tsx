@@ -59,8 +59,12 @@ export default function MainLayout() {
   // Nối WebSocket nhận thông báo thời gian thực (MainLayout chỉ hiển thị sau khi đăng nhập)
   useWebSocket()
 
-  // Đường dẫn gốc của mục menu đang chọn: '/' giữ nguyên, '/products/12' thành '/products'
-  const selectedKey = `/${pathname.split('/')[1]}`
+  // Mục menu đang chọn: mục có đường dẫn dài nhất khớp với đầu đường dẫn hiện tại
+  // ('/products/12' thành '/products', '/settings/api-keys' giữ nguyên); không khớp mục nào thì lấy đoạn đầu.
+  const selectedKey =
+    navigationItems
+      .filter((item) => item.path !== '/' && (pathname === item.path || pathname.startsWith(`${item.path}/`)))
+      .sort((a, b) => b.path.length - a.path.length)[0]?.path ?? `/${pathname.split('/')[1]}`
   const currentTitle = navigationItems.find((item) => item.path === selectedKey)?.label
 
   // Xử lý đăng xuất thực tế

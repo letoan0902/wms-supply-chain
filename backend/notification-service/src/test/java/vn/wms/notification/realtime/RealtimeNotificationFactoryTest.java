@@ -40,7 +40,7 @@ class RealtimeNotificationFactoryTest {
 
         assertThat(notification.id()).isEqualTo("msg-1");
         assertThat(notification.type()).isEqualTo(RealtimeEventType.LOW_STOCK);
-        assertThat(notification.type().topic()).isEqualTo("/topic/alerts");
+        assertThat(notification.type().topic(1L)).isEqualTo("/topic/company/1/alerts");
         assertThat(notification.severity()).isEqualTo(NotificationSeverity.WARNING);
         assertThat(notification.title()).isEqualTo("Cảnh báo tồn kho thấp");
         assertThat(notification.message()).isEqualTo("SKU-001 Thùng carton tại Kho Hà Nội còn 5, dưới ngưỡng 20");
@@ -72,7 +72,7 @@ class RealtimeNotificationFactoryTest {
         RealtimeNotification po = factory.orderCreated(purchase, "msg-po", messageTimestamp);
         RealtimeNotification so = factory.orderCreated(sales, "msg-so", messageTimestamp);
 
-        assertThat(po.type().topic()).isEqualTo("/topic/orders");
+        assertThat(po.type().topic(1L)).isEqualTo("/topic/company/1/orders");
         assertThat(po.severity()).isEqualTo(NotificationSeverity.INFO);
         assertThat(po.title()).isEqualTo("Đơn mua hàng mới");
         assertThat(po.message()).isEqualTo("Đơn PO-20261105-0001 tại Kho Hà Nội, 1 dòng hàng, tổng tiền 1.200.000 VNĐ");
@@ -91,7 +91,7 @@ class RealtimeNotificationFactoryTest {
         RealtimeNotification notification = factory.orderDispatched(event, "msg-2", null);
 
         assertThat(notification.type()).isEqualTo(RealtimeEventType.ORDER_DISPATCHED);
-        assertThat(notification.type().topic()).isEqualTo("/topic/orders");
+        assertThat(notification.type().topic(1L)).isEqualTo("/topic/company/1/orders");
         assertThat(notification.severity()).isEqualTo(NotificationSeverity.SUCCESS);
         assertThat(notification.title()).isEqualTo("Đơn bán hàng đã xuất kho");
         assertThat(notification.message())
@@ -105,7 +105,7 @@ class RealtimeNotificationFactoryTest {
 
         RealtimeNotification notification = factory.inventoryUpdated(event, "msg-3", null);
 
-        assertThat(notification.type().topic()).isEqualTo("/topic/inventory");
+        assertThat(notification.type().topic(1L)).isEqualTo("/topic/company/1/inventory");
         assertThat(notification.severity()).isEqualTo(NotificationSeverity.INFO);
         assertThat(notification.title()).isEqualTo("Tồn kho thay đổi");
         assertThat(notification.message())
@@ -118,7 +118,7 @@ class RealtimeNotificationFactoryTest {
 
         RealtimeNotification notification = factory.kpiUpdated(snapshot);
 
-        assertThat(notification.type().topic()).isEqualTo("/topic/kpi");
+        assertThat(notification.type().topic(1L)).isEqualTo("/topic/company/1/kpi");
         assertThat(notification.severity()).isEqualTo(NotificationSeverity.INFO);
         assertThat(notification.payload()).isSameAs(snapshot);
         assertThat(notification.occurredAt()).isEqualTo(NOW);

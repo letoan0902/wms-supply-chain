@@ -13,12 +13,13 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
-import vn.wms.common.persistence.AuditableEntity;
+import vn.wms.common.tenant.TenantEntity;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -29,18 +30,19 @@ import java.util.List;
  * Phiếu nhập kho (Goods Receipt Note - GRN) theo đơn mua hàng PO (FR11 - WMS-10.1).
  */
 @Entity
-@Table(name = "goods_receipt_notes")
+@Table(name = "goods_receipt_notes", uniqueConstraints = @UniqueConstraint(
+        name = "uk_goods_receipt_notes_company_number", columnNames = {"company_id", "grn_number"}))
 @Getter
 @Setter
 @NoArgsConstructor
-public class GoodsReceiptNote extends AuditableEntity {
+public class GoodsReceiptNote extends TenantEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     /** Mã phiếu nhập duy nhất: GRN-YYYYMMDD-XXXX. */
-    @Column(name = "grn_number", nullable = false, unique = true, length = 30)
+    @Column(name = "grn_number", nullable = false, length = 30)
     private String grnNumber;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)

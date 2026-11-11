@@ -173,6 +173,15 @@ Eureka 8761, Config Server 8888). Chỉ cần đặt `DB_USERNAME=wms` và `DB_P
 của IDE hoặc bằng `export` trước khi chạy). `JWT_SECRET` phải giống nhau ở api-gateway và auth-service. Danh sách đầy đủ các biến môi trường
 xem trong `docker-compose.yml`; chi tiết về frontend xem [frontend/README.md](frontend/README.md).
 
+### Tài liệu API (Swagger)
+
+- Qua gateway (một nơi cho mọi service): <http://localhost:8080/swagger-ui.html>, chọn service ở danh sách thả xuống
+  (Auth, Products, Inventory, Orders, Notifications, AI). Bấm Authorize và nhập token đăng nhập (`Authorization: Bearer <JWT>`)
+  hoặc `X-Api-Key` rồi dùng "Try it out"; request đi qua gateway.
+- Từng service: `http://localhost:<cổng>/swagger-ui.html` và `/v3/api-docs` (cổng ở bảng trên). Địa chỉ gateway trong
+  mô tả lấy từ `GATEWAY_PUBLIC_URL` (mặc định `http://localhost:8080`).
+- Tắt bằng `SWAGGER_ENABLED=false` tại gateway; máy chủ production mặc định tắt, xem [deploy/README.md](deploy/README.md).
+
 ## Tài liệu
 
 | Tài liệu | Nội dung |

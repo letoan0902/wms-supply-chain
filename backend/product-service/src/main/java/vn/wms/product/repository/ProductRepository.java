@@ -24,9 +24,8 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     boolean existsByBarcodeAndIdNot(String barcode, Long id);
 
     /**
-     * Số SKU đang hoạt động (chưa xóa mềm), dùng cho giới hạn gói. Lưu ý: product-service chưa tách dữ liệu theo
-     * doanh nghiệp (WMS-22.4b) nên hiện đếm trên toàn bảng; khi Product kế thừa TenantEntity thì tự lọc theo
-     * doanh nghiệp.
+     * Số SKU đang hoạt động (chưa xóa mềm) của doanh nghiệp hiện tại, dùng cho giới hạn gói. Product kế thừa
+     * TenantEntity nên truy vấn tự có điều kiện company_id.
      */
     long countByActiveTrue();
 

@@ -1,5 +1,8 @@
 package vn.wms.ai.client;
 
+import vn.wms.common.api.ErrorCode;
+import vn.wms.common.exception.ApiException;
+
 /**
  * Cài đặt giả lập: không gọi mạng, luôn trả cùng một câu trả lời mẫu cho cùng một câu hỏi (nhắc lại một đoạn ngắn
  * của câu hỏi) và 0 token. Dùng khi chưa có khóa AI để nhóm phát triển giao diện và thử giới hạn gói.
@@ -18,6 +21,20 @@ public class MockAiClient implements AiClient {
                 + "chế độ giả lập, trợ lý sẽ trả lời thật tại đây.";
         return AiReply.answered(answer, STOP_REASON, 0L, 0L, false);
     }
+
+    /**
+     * Chế độ giả lập không bịa kết quả JSON (ví dụ dòng dữ liệu đọc từ PDF). Việc ghép cột của file Excel, CSV ở chế
+     * độ giả lập được làm tại chỗ theo tên cột ({@code vn.wms.ai.extraction.HeaderSynonymMatcher}), không qua đây.
+     */
+    @Override
+    public AiJsonReply generateJson(AiJsonRequest request) {
+        throw new ApiException(ErrorCode.BAD_REQUEST, NEEDS_REAL_AI_MESSAGE);
+    }
+
+    /** Thông báo khi một chức năng chỉ chạy được với Claude thật. */
+    public static final String NEEDS_REAL_AI_MESSAGE = "Hệ thống đang chạy chế độ AI giả lập nên chỉ đọc được file "
+            + "Excel (xlsx, xls) và CSV. File PDF và hình ảnh cần AI thật: quản trị viên cần cấu hình khóa AI và tắt "
+            + "chế độ giả lập. Lượt này không bị tính.";
 
     /** Gộp khoảng trắng và cắt câu hỏi còn tối đa {@value #EXCERPT_LENGTH} ký tự. */
     static String excerpt(String question) {

@@ -7,6 +7,7 @@ import org.springframework.amqp.core.Message;
 import vn.wms.common.messaging.WmsEventPublisher;
 import vn.wms.common.messaging.WmsEvents;
 import vn.wms.common.messaging.event.LowStockAlertEvent;
+import vn.wms.common.tenant.TenantContext;
 import vn.wms.notification.realtime.KpiMetric;
 import vn.wms.notification.realtime.NotificationSeverity;
 import vn.wms.notification.realtime.RealtimeEventType;
@@ -17,6 +18,9 @@ import vn.wms.notification.service.NotificationService;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -24,12 +28,17 @@ import static org.assertj.core.api.Assertions.assertThatCode;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static vn.wms.notification.messaging.ListenerTestSupport.COMPANY_A;
+import static vn.wms.notification.messaging.ListenerTestSupport.COMPANY_B;
 import static vn.wms.notification.messaging.ListenerTestSupport.json;
 import static vn.wms.notification.messaging.ListenerTestSupport.message;
+import static vn.wms.notification.messaging.ListenerTestSupport.ofCompany;
+import static vn.wms.notification.messaging.ListenerTestSupport.withoutCompany;
 
 /** Listener duy nhất của notification.alerts: cảnh báo tồn thấp lên WebSocket, định dạng email cũ vẫn gửi email. */
 class AlertEventsListenerTest {
@@ -47,7 +56,7 @@ class AlertEventsListenerTest {
         listener.onMessage(json(lowStock, WmsEvents.RoutingKeys.ALERT_LOW_STOCK, "msg-1"));
 
         ArgumentCaptor<RealtimeNotification> captor = ArgumentCaptor.forClass(RealtimeNotification.class);
-        verify(realtimeService).dispatch(captor.capture(), eq(KpiMetric.LOW_STOCK_ALERTS), eq("msg-1"));
+        verify(realtimeService).dispatch(eq(COMPANY_A), captor.capture(), eq(KpiMetric.LOW_STOCK_ALERTS), eq("msg-1"));
         RealtimeNotification notification = captor.getValue();
         assertThat(notification.type()).isEqualTo(RealtimeEventType.LOW_STOCK);
         assertThat(notification.severity()).isEqualTo(NotificationSeverity.WARNING);
@@ -63,7 +72,7 @@ class AlertEventsListenerTest {
 
         listener.onMessage(message);
 
-        verify(realtimeService).dispatch(any(RealtimeNotification.class), eq(KpiMetric.LOW_STOCK_ALERTS), eq("msg-2"));
+        verify(realtimeService).dispatch(eq(COMPANY_A), any(RealtimeNotification.class), eq(KpiMetric.LOW_STOCK_ALERTS), eq("msg-2"));
     }
 
     @Test
@@ -94,6 +103,54 @@ class AlertEventsListenerTest {
                 .isInstanceOf(AmqpRejectAndDontRequeueException.class);
         assertThatThrownBy(() -> listener.onMessage(message(broken, "alert.email", "msg-6")))
                 .isInstanceOf(AmqpRejectAndDontRequeueException.class);
+        verifyNoInteractions(realtimeService, notificationService);
+    }
+
+    @Test
+    void emailIsProcessedInsideTenantContextOfTheEvent() throws Exception {
+        NotificationMessage email = new NotificationMessage(
+                "LOW_STOCK", "quan.ly.kho.b@wms.local", "Cảnh báo tồn kho thấp", "SKU-009 chỉ còn 1 cái");
+        List<Long> contextDuringProcess = new ArrayList<>();
+        doAnswer(invocation -> {
+            contextDuringProcess.add(TenantContext.getCompanyId());
+            return null;
+        }).when(notificationService).process(any());
+
+        listener.onMessage(ofCompany(json(email, "alert.email", "msg-7"), COMPANY_B));
+
+        verify(notificationService).process(email);
+        assertThat(contextDuringProcess).containsExactly(COMPANY_B);
+        assertThat(TenantContext.isSet()).isFalse();
+    }
+
+    @Test
+    void companyIdFieldOfEventIsUsedWhenHeaderIsMissing() throws Exception {
+        Map<String, Object> body = new HashMap<>();
+        body.put("eventType", "LOW_STOCK");
+        body.put("recipient", "quan.ly.kho.b@wms.local");
+        body.put("subject", "Cảnh báo tồn kho thấp");
+        body.put("content", "SKU-009 chỉ còn 1 cái");
+        body.put("companyId", COMPANY_B);
+        List<Long> contextDuringProcess = new ArrayList<>();
+        doAnswer(invocation -> {
+            contextDuringProcess.add(TenantContext.getCompanyId());
+            return null;
+        }).when(notificationService).process(any());
+
+        listener.onMessage(withoutCompany(json(body, "alert.email", "msg-8")));
+
+        assertThat(contextDuringProcess).containsExactly(COMPANY_B);
+    }
+
+    @Test
+    void alertWithoutCompanyIsSkippedAndNoEmailIsSent() throws Exception {
+        NotificationMessage email = new NotificationMessage(
+                "LOW_STOCK", "quan.ly.kho@wms.local", "Cảnh báo tồn kho thấp", "SKU-001 chỉ còn 3 cái");
+
+        assertThatCode(() -> listener.onMessage(withoutCompany(json(email, "alert.email", "msg-9"))))
+                .doesNotThrowAnyException();
+        assertThatCode(() -> listener.onMessage(withoutCompany(json(lowStock, WmsEvents.RoutingKeys.ALERT_LOW_STOCK,
+                "msg-10")))).doesNotThrowAnyException();
         verifyNoInteractions(realtimeService, notificationService);
     }
 }

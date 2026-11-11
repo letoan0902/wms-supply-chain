@@ -15,7 +15,8 @@ Sơ đồ:
 order-service --order.created/.dispatched/.received---> [wms.events] ----> inventory.order-events     (inventory-service)
                                                              |------------> notification.order-events  (notification-service)
 inventory-service --inventory.updated---------------------->  |------------> notification.inventory-events (notification-service)
-inventory-service --alert.low-stock------------------------->  '------------> notification.alerts       (notification-service)
+inventory-service --alert.low-stock------------------------->  |------------> notification.alerts       (notification-service)
+auth-service --auth.activation-requested/.password-reset-requested-'------------> notification.auth-emails  (notification-service)
 
 queue nghiệp vụ --(reject, không requeue)--> [wms.dlx] --> wms.dead-letter (giữ 7 ngày, tối đa 10000 tin)
 ```
@@ -38,8 +39,10 @@ Không đặt `x-arguments` trực tiếp trên queue (dead-letter đi qua polic
 | `order.created` | order-service | `inventory.order-events` (inventory), `notification.order-events` (notification) | Đơn hàng mới (PO hoặc SO) đã tạo: mã đơn, loại đơn, kho, danh sách dòng hàng (SKU, số lượng) |
 | `order.dispatched` | order-service | `inventory.order-events`, `notification.order-events` | Đơn bán đã xuất kho (GDN xác nhận): mã đơn, mã GDN, dòng hàng đã xuất |
 | `order.received` | order-service | `inventory.order-events`, `notification.order-events` (qua `order.#`) | Phiếu nhập kho GRN đã lưu (WMS-10.3): inventory-service cộng OnHand tại ô và lô đã chọn, trừ Incoming của PO; mỗi GRN chỉ cộng một lần (bảng `stock_receipts`, khóa `(company_id, grn_id)`) |
-| `inventory.updated` | inventory-service | `notification.inventory-events` (notification) | Tồn kho thay đổi sau nhập, xuất, điều chỉnh: SKU, kho, tồn trước và sau |
-| `alert.low-stock` | inventory-service | `notification.alerts` (notification) | Tồn chạm ngưỡng an toàn: SKU, kho, tồn hiện tại, ngưỡng; notification-service đẩy cảnh báo lên WebSocket `/topic/alerts` (mục 8) |
+| `inventory.updated` | inventory-service | `notification.inventory-events` (notification) | Tồn kho thay đổi sau nhập, xuất, điều chuyển, điều chỉnh: SKU, kho, tồn trước và sau. Điều chỉnh kiểm kê (WMS-14.2): phát sau khi Kế toán duyệt phiếu điều chỉnh, mỗi sản phẩm của phiếu một sự kiện, `reason = ADJUSTMENT`, `referenceNumber` là mã phiếu `ADJ-yyyyMM-NN`, `quantityBefore`/`quantityAfter` là tổng tồn thực tế của sản phẩm trong kho trước và sau, `skuCode` để null (inventory-service không lưu SKU, bên nhận hiển thị theo `productId`), doanh nghiệp ở header `x-wms-company-id` |
+| `alert.low-stock` | inventory-service | `notification.alerts` (notification) | Tồn chạm ngưỡng an toàn: SKU, kho, tồn hiện tại, ngưỡng; notification-service đẩy cảnh báo lên WebSocket `/topic/company/{companyId}/alerts` (mục 8) |
+| `auth.activation-requested` | auth-service | `notification.auth-emails` (notification, binding `auth.#`) | Doanh nghiệp vừa đăng ký hoặc xin gửi lại liên kết kích hoạt (WMS-23.6): notification-service gửi email chứa liên kết `/activate?token=...` (mục 8.7) |
+| `auth.password-reset-requested` | auth-service | `notification.auth-emails` (notification) | Người dùng quên mật khẩu (WMS-23.6): notification-service gửi email chứa liên kết `/reset-password?token=...` (mục 8.7) |
 
 Nội dung message là JSON (Jackson). Payload của mỗi routing key là một record trong gói `vn.wms.common.messaging.event` của module `common`, service phát và service nhận dùng chung một kiểu:
 
@@ -50,6 +53,7 @@ Nội dung message là JSON (Jackson). Payload của mỗi routing key là một
 | `order.received` | `OrderReceivedEvent` | `grnId`, `grnNumber`, `poId`, `poNumber`, `warehouseId`, `supplierId`, `receivedBy`, `receiptDate`, `receivedAt`, `items[]` (`ReceivedItemLine`: `productId`, `skuCode`, `productName`, `acceptedQuantity`, `rejectedQuantity`, `uom`, `locationId`, `locationCode`, `batchNumber`, `mfgDate`, `expDate`) |
 | `inventory.updated` | `InventoryUpdatedEvent` | `warehouseId`, `productId`, `skuCode`, `quantityBefore`, `quantityAfter`, `reason`, `referenceNumber`, `updatedAt` |
 | `alert.low-stock` | `LowStockAlertEvent` | `warehouseId`, `warehouseName`, `productId`, `skuCode`, `productName`, `quantityOnHand`, `minimumQuantity`, `detectedAt` |
+| `auth.activation-requested`, `auth.password-reset-requested` | `AccountEmailRequestedEvent` | `kind` (`ACTIVATION` hoặc `PASSWORD_RESET`, enum `AccountEmailKind`), `companyId`, `companyName`, `recipientEmail`, `recipientName` (có thể rỗng), `link` (liên kết đầy đủ tới giao diện, chứa mã dùng một lần), `expiresAt` (24 giờ với kích hoạt, 30 phút với đặt lại mật khẩu), `requestedAt` |
 
 Thông tin kỹ thuật không nằm trong payload mà ở thuộc tính message do `WmsEventPublisher` gắn: `messageId` (UUID, consumer dùng để bỏ qua message giao lại), `timestamp`, header `x-wms-event` (trùng routing key), `x-wms-source` (tên service phát) và `x-wms-company-id` (ID doanh nghiệp phát sinh sự kiện, bên nhận dùng để đặt lại ngữ cảnh doanh nghiệp trước khi xử lý, xem [MULTI_TENANT.md](MULTI_TENANT.md)). Thời gian ghi dạng ISO 8601 UTC, ví dụ `2026-11-04T08:00:00Z` (xem nguyên tắc idempotent trong [ARCHITECTURE.md](ARCHITECTURE.md)).
 
@@ -181,7 +185,7 @@ notification-service là hub WebSocket: nhận sự kiện ở mục 3 từ ba q
 | --- | --- |
 | Endpoint | `/ws-wms` qua api-gateway (route `notification-websocket`, `lb://notification-service`). Bản SockJS (`sockjs-client` nối `http(s)://<host>/ws-wms`) và bản WebSocket thuần (`ws(s)://<host>/ws-wms`) dùng chung đường dẫn |
 | Broker | Simple broker trong bộ nhớ, tiền tố `/topic`, nhịp tim 10000/10000 ms |
-| Client được làm | CONNECT, SUBSCRIBE vào `/topic/**`, UNSUBSCRIBE, DISCONNECT. SUBSCRIBE đích khác hoặc SEND đều nhận frame ERROR |
+| Client được làm | CONNECT, SUBSCRIBE vào kênh của doanh nghiệp mình `/topic/company/{companyId}/alerts`, `/orders`, `/inventory`, `/kpi` (WMS-22.4c), UNSUBSCRIBE, DISCONNECT. SUBSCRIBE đích khác, kênh của doanh nghiệp khác hoặc SEND đều nhận frame ERROR |
 | Origin | `setAllowedOriginPatterns` lấy từ `CORS_ALLOWED_ORIGINS` (mặc định `http://localhost:5173`; compose dev thêm `http://localhost`, production là `https://<DOMAIN>`) |
 
 Gateway chuyển request có header `Upgrade: websocket` sang `ws://` sau khi load balancer chọn instance (`WebsocketRoutingFilter` của Spring Cloud Gateway 4.1 đổi `http` thành `ws`), nên route dùng `lb://` như các route khác; các request HTTP của SockJS (`/ws-wms/info`, xhr-streaming) đi như request thường. Origin được kiểm tra ở notification-service (gateway không giữ Host gốc nên mọi kết nối qua gateway đều là khác origin), vì vậy `CORS_ALLOWED_ORIGINS` của notification-service phải chứa origin của giao diện. Nginx của frontend phải chuyển tiếp `/ws-wms` tới api-gateway kèm header `Upgrade` và `Connection` như khối `/api/` (Caddy tự hỗ trợ WebSocket).
@@ -189,18 +193,22 @@ Gateway chuyển request có header `Upgrade: websocket` sang `ws://` sau khi lo
 ### 8.2. Xác thực
 
 - Trình duyệt không gắn được header vào handshake, nên gateway để `/ws-wms/**` trong `gateway.jwt.public-paths`; JWT được kiểm tra ở frame STOMP CONNECT: client gửi header `Authorization: Bearer <accessToken>` trong frame.
-- `StompAuthChannelInterceptor` (kênh inbound) kiểm tra chữ ký HS256 và hạn giống `JwtAuthenticationGlobalFilter`; token hợp lệ thì gắn `Principal` là username (kèm vai trò trong claim `roles`); thiếu, sai chữ ký hoặc hết hạn thì trả frame ERROR và đóng kết nối. Khi bật xác thực, SUBSCRIBE của phiên chưa CONNECT thành công cũng bị từ chối.
-- Cấu hình `app.websocket.auth-required: ${GATEWAY_JWT_ENABLED:false}` (cùng công tắc với gateway; production bật qua `deploy/docker-compose.prod.yml`) và `app.websocket.jwt-secret: ${JWT_SECRET:...}` (phải trùng auth-service và gateway, compose truyền qua `x-backend-env`). Tắt thì CONNECT không cần token, nhưng giới hạn SUBSCRIBE và SEND vẫn áp dụng.
+- `StompAuthChannelInterceptor` (kênh inbound) kiểm tra chữ ký HS256 và hạn giống `JwtAuthenticationGlobalFilter`; token hợp lệ thì gắn `Principal` là `StompPrincipal` gồm username và doanh nghiệp lấy từ claim `companyId` (kèm vai trò trong claim `roles`); thiếu, sai chữ ký, hết hạn hoặc không có `companyId` thì trả frame ERROR và đóng kết nối.
+- SUBSCRIBE (WMS-22.4c): chỉ chấp nhận đích đúng dạng `/topic/company/{companyId}/alerts|orders|inventory|kpi` với `{companyId}` bằng doanh nghiệp của phiên lấy ở bước CONNECT. Phiên chưa xác thực, phiên không có doanh nghiệp, kênh của doanh nghiệp khác, topic dùng chung cũ (`/topic/alerts`...) đều nhận frame ERROR. Doanh nghiệp không bao giờ lấy từ giá trị client tự khai báo.
+- Cấu hình `app.websocket.auth-required: ${GATEWAY_JWT_ENABLED:false}` (cùng công tắc với gateway; production bật qua `deploy/docker-compose.prod.yml`) và `app.websocket.jwt-secret: ${JWT_SECRET:...}` (phải trùng auth-service và gateway, compose truyền qua `x-backend-env`). Tắt (máy phát triển) thì CONNECT không bắt buộc token: token hợp lệ vẫn được dùng để lấy doanh nghiệp, không có token thì phiên nhận `app.tenant.default-company-id` (`TENANT_DEFAULT_COMPANY_ID`, compose dev là 1); không có cả hai thì không đăng ký được kênh nào. Giới hạn SUBSCRIBE và SEND luôn áp dụng.
+- notification-service bật `app.tenant.required`, nên `TenantFilter` bỏ qua `/ws-wms/**` (`app.tenant.public-paths`): handshake của trình duyệt không mang `X-Company-Id`, doanh nghiệp của phiên đến từ frame CONNECT.
 
 ### 8.3. Topic và phong bì
 
+Mỗi doanh nghiệp có bốn kênh riêng (WMS-22.4c, thay cho bốn topic dùng chung `/topic/alerts`, `/topic/orders`, `/topic/inventory`, `/topic/kpi` trước đây, ánh xạ một đổi một). Tin của sự kiện nào chỉ đẩy lên kênh của doanh nghiệp phát sinh sự kiện đó (header `x-wms-company-id`, mục 3).
+
 | Topic | `type` | `severity` | Nguồn | Chỉ số KPI tăng |
 | --- | --- | --- | --- | --- |
-| `/topic/alerts` | `LOW_STOCK` | `warning` | `alert.low-stock` | `lowStockAlerts` |
-| `/topic/orders` | `ORDER_CREATED` | `info` | `order.created` | `purchaseOrders` hoặc `salesOrders` theo `orderType` |
-| `/topic/orders` | `ORDER_DISPATCHED` | `success` | `order.dispatched` | `dispatchedOrders` |
-| `/topic/inventory` | `INVENTORY_UPDATED` | `info` | `inventory.updated` | `inventoryMovements` |
-| `/topic/kpi` | `KPI_UPDATED` | `info` | sau mỗi lần tăng bộ đếm | |
+| `/topic/company/{companyId}/alerts` | `LOW_STOCK` | `warning` | `alert.low-stock` | `lowStockAlerts` |
+| `/topic/company/{companyId}/orders` | `ORDER_CREATED` | `info` | `order.created` | `purchaseOrders` hoặc `salesOrders` theo `orderType` |
+| `/topic/company/{companyId}/orders` | `ORDER_DISPATCHED` | `success` | `order.dispatched` | `dispatchedOrders` |
+| `/topic/company/{companyId}/inventory` | `INVENTORY_UPDATED` | `info` | `inventory.updated` | `inventoryMovements` |
+| `/topic/company/{companyId}/kpi` | `KPI_UPDATED` | `info` | sau mỗi lần tăng bộ đếm | |
 
 Mọi tin là một phong bì JSON (`vn.wms.notification.realtime.RealtimeNotification`):
 
@@ -228,9 +236,10 @@ Mọi tin là một phong bì JSON (`vn.wms.notification.realtime.RealtimeNotifi
 { "date": "2026-11-05", "purchaseOrders": 3, "salesOrders": 5, "dispatchedOrders": 2, "lowStockAlerts": 1, "inventoryMovements": 12, "updatedAt": "2026-11-05T08:00:00Z" }
 ```
 
-- Đếm trong ngày theo giờ Việt Nam (Asia/Ho_Chi_Minh), lưu Redis: hash `wms:notification:kpi:<yyyy-MM-dd>`, hết hạn sau 2 ngày. `updatedAt` là null khi trong ngày chưa có sự kiện.
-- Chống đếm trùng khi broker giao lại: `SET NX` khóa `wms:notification:kpi:processed:<messageId>` giữ 1 ngày; sự kiện không có `messageId` thì cứ đếm.
-- Redis lỗi không làm hỏng việc tiêu thụ sự kiện: ghi log warn, thông báo chính vẫn được đẩy, chỉ bỏ lượt đẩy `/topic/kpi`. API `GET .../kpi` khi Redis lỗi trả 503 `SERVICE_UNAVAILABLE` thay vì báo số 0 sai.
+- Đếm riêng từng doanh nghiệp, trong ngày theo giờ Việt Nam (Asia/Ho_Chi_Minh), lưu Redis: hash `wms:notification:kpi:<companyId>:<yyyy-MM-dd>`, hết hạn sau 2 ngày. `updatedAt` là null khi trong ngày chưa có sự kiện.
+- Chống đếm trùng khi broker giao lại: `SET NX` khóa `wms:notification:kpi:<companyId>:processed:<messageId>` giữ 1 ngày; sự kiện không có `messageId` thì cứ đếm.
+- `GET /api/notifications/realtime/kpi` trả bộ đếm của doanh nghiệp trong `X-Company-Id` (gateway gắn theo JWT); thiếu doanh nghiệp trả 403 `COMPANY_REQUIRED`.
+- Redis lỗi không làm hỏng việc tiêu thụ sự kiện: ghi log warn, thông báo chính vẫn được đẩy, chỉ bỏ lượt đẩy `/topic/company/{companyId}/kpi`. API `GET .../kpi` khi Redis lỗi trả 503 `SERVICE_UNAVAILABLE` thay vì báo số 0 sai.
 
 ### 8.5. Queue `notification.alerts`: hai định dạng, một listener
 
@@ -238,28 +247,42 @@ Queue này có từ trước với `NotificationConsumer` đọc `NotificationMe
 
 | Routing key | Payload | Xử lý |
 | --- | --- | --- |
-| `alert.low-stock` | `LowStockAlertEvent` (mục 3) | Đẩy `/topic/alerts`, tăng `lowStockAlerts`. Chưa gửi email vì sự kiện không có người nhận |
-| `alert.*` khác, ví dụ `alert.email` | `NotificationMessage` | Gửi email và ghi `notification_logs` như trước (`NotificationService`). Tin không có `recipient` (loại cảnh báo chưa hỗ trợ) thì ghi log và bỏ qua |
+| `alert.low-stock` | `LowStockAlertEvent` (mục 3) | Đẩy `/topic/company/{companyId}/alerts`, tăng `lowStockAlerts` của doanh nghiệp đó. Chưa gửi email vì sự kiện không có người nhận |
+| `alert.*` khác, ví dụ `alert.email` | `NotificationMessage` | Gửi email và ghi `notification_logs` (có `company_id` của sự kiện) như trước (`NotificationService`). Tin không có `recipient` (loại cảnh báo chưa hỗ trợ) thì ghi log và bỏ qua |
 
-Bên phát muốn gửi email thì dùng routing key `alert.*` khác `alert.low-stock` với payload `NotificationMessage`. JSON hỏng ở cả hai nhánh chuyển dead-letter.
+Bên phát muốn gửi email thì dùng routing key `alert.*` khác `alert.low-stock` với payload `NotificationMessage`, phát bằng `WmsEventPublisher` trong ngữ cảnh doanh nghiệp của mình và chỉ chọn người nhận thuộc doanh nghiệp đó (notification-service không tự tra người nhận). JSON hỏng ở cả hai nhánh chuyển dead-letter.
+
+### 8.5a. Doanh nghiệp của sự kiện (WMS-22.4c)
+
+Cả ba listener (`AlertEventsListener`, `OrderEventsListener`, `InventoryEventsListener`) đọc doanh nghiệp theo thứ tự: header `x-wms-company-id` (do `WmsEventPublisher` gắn), không có thì trường `companyId` ở cấp ngoài cùng của JSON. Có doanh nghiệp thì toàn bộ xử lý chạy trong `TenantContext.runAs(companyId, ...)`: kênh WebSocket, bộ đếm KPI và bản ghi `notification_logs` đều thuộc doanh nghiệp đó. Không có doanh nghiệp thì ghi một dòng log cảnh báo và bỏ qua (ack): không ném lỗi, không thử lại, không vào dead-letter, không gửi email. Khác inventory-service (chuyển dead-letter để phát lại) vì thông báo bỏ lỡ không làm sai dữ liệu.
 
 ### 8.6. Thử nhanh không cần service phát
 
-1. Chạy stack (`docker compose up -d`), mở giao diện đã nối WebSocket hoặc một client STOMP bất kỳ nối `ws://localhost:8080/ws-wms` rồi SUBSCRIBE `/topic/alerts` và `/topic/kpi`.
-2. Vào giao diện quản trị RabbitMQ (mục 6), Exchanges, `wms.events`, Publish message: Routing key `alert.low-stock`; Properties `content_type` = `application/json` và `message_id` = một UUID; Payload:
+1. Chạy stack (`docker compose up -d`), mở giao diện đã nối WebSocket hoặc một client STOMP bất kỳ nối `ws://localhost:8080/ws-wms` (frame CONNECT kèm `Authorization: Bearer <accessToken>`, compose dev không bắt buộc) rồi SUBSCRIBE `/topic/company/1/alerts` và `/topic/company/1/kpi`.
+2. Vào giao diện quản trị RabbitMQ (mục 6), Exchanges, `wms.events`, Publish message: Routing key `alert.low-stock`; Properties `content_type` = `application/json` và `message_id` = một UUID; Headers `x-wms-company-id` = `1` (thiếu thì tin bị bỏ qua); Payload:
 
 ```json
 { "warehouseId": 5, "warehouseName": "Kho Hà Nội", "productId": 100, "skuCode": "SKU-001", "productName": "Thùng carton", "quantityOnHand": 5, "minimumQuantity": 20, "detectedAt": "2026-11-05T08:00:00Z" }
 ```
 
-3. Client nhận phong bì `LOW_STOCK` trên `/topic/alerts` và `KPI_UPDATED` trên `/topic/kpi`. Publish lại đúng `message_id` đó thì thông báo được đẩy lại nhưng KPI không tăng. Làm tương tự với `order.created` (payload `OrderCreatedEvent`) và `inventory.updated` (payload `InventoryUpdatedEvent`).
-4. Xem số hiện tại: `GET http://localhost:8080/api/notifications/realtime/kpi`.
+3. Client nhận phong bì `LOW_STOCK` trên `/topic/company/1/alerts` và `KPI_UPDATED` trên `/topic/company/1/kpi`. Publish lại đúng `message_id` đó thì thông báo được đẩy lại nhưng KPI không tăng. Làm tương tự với `order.created` (payload `OrderCreatedEvent`) và `inventory.updated` (payload `InventoryUpdatedEvent`).
+4. Xem số hiện tại: `GET http://localhost:8080/api/notifications/realtime/kpi` (kèm token, hoặc gọi thẳng cổng 8085 với header `X-Company-Id: 1`).
+
+### 8.7. Queue `notification.auth-emails`: email tài khoản (WMS-23.6)
+
+auth-service không gửi mail. Khi đăng ký doanh nghiệp, xin gửi lại liên kết kích hoạt hoặc quên mật khẩu, auth-service phát `AccountEmailRequestedEvent` (mục 3) bằng `WmsEventPublisher.publishAfterCommit`, gắn header `x-wms-company-id` là doanh nghiệp của người nhận. `AccountEmailListener` là listener duy nhất của queue này:
+
+- Đọc doanh nghiệp như mục 8.5a; không có doanh nghiệp, thiếu `kind`, người nhận hoặc liên kết thì ghi cảnh báo và bỏ qua; JSON hỏng thì sang dead-letter.
+- `AccountEmailService` chạy trong `TenantContext.runAs(companyId, ...)`: gửi email HTML tiếng Việt (`EmailService.sendHtml`) và ghi `notification_logs` của doanh nghiệp đó với `event_type` `ACCOUNT_ACTIVATION` hoặc `PASSWORD_RESET`, trạng thái `SENT` hoặc `FAILED`.
+- SMTP lỗi: ghi `FAILED` kèm nguyên nhân, không ném lỗi nên tin không quay lại hàng đợi; người dùng tự bấm gửi lại trên giao diện (auth-service giới hạn một lần mỗi phút cho mỗi email).
+- Chưa cấu hình SMTP (`MAIL_HOST` rỗng, hoặc có host nhưng `MAIL_USERNAME` rỗng và host không phải `localhost`/`127.0.0.1`): không gửi, ghi đúng một dòng INFO gồm người nhận và liên kết đầy đủ để nhóm bấm thử (`docker compose logs notification-service | grep "liên kết"`), nhật ký ghi `FAILED` với lý do "Chưa cấu hình SMTP". Đây là nơi duy nhất liên kết xuất hiện trong log; payload có `toString()` che liên kết.
+- Broker giao lại cùng `messageId`: không gửi lần hai (khóa Redis `wms:notification:account-email:processed:<messageId>` giữ 1 ngày; Redis lỗi thì vẫn gửi).
 
 ## 9. Việc tiếp theo
 
 - WMS-02.4 (làm ở PR frontend riêng, thư mục `frontend/src/features/realtime/`): giao diện nối `/ws-wms` bằng SockJS, gửi header `Authorization` trong frame CONNECT, SUBSCRIBE bốn topic ở mục 8.3, bỏ tin trùng theo `id`, lấy KPI ban đầu từ `GET /api/notifications/realtime/kpi`; `frontend/nginx.conf` có khối chuyển tiếp `/ws-wms` tới api-gateway (mục 8.1). Sau khi cả hai phần được merge cần thử trọn luồng trên máy chủ.
 - Gửi email cho `alert.low-stock` cần danh sách người nhận (ví dụ quản lý của kho); hiện cảnh báo này chỉ đẩy WebSocket (mục 8.5).
 - WMS-09.1, WMS-09.2, WMS-11.1, WMS-11.2: order-service chuyển sang `WmsEventPublisher.publishAfterCommit` với `OrderCreatedEvent`; inventory-service implement `OrderEventHandler` để cập nhật tồn chờ nhập và giữ hàng.
-- Khi hệ thống chạy nhiều doanh nghiệp (EPIC 10): thêm `companyId` vào từng record sự kiện; WebSocket tách topic theo doanh nghiệp (ví dụ `/topic/{companyId}/alerts`), interceptor chỉ cho SUBSCRIBE topic của `companyId` trong JWT, bộ đếm KPI tách khóa Redis theo `companyId`.
+- Đã làm ở WMS-22.4c: WebSocket tách kênh theo doanh nghiệp (`/topic/company/{companyId}/...`), interceptor chỉ cho SUBSCRIBE kênh của `companyId` trong JWT, bộ đếm KPI tách khóa Redis theo `companyId`. Còn lại: thêm `companyId` vào từng record sự kiện (hiện doanh nghiệp đi theo header, listener đã đọc được trường này nếu có).
 - Lọc thông báo theo kho người dùng được phân quyền (WMS-04.2): thêm `warehouseId` vào đích hoặc lọc trước khi đẩy.
 - Cân nhắc mẫu outbox nếu cần đảm bảo không mất sự kiện khi broker ngừng đúng lúc commit.

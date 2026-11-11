@@ -77,11 +77,26 @@ public class AiQuotaService {
      * @return số lượt đã dùng trong tháng sau lần ghi nhận này
      */
     public long recordSuccess(AiReply reply) {
+        return record(reply.refused());
+    }
+
+    /**
+     * Ghi nhận một lượt AI đã hoàn tất mà không có {@link AiReply} (ví dụ một lần trích xuất tài liệu, WMS-24.2).
+     * Cùng quy tắc với {@link #recordSuccess(AiReply)}: kết quả giả lập chỉ bị tính khi
+     * {@code app.ai.mock-counts-usage=true}.
+     *
+     * @return số lượt đã dùng trong tháng sau lần ghi nhận này
+     */
+    public long recordSuccessfulRequest() {
+        return record(false);
+    }
+
+    private long record(boolean refused) {
         PlanLimitChecker checker = planLimitChecker.getIfAvailable();
         if (checker == null) {
             return 0L;
         }
-        if (reply.refused() || (runtime.isMock() && !properties.mockCountsUsage())) {
+        if (refused || (runtime.isMock() && !properties.mockCountsUsage())) {
             return checker.currentMonthlyAiUsage();
         }
         long used = checker.incrementMonthlyAiUsage();

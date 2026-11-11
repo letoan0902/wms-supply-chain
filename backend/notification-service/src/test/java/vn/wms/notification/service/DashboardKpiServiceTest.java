@@ -249,4 +249,32 @@ class DashboardKpiServiceTest {
             TenantContext.clear();
         }
     }
+
+    @Test
+    @DisplayName("Khóa cache KPI mang companyId: doanh nghiệp 2 không đọc, không ghi vào cache của doanh nghiệp 1")
+    void getKpiSummary_cacheKeyIsPerCompany() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader(UserContext.HEADER_USER_NAME, "admin_b");
+        request.addHeader(UserContext.HEADER_USER_ROLES, Roles.ADMIN);
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
+        TenantContext.setCompanyId(2L);
+
+        try {
+            when(valueOperations.get("wms:kpi:company:2:summary:all:7_DAYS")).thenReturn(null);
+            when(orderKpiClient.fetchMetrics(null)).thenReturn(OrderKpiMetricsResponse.empty());
+            when(inventoryKpiClient.fetchMetrics(null)).thenReturn(InventoryKpiMetricsResponse.empty());
+
+            KpiSummaryResponse response = dashboardKpiService.getKpiSummary(null, "7_DAYS");
+
+            assertThat(response.meta().companyId()).isEqualTo(2L);
+            org.mockito.Mockito.verify(valueOperations).set(
+                    org.mockito.ArgumentMatchers.eq("wms:kpi:company:2:summary:all:7_DAYS"), anyString(),
+                    org.mockito.ArgumentMatchers.any(java.time.Duration.class));
+            org.mockito.Mockito.verify(valueOperations, org.mockito.Mockito.never())
+                    .get(org.mockito.ArgumentMatchers.startsWith("wms:kpi:company:1:"));
+        } finally {
+            RequestContextHolder.resetRequestAttributes();
+            TenantContext.clear();
+        }
+    }
 }

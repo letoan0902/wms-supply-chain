@@ -23,3 +23,8 @@ app:
   # Test không có Redis: tắt kiểm tra giới hạn gói (WMS-23.2); test riêng bật lại với Redis giả lập.
   plan-limit:
     enabled: false
+  # Như môi trường phát triển: bắt buộc có doanh nghiệp, request không mang X-Company-Id thuộc doanh nghiệp 1.
+  # Test cách ly đặt lại default-company-id rỗng để kiểm tra trường hợp thiếu doanh nghiệp.
+  tenant:
+    required: true
+    default-company-id: 1

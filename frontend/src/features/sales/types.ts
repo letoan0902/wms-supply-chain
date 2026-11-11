@@ -9,6 +9,7 @@ export interface SalesOrderItem {
   productId: number
   skuCode: string
   productName: string
+  barcode?: string
   uom?: string
   quantity: number
   unitPrice: number

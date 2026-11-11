@@ -196,11 +196,19 @@ export default function SmartGoodsReceiptForm({
         const settledProducts = await Promise.allSettled(
           uniqueProductIds.map((id) => productApi.fetchProductById(id))
         )
+        let hasFailedProduct = false
         settledProducts.forEach((res) => {
           if (res.status === 'fulfilled' && res.value) {
             productMap.set(res.value.id, res.value)
+          } else if (res.status === 'rejected') {
+            hasFailedProduct = true
           }
         })
+        if (hasFailedProduct && !ignore) {
+          message.warning(
+            'Một số sản phẩm không tải được thông tin quản lý lô/hạn dùng từ máy chủ. Vui lòng kiểm tra lại trước khi hoàn tất nhập kho.'
+          )
+        }
 
         // Khởi tạo các dòng hàng
         const initialRows: ReceiptItemRow[] = (progress.items || []).map((it) => {

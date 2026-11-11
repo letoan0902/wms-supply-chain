@@ -48,9 +48,11 @@ import * as warehouseApi from '../warehouses/warehouseApi'
 import type { Warehouse } from '../warehouses/types'
 import CreateSalesInvoiceModal from './components/CreateSalesInvoiceModal'
 import CustomerReceivablesTab from './components/CustomerReceivablesTab'
+import GoodsDeliveryTable from './components/GoodsDeliveryTable'
 import RealtimeOutboundBoard from './components/RealtimeOutboundBoard'
 import SalesOrderDetailModal from './components/SalesOrderDetailModal'
 import SalesOrderForm from './components/SalesOrderForm'
+import SmartGoodsDeliveryForm from './components/SmartGoodsDeliveryForm'
 import SmartPickingModal from './components/SmartPickingModal'
 import * as salesApi from './salesApi'
 import { SALES_STATUS_CONFIG } from './statusConfig'
@@ -120,6 +122,9 @@ export default function SalesPage() {
 
   const [orderForPicking, setOrderForPicking] = useState<SalesOrder | null>(null)
   const [isPickingModalOpen, setIsPickingModalOpen] = useState<boolean>(false)
+
+  const [orderForDelivery, setOrderForDelivery] = useState<SalesOrder | null>(null)
+  const [isDeliveryModalOpen, setIsDeliveryModalOpen] = useState<boolean>(false)
 
   // Tải danh mục khách hàng và kho cho bộ lọc
   useEffect(() => {
@@ -812,7 +817,7 @@ export default function SalesPage() {
               label: (
                 <Space>
                   <RocketOutlined className="text-orange-500" />
-                  <span>Xuất kho & Lộ trình lấy hàng (FR17)</span>
+                  <span>Xuất kho & Lộ trình lấy hàng</span>
                 </Space>
               ),
               children: (
@@ -825,11 +830,21 @@ export default function SalesPage() {
               ),
             },
             {
+              key: 'gdn',
+              label: (
+                <Space>
+                  <RocketOutlined className="text-emerald-600" />
+                  <span>Phiếu xuất kho (GDN)</span>
+                </Space>
+              ),
+              children: <GoodsDeliveryTable />,
+            },
+            {
               key: 'receivables',
               label: (
                 <Space>
                   <DollarOutlined />
-                  <span>Hóa đơn bán & Công nợ phải thu (FR18)</span>
+                  <span>Hóa đơn bán & Công nợ phải thu</span>
                 </Space>
               ),
               children: <CustomerReceivablesTab />,
@@ -858,12 +873,16 @@ export default function SalesPage() {
           setOrderForPicking(order)
           setIsPickingModalOpen(true)
         }}
+        onOpenDelivery={(order) => {
+          setOrderForDelivery(order)
+          setIsDeliveryModalOpen(true)
+        }}
         canConfirm={canConfirm}
         canCancel={canCancel}
         canManageInvoice={canManageInvoice}
       />
 
-      {/* Modal Lộ trình lấy hàng thông minh (Smart Picking View - WMS-12.3) */}
+      {/* Modal Lộ trình lấy hàng thông minh (Smart Picking View) */}
       <SmartPickingModal
         open={isPickingModalOpen}
         order={orderForPicking}
@@ -873,7 +892,20 @@ export default function SalesPage() {
         }}
       />
 
-      {/* Modal Lập Hóa đơn bán hàng (FR18) */}
+      {/* Modal Lập Phiếu Xuất Kho GDN (WMS-12.4) */}
+      <SmartGoodsDeliveryForm
+        open={isDeliveryModalOpen}
+        order={orderForDelivery}
+        onClose={() => {
+          setIsDeliveryModalOpen(false)
+          setOrderForDelivery(null)
+        }}
+        onSuccess={() => {
+          setRefreshKey((k) => k + 1)
+        }}
+      />
+
+      {/* Modal Lập Hóa đơn bán hàng */}
       <CreateSalesInvoiceModal
         open={invoiceModalOpen}
         order={orderForInvoice}

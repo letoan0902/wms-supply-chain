@@ -120,7 +120,7 @@ export default function PrintPickingListModal({
       title={
         <div className="flex items-center gap-2 text-slate-800">
           <PrinterOutlined className="text-blue-600 text-lg" />
-          <span>In Phiếu Lấy Hàng (Picking List)</span>
+          <span>In Phiếu Lấy Hàng</span>
         </div>
       }
       width={780}
@@ -136,7 +136,7 @@ export default function PrintPickingListModal({
           onClick={handlePrint}
           className="bg-blue-600 hover:bg-blue-700"
         >
-          In Phiếu (Print)
+          In Phiếu
         </Button>,
       ]}
       destroyOnClose
@@ -166,7 +166,7 @@ export default function PrintPickingListModal({
               Phiếu Lấy Hàng Xuất Kho
             </h2>
             <div className="text-xs text-slate-500 mt-0.5">
-              Smart Picking List (Lộ trình tối ưu Zone → Rack → Bin - FR17)
+              Lộ trình lấy hàng tối ưu Zone → Rack → Bin
             </div>
           </div>
           <div className="text-right">

@@ -409,6 +409,16 @@ Người làm: Toàn. Ngày: 16/11. Jira: TASK-138. Phụ thuộc: WMS-22.1.
 1. A tạo đơn hàng: chỉ người dùng của A nhận thông báo; KPI của B không đổi.
 2. Người dùng của B đăng ký kênh của A bị từ chối.
 
+**Đã làm (11/11)**
+
+- Dữ liệu: `notification_logs` là bảng duy nhất của service (chưa có bảng báo cáo), kế thừa `TenantEntity`; migration `V2__multi_tenant_company_id.sql` thêm `company_id`, gán dữ liệu cũ cho doanh nghiệp 1, đặt NOT NULL, thêm index `(company_id, status)` và `(company_id, created_at)`. `app.tenant.required: true`, `default-company-id: ${TENANT_DEFAULT_COMPANY_ID:}` (compose dev 1, máy chủ rỗng). Đường dẫn bỏ qua kiểm tra doanh nghiệp: `/ws-wms/**`, `/api/notifications/health-info`.
+- Listener: `AlertEventsListener`, `OrderEventsListener`, `InventoryEventsListener` lấy doanh nghiệp từ header `x-wms-company-id`, không có thì trường `companyId` của JSON, rồi xử lý trong `TenantContext.runAs`. Thiếu doanh nghiệp: ghi một dòng log cảnh báo và bỏ qua, không ném lỗi, không thử lại, không gửi email.
+- KPI: khóa Redis `wms:notification:kpi:{companyId}:{yyyy-MM-dd}` và `wms:notification:kpi:{companyId}:processed:{messageId}`. `GET /api/notifications/realtime/kpi` trả bộ đếm của doanh nghiệp trong `X-Company-Id`, thiếu thì `403 COMPANY_REQUIRED`. Cache của `GET /api/notifications/dashboard/kpi-summary` đã theo doanh nghiệp: `wms:kpi:company:{companyId}:summary:...`.
+- WebSocket: kênh `/topic/company/{companyId}/alerts`, `/orders`, `/inventory`, `/kpi` thay cho bốn topic dùng chung. Frame CONNECT gửi `Authorization: Bearer <accessToken>`; máy chủ kiểm tra chữ ký bằng `JWT_SECRET` như gateway và lấy doanh nghiệp từ claim `companyId`. Bật `GATEWAY_JWT_ENABLED` (máy chủ): thiếu, sai token hoặc token không có `companyId` bị từ chối ở CONNECT. Tắt (máy phát triển): token không bắt buộc, phiên không có token dùng doanh nghiệp mặc định. SUBSCRIBE chỉ được vào kênh của doanh nghiệp của phiên; kênh doanh nghiệp khác, phiên chưa xác thực, topic cũ đều nhận frame ERROR.
+- Email: gửi và ghi nhật ký dưới doanh nghiệp của sự kiện; không có doanh nghiệp thì không gửi. Người nhận nằm sẵn trong tin (`recipient`) do service phát chọn trong doanh nghiệp của nó; notification-service hiện không gọi auth-service tra người nhận.
+- Frontend: `realtimeConnection.ts` đăng ký `realtimeTopics(companyId)`, `companyId` lấy từ claim của token gửi ở CONNECT, không có thì từ `company.id` lưu lúc đăng nhập (`LoginPage` lưu thêm `company`).
+- Test: cách ly nhật ký (B không đọc, không xóa được bản ghi của A), sự kiện của A chỉ tăng KPI và chỉ tới kênh của A, sự kiện thiếu doanh nghiệp bị bỏ qua, quyền SUBSCRIBE (đúng doanh nghiệp được, doanh nghiệp khác và phiên chưa xác thực bị từ chối) cả ở mức interceptor lẫn kết nối WebSocket thật.
+
 ### WMS-22.5 [QA] Kiểm thử cách ly dữ liệu, giới hạn gói và hết hạn
 
 Người làm: Phương Anh. Ngày: 19/11 đến 20/11. Jira: TASK-139. Phụ thuộc: toàn bộ WMS-22 và WMS-23.

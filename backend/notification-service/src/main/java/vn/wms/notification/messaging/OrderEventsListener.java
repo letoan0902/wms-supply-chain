@@ -11,14 +11,17 @@ import org.springframework.stereotype.Component;
 import vn.wms.common.messaging.WmsEvents;
 import vn.wms.common.messaging.event.OrderCreatedEvent;
 import vn.wms.common.messaging.event.OrderDispatchedEvent;
+import vn.wms.common.tenant.TenantContext;
 import vn.wms.notification.realtime.KpiMetric;
 import vn.wms.notification.realtime.RealtimeNotificationFactory;
 import vn.wms.notification.realtime.RealtimeNotificationService;
 
 /**
  * Consumer của queue {@code notification.order-events} (nhận mọi routing key {@code order.#}).
- * Phân loại theo routing key, đọc JSON thành record sự kiện rồi đẩy phong bì lên {@code /topic/orders} và tăng KPI.
- * Routing key chưa hỗ trợ thì ghi log và bỏ qua (ack); JSON hỏng thì chuyển dead-letter.
+ * Phân loại theo routing key, đọc JSON thành record sự kiện rồi đẩy phong bì lên
+ * {@code /topic/company/{companyId}/orders} và tăng KPI của doanh nghiệp đó.
+ * Sự kiện không xác định được doanh nghiệp, routing key chưa hỗ trợ thì ghi log cảnh báo và bỏ qua (ack, không thử
+ * lại); JSON hỏng thì chuyển dead-letter.
  */
 @Component
 public class OrderEventsListener {
@@ -41,17 +44,30 @@ public class OrderEventsListener {
         MessageProperties properties = message.getMessageProperties();
         String eventType = EventMessages.eventType(properties);
         String messageId = properties.getMessageId();
+        Long companyId = EventMessages.companyId(reader, message);
+        if (companyId == null) {
+            log.warn("Bỏ qua sự kiện đơn hàng không có doanh nghiệp (header x-wms-company-id hoặc trường companyId): "
+                    + "routingKey='{}' messageId={}", eventType, messageId);
+            return;
+        }
+        TenantContext.runAs(companyId, () -> handle(message, properties, eventType, messageId, companyId));
+    }
+
+    private void handle(Message message, MessageProperties properties, String eventType, String messageId,
+                        Long companyId) {
         switch (eventType) {
             case WmsEvents.RoutingKeys.ORDER_CREATED -> {
                 OrderCreatedEvent event = EventMessages.read(reader, message, OrderCreatedEvent.class);
-                log.info("Nhận {} cho đơn {} (messageId={}), đẩy lên WebSocket", eventType, event.orderNumber(), messageId);
-                realtimeService.dispatch(factory.orderCreated(event, messageId, EventMessages.timestamp(properties)),
+                log.info("Nhận {} cho đơn {} (messageId={}, companyId={}), đẩy lên WebSocket",
+                        eventType, event.orderNumber(), messageId, companyId);
+                realtimeService.dispatch(companyId, factory.orderCreated(event, messageId, EventMessages.timestamp(properties)),
                         KpiMetric.forNewOrder(event.orderType()), messageId);
             }
             case WmsEvents.RoutingKeys.ORDER_DISPATCHED -> {
                 OrderDispatchedEvent event = EventMessages.read(reader, message, OrderDispatchedEvent.class);
-                log.info("Nhận {} cho đơn {} (messageId={}), đẩy lên WebSocket", eventType, event.orderNumber(), messageId);
-                realtimeService.dispatch(factory.orderDispatched(event, messageId, EventMessages.timestamp(properties)),
+                log.info("Nhận {} cho đơn {} (messageId={}, companyId={}), đẩy lên WebSocket",
+                        eventType, event.orderNumber(), messageId, companyId);
+                realtimeService.dispatch(companyId, factory.orderDispatched(event, messageId, EventMessages.timestamp(properties)),
                         KpiMetric.DISPATCHED_ORDERS, messageId);
             }
             default -> log.warn("Bỏ qua sự kiện đơn hàng chưa hỗ trợ: routingKey='{}' messageId={}", eventType, messageId);

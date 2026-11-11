@@ -52,6 +52,19 @@ Tất cả nằm trong gói `vn.wms.common.tenant`, được `WmsTenantAutoConfi
 
 Thứ tự triển khai lên máy chủ: auth-service cấp `companyId` trong token (WMS-22.2) và gateway bản này phải lên cùng lúc với service đầu tiên bật `app.tenant.required`. Người dùng đang đăng nhập sẽ phải đăng nhập lại một lần.
 
+### 2.2. notification-service (WMS-22.4c)
+
+| Phần | Cách tách theo doanh nghiệp |
+| --- | --- |
+| Bảng `notification_logs` | Bảng duy nhất của service, kế thừa `TenantEntity` (migration V2: dữ liệu cũ gán doanh nghiệp 1, `company_id` NOT NULL, index `(company_id, status)`, `(company_id, created_at)`). `app.tenant.required: true` |
+| Listener RabbitMQ | Ba listener đọc doanh nghiệp từ header `x-wms-company-id`, không có thì trường `companyId` của JSON, rồi xử lý trong `TenantContext.runAs`. Sự kiện không có doanh nghiệp: một dòng log cảnh báo rồi bỏ qua (không ném lỗi, không thử lại, không gửi email) |
+| KPI thời gian thực trên Redis | `wms:notification:kpi:{companyId}:{yyyy-MM-dd}` và khóa chống đếm trùng `wms:notification:kpi:{companyId}:processed:{messageId}` |
+| Cache KPI dashboard (WMS-16.1) | `wms:kpi:company:{companyId}:summary:{warehouseId hoặc all}:{dateRange}`; lời gọi sang order-service, inventory-service chuyển tiếp `X-Company-Id` |
+| WebSocket `/ws-wms` | Kênh `/topic/company/{companyId}/alerts`, `/orders`, `/inventory`, `/kpi`. Doanh nghiệp của phiên lấy từ claim `companyId` của JWT đã kiểm tra chữ ký ở frame CONNECT; SUBSCRIBE kênh của doanh nghiệp khác bị từ chối. `/ws-wms/**` nằm trong `app.tenant.public-paths` vì handshake không mang `X-Company-Id` |
+| Email cảnh báo | Gửi và ghi nhật ký trong ngữ cảnh doanh nghiệp của sự kiện; người nhận do service phát chọn trong doanh nghiệp của nó, notification-service không gọi auth-service tra người nhận |
+
+`/api/notifications/health-info` cũng nằm trong `public-paths` vì chỉ trả cấu hình RabbitMQ và SMTP, không có dữ liệu của doanh nghiệp nào. Chi tiết hợp đồng tin nhắn ở [MESSAGING.md](MESSAGING.md) mục 8.
+
 ## 3. Hành vi cần nắm trước khi dùng
 
 1. **Thêm mới**: `company_id` được gán bằng doanh nghiệp trong `TenantContext`. Entity không có setter cho `companyId`. Lưu khi chưa xác định doanh nghiệp bị từ chối với `COMPANY_REQUIRED`.
@@ -131,7 +144,7 @@ app:
 
 Trong `docker-compose.yml` (môi trường phát triển) thêm `TENANT_DEFAULT_COMPANY_ID: ${TENANT_DEFAULT_COMPANY_ID:-1}` cho service đó, để khi gateway tắt kiểm tra JWT hoặc gọi thẳng vào service vẫn có doanh nghiệp 1. `deploy/docker-compose.prod.yml` là lớp phủ lên file gốc nên phải đặt lại `TENANT_DEFAULT_COMPANY_ID: ""` cho chính service đó: trên máy chủ, request không có doanh nghiệp phải bị từ chối chứ không được rơi vào doanh nghiệp 1.
 
-Các service chưa chuyển đổi (order-service, notification-service) cũng nhận doanh nghiệp mặc định ở máy phát triển nhưng chưa bật `required`. Nhờ vậy sự kiện chúng phát ra và lời gọi OpenFeign sang service đã chuyển đổi vẫn mang doanh nghiệp, kể cả khi chạy không qua gateway. Chạy service bằng IDE thì đặt biến môi trường `TENANT_DEFAULT_COMPANY_ID=1`.
+Service chưa chuyển đổi (order-service) cũng nhận doanh nghiệp mặc định ở máy phát triển nhưng chưa bật `required`. Nhờ vậy sự kiện nó phát ra và lời gọi OpenFeign sang service đã chuyển đổi vẫn mang doanh nghiệp, kể cả khi chạy không qua gateway. Chạy service bằng IDE thì đặt biến môi trường `TENANT_DEFAULT_COMPANY_ID=1`.
 
 Service có API không cần doanh nghiệp (ví dụ webhook) khai báo thêm `app.tenant.public-paths`.
 

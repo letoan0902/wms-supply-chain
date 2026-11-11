@@ -66,14 +66,16 @@ tương ứng trong `src/app/router.tsx` bằng trang thật và xóa trường 
 
 Sau khi đăng nhập, `MainLayout` gọi hook `useWebSocket` để nối SockJS/STOMP tới `/ws-wms` (Vite proxy ở dev,
 Nginx ở Docker, cả hai chuyển tới API Gateway). Frame CONNECT gửi header `Authorization: Bearer <accessToken>`,
-token được đọc lại trước mỗi lần nối nên dùng được token vừa làm mới. Client đăng ký các topic:
+token được đọc lại trước mỗi lần nối nên dùng được token vừa làm mới. Client đăng ký các topic của doanh nghiệp
+đang đăng nhập (`companyId` lấy từ claim của chính token đó, không có thì từ `company.id` lưu lúc đăng nhập); máy chủ
+từ chối kênh của doanh nghiệp khác:
 
 | Topic | Loại tin | Xử lý trên giao diện |
 | --- | --- | --- |
-| `/topic/alerts` | `LOW_STOCK` | Toast cảnh báo (hiện 10 giây) và thêm vào chuông thông báo |
-| `/topic/orders` | `ORDER_CREATED`, `ORDER_DISPATCHED` | Toast và thêm vào chuông thông báo |
-| `/topic/inventory` | `INVENTORY_UPDATED` | Chỉ cập nhật store (`lastInventoryUpdate`) |
-| `/topic/kpi` | `KPI_UPDATED` | Chỉ cập nhật store (`kpi`); lúc vừa nối lấy số hiện tại qua `GET /api/notifications/realtime/kpi` |
+| `/topic/company/{companyId}/alerts` | `LOW_STOCK` | Toast cảnh báo (hiện 10 giây) và thêm vào chuông thông báo |
+| `/topic/company/{companyId}/orders` | `ORDER_CREATED`, `ORDER_DISPATCHED` | Toast và thêm vào chuông thông báo |
+| `/topic/company/{companyId}/inventory` | `INVENTORY_UPDATED` | Chỉ cập nhật store (`lastInventoryUpdate`) |
+| `/topic/company/{companyId}/kpi` | `KPI_UPDATED` | Chỉ cập nhật store (`kpi`); lúc vừa nối lấy số hiện tại qua `GET /api/notifications/realtime/kpi` |
 
 ```text
 src/features/realtime/

@@ -708,10 +708,34 @@ Người làm: Toàn. Ngày: 11/11. Jira: TASK-151. Phụ thuộc: WMS-23.2.
 
 **Mô tả chức năng**
 
-- Service mới `ai-service` (cổng 8086) dùng Spring AI gọi Claude; có Dockerfile, khai báo trong docker-compose, job CI, route gateway `/api/ai/**`.
-- Khóa AI đọc từ biến môi trường, chỉ có trên máy chủ. Khi không có khóa, service chạy chế độ giả lập (`AI_MOCK=true`) trả kết quả mẫu để nhóm phát triển giao diện.
+- Service mới `ai-service` (cổng 8086, package `vn.wms.ai`) gọi Claude qua SDK Java chính thức của Anthropic (`com.anthropic:anthropic-java`); có Dockerfile, khai báo trong docker-compose, job CI (build, test, image Docker, publish GHCR), route gateway `/api/ai/**` (cần đăng nhập). Chưa có CSDL, chỉ dùng Redis. Bật bắt buộc doanh nghiệp từ đầu (`app.tenant.required: true`).
+- Khóa AI đọc từ biến môi trường `ANTHROPIC_API_KEY`, chỉ có trong `.env` trên máy chủ, không ghi log, không trả về, không nằm trong repo. Khi `AI_MOCK=true` (mặc định) hoặc không có khóa, service chạy chế độ giả lập trả kết quả mẫu để nhóm phát triển giao diện; thiếu khóa mà `AI_MOCK=false` thì ghi một dòng cảnh báo lúc khởi động và vẫn giả lập.
 - Mỗi lượt gọi AI kiểm tra và trừ hạn mức tháng của doanh nghiệp; hết lượt trả `PLAN_LIMIT_EXCEEDED` với `limit = AI_REQUESTS`. Lỗi do AI không phản hồi trong 60 giây không bị trừ lượt.
 - `GET /api/ai/health` và `GET /api/ai/usage` (số lượt đã dùng, giới hạn của tháng).
+
+**API đã làm** (mọi API bọc trong `ApiResponse`, cần header `X-Company-Id` do gateway gắn; thiếu thì `403 COMPANY_REQUIRED`)
+
+| API | Mô tả |
+| --- | --- |
+| `GET /api/ai/health` | `{ status: "UP", mode: "MOCK" hoặc "LIVE", model }`, không chứa bí mật |
+| `GET /api/ai/usage` | `{ used, max, month (yyyy-MM), plan }` của doanh nghiệp đang đăng nhập. `max = -1` là không giới hạn; `max` và `plan` là `null` khi chưa có bộ nhớ đệm thuê bao trên Redis |
+| `POST /api/ai/ask` | Body `{ question }` (1 đến 2000 ký tự, sai thì `400 VALIDATION_ERROR`). Kiểm tra hạn mức, gọi Claude với lời dặn ngắn (trợ lý của hệ thống quản lý kho, trả lời ngắn bằng tiếng Việt, không biết thì nói không biết). Trả `{ answer, truncated, refused, usage: { used, max } }`. Đây là "gọi thử một câu hỏi" của tiêu chí nghiệm thu và là nền để WMS-24.4 mở rộng |
+
+**Cách gọi Claude**
+
+- Dùng SDK chính thức thay vì Spring AI vì: Spring AI 1.x cần Spring Boot 3.4 trở lên trong khi dự án đang ở 3.3; và các mô hình Claude hiện tại từ chối tham số lấy mẫu khác mặc định (`temperature`, `top_p`, `top_k`) mà Spring AI gửi kèm theo mặc định. Không dùng HTTP tự viết hay lớp tương thích OpenAI.
+- Mô hình đọc từ `AI_MODEL` (mặc định `claude-sonnet-5-5`); `max_tokens` từ `AI_MAX_TOKENS` (mặc định 4096, không stream). Không gửi `temperature`, `top_p`, `top_k`, `budget_tokens`; không đặt `thinking` (mô hình tự suy nghĩ thích ứng); mức suy nghĩ đặt qua `output_config.effort` từ `AI_EFFORT` (`low` mặc định, cho phép `low`, `medium`, `high`).
+- Lời dặn hệ thống cố định đứng đầu và được đánh dấu bộ nhớ đệm prompt; WMS-24.4 nối thêm tài liệu hướng dẫn phía sau.
+- Bật `fallbacks: "default"` với beta `server-side-fallback-2026-07-01` (đường `client.beta().messages()`), tắt bằng `AI_SERVER_FALLBACK=false` nếu API từ chối.
+- Thời gian chờ mỗi lần gọi 60 giây, SDK tự thử lại tối đa 1 lần với lỗi tạm thời. Luôn xét `stop_reason` trước khi đọc nội dung: `refusal` trả lời xin lỗi soạn sẵn bằng tiếng Việt (`refused = true`); `max_tokens` trả phần đã sinh với `truncated = true`.
+- Lỗi của SDK (vượt hạn mức nhà cung cấp, khóa sai, tham số sai, lỗi máy chủ, mất kết nối, quá thời gian chờ) đổi thành `503 SERVICE_UNAVAILABLE` với thông báo tiếng Việt; log chỉ ghi loại lỗi và mã HTTP, không ghi khóa, câu hỏi hay phản hồi thô.
+
+**Cách đếm lượt**
+
+- Bộ đếm `wms:usage:ai:{companyId}:{yyyyMM}` qua `PlanLimitChecker` (mục 2.7): kiểm tra trước khi gọi, chỉ tăng sau khi có câu trả lời.
+- Không tính: lượt lỗi, quá thời gian chờ, bị mô hình từ chối, bị chặn vì hết lượt.
+- Câu trả lời giả lập vẫn bị tính (để thử được giới hạn gói khi chưa có khóa), tắt bằng `AI_MOCK_COUNTS_USAGE=false`.
+- Thiếu bộ nhớ đệm thuê bao hoặc Redis lỗi thì cho qua (fail open) như mọi giới hạn khác.
 
 **Tiêu chí nghiệm thu**
 

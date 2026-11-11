@@ -1,0 +1,5 @@
+# Cấu hình riêng của ai-service: bổ sung/ghi đè application.yml dùng chung.
+# Không đặt khóa AI ở đây: ANTHROPIC_API_KEY chỉ có trong file .env trên máy chủ.
+logging:
+  level:
+    vn.wms.ai: ${LOG_LEVEL:INFO}

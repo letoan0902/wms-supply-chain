@@ -22,3 +22,4 @@ include 'product-service'       // cổng 8082
 include 'inventory-service'     // cổng 8083
 include 'order-service'         // cổng 8084
 include 'notification-service'  // cổng 8085
+include 'ai-service'            // cổng 8086 (gọi Claude, WMS-24)

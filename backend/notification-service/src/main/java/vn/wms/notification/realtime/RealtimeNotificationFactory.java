@@ -7,6 +7,8 @@ import vn.wms.common.messaging.event.LowStockAlertEvent;
 import vn.wms.common.messaging.event.OrderCreatedEvent;
 import vn.wms.common.messaging.event.OrderDispatchedEvent;
 import vn.wms.common.messaging.event.OrderType;
+import vn.wms.common.messaging.event.StockAlertSummaryEvent;
+import vn.wms.notification.stockalert.StockAlertTexts;
 
 import java.math.BigDecimal;
 import java.text.DecimalFormat;
@@ -49,6 +51,16 @@ public class RealtimeNotificationFactory {
                 + " còn " + quantity + (atThreshold ? ", chạm ngưỡng " : ", dưới ngưỡng ") + threshold;
         return new RealtimeNotification(idOf(messageId), RealtimeEventType.LOW_STOCK, NotificationSeverity.WARNING,
                 "Cảnh báo tồn kho thấp", text, occurredAt(event.detectedAt(), messageTimestamp), event);
+    }
+
+    /**
+     * Bản tổng hợp cảnh báo tồn kho hằng ngày của một kho (WMS-15.2), gửi lên kênh {@code alerts} của doanh nghiệp.
+     * Payload là nguyên {@link StockAlertSummaryEvent} (loại, kho, số dòng, các dòng nghiêm trọng nhất).
+     */
+    public RealtimeNotification stockAlert(StockAlertSummaryEvent event, String messageId, Instant messageTimestamp) {
+        return new RealtimeNotification(idOf(messageId), RealtimeEventType.STOCK_ALERT,
+                StockAlertTexts.severity(event.severity()), StockAlertTexts.title(event.kind()),
+                StockAlertTexts.summaryLine(event), occurredAt(event.detectedAt(), messageTimestamp), event);
     }
 
     /** Đơn mua hoặc đơn bán mới, gửi lên kênh {@code orders} của doanh nghiệp. */

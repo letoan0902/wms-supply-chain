@@ -54,8 +54,11 @@ spring:
           initial-interval: 1s
           multiplier: 2
   mail:
-    host: ${MAIL_HOST:localhost}
-    port: ${MAIL_PORT:1025}
+    # Để trống MAIL_HOST là "chưa cấu hình SMTP": service vẫn chạy, email không gửi mà nội dung được ghi vào log
+    # (WMS-15.2). Dev có Mailpit/MailHog thì đặt MAIL_HOST=localhost, MAIL_PORT=1025.
+    host: ${MAIL_HOST:}
+    port: ${MAIL_PORT:587}
+    default-encoding: UTF-8
     # Tài khoản SMTP (để trống nếu SMTP không cần xác thực). Cổng 587 tự bật STARTTLS, cổng 465 tự bật SSL.
     username: ${MAIL_USERNAME:}
     password: ${MAIL_PASSWORD:}
@@ -101,7 +104,8 @@ app:
       # Chỉ trả cấu hình RabbitMQ và SMTP đang chạy, không có dữ liệu của doanh nghiệp nào.
       - /api/notifications/health-info
   mail:
-    from: ${MAIL_FROM:no-reply@wms.local}
+    # Địa chỉ người gửi; để trống thì dùng MAIL_USERNAME, không có nữa thì no-reply@wms.local.
+    from: ${MAIL_FROM:}
   rabbitmq:
     exchange: ${NOTIFICATION_EXCHANGE:wms.events}
     queue: ${NOTIFICATION_QUEUE:notification.alerts}

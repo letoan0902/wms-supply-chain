@@ -20,6 +20,10 @@ spring:
       simple:
         # Không tự khởi động listener RabbitMQ khi test (không có broker).
         auto-startup: false
+  mail:
+    # Máy chủ chạy thật mặc định chưa cấu hình SMTP (MAIL_HOST rỗng). Test coi như SMTP đã cấu hình ở localhost;
+    # test riêng của trường hợp chưa cấu hình đặt lại spring.mail.host rỗng. Không test nào gửi thư thật.
+    host: localhost
 eureka:
   client:
     enabled: false

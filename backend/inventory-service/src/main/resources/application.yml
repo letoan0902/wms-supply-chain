@@ -87,6 +87,17 @@ app:
   tenant:
     required: true
     default-company-id: ${TENANT_DEFAULT_COMPANY_ID:}
+  # Cảnh báo tồn kho (WMS-15.1, gói vn.wms.inventory.alert). Ngưỡng cận hạn 30 ngày và giờ chạy 00:00 theo tài liệu
+  # yêu cầu; ngưỡng hàng tồn lâu 90 ngày là mặc định của nhóm. Xem docs/MESSAGING.md mục cảnh báo tồn kho.
+  alerts:
+    enabled: ${ALERT_SCAN_ENABLED:true}
+    cron: "${ALERT_SCAN_CRON:0 0 0 * * *}"
+    zone: ${ALERT_SCAN_ZONE:Asia/Ho_Chi_Minh}
+    near-expiry-days: ${ALERT_NEAR_EXPIRY_DAYS:30}
+    dead-stock-days: ${ALERT_DEAD_STOCK_DAYS:90}
+    top-items: 10
+    # Loại cảnh báo được gửi email tới quản lý kho và admin (WMS-15.2); hàng tồn lâu chỉ lên chuông thông báo.
+    email-kinds: ${ALERT_EMAIL_KINDS:LOW_STOCK,NEAR_EXPIRY,EXPIRED}
 ---
 # Nạp cấu hình tập trung từ Config Server. Tiền tố optional nghĩa là Config Server chưa chạy thì service vẫn
 # khởi động bằng cấu hình cục bộ ở trên. Tài liệu này bị bỏ qua khi chạy test (profile test) để test không gọi mạng.

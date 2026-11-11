@@ -41,8 +41,10 @@ public class NotificationService {
         entry.setRecipient(message.recipient());
         entry.setSubject(message.subject());
         try {
-            emailService.send(message.recipient(), message.subject(), message.content());
-            entry.setStatus(NotificationStatus.SENT);
+            EmailService.DeliveryResult result =
+                    emailService.send(message.recipient(), message.subject(), message.content());
+            entry.setStatus(result == EmailService.DeliveryResult.LOGGED
+                    ? NotificationStatus.LOGGED : NotificationStatus.SENT);
         } catch (MailException ex) {
             log.warn("Gửi email tới {} thất bại (companyId={}): {}", message.recipient(), companyId, ex.getMessage());
             entry.setStatus(NotificationStatus.FAILED);

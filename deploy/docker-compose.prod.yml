@@ -143,6 +143,12 @@ services:
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-https://${DOMAIN:-wms.toanmarket.me}}
       GATEWAY_JWT_ENABLED: ${GATEWAY_JWT_ENABLED:-true}
       TENANT_DEFAULT_COMPANY_ID: ""
+      # SMTP gửi email cảnh báo tồn kho (WMS-15.2), đọc từ .env. MAIL_HOST rỗng: không gửi, nội dung ghi vào log.
+      MAIL_HOST: ${MAIL_HOST:-}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:-}
 
   # --------------------------------------------------------------------------
   # auth-service: thanh toán PayOS (WMS-23.5a). Ba khóa đọc từ .env (file gốc đã truyền vào container).

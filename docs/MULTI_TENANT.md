@@ -61,7 +61,7 @@ Thứ tự triển khai lên máy chủ: auth-service cấp `companyId` trong to
 | KPI thời gian thực trên Redis | `wms:notification:kpi:{companyId}:{yyyy-MM-dd}` và khóa chống đếm trùng `wms:notification:kpi:{companyId}:processed:{messageId}` |
 | Cache KPI dashboard (WMS-16.1) | `wms:kpi:company:{companyId}:summary:{warehouseId hoặc all}:{dateRange}`; lời gọi sang order-service, inventory-service chuyển tiếp `X-Company-Id` |
 | WebSocket `/ws-wms` | Kênh `/topic/company/{companyId}/alerts`, `/orders`, `/inventory`, `/kpi`. Doanh nghiệp của phiên lấy từ claim `companyId` của JWT đã kiểm tra chữ ký ở frame CONNECT; SUBSCRIBE kênh của doanh nghiệp khác bị từ chối. `/ws-wms/**` nằm trong `app.tenant.public-paths` vì handshake không mang `X-Company-Id` |
-| Email cảnh báo | Gửi và ghi nhật ký trong ngữ cảnh doanh nghiệp của sự kiện; người nhận do service phát chọn trong doanh nghiệp của nó, notification-service không gọi auth-service tra người nhận |
+| Email cảnh báo | Gửi và ghi nhật ký trong ngữ cảnh doanh nghiệp của sự kiện; người nhận do service phát chọn trong doanh nghiệp của nó, notification-service không gọi auth-service tra người nhận. Cảnh báo tồn kho (WMS-15.2): inventory-service tra người nhận qua `GET /internal/auth/users/alert-recipients` của auth-service, lọc tường minh theo `X-Company-Id` được OpenFeign chuyển tiếp; khóa chống gửi trùng `(company_id, dedup_key)` trong `notification_logs` (V3) |
 
 `/api/notifications/health-info` cũng nằm trong `public-paths` vì chỉ trả cấu hình RabbitMQ và SMTP, không có dữ liệu của doanh nghiệp nào. Chi tiết hợp đồng tin nhắn ở [MESSAGING.md](MESSAGING.md) mục 8.
 

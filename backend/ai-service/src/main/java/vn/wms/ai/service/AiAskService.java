@@ -9,8 +9,8 @@ import vn.wms.ai.dto.AskResponse;
 
 /**
  * Hỏi đáp một câu với Claude ({@code POST /api/ai/ask}): kiểm tra hạn mức, gọi mô hình, rồi mới trừ lượt. Gọi mô hình
- * lỗi (ném {@code ApiException}) thì bước trừ lượt không chạy, nên lượt lỗi không bị tính. WMS-24.4 mở rộng lớp này
- * thành trợ lý có lịch sử hội thoại.
+ * lỗi (ném {@code ApiException}) thì bước trừ lượt không chạy, nên lượt lỗi không bị tính. Trợ lý có lịch sử hội thoại,
+ * tài liệu hướng dẫn và công cụ tra cứu (WMS-24.4) nằm ở {@link AiChatService}.
  */
 @Service
 public class AiAskService {

@@ -41,6 +41,7 @@ import { playErrorBeep, playSuccessBeep, playWarningBeep } from '../../../utils/
 import * as warehouseApi from '../../warehouses/warehouseApi'
 import type { BinLocation } from '../../warehouses/types'
 import * as productApi from '../../products/productApi'
+import type { Product } from '../../products/types'
 import * as grnApi from '../grnApi'
 import type {
   CreateGrnItemRequest,
@@ -182,15 +183,24 @@ export default function SmartGoodsReceiptForm({
     const loadPoData = async () => {
       setLoadingProgress(true)
       try {
-        const [progress, productsRes] = await Promise.all([
-          grnApi.fetchPoReceiptProgress(selectedPoId),
-          productApi.fetchProducts({ size: 200 }).catch(() => null),
-        ])
+        const progress = await grnApi.fetchPoReceiptProgress(selectedPoId)
         if (ignore) return
 
         setPoProgress(progress)
 
-        const productMap = new Map((productsRes?.content || []).map((p) => [p.id, p]))
+        // Tải chi tiết sản phẩm theo từng ID của đơn PO để luôn lấy đúng cờ manageByLot/manageByExpiration
+        const uniqueProductIds = Array.from(
+          new Set((progress.items || []).map((it) => it.productId).filter(Boolean))
+        )
+        const productMap = new Map<number, Product>()
+        const settledProducts = await Promise.allSettled(
+          uniqueProductIds.map((id) => productApi.fetchProductById(id))
+        )
+        settledProducts.forEach((res) => {
+          if (res.status === 'fulfilled' && res.value) {
+            productMap.set(res.value.id, res.value)
+          }
+        })
 
         // Khởi tạo các dòng hàng
         const initialRows: ReceiptItemRow[] = (progress.items || []).map((it) => {
@@ -225,13 +235,16 @@ export default function SmartGoodsReceiptForm({
 
         setItems(initialRows)
 
-        // Tải vị trí ô kệ của kho
+        // Tải vị trí ô kệ đang hoạt động của kho
         if (progress.warehouseId) {
           setLoadingBins(true)
           try {
-            const bins = await warehouseApi.fetchLocations({ warehouseId: progress.warehouseId })
+            const bins = await warehouseApi.fetchLocations({
+              warehouseId: progress.warehouseId,
+              active: true,
+            })
             if (!ignore) {
-              setBinLocations(bins || [])
+              setBinLocations((bins || []).filter((b) => b.active))
             }
           } catch (err) {
             console.error('Không thể tải vị trí kho', err)
@@ -488,10 +501,10 @@ export default function SmartGoodsReceiptForm({
           handleOpenLotModal(i)
           return
         }
-        if (it.expDate && dayjs(it.expDate).isBefore(dayjs(receiptDate || undefined), 'day')) {
+        if (it.expDate && !dayjs(it.expDate).isAfter(dayjs(receiptDate || undefined), 'day')) {
           playErrorBeep()
           message.error(
-            `Hạn sử dụng của lô "${it.batchNumber || it.skuCode}" đã quá hạn so với ngày nhập kho (${dayjs(receiptDate).format('DD/MM/YYYY')})!`
+            `Hạn sử dụng của lô "${it.batchNumber || it.skuCode}" phải sau ngày nhập kho (${dayjs(receiptDate).format('DD/MM/YYYY')})!`
           )
           handleOpenLotModal(i)
           return
@@ -688,7 +701,7 @@ export default function SmartGoodsReceiptForm({
       ),
     },
     {
-      title: 'Quản lý Lô & HSD (WMS-10.5)',
+      title: 'Quản lý Lô & HSD',
       width: 250,
       render: (_, r, idx) => {
         const isDateManaged = Boolean(r.manageByExpiration || r.manageByLot)
@@ -709,10 +722,10 @@ export default function SmartGoodsReceiptForm({
               className="w-full text-xs font-semibold flex items-center justify-center gap-1 shadow-2xs"
             >
               {isMissingRequired
-                ? '⚠️ Nhập Lô & HSD ngay *'
+                ? 'Nhập Lô & HSD ngay *'
                 : r.batchNumber || r.expDate
                 ? 'Sửa Lô / HSD / Vị trí'
-                : 'Nhập Lô & HSD (Modal)'}
+                : 'Nhập Lô & HSD'}
             </Button>
 
             <div className="flex flex-wrap items-center gap-1">
@@ -752,7 +765,7 @@ export default function SmartGoodsReceiptForm({
       },
     },
     {
-      title: 'Vị trí cất hàng (Putaway Bin)',
+      title: 'Vị trí cất hàng',
       width: 200,
       render: (_, r, idx) => (
         <div className="space-y-1">

@@ -52,8 +52,7 @@ export async function fetchPurchaseBillByGrnId(
       `/orders/purchase-bills/grn/${grnId}`
     )
     return res.data.data
-  } catch (err) {
-    console.debug('Không tìm thấy hóa đơn cho GRN ID:', grnId, err)
+  } catch {
     return null
   }
 }

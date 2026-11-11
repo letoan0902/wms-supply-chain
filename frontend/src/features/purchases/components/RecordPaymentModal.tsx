@@ -66,11 +66,17 @@ export default function RecordPaymentModal({
   }
 
   const handleSubmit = async () => {
-    if (!bill) return
+    if (!bill || submitting) return
+    let values: PaymentFormData
     try {
-      const values = await form.validateFields()
       setSubmitting(true)
+      values = await form.validateFields()
+    } catch {
+      setSubmitting(false)
+      return
+    }
 
+    try {
       const updated = await purchaseBillsApi.recordBillPayment(bill.id, {
         amount: values.amount,
         paymentMethod: values.paymentMethod,
@@ -177,8 +183,8 @@ export default function RecordPaymentModal({
                 { required: true, message: 'Vui lòng nhập số tiền thanh toán' },
                 {
                   type: 'number',
-                  min: 1000,
-                  message: 'Số tiền tối thiểu 1,000 đ',
+                  min: 0.01,
+                  message: 'Số tiền thanh toán phải lớn hơn 0',
                 },
                 {
                   validator: (_, val) => {
@@ -200,7 +206,7 @@ export default function RecordPaymentModal({
                 placeholder="Nhập số tiền"
                 formatter={(val) => `${val}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
                 parser={(val) => Number(val?.replace(/\$\s?|(,*)/g, ''))}
-                min={1000}
+                min={0.01}
                 max={bill.remainingAmount}
                 step={100000}
               />

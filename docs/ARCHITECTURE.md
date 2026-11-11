@@ -211,3 +211,10 @@ Hệ thống mở rộng để nhiều doanh nghiệp tự đăng ký và dùng 
   sử dụng và tra cứu tồn kho, đơn hàng của chính công ty; tóm tắt báo cáo. Mỗi lượt gọi trừ hạn mức của gói.
 - **Tích hợp ngoài**: API key theo doanh nghiệp (bảng `api_keys`), gateway chấp nhận header `X-Api-Key` với vai trò
   INTEGRATION chỉ đọc, giới hạn tốc độ theo key, Swagger công khai.
+- **Tài liệu OpenAPI (WMS-21.1)**: mỗi service nghiệp vụ tự phục vụ `/swagger-ui.html` và `/v3/api-docs` trên cổng riêng
+  (bean `OpenApiConfig` mô tả tiếng Việt, khai báo `bearerAuth` và `X-Api-Key`, máy chủ là địa chỉ gateway lấy từ
+  `GATEWAY_PUBLIC_URL`). api-gateway gộp lại tại `http://localhost:8080/swagger-ui.html` với danh sách thả xuống;
+  mỗi mục đọc `/v3/api-docs/{auth,products,inventory,orders,notifications,ai}` qua route công khai được viết lại thành
+  `/v3/api-docs` của service (`vn.wms.gateway.docs.ApiDocsRoutesConfig`). Các đường dẫn tài liệu không cần JWT và được
+  `TenantFilter` bỏ qua. Công tắc `SWAGGER_ENABLED` (gateway.swagger.enabled) tắt cả route lẫn giao diện; máy chủ
+  production đặt `false` trong `deploy/docker-compose.prod.yml`.

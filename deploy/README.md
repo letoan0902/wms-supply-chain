@@ -208,6 +208,7 @@ nano .env     # điền ACME_EMAIL, kiểm tra DOMAIN và CORS_ALLOWED_ORIGINS
 | `GATEWAY_JWT_ENABLED` | Không (mặc định `true`) | Gateway bắt buộc Bearer token hợp lệ cho mọi API trừ `/api/auth/login` |
 | `RATE_LIMIT_ENABLED`, `RATE_LIMIT_REPLENISH_RATE`, `RATE_LIMIT_BURST_CAPACITY` | Không | Giới hạn tốc độ tại gateway (mặc định bật, 20 request/giây, bùng nổ tối đa 40) |
 | `GATEWAY_API_KEY_ENABLED`, `API_KEY_RATE_LIMIT_PER_SECOND` | Không | API key cho hệ thống ngoài qua header `X-Api-Key` (mặc định bật, mỗi key tối đa 20 request/giây, vượt thì 429); xem docs/SAAS_SPEC.md mục WMS-25.1 |
+| `SWAGGER_ENABLED` | Không (mặc định `false` trên máy chủ) | Tài liệu OpenAPI tổng hợp tại gateway (`/swagger-ui.html`, `/v3/api-docs/*`). Máy chủ mặc định tắt (trả 404). Bật tạm: thêm `SWAGGER_ENABLED=true` vào `.env` rồi `docker compose up -d api-gateway`, xem xong đặt lại `false` và chạy lại lệnh đó. Phát triển: mặc định bật |
 | `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD` | Không | SMTP gửi email cảnh báo tồn kho |
 | `RABBITMQ_USERNAME`, `RABBITMQ_PASSWORD` | Nên đặt | Tài khoản RabbitMQ riêng cho các service và container `rabbitmq-init` (không dùng `guest`). Volume mới: broker tự tạo tài khoản này. Volume đã có dữ liệu: tạo trước bằng `rabbitmqctl` theo mục 6 của [docs/MESSAGING.md](../docs/MESSAGING.md) rồi mới ghi vào `.env` |
 | `COMPOSE_PATH_SEPARATOR`, `COMPOSE_FILE` | Nên giữ | Để lệnh `docker compose` trong thư mục này tự dùng cả hai file compose |

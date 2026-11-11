@@ -68,7 +68,8 @@ class ApiGatewayApplicationTest {
 
     @Test
     void definesRoutesForAllBusinessServices() {
-        List<String> routeIds = routeLocator.getRoutes().map(route -> route.getId()).collectList().block();
+        List<String> routeIds = routeLocator.getRoutes().map(route -> route.getId())
+                .filter(id -> !id.startsWith("docs-")).collectList().block();
 
         assertThat(routeIds).containsExactlyInAnyOrder(
                 "auth-service", "product-service", "inventory-service", "order-service", "notification-service",

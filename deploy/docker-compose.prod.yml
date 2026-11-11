@@ -117,6 +117,9 @@ services:
       # API key cho hệ thống ngoài (WMS-25.1): bật/tắt và số request tối đa mỗi giây của một key.
       GATEWAY_API_KEY_ENABLED: ${GATEWAY_API_KEY_ENABLED:-true}
       API_KEY_RATE_LIMIT_PER_SECOND: ${API_KEY_RATE_LIMIT_PER_SECOND:-20}
+      # Tài liệu OpenAPI tổng hợp (WMS-21.1): máy phát triển mặc định bật, máy chủ mặc định TẮT để không công bố mô tả API
+      # (/swagger-ui.html và /v3/api-docs/* trả 404). Cần xem tạm thì đặt SWAGGER_ENABLED=true trong .env rồi tạo lại gateway.
+      SWAGGER_ENABLED: ${SWAGGER_ENABLED:-false}
 
   # --------------------------------------------------------------------------
   # Doanh nghiệp mặc định: file compose gốc đặt TENANT_DEFAULT_COMPANY_ID=1 cho máy phát triển. Trên máy chủ phải để

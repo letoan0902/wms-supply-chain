@@ -104,8 +104,8 @@ export const router = createBrowserRouter([
           { path: 'transfers', Component: lazy(() => import('../features/transfers/TransfersPage')) },
           // Quản lý Người dùng & Phân quyền RBAC (FR01, FR02 - Sprint 2)
           { path: 'users', Component: lazy(() => import('../features/users/UsersPage')) },
-          // Báo cáo Nhập-Xuất-Tồn kho & Thống kê (UC-10 - SRS Mục 2.5)
-          { path: 'reports', Component: lazy(() => import('../pages/ReportsPage')) },
+          // Báo cáo kho: Xuất - Nhập - Tồn và thẻ kho (WMS-17.4)
+          { path: 'reports', Component: lazy(() => import('../features/reports/ReportsPage')) },
           // API key cho hệ thống ngoài (chỉ ADMIN)
           { path: 'settings/api-keys', Component: lazy(() => import('../features/apiKeys/ApiKeysPage')) },
           // Hồ sơ cá nhân & Đổi mật khẩu

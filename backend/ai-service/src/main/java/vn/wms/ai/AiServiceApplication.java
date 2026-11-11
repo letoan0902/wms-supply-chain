@@ -13,7 +13,8 @@ import org.springframework.boot.context.properties.ConfigurationPropertiesScan;
 @SpringBootApplication
 @ConfigurationPropertiesScan
 @OpenAPIDefinition(info = @Info(title = "WMS AI Service API", version = "v1",
-        description = "Hỏi đáp với Claude, xem số lượt AI đã dùng trong tháng"))
+        description = "Hỏi đáp với Claude, xem số lượt AI đã dùng trong tháng, trích xuất tài liệu thành dữ liệu "
+                + "danh mục rồi nhập sau khi người dùng xác nhận"))
 public class AiServiceApplication {
 
     public static void main(String[] args) {

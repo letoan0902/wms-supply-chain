@@ -6,8 +6,9 @@ import vn.wms.common.exception.ApiException;
  * Cổng gọi mô hình AI. Hai cài đặt, chọn lúc khởi động theo {@code app.ai.mock} và biến {@code ANTHROPIC_API_KEY}:
  * {@link AnthropicAiClient} (gọi Claude thật) và {@link MockAiClient} (câu trả lời mẫu).
  *
- * <p>WMS-24.2 (trích xuất tài liệu) và WMS-24.4 (trợ lý) dùng lại giao diện này; khi cần thêm tài liệu, hình ảnh hay
- * công cụ thì mở rộng {@link AiRequest}, không gọi SDK trực tiếp từ service nghiệp vụ.
+ * <p>Service nghiệp vụ không gọi SDK trực tiếp: câu hỏi tự do dùng {@link #ask(AiRequest)}, tác vụ cần kết quả máy đọc
+ * được (trích xuất tài liệu, WMS-24.2) dùng {@link #generateJson(AiJsonRequest)}. Cần thêm loại nội dung hay công cụ thì
+ * mở rộng hai kiểu yêu cầu này.
  */
 public interface AiClient {
 
@@ -20,4 +21,13 @@ public interface AiClient {
      *                      khóa sai, vượt hạn mức của nhà cung cấp)
      */
     AiReply ask(AiRequest request);
+
+    /**
+     * Gửi nội dung (văn bản, PDF, hình ảnh) và yêu cầu mô hình trả về một đối tượng JSON đúng lược đồ.
+     *
+     * @return văn bản JSON cùng {@code stop_reason}; bên gọi tự quyết định xử lý khi bị từ chối hoặc bị cắt
+     * @throws ApiException {@code SERVICE_UNAVAILABLE} khi không gọi được mô hình; {@code BAD_REQUEST} khi cài đặt
+     *                      hiện tại không hỗ trợ (chế độ giả lập)
+     */
+    AiJsonReply generateJson(AiJsonRequest request);
 }

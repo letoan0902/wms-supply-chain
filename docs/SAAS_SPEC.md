@@ -791,6 +791,78 @@ Người làm: Toàn. Ngày: 12/11. Jira: TASK-152. Phụ thuộc: WMS-24.1, WMS
 - File không đọc được hoặc không có dữ liệu phù hợp: báo lỗi rõ ràng, không trừ lượt.
 - Vai trò: `PRODUCT` và `SUPPLIER` cho `ADMIN`, `WAREHOUSE_MANAGER`, `PURCHASING`; `CUSTOMER` cho `ADMIN`, `SALES`.
 
+**Đã làm (12/11)**
+
+Mọi API bọc trong `ApiResponse`, cần `X-Company-Id` (thiếu thì `403 COMPANY_REQUIRED`). Vai trò kiểm tra tường minh từ `X-User-Roles` theo `dataType` (sai vai trò: `403 FORBIDDEN`); không có header người dùng (gateway tắt JWT ở máy phát triển) thì cho qua, cùng quy ước với `UserContext.requireWarehouseWriteAccess`.
+
+Cách trích xuất:
+
+- Excel, CSV đọc ngay trong ai-service (xlsx đọc kiểu luồng bằng Apache POI, xls qua HSSF, CSV UTF-8 có hoặc không có BOM, tự nhận dấu phẩy, chấm phẩy, tab, ô có ngoặc kép). Lấy trang tính đầu tiên có dữ liệu; dòng tiêu đề là dòng đầu tiên có từ hai ô trở lên trong 10 dòng đầu (bỏ được dòng tên bảng). Claude chỉ nhận tiêu đề và 5 dòng mẫu, trả cột nguồn của từng trường kèm độ tin cậy; server tự áp cho mọi dòng nên chính xác cho từng ô và nhanh (một lần gọi ngắn).
+- PDF, ảnh png/jpg gửi Claude dạng khối tài liệu, hình ảnh; Claude trả từng dòng kèm độ tin cậy từng ô (gọi kiểu stream, chờ tối đa 180 giây).
+- Hai kiểu gọi đều dùng structured outputs (lược đồ JSON cố định theo loại dữ liệu), lời dặn cố định đặt đầu và đánh dấu bộ nhớ đệm prompt, cùng mô hình, effort, quy tắc không tham số lấy mẫu của WMS-24.1. `stop_reason = refusal` trả `400` "AI từ chối xử lý nội dung file này"; `max_tokens` không dùng kết quả dở mà trả `400` yêu cầu tách file nhỏ hơn; cả hai không trừ lượt.
+- Chế độ giả lập (`AI_MOCK=true` hoặc chưa có khóa): Excel, CSV vẫn chạy thật, ghép cột theo tên tiêu đề (tiếng Việt, tiếng Anh, không phân biệt hoa thường và dấu, ví dụ "Ma hang", "ĐVT", "Giá nhập (VNĐ)") với `method = HEADER_MATCHING`; PDF, ảnh trả `400` báo cần AI thật, không bịa dòng.
+- Chuẩn hóa từng ô: cắt khoảng trắng; số kiểu Việt Nam và quốc tế ("1.250.000", "1,250,000", "1.250.000,5", "12,5", "150.000 đ"); thuế suất "10%", "10" và "0,1" đều thành 10 (trường hợp "0,1" có cảnh báo); loại khách hàng "sỉ", "đại lý", "bán lẻ", "cá nhân" thành `WHOLESALE`, `RETAIL`. Độ tin cậy của ô bắt đầu từ độ tin cậy ghép cột (hoặc do Claude đánh giá với PDF, ảnh), hạ xuống khi kiểm tra tại chỗ thấy vấn đề, kèm cảnh báo tiếng Việt: thiếu trường bắt buộc 0; không phải số 0,2; âm, quá dài 0,3; sai mẫu SKU, sai email 0,4; trùng mã với dòng trên, quá số chữ số thập phân 0,5; thuế suất viết dạng tỉ lệ 0,7. Trường không có cột nào khớp: ô trống, độ tin cậy 1 (trường bắt buộc thì 0).
+- Quá 200 dòng: lấy 200 dòng đầu, `truncated = true` và một cảnh báo chung. Lỗi file (định dạng không hỗ trợ, nội dung không khớp phần mở rộng, quá 10 MB, file hỏng hoặc có mật khẩu, CSV không phải UTF-8, trang tính trống, chỉ có tiêu đề, không có cột nào khớp) đều trả `400 BAD_REQUEST` với thông báo tiếng Việt và không trừ lượt.
+- Đếm lượt giống `POST /api/ai/ask`: kiểm tra hạn mức sau khi đọc được file và trước khi gọi Claude (hết lượt: `403 PLAN_LIMIT_EXCEEDED`), chỉ tăng bộ đếm sau khi đã lưu kết quả. Kết quả giả lập vẫn bị tính trừ khi `AI_MOCK_COUNTS_USAGE=false`.
+- Kết quả lưu trên Redis khóa `wms:ai:extraction:{companyId}:{extractionId}`, sống 1 giờ; mã trích xuất của doanh nghiệp khác hoặc đã hết hạn trả `404 NOT_FOUND`. Không lưu được lên Redis thì `503`, không trừ lượt.
+- Nhập: ai-service gọi `POST /api/products/bulk` (product-service) hoặc `POST /api/orders/suppliers/bulk`, `/api/orders/customers/bulk` (order-service) qua Eureka, chuyển tiếp `X-Company-Id`, `X-User-Name`, `X-User-Roles`, `X-User-Warehouse-Ids`, `X-Plan` của người bấm để service phía sau tự kiểm tra quyền, giới hạn gói, thuê bao. Lỗi nghiệp vụ của service phía sau (400, 401, 403, 409 kèm `code`, `data`) trả lại nguyên mã; service chưa chạy, chưa có API (404) hoặc lỗi 5xx trả `503`. Hai lần bấm cùng lúc: lần sau `409 CONFLICT`; bấm lại sau khi xong thì API nhập hàng loạt trả `SKIPPED` cho mã đã có.
+- Giới hạn tải file: `spring.servlet.multipart.max-file-size = 10MB` ở ai-service (file lớn hơn trả `400` "tối đa 10 MB"); nginx của frontend có `location /api/ai/` nhận tới 11 MB (mặc định nginx chỉ 1 MB) và chờ tới 200 giây. api-gateway và Caddy không giới hạn dung lượng body nên không đổi.
+
+Hợp đồng JSON cho giao diện (WMS-24.3):
+
+`POST /api/ai/extractions` (multipart `file`, `dataType`) và `GET /api/ai/extractions/{id}` trả `data`:
+
+```json
+{
+  "extractionId": "3f1c2b9e-1111-4a2b-9c3d-0123456789ab",
+  "dataType": "PRODUCT",
+  "fileName": "hang-hoa.xlsx",
+  "fileType": "XLSX",
+  "method": "COLUMN_MAPPING",
+  "totalRows": 50,
+  "truncated": false,
+  "columns": [
+    { "field": "sku", "label": "Mã SKU", "type": "SKU", "required": true, "maxLength": 64, "options": [],
+      "sourceColumn": 1, "sourceHeader": "Mã hàng", "mappingConfidence": 0.95 },
+    { "field": "uomName", "label": "Đơn vị tính", "type": "TEXT", "required": true, "maxLength": 100, "options": [],
+      "sourceColumn": null, "sourceHeader": null, "mappingConfidence": null }
+  ],
+  "rows": [
+    { "row": 1, "sourceRow": 2,
+      "values": { "sku": "SP001", "name": "Nước suối", "uomName": null, "purchasePrice": 150000, "vatRate": 10 },
+      "confidence": { "sku": 0.95, "name": 0.95, "uomName": 0.0, "purchasePrice": 0.95, "vatRate": 0.95 },
+      "warnings": ["Thiếu Đơn vị tính (bắt buộc)"] }
+  ],
+  "warnings": ["Không tìm thấy cột Đơn vị tính (bắt buộc) trong file, hãy nhập bổ sung trong bảng xem trước."],
+  "createdAt": "2026-11-12T03:00:00Z",
+  "expiresAt": "2026-11-12T04:00:00Z",
+  "usage": { "used": 4, "max": 20 }
+}
+```
+
+- `columns` luôn đủ mọi trường của loại dữ liệu theo thứ tự hiển thị; `values` và `confidence` của mỗi dòng có đủ các khóa đó (ví dụ trên rút gọn). `type`: `TEXT`, `SKU`, `EMAIL`, `NUMBER`, `PERCENT`, `ENUM` (`options` liệt kê giá trị hợp lệ, hiện chỉ `customerType`: `WHOLESALE`, `RETAIL`).
+- Trường số là số JSON; ô không đọc được thành số giữ nguyên chuỗi gốc kèm cảnh báo để người dùng sửa. `sourceRow` là số dòng trong file Excel, CSV (`null` với PDF, ảnh). `sourceColumn`, `sourceHeader`, `mappingConfidence` là `null` khi không có cột khớp hoặc khi AI đọc PDF, ảnh.
+- `method`: `COLUMN_MAPPING` (Claude ghép cột), `HEADER_MATCHING` (chế độ giả lập), `AI_DOCUMENT` (Claude đọc PDF, ảnh). `usage` chỉ có trong kết quả `POST` (`max = -1` là không giới hạn), là `null` khi `GET`.
+
+Trường theo `dataType` (đúng tên trường của API nhập hàng loạt):
+
+| `dataType` | Trường (in đậm là bắt buộc) |
+| --- | --- |
+| `PRODUCT` | **`sku`**, **`name`**, `barcode`, `description`, `categoryName`, **`uomName`**, `purchasePrice`, `sellingPrice`, `vatRate`, `safetyStock`, `reorderPoint`, `maxStock` |
+| `SUPPLIER` | **`code`**, **`name`**, `taxCode`, `contactName`, `email`, `phone`, `address`, `bankAccount`, `bankName`, `paymentTerms`, `creditLimit`, `initialDebt` |
+| `CUSTOMER` | **`code`**, **`name`**, **`customerType`**, `taxCode`, `contactName`, `email`, `phone`, `address`, `paymentTerms`, `creditLimit`, `initialDebt`, `notes` |
+
+`POST /api/ai/extractions/{id}/import` nhận:
+
+```json
+{ "rows": [ { "row": 1, "values": { "sku": "SP001", "name": "Nước suối", "uomName": "Chai", "purchasePrice": 150000 } } ] }
+```
+
+- Từ 1 đến 200 dòng (rỗng: `400 VALIDATION_ERROR`, `data.rows`). `row` chỉ để giao diện đối chiếu, không gửi đi; trường lạ bị bỏ, ô rỗng không gửi. Ô số nhận cả số JSON lẫn chuỗi "150.000"; ô số hoặc loại khách hàng không đọc được làm cả lần nhập trả `400 VALIDATION_ERROR` với `data` dạng `{ "rows[0].values.purchasePrice": "Giá nhập phải là số" }` (chỉ số `rows[i]` từ 0).
+- Trả nguyên kết quả của API nhập hàng loạt: `{ "total", "created", "skipped", "failed", "results": [ { "row", "status": "CREATED" | "SKIPPED" | "FAILED", "id", "code", "message" } ] }`. `results[k].row` là thứ tự trong mảng `rows` đã gửi (từ 1), không phải `row` của bảng xem trước.
+
+Chưa kiểm chứng: chưa gọi Claude thật (CI không có khóa), nên chất lượng ghép cột, đọc PDF, ảnh và thời gian thực tế chưa đo; API nhập hàng loạt của WMS-22.4b chưa có trên nhánh này, ai-service gọi theo hợp đồng ở mục WMS-22.4b và được kiểm thử bằng máy chủ giả lập.
+
 **Tiêu chí nghiệm thu**
 
 File Excel 50 dòng có tiêu đề cột rõ ràng: trích xuất đúng trên 90% số ô, dưới 30 giây; bấm nhập xong thấy dữ liệu trong danh mục của đúng doanh nghiệp.

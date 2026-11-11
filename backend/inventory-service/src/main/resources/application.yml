@@ -96,6 +96,8 @@ app:
     near-expiry-days: ${ALERT_NEAR_EXPIRY_DAYS:30}
     dead-stock-days: ${ALERT_DEAD_STOCK_DAYS:90}
     top-items: 10
+    # Loại cảnh báo được gửi email tới quản lý kho và admin (WMS-15.2); hàng tồn lâu chỉ lên chuông thông báo.
+    email-kinds: ${ALERT_EMAIL_KINDS:LOW_STOCK,NEAR_EXPIRY,EXPIRED}
 ---
 # Nạp cấu hình tập trung từ Config Server. Tiền tố optional nghĩa là Config Server chưa chạy thì service vẫn
 # khởi động bằng cấu hình cục bộ ở trên. Tài liệu này bị bỏ qua khi chạy test (profile test) để test không gọi mạng.

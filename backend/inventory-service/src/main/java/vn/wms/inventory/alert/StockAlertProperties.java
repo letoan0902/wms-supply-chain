@@ -2,8 +2,10 @@ package vn.wms.inventory.alert;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
+import vn.wms.common.messaging.event.StockAlertKind;
 
 import java.time.ZoneId;
+import java.util.Set;
 
 /**
  * Cấu hình cảnh báo tồn kho (tiền tố {@code app.alerts}, WMS-15.1). Tài liệu yêu cầu chỉ chốt ngưỡng cận hạn 30 ngày
@@ -18,6 +20,8 @@ import java.time.ZoneId;
  * @param productPageSize       kích thước trang khi đọc danh mục sản phẩm từ product-service (tối đa 100)
  * @param maxProductPages       số trang tối đa đọc trong một lần (chặn vòng lặp vô hạn khi product-service trả sai)
  * @param productCacheSeconds   thời gian giữ danh mục sản phẩm trong bộ nhớ cho API đọc cảnh báo (tác vụ quét luôn đọc mới)
+ * @param emailKinds            các loại cảnh báo được gửi email (WMS-15.2, biến ALERT_EMAIL_KINDS); mặc định tồn thấp,
+ *                              cận hạn và hết hạn. Hàng tồn lâu chỉ đẩy lên chuông thông báo
  */
 @ConfigurationProperties(prefix = "app.alerts")
 public record StockAlertProperties(
@@ -29,9 +33,11 @@ public record StockAlertProperties(
         @DefaultValue("10") int topItems,
         @DefaultValue("100") int productPageSize,
         @DefaultValue("50") int maxProductPages,
-        @DefaultValue("60") int productCacheSeconds) {
+        @DefaultValue("60") int productCacheSeconds,
+        @DefaultValue({"LOW_STOCK", "NEAR_EXPIRY", "EXPIRED"}) Set<StockAlertKind> emailKinds) {
 
     public StockAlertProperties {
+        emailKinds = emailKinds == null ? Set.of() : Set.copyOf(emailKinds);
         if (nearExpiryDays < 1) {
             throw new IllegalArgumentException("app.alerts.near-expiry-days phải lớn hơn 0");
         }

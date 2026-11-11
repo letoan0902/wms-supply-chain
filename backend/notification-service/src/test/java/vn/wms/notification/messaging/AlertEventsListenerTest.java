@@ -6,8 +6,16 @@ import org.springframework.amqp.AmqpRejectAndDontRequeueException;
 import org.springframework.amqp.core.Message;
 import vn.wms.common.messaging.WmsEventPublisher;
 import vn.wms.common.messaging.WmsEvents;
+import org.springframework.dao.DataIntegrityViolationException;
 import vn.wms.common.messaging.event.LowStockAlertEvent;
+import vn.wms.common.messaging.event.StockAlertDigestEvent;
+import vn.wms.common.messaging.event.StockAlertItem;
+import vn.wms.common.messaging.event.StockAlertKind;
+import vn.wms.common.messaging.event.StockAlertSeverity;
+import vn.wms.common.messaging.event.StockAlertSummaryEvent;
 import vn.wms.common.tenant.TenantContext;
+import vn.wms.notification.stockalert.StockAlertEmailService;
+import vn.wms.notification.stockalert.StockAlertNotificationService;
 import vn.wms.notification.realtime.KpiMetric;
 import vn.wms.notification.realtime.NotificationSeverity;
 import vn.wms.notification.realtime.RealtimeEventType;
@@ -18,6 +26,7 @@ import vn.wms.notification.service.NotificationService;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -33,6 +42,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 import static vn.wms.notification.messaging.ListenerTestSupport.COMPANY_A;
 import static vn.wms.notification.messaging.ListenerTestSupport.COMPANY_B;
 import static vn.wms.notification.messaging.ListenerTestSupport.json;
@@ -45,8 +55,60 @@ class AlertEventsListenerTest {
 
     private final RealtimeNotificationService realtimeService = mock(RealtimeNotificationService.class);
     private final NotificationService notificationService = mock(NotificationService.class);
+    private final StockAlertNotificationService stockAlertNotificationService = mock(StockAlertNotificationService.class);
+    private final StockAlertEmailService stockAlertEmailService = mock(StockAlertEmailService.class);
     private final AlertEventsListener listener = new AlertEventsListener(ListenerTestSupport.OBJECT_MAPPER,
-            ListenerTestSupport.factory(), realtimeService, notificationService);
+            ListenerTestSupport.factory(), realtimeService, notificationService, stockAlertNotificationService,
+            stockAlertEmailService);
+
+    private final StockAlertSummaryEvent summary = new StockAlertSummaryEvent(COMPANY_A, LocalDate.of(2026, 11, 5),
+            StockAlertKind.NEAR_EXPIRY, StockAlertSeverity.WARNING, 5L, "WH-HN", "Kho Hà Nội", 1,
+            new BigDecimal("2.5"), 30, List.of(new StockAlertItem(100L, "SKU-001", "Sữa tươi", "L01", "WH-HN-Z1-R1-B1",
+            new BigDecimal("2.5"), new BigDecimal("2.5"), LocalDate.of(2026, 11, 10), 5L, null, null, null, null,
+            StockAlertSeverity.WARNING)), Instant.parse("2026-11-05T00:00:00Z"));
+
+    private final StockAlertDigestEvent digest = new StockAlertDigestEvent(COMPANY_A, LocalDate.of(2026, 11, 5),
+            StockAlertKind.NEAR_EXPIRY, "ql.kho@congty-a.vn", "Quản lý kho", "WAREHOUSE_MANAGER", List.of(summary),
+            Instant.parse("2026-11-05T00:00:00Z"));
+
+    @Test
+    void stockSummaryGoesToStockAlertServiceInsideTenantContext() throws Exception {
+        List<Long> context = new ArrayList<>();
+        doAnswer(invocation -> {
+            context.add(TenantContext.getCompanyId());
+            return null;
+        }).when(stockAlertNotificationService).onSummary(any(), any(), any());
+
+        listener.onMessage(json(summary, WmsEvents.RoutingKeys.ALERT_STOCK_SUMMARY, "msg-s1"));
+
+        verify(stockAlertNotificationService).onSummary(eq(summary), eq("msg-s1"), any());
+        assertThat(context).containsExactly(COMPANY_A);
+        verifyNoInteractions(notificationService, stockAlertEmailService);
+    }
+
+    @Test
+    void stockDigestIsEmailedOnceAndDuplicateRaceIsAcknowledged() throws Exception {
+        when(stockAlertEmailService.send(any(), any())).thenReturn(StockAlertEmailService.Outcome.SENT);
+        listener.onMessage(json(digest, WmsEvents.RoutingKeys.ALERT_STOCK_DIGEST, "msg-d1"));
+        verify(stockAlertEmailService).send(digest, "msg-d1");
+
+        // Lượt khác vừa giữ chỗ cùng (người nhận, loại, ngày): không ném lỗi để broker không giao lại
+        when(stockAlertEmailService.send(any(), any()))
+                .thenThrow(new DataIntegrityViolationException("uk_notification_logs_company_dedup"));
+        assertThatCode(() -> listener.onMessage(json(digest, WmsEvents.RoutingKeys.ALERT_STOCK_DIGEST, "msg-d2")))
+                .doesNotThrowAnyException();
+        verifyNoInteractions(notificationService, realtimeService);
+    }
+
+    @Test
+    void malformedStockAlertPayloadGoesToDeadLetter() {
+        byte[] broken = "{khong phai json".getBytes(StandardCharsets.UTF_8);
+        assertThatThrownBy(() -> listener.onMessage(message(broken, WmsEvents.RoutingKeys.ALERT_STOCK_DIGEST, "msg-d3")))
+                .isInstanceOf(AmqpRejectAndDontRequeueException.class);
+        assertThatThrownBy(() -> listener.onMessage(message(broken, WmsEvents.RoutingKeys.ALERT_STOCK_SUMMARY, "msg-s3")))
+                .isInstanceOf(AmqpRejectAndDontRequeueException.class);
+        verifyNoInteractions(stockAlertEmailService, stockAlertNotificationService);
+    }
 
     private final LowStockAlertEvent lowStock = new LowStockAlertEvent(5L, "Kho Hà Nội", 100L, "SKU-001",
             "Thùng carton", new BigDecimal("5"), new BigDecimal("20"), Instant.parse("2026-11-05T07:59:00Z"));

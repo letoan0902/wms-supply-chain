@@ -15,6 +15,7 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -46,16 +47,18 @@ public class StockAlertScanService {
     private final WmsEventPublisher eventPublisher;
     private final StockAlertClock clock;
     private final StockAlertProperties properties;
+    private final StockAlertEmailDispatcher emailDispatcher;
 
     public StockAlertScanService(StockAlertDetector detector, ProductCatalog productCatalog, StockAlertRunGuard guard,
                                  WmsEventPublisher eventPublisher, StockAlertClock clock,
-                                 StockAlertProperties properties) {
+                                 StockAlertProperties properties, StockAlertEmailDispatcher emailDispatcher) {
         this.detector = detector;
         this.productCatalog = productCatalog;
         this.guard = guard;
         this.eventPublisher = eventPublisher;
         this.clock = clock;
         this.properties = properties;
+        this.emailDispatcher = emailDispatcher;
     }
 
     public StockAlertScanResponse scanCurrentCompany(String triggeredBy) {
@@ -64,10 +67,13 @@ public class StockAlertScanService {
         Instant detectedAt = clock.now();
         ProductLookup products = productCatalog.load(false);
         List<StockAlertResponse> alerts = detector.detect(today, Set.of(), products);
+        // Người nhận theo kho, tra auth-service mỗi kho một lần cho mọi loại cảnh báo của lần quét này
+        Map<Long, List<AlertRecipient>> recipientsByWarehouse = new HashMap<>();
 
         List<StockAlertScanResponse.KindResult> results = new ArrayList<>();
         for (StockAlertKind kind : StockAlertKind.values()) {
-            results.add(processKind(companyId, today, detectedAt, kind, alerts, products, triggeredBy));
+            results.add(processKind(companyId, today, detectedAt, kind, alerts, products, triggeredBy,
+                    recipientsByWarehouse));
         }
         log.info("Quét cảnh báo tồn kho doanh nghiệp {} ngày {} ({}): {}", companyId, today, triggeredBy, results);
         return new StockAlertScanResponse(today, triggeredBy, results);
@@ -75,14 +81,15 @@ public class StockAlertScanService {
 
     private StockAlertScanResponse.KindResult processKind(Long companyId, LocalDate today, Instant detectedAt,
                                                           StockAlertKind kind, List<StockAlertResponse> alerts,
-                                                          ProductLookup products, String triggeredBy) {
+                                                          ProductLookup products, String triggeredBy,
+                                                          Map<Long, List<AlertRecipient>> recipientsByWarehouse) {
         if (kind == StockAlertKind.LOW_STOCK && !products.available()) {
-            return new StockAlertScanResponse.KindResult(kind, StockAlertScanResponse.Status.UNAVAILABLE, 0, 0,
+            return new StockAlertScanResponse.KindResult(kind, StockAlertScanResponse.Status.UNAVAILABLE, 0, 0, 0,
                     "Chưa tính được cảnh báo tồn thấp: " + products.note());
         }
         List<StockAlertResponse> ofKind = alerts.stream().filter(a -> a.kind() == kind).toList();
         if (ofKind.isEmpty()) {
-            return new StockAlertScanResponse.KindResult(kind, StockAlertScanResponse.Status.NOTHING_FOUND, 0, 0,
+            return new StockAlertScanResponse.KindResult(kind, StockAlertScanResponse.Status.NOTHING_FOUND, 0, 0, 0,
                     "Không có cảnh báo");
         }
 
@@ -95,7 +102,7 @@ public class StockAlertScanService {
         }
         if (runId.isEmpty()) {
             return new StockAlertScanResponse.KindResult(kind, StockAlertScanResponse.Status.ALREADY_SENT, 0,
-                    ofKind.size(), "Hôm nay đã gửi cảnh báo loại này, không gửi lại");
+                    ofKind.size(), 0, "Hôm nay đã gửi cảnh báo loại này, không gửi lại");
         }
 
         List<StockAlertSummaryEvent> summaries = summarize(companyId, today, detectedAt, kind, ofKind);
@@ -108,11 +115,30 @@ public class StockAlertScanService {
                     kind, companyId, ex.getMessage());
             guard.release(runId.get());
             return new StockAlertScanResponse.KindResult(kind, StockAlertScanResponse.Status.FAILED,
-                    summaries.size(), ofKind.size(), "Không gửi được sự kiện cảnh báo: " + ex.getMessage());
+                    summaries.size(), ofKind.size(), 0, "Không gửi được sự kiện cảnh báo: " + ex.getMessage());
         }
-        guard.complete(runId.get(), summaries.size(), ofKind.size(), 0, null);
+
+        // Email (WMS-15.2): bản tổng hợp đã phát nên lỗi ở bước này chỉ ghi chú, không gỡ dấu (tránh đẩy lại chuông)
+        int emailCount = 0;
+        String emailNote = null;
+        if (properties.emailKinds().contains(kind)) {
+            try {
+                emailCount = emailDispatcher.dispatch(today, detectedAt, kind, summaries, recipientsByWarehouse);
+                if (emailCount == 0) {
+                    emailNote = "Không có người nhận email (quản lý kho, admin) có địa chỉ gửi được";
+                }
+            } catch (RuntimeException ex) {
+                log.error("Không gửi được yêu cầu email cảnh báo {} của doanh nghiệp {}: {}",
+                        kind, companyId, ex.getMessage());
+                emailNote = "Không gửi được email cảnh báo: " + ex.getMessage();
+            }
+        }
+        guard.complete(runId.get(), summaries.size(), ofKind.size(), emailCount, emailNote);
+        String message = "Đã gửi " + summaries.size() + " bản tổng hợp theo kho"
+                + (properties.emailKinds().contains(kind) ? ", " + emailCount + " email" : "")
+                + (emailNote != null ? ". " + emailNote : "");
         return new StockAlertScanResponse.KindResult(kind, StockAlertScanResponse.Status.PUBLISHED, summaries.size(),
-                ofKind.size(), "Đã gửi " + summaries.size() + " bản tổng hợp theo kho");
+                ofKind.size(), emailCount, message);
     }
 
     /** Một bản tổng hợp cho mỗi kho, giữ thứ tự nghiêm trọng của danh sách đầu vào. */

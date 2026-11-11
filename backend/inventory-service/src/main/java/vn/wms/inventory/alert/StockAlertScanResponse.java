@@ -35,8 +35,10 @@ public record StockAlertScanResponse(LocalDate alertDate, String triggeredBy, Li
      * @param status         trạng thái
      * @param warehouseCount số kho có cảnh báo (số bản tổng hợp đã phát khi PUBLISHED)
      * @param itemCount      số dòng cảnh báo tìm thấy
+     * @param emailCount     số email đã yêu cầu notification-service gửi (mỗi người nhận một email cho loại này)
      * @param message        diễn giải tiếng Việt
      */
-    public record KindResult(StockAlertKind kind, Status status, int warehouseCount, int itemCount, String message) {
+    public record KindResult(StockAlertKind kind, Status status, int warehouseCount, int itemCount, int emailCount,
+                             String message) {
     }
 }

@@ -21,9 +21,11 @@ import vn.wms.inventory.repository.WarehouseRepository;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
@@ -69,10 +71,20 @@ abstract class StockAlertIntegrationTestBase {
     @MockBean
     StockAlertClock clock;
 
+    @MockBean
+    AlertRecipientClient recipientClient;
+
     StockAlertTestSupport data;
 
     /** Danh mục sản phẩm product-service "trả về" cho từng doanh nghiệp; doanh nghiệp không có thì danh mục rỗng. */
     final Map<Long, ApiResponse<PageResponse<AlertProductInfo>>> catalogs = new HashMap<>();
+
+    /** Người nhận auth-service "trả về" theo (doanh nghiệp trong TenantContext, kho); không có thì danh sách rỗng. */
+    final Map<String, List<AlertRecipient>> recipients = new HashMap<>();
+
+    static String recipientKey(Long companyId, Long warehouseId) {
+        return companyId + ":" + warehouseId;
+    }
 
     @BeforeEach
     void setUpBase() {
@@ -84,6 +96,9 @@ abstract class StockAlertIntegrationTestBase {
         when(clock.now()).thenReturn(Instant.now());
         when(productClient.listProducts(anyInt(), anyInt(), anyString())).thenAnswer(invocation ->
                 catalogs.getOrDefault(TenantContext.getCompanyId(), StockAlertTestSupport.page()));
+        recipients.clear();
+        when(recipientClient.alertRecipients(anyLong())).thenAnswer(invocation -> ApiResponse.ok(recipients.getOrDefault(
+                recipientKey(TenantContext.getCompanyId(), invocation.getArgument(0)), List.of())));
     }
 
     @AfterEach

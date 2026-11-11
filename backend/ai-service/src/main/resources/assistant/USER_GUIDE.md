@@ -1,6 +1,6 @@
 # Hướng dẫn sử dụng WMS Supply Chain
 
-WMS Supply Chain là phần mềm quản lý kho trên web: kho và vị trí ô/kệ, hàng hóa (SKU), nhà cung cấp, khách hàng, mua và nhập kho, bán và xuất kho, điều chuyển, công nợ, báo cáo. Mọi mục menu hiện với mọi người; vai trò không có quyền sẽ thấy thông báo không có quyền. Các vai trò:
+WMS Supply Chain là phần mềm quản lý kho trên web: kho và vị trí ô/kệ, hàng hóa (SKU), nhà cung cấp, khách hàng, mua và nhập kho, bán và xuất kho, điều chuyển, tồn kho và cảnh báo, công nợ, báo cáo, truy vết theo lô, gói dịch vụ, trợ lý AI. Mọi mục menu hiện với mọi người; vai trò không có quyền sẽ thấy thông báo không có quyền. Các vai trò:
 - Quản trị hệ thống: toàn quyền, quản lý người dùng và API key.
 - Quản lý kho: quản lý kho, vị trí kệ, duyệt đơn mua và điều chuyển.
 - Nhân viên kho: nhập, xuất kho, quét mã vạch, kiểm đếm.
@@ -14,13 +14,16 @@ Hướng dẫn phản ánh giao diện tại ngày 11/11/2026.
 
 Đăng ký doanh nghiệp (dùng thử 30 ngày):
 1. Mở trang giới thiệu `/landing` hoặc bấm "Dùng thử 30 ngày" ở trang đăng nhập.
-2. Ở khung "Đăng ký Dùng thử cho Doanh nghiệp", nhập tên công ty, người đại diện, Tên đăng nhập quản trị, Mật khẩu (6 đến 72 ký tự), Email công việc, số điện thoại; tích đồng ý Điều khoản dịch vụ.
+2. Ở khung "Đăng ký Dùng thử cho Doanh nghiệp", nhập tên công ty, người đại diện, Tên đăng nhập quản trị (3 đến 50 ký tự: chữ, số, dấu chấm, gạch dưới, gạch ngang), Mật khẩu (6 đến 72 ký tự), Email công việc, số điện thoại; tích đồng ý Điều khoản dịch vụ.
 3. Bấm "Kích hoạt Dùng thử Miễn phí 30 ngày". Tài khoản này là quản trị của doanh nghiệp.
-4. Mở email, bấm liên kết kích hoạt (hiệu lực 24 giờ), rồi bấm "Đăng nhập". Liên kết hỏng hoặc hết hạn thì nhập email và bấm "Gửi lại email kích hoạt".
+4. Mở email, bấm liên kết kích hoạt (hiệu lực 24 giờ). Trang `/activate` báo "Kích hoạt thành công", bấm "Đăng nhập". Liên kết hỏng hoặc hết hạn thì trang báo "Liên kết kích hoạt không dùng được": nhập email đã dùng để đăng ký và bấm "Gửi lại email kích hoạt".
 
-Đăng nhập: vào `/login`, nhập Tên đăng nhập, Mật khẩu, bấm "Đăng nhập". Doanh nghiệp chưa kích hoạt sẽ thấy cảnh báo kèm ô gửi lại email kích hoạt.
+Đăng nhập: vào `/login`, nhập Tên đăng nhập, Mật khẩu, bấm "Đăng nhập". Doanh nghiệp chưa kích hoạt sẽ thấy cảnh báo "Doanh nghiệp chưa được kích hoạt" kèm ô gửi lại email kích hoạt.
 
-Quên mật khẩu: bấm "Quên mật khẩu?", nhập email, bấm "Gửi liên kết đặt lại mật khẩu", mở liên kết trong email và nhập mật khẩu mới hai lần.
+Quên mật khẩu:
+1. Ở trang đăng nhập bấm "Quên mật khẩu?" (trang `/forgot-password`), nhập email, bấm "Gửi liên kết đặt lại mật khẩu".
+2. Mở liên kết trong email (dùng được một lần, hiệu lực 30 phút). Trang `/reset-password` mở ra.
+3. Nhập "Mật khẩu mới" (6 đến 72 ký tự) và "Nhập lại mật khẩu mới", bấm "Đặt mật khẩu mới". Mọi phiên đăng nhập cũ phải đăng nhập lại. Liên kết hết hạn thì bấm "Yêu cầu liên kết mới".
 
 Đăng xuất: bấm tên tài khoản ở góc phải trên, chọn "Đăng xuất".
 
@@ -249,15 +252,27 @@ Nhận hàng tại kho đích:
 
 Trạng thái: Bản nháp, Đang vận chuyển, Đã nhận đủ, Nhận một phần, Đã hủy.
 
-## Xem tồn kho
+## Xem tồn kho và cảnh báo tồn
 
-Mục menu "Tồn kho" chưa có màn hình trên hệ thống (đang là trang giữ chỗ).
+Vào menu "Tồn kho". Quản trị hệ thống và Kế toán xem mọi kho (để trống ô kho là "Tất cả kho"); vai trò khác chỉ chọn được kho được phân công, tài khoản chưa được gán kho thấy thông báo "Không có quyền xem tồn kho".
 
-Hiện có thể xem số tồn ở:
-- Màn hình lập đơn bán: mỗi dòng hiện tồn khả dụng theo kho xuất.
-- Màn hình lập lệnh điều chuyển: mỗi dòng hiện tồn khả dụng ở kho nguồn.
-- Sơ đồ vị trí ở menu "Kho và vị trí": ô nào đang có hàng.
-- Trợ lý AI: tra tồn kho theo mã SKU hoặc theo kho.
+Cách xem:
+1. Chọn kho, chọn cách xem "Theo hàng hóa" hoặc "Theo lô và vị trí".
+2. "Theo hàng hóa": tìm theo SKU hoặc tên, lọc "Danh mục hàng hóa". Cột "Tồn thực tế", "Tồn dùng được" (lô không khóa, chưa hết hạn), "Đã giữ chỗ", "Khả dụng" (tồn dùng được trừ đã giữ chỗ), "Mức an toàn", "Điểm đặt hàng lại", "Cảnh báo". Cách xem này chỉ dành cho Quản trị hệ thống, Kế toán, Quản lý kho, Nhân viên kho; vai trò khác xem theo lô và vị trí.
+3. "Theo lô và vị trí": lọc theo hàng hóa, "Số lô", còn hàng hay đã hết, đang khóa hay không, "Tình trạng hạn dùng". Mỗi dòng có số lô, ngày sản xuất, hạn dùng, số ngày còn lại, vị trí (khu - kệ - ô), số lượng, trạng thái "Đã khóa" hoặc "Đang dùng".
+4. Bật "Chỉ hiện dòng có cảnh báo" để xem danh sách cảnh báo; "Xóa bộ lọc" đưa bộ lọc về mặc định.
+
+Thẻ cảnh báo (máy chủ tính, thanh "Cảnh báo ngày ..." đếm theo loại và mức; bấm một ô để lọc):
+- "HẾT HẠN": lô còn hàng đã tới hoặc quá hạn dùng.
+- "CẬN DATE": lô còn hàng sắp hết hạn (mặc định trong 30 ngày tới).
+- "CHÁY HÀNG": tồn dùng được nhỏ hơn hoặc bằng mức an toàn.
+- "SẮP HẾT": tồn dùng được nhỏ hơn hoặc bằng điểm đặt hàng lại.
+- "TỒN LÂU": còn tồn nhưng không nhập xuất từ 90 ngày trở lên (mặc định).
+Màu thẻ: đỏ là khẩn cấp, vàng là cảnh báo, xanh là thông tin.
+
+Bảng tự cập nhật khi có nhập, xuất ở kho đang xem; nút "Làm mới" tải lại ngay. Quản trị hệ thống có thêm nút "Quét cảnh báo ngay" để quét lại cảnh báo trong ngày.
+
+Số tồn còn xem được ở màn hình lập đơn bán (tồn khả dụng theo kho xuất), lập lệnh điều chuyển (tồn khả dụng ở kho nguồn), hoặc hỏi trợ lý AI.
 
 ## Kiểm kê
 
@@ -267,29 +282,43 @@ Mục menu "Kiểm kê" chưa có màn hình trên hệ thống (đang là trang
 
 Dashboard là trang đầu tiên sau khi đăng nhập.
 
-- Bộ lọc kho: Quản trị hệ thống và Kế toán có thêm "Tất cả các kho"; vai trò khác chỉ thấy kho được phân công. Bộ lọc thời gian: Hôm nay, 7 ngày qua, Tháng này, Quý này.
+- Bộ lọc kho: Quản trị hệ thống và Kế toán có thêm "Tất cả các kho (Toàn cục)"; vai trò khác chỉ thấy kho được phân công. Bộ lọc thời gian: Hôm nay, 7 ngày qua, Tháng này, Quý này.
+- Khối "Tóm tắt bằng AI" ngay dưới thanh bộ lọc: 3 đến 5 ý về số liệu điều hành của kho đang chọn và phần "Gợi ý" 1 đến 2 việc nên làm, kèm thời điểm lập. Bản tóm tắt được lưu 30 phút ("từ bộ nhớ đệm", không tốn lượt AI); nút "Làm mới" tạo bản mới và dùng một lượt AI (có hỏi xác nhận). Chỉ Quản trị hệ thống và Kế toán có chỉ số tài chính trong bản tóm tắt. Nhãn "Chế độ giả lập" nghĩa là hệ thống chưa bật AI thật, các ý được soạn sẵn từ cùng số liệu. Tài khoản không được xem số liệu điều hành (ví dụ chưa được gán kho) không thấy khối này.
 - Thẻ KPI: Quản trị hệ thống và Kế toán thấy chỉ số tài chính; vai trò khác thấy chỉ số vận hành.
 - Biểu đồ mua vào và bán ra, mặt hàng bán chạy, bảng cảnh báo tồn kho.
 - Nút "Xuất Excel KPI" chỉ dùng được với Quản trị hệ thống và Kế toán.
 
-Lưu ý: KPI, biểu đồ và cảnh báo trên Dashboard hiện là dữ liệu mẫu minh họa, chưa lấy từ giao dịch thật.
+Lưu ý: thẻ KPI, biểu đồ và bảng cảnh báo trên Dashboard hiện là dữ liệu mẫu minh họa, chưa lấy từ giao dịch thật; khối "Tóm tắt bằng AI" lấy số liệu thật. Cảnh báo tồn kho thật xem ở menu "Tồn kho".
 
 Biểu tượng chuông ở góc phải trên hiện thông báo thời gian thực, có nút "Xóa tất cả" và "Kết nối lại".
 
 ## Báo cáo
 
-Vào menu "Báo cáo" để mở "Sổ Báo Cáo Nhập - Xuất - Tồn Kho".
+Vào menu "Báo cáo" để mở trang "Báo cáo kho". Số liệu lấy từ sổ kho thật.
 
-- Nhân viên kho (không kèm vai trò khác) không xem được; màn hình báo 403.
-- Quản trị hệ thống và Kế toán xem mọi kho, thấy thêm đơn giá vốn và giá trị tồn.
-- Vai trò khác chỉ xem kho được phân công, không thấy số tiền.
+- Quản trị hệ thống và Kế toán xem mọi kho; Quản lý kho và Nhân viên kho xem kho được phân công.
+- Nhân viên mua hàng, Nhân viên bán hàng (không kèm vai trò trên) thấy trang "403 - Quyền truy cập bị từ chối".
 
-Cách dùng:
-1. Tìm theo SKU hoặc tên hàng, chọn kho.
-2. Bảng hiện Tồn đầu kỳ, Nhập trong kỳ, Xuất trong kỳ, Tồn cuối kỳ của từng SKU.
-3. Bấm "Xuất Báo Cáo Excel (.xlsx)" (chỉ Quản trị hệ thống và Kế toán).
+Tab "Xuất - Nhập - Tồn":
+1. Chọn "Kỳ báo cáo" (mặc định từ đầu tháng tới hôm nay, tối đa 366 ngày), "Kho", "Danh mục", "Sản phẩm", "Từ khóa" (mã SKU hoặc tên), "Gom dòng" ("Theo sản phẩm và kho" hoặc "Theo sản phẩm (gộp các kho)").
+2. Bảng hiện Tồn đầu kỳ, Nhập trong kỳ, Xuất trong kỳ, Tồn cuối kỳ và dòng "Tổng cộng".
+3. Bấm "Tải Excel" để tải báo cáo.
+Hệ thống chưa có giá vốn nên báo cáo chưa có cột giá trị tiền.
 
-Lưu ý: số liệu báo cáo này hiện là dữ liệu mẫu minh họa. Dữ liệu thật xuất được bằng nút "Xuất Excel" ở các danh sách đơn mua, phiếu nhập, đơn bán, phiếu xuất, nhà cung cấp, khách hàng.
+Tab "Thẻ kho" (lịch sử nhập xuất của một mặt hàng tại một kho):
+1. Chọn "Sản phẩm" và "Kho" (bắt buộc), chọn kỳ.
+2. Màn hình hiện Tồn đầu kỳ, Tổng nhập, Tổng xuất, Tồn cuối kỳ và từng dòng biến động: thời điểm, loại biến động, chứng từ, số lô, vị trí, nhập, xuất, tồn sau, người thực hiện.
+3. Bấm số lô để mở truy vết lô; bấm "Tải Excel" để tải thẻ kho.
+
+Các danh sách đơn mua, phiếu nhập, đơn bán, phiếu xuất, nhà cung cấp, khách hàng cũng có nút "Xuất Excel".
+
+## Truy vết theo lô
+
+Vào menu "Truy vết theo lô" (hoặc nút "Truy vết theo số lô" ở trang "Báo cáo kho"). Cùng quyền xem như trang báo cáo kho.
+
+1. Nhập số lô (số in trên bao bì), bấm "Truy vết".
+2. Số lô dùng cho nhiều sản phẩm thì chọn sản phẩm cần xem.
+3. Màn hình hiện "Tóm tắt lô" (nhập theo phiếu nhập, đã xuất bán, đã điều chuyển đi, tồn theo sổ kho, tồn thực tế, đang giữ chỗ), "Cây truy vết", nguồn gốc (nhập từ đâu), đang ở đâu (kho, vị trí), đã đi đâu (đơn bán, điều chuyển) và diễn biến theo thời gian.
 
 ## API key
 
@@ -304,11 +333,32 @@ Cách dùng: gửi key trong header `X-Api-Key`. Key chỉ đọc (GET) hàng h�
 
 Thu hồi: bấm "Thu hồi" trên dòng key và xác nhận; hệ thống dùng key bị từ chối ngay, không hoàn tác được.
 
-Nếu gói dịch vụ không hỗ trợ API key hoặc đã hết hạn, màn hình báo lỗi tương ứng.
+API key chỉ có ở gói Dùng thử và Chuyên Nghiệp; gói Khởi Đầu thấy thông báo "Gói dịch vụ hiện tại không hỗ trợ API key". Khi gói hết hạn không tạo được key mới và các key đang có tạm ngưng hoạt động cho tới khi gia hạn (thu hồi key vẫn làm được).
 
 ## Gói dịch vụ và thanh toán
 
-Chức năng xem gói, nâng cấp, gia hạn và thanh toán gói dịch vụ chưa có màn hình trên hệ thống (máy chủ đã hỗ trợ, màn hình đang được xây dựng). Bảng giá các gói xem ở trang `/pricing`. Doanh nghiệp mới đăng ký được dùng thử 30 ngày (gói Dùng thử, giới hạn như gói Chuyên Nghiệp).
+Vào menu "Gói dịch vụ" (trang `/subscription`). Mọi tài khoản xem được; chỉ Quản trị hệ thống đổi gói và thanh toán.
+
+Các gói: Khởi Đầu (miễn phí: 3 người dùng, 1 kho, 200 SKU, 20 lượt AI mỗi tháng, không có API key), Dùng thử (30 ngày kể từ khi đăng ký, giới hạn như Chuyên Nghiệp), Chuyên Nghiệp (499.000 đ mỗi tháng hoặc 4.790.000 đ mỗi năm: 50 người dùng, 20 kho, không giới hạn SKU, 500 lượt AI mỗi tháng, có API key).
+
+Trang gồm:
+- "Gói hiện tại": gói, trạng thái, ngày hết hạn hoặc hết dùng thử, số ngày còn lại.
+- "Mức sử dụng": người dùng, kho, SKU đang dùng và lượt AI trong tháng so với giới hạn của gói.
+- "So sánh các gói": giá và giới hạn của từng gói.
+- "Lịch sử giao dịch" (chỉ Quản trị hệ thống): mã đơn, gói, chu kỳ, số tiền, trạng thái (Chờ thanh toán, Đã thanh toán, Đã hủy, Hết hạn).
+
+Nâng cấp hoặc gia hạn gói Chuyên Nghiệp (Quản trị hệ thống):
+1. Ở khung "Đổi gói dịch vụ", chọn "Theo tháng" hoặc "Theo năm".
+2. Bấm "Thanh toán nâng cấp" (hoặc "Thanh toán gia hạn"). Trình duyệt chuyển sang trang thanh toán (liên kết hiệu lực 15 phút).
+3. Thanh toán xong, hệ thống quay về trang kết quả và tự kiểm tra: "Thanh toán thành công", "Giao dịch đã bị hủy", "Liên kết thanh toán đã hết hạn" hoặc "Đang chờ ngân hàng xác nhận" (bấm "Kiểm tra lại"). Bấm "Về trang gói dịch vụ".
+Mỗi lần thanh toán cộng thêm 30 hoặc 365 ngày tính từ hôm nay hoặc từ ngày hết hạn đang còn, nên gia hạn sớm không mất ngày. Giao dịch đang chờ trong "Lịch sử giao dịch" có nút "Tiếp tục thanh toán" và "Kiểm tra trạng thái".
+
+Chuyển về gói Khởi Đầu: bấm "Chuyển về gói Khởi Đầu" và xác nhận; chỉ làm được khi đang dùng thử hoặc khi gói đã hết hạn. Dữ liệu đã có được giữ nguyên.
+
+Nhắc hạn và hết hạn:
+- Khi đang dùng thử, đầu mọi trang có dải "Còn N ngày dùng thử".
+- Khi gói hết hạn, đầu mọi trang có dải "Gói đã hết hạn, hệ thống đang ở chế độ chỉ đọc": vẫn xem được dữ liệu nhưng các nút tạo, sửa, xóa bị khóa; bấm vào sẽ hiện hộp thoại "Gói dịch vụ đã hết hạn". Vẫn đăng nhập, đổi mật khẩu, xem và thanh toán gói dịch vụ được. Gia hạn hoặc chuyển gói để mở lại.
+- Tạo thêm người dùng, kho, SKU hay hỏi trợ lý AI khi đã vượt giới hạn của gói sẽ hiện hộp thoại "Đã chạm giới hạn của gói dịch vụ"; Quản trị hệ thống có nút "Nâng cấp gói", vai trò khác liên hệ quản trị viên.
 
 ## Nhập dữ liệu bằng AI
 
@@ -316,4 +366,12 @@ Chức năng dùng AI đọc danh mục hàng hóa từ tệp Excel, PDF hoặc 
 
 ## Trợ lý AI
 
-Hệ thống có trợ lý AI trả lời câu hỏi về cách dùng phần mềm, tra cứu tồn kho theo mã SKU hoặc theo kho, và tra trạng thái đơn theo số chứng từ (PO-... cho đơn mua, SO-... cho đơn bán). Trợ lý chỉ đọc dữ liệu, không tạo, sửa hay xóa, và chỉ trả lời trong phạm vi dữ liệu vai trò của người hỏi được xem. Mỗi câu hỏi dùng một lượt AI trong hạn mức hằng tháng của gói dịch vụ.
+Trợ lý AI trả lời câu hỏi về cách dùng phần mềm, tra cứu tồn kho theo mã SKU hoặc theo kho, và tra trạng thái đơn theo số chứng từ (PO-... cho đơn mua, SO-... cho đơn bán). Trợ lý chỉ đọc dữ liệu, không tạo, sửa hay xóa, và chỉ trả lời trong phạm vi dữ liệu vai trò của người hỏi được xem. Mọi tài khoản đều dùng được.
+
+Cách hỏi:
+1. Bấm nút tròn hình robot ở góc phải dưới của mọi trang để mở khung "Trợ lý AI" (trên điện thoại khung chiếm hết chiều ngang).
+2. Gõ câu hỏi (tối đa 2000 ký tự), nhấn Enter để gửi, Shift+Enter để xuống dòng; hoặc bấm một câu hỏi gợi ý rồi điền mã SKU, số chứng từ vào chỗ "...".
+3. Chờ trợ lý trả lời (có thể tới 90 giây). Dòng "Đã tra cứu" cho biết trợ lý đã đọc dữ liệu nào.
+4. Hỏi tiếp trong cùng khung để trợ lý hiểu theo ngữ cảnh. Bấm "Cuộc trò chuyện mới" để bắt đầu lại. Cuộc trò chuyện hết hạn sau 1 giờ không hỏi thêm và mất khi tải lại trang.
+
+Mỗi câu hỏi được trả lời dùng một lượt AI trong hạn mức hằng tháng của gói dịch vụ (câu bị từ chối không tính); khung chat hiện "Lượt AI tháng này". Lỗi thì bấm "Gửi lại". Nhãn "Chế độ giả lập" nghĩa là hệ thống chưa bật AI thật, trợ lý trả lời theo quy tắc. Khi gói đã hết hạn, trợ lý không nhận câu hỏi mới.

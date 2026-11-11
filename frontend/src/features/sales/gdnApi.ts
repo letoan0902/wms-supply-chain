@@ -13,7 +13,9 @@ import type {
 
 /**
  * Lập mới Phiếu xuất kho GDN từ Đơn bán hàng SO (WMS-12.1, WMS-12.4).
- * Phiếu COMPLETED phát một sự kiện order.dispatched, inventory-service trừ tồn đúng một lần.
+ * Phiếu COMPLETED chỉ hoàn tất khi inventory-service đã trừ tồn đồng bộ (docs/api/CHUNG_TU_TON_KHO.md mục 3):
+ * thiếu tồn (400) hoặc ô đang kiểm kê (409) thì không phiếu nào được lưu; 503 nêu mã phiếu nghĩa là phiếu đã được
+ * lưu ở PICKING và phải bấm "Xác nhận xuất kho" ({@link dispatchGoodsDelivery}) cho đúng phiếu đó.
  * Không tự gửi lại khi lỗi mạng: yêu cầu có thể đã được ghi nhận ở máy chủ.
  */
 export async function createGoodsDelivery(payload: CreateGdnRequest): Promise<GdnResponse> {
@@ -76,7 +78,8 @@ export async function fetchGoodsDeliveriesBySoId(soId: number): Promise<GdnRespo
 }
 
 /**
- * Xác nhận xuất xưởng (Dispatch) phiếu GDN.
+ * Xác nhận xuất kho (Dispatch) phiếu GDN đang DRAFT hoặc PICKING: trừ tồn đồng bộ rồi chuyển COMPLETED.
+ * Máy chủ chỉ trừ tồn một lần cho mỗi phiếu, nên bấm lại sau lỗi hoặc hết thời gian chờ là an toàn.
  */
 export async function dispatchGoodsDelivery(id: number): Promise<GdnResponse> {
   const res = await api.post<ApiResponse<GdnResponse>>(`/orders/goods-delivery-notes/${id}/dispatch`)

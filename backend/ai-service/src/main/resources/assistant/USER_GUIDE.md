@@ -212,6 +212,12 @@ Lập phiếu xuất kho:
 2. Quét mã vạch (hoặc "Quét bằng Camera") để cộng dồn, hoặc nhập số lượng; xuất từng phần được.
 3. Nhập ghi chú (biển số xe, tài xế), bấm "Xác Nhận Xuất Xưởng & In Phiếu Giao Hàng". Tồn kho bị trừ và phiếu giao hàng mở ra để in.
 
+Không đủ tồn hoặc ô lấy hàng đang kiểm kê: màn hình báo lỗi, phiếu không được lưu, form vẫn mở. Nếu màn hình báo phiếu đã được lưu nhưng chưa trừ tồn kho (dịch vụ kho không phản hồi kịp), phiếu ở trạng thái Đang lấy hàng: không lập phiếu mới mà làm bước dưới.
+
+Xác nhận xuất kho phiếu Bản nháp hoặc Đang lấy hàng (Quản trị hệ thống, Quản lý kho, Nhân viên kho):
+1. Vào tab "Phiếu xuất kho (GDN)", bấm nút biểu tượng xuất kho (chú thích "Xác nhận xuất kho") trên dòng phiếu, hoặc mở phiếu rồi bấm "Xác nhận xuất kho".
+2. Bấm "Xác nhận xuất kho" trong hộp xác nhận. Tồn kho bị trừ và phiếu chuyển Đã xuất kho. Gặp lỗi thì bấm lại được, tồn chỉ bị trừ một lần cho mỗi phiếu.
+
 Ở tab "Xuất kho & Lộ trình lấy hàng", nút lấy hàng và xuất kho chỉ bật cho Quản trị hệ thống, Quản lý kho, Nhân viên kho. Tab "Phiếu xuất kho (GDN)" cho xem và in lại các phiếu.
 
 ## Hóa đơn bán và thu công nợ khách hàng

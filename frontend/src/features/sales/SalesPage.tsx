@@ -40,6 +40,7 @@ import dayjs from 'dayjs'
 import { useEffect, useState } from 'react'
 import * as XLSX from 'xlsx'
 import { getApiErrorMessage } from '../../services/api'
+import { errorMessageOf, stockShortagesOf } from '../../services/stockDocuments'
 import { formatCurrency } from '../../utils/format'
 import ForbiddenResult from '../../components/ForbiddenResult'
 import { useCan } from '../auth/useCan'
@@ -55,6 +56,7 @@ import SalesOrderDetailModal from './components/SalesOrderDetailModal'
 import SalesOrderForm from './components/SalesOrderForm'
 import SmartGoodsDeliveryForm from './components/SmartGoodsDeliveryForm'
 import SmartPickingModal from './components/SmartPickingModal'
+import { StockShortageNotice } from './components/StockErrorDetails'
 import * as salesApi from './salesApi'
 import { SALES_STATUS_CONFIG } from './statusConfig'
 import type { OrderStatus, SalesOrder, SalesOrderSummary } from './types'
@@ -63,7 +65,7 @@ const { Title, Text } = Typography
 const { RangePicker } = DatePicker
 
 export default function SalesPage() {
-  const { message } = App.useApp()
+  const { message, modal } = App.useApp()
 
   // Phân quyền theo bảng quyền dùng chung (features/auth/permissions.ts, khớp backend)
   const can = useCan()
@@ -86,6 +88,8 @@ export default function SalesPage() {
   const [activeTab, setActiveTab] = useState<string>('list')
   const [formResetKey, setFormResetKey] = useState<number>(1)
   const [refreshKey, setRefreshKey] = useState<number>(0)
+  // Đơn đang được xác nhận nhanh trên bảng (khóa nút trong lúc chờ máy chủ)
+  const [confirmingId, setConfirmingId] = useState<number | null>(null)
 
   // Sub-filter tab theo trạng thái đơn hàng
   const [selectedStatusTab, setSelectedStatusTab] = useState<string>('ALL')
@@ -273,14 +277,34 @@ export default function SalesPage() {
     }
   }
 
-  // Phê duyệt nhanh đơn bán
+  // Phê duyệt nhanh đơn bán: giữ chỗ là một phần của xác nhận, thiếu hàng thì máy chủ trả 400 kèm danh sách thiếu
   const handleQuickConfirm = async (order: SalesOrder) => {
+    if (confirmingId !== null) return
+    setConfirmingId(order.id)
     try {
       await salesApi.confirmSalesOrder(order.id)
       message.success(`Đã xác nhận đơn bán "${order.soNumber}"! Tồn kho đã được giữ chỗ (Soft Reservation).`)
-      setRefreshKey((k) => k + 1)
     } catch (err) {
-      message.error(getApiErrorMessage(err, 'Lỗi khi xác nhận đơn bán hàng'))
+      const shortages = stockShortagesOf(err)
+      if (shortages.length > 0) {
+        modal.error({
+          title: `Chưa xác nhận được đơn "${order.soNumber}": không đủ hàng để giữ chỗ`,
+          width: 640,
+          content: (
+            <StockShortageNotice
+              message={errorMessageOf(err)}
+              shortages={shortages}
+              productName={(productId) => order.items?.find((it) => it.productId === productId)?.productName}
+            />
+          ),
+        })
+      } else {
+        message.error(getApiErrorMessage(err, 'Lỗi khi xác nhận đơn bán hàng'))
+      }
+    } finally {
+      setConfirmingId(null)
+      // Tải lại sau cả hai kết quả: đơn có thể đã được người khác xác nhận hoặc tồn đã thay đổi
+      setRefreshKey((k) => k + 1)
     }
   }
 
@@ -452,6 +476,8 @@ export default function SalesPage() {
                     size="small"
                     type="text"
                     icon={<CheckCircleOutlined className="text-green-600" />}
+                    loading={confirmingId === r.id}
+                    disabled={confirmingId !== null && confirmingId !== r.id}
                   />
                 </Popconfirm>
               </Tooltip>
@@ -919,6 +945,9 @@ export default function SalesPage() {
           setOrderForDelivery(null)
         }}
         onSuccess={() => {
+          setRefreshKey((k) => k + 1)
+        }}
+        onSavedPendingDispatch={() => {
           setRefreshKey((k) => k + 1)
         }}
       />

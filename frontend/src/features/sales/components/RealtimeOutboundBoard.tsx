@@ -639,6 +639,9 @@ export default function RealtimeOutboundBoard({ onOpenOrderDetail }: RealtimeOut
           setSelectedOrderForDelivery(null)
           reloadData()
         }}
+        onSavedPendingDispatch={() => {
+          reloadData()
+        }}
       />
     </div>
   )

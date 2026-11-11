@@ -25,10 +25,12 @@ import vn.wms.common.api.PageResponse;
 import vn.wms.order.dto.AtpCheckRequest;
 import vn.wms.order.dto.AtpCheckResponse;
 import vn.wms.order.dto.CreateSalesOrderRequest;
+import vn.wms.order.dto.PickingListResponse;
 import vn.wms.order.dto.SalesOrderResponse;
 import vn.wms.order.dto.SalesOrderSummaryResponse;
 import vn.wms.order.dto.UpdateSalesOrderRequest;
 import vn.wms.order.entity.OrderStatus;
+import vn.wms.order.service.GoodsDeliveryService;
 import vn.wms.order.service.SalesOrderService;
 
 import java.net.URI;
@@ -43,9 +45,12 @@ import java.time.LocalDate;
 public class SalesOrderController {
 
     private final SalesOrderService salesOrderService;
+    private final GoodsDeliveryService goodsDeliveryService;
 
-    public SalesOrderController(SalesOrderService salesOrderService) {
+    public SalesOrderController(SalesOrderService salesOrderService,
+                                GoodsDeliveryService goodsDeliveryService) {
         this.salesOrderService = salesOrderService;
+        this.goodsDeliveryService = goodsDeliveryService;
     }
 
     @GetMapping
@@ -136,5 +141,12 @@ public class SalesOrderController {
     @PreAuthorize("hasAnyRole('ADMIN', 'SALES')")
     public ApiResponse<SalesOrderResponse> cancel(@PathVariable Long id) {
         return ApiResponse.ok(salesOrderService.cancel(id));
+    }
+
+    @GetMapping("/{id}/picking-list")
+    @Operation(summary = "Sinh danh sách lấy hàng (Picking List) gợi ý vị trí ô kệ và lô theo FEFO/FIFO cho đơn bán hàng (FR17 - WMS-12.1)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SALES', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF')")
+    public ApiResponse<PickingListResponse> getPickingList(@PathVariable Long id) {
+        return ApiResponse.ok(goodsDeliveryService.generatePickingListForSo(id));
     }
 }

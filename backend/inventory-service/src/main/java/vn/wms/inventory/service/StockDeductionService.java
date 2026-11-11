@@ -13,6 +13,8 @@ import vn.wms.inventory.dto.DeductStockItemRequest;
 import vn.wms.inventory.dto.DeductStockRequest;
 import vn.wms.inventory.dto.DeductStockResponse;
 import vn.wms.inventory.dto.DeductedItemDetail;
+import vn.wms.inventory.dto.internal.DocumentDispatchRequest;
+import vn.wms.inventory.dto.internal.DocumentDispatchResponse;
 import vn.wms.inventory.entity.StockDispatch;
 import vn.wms.inventory.entity.StockItem;
 import vn.wms.inventory.entity.StockReservation;
@@ -99,6 +101,38 @@ public class StockDeductionService {
                     request != null ? request.orderNumber() : null);
         }
         return deductStock(request, dispatchedBy);
+    }
+
+    /**
+     * Trừ tồn đồng bộ khi order-service hoàn tất phiếu xuất kho (WMS-20.4). Dùng chung nhật ký {@code stock_dispatches}
+     * với listener {@code order.dispatched}, khóa là {@code dispatchKey} của phiếu: mỗi khóa chỉ trừ một lần, gọi lại
+     * (sau khi hết thời gian chờ) hoặc sự kiện mang cùng khóa thì không trừ thêm và trả {@code alreadyProcessed}.
+     * Trừ tồn như listener: tự phân bổ theo hạn dùng, bỏ vị trí đóng băng, hoàn tất đúng phần giữ chỗ của đơn và giữ
+     * nguyên phần giữ chỗ còn lại khi xuất một phần, ghi sổ kho. Không đủ tồn thì ném lỗi, transaction rollback, khóa
+     * không được ghi nên lần thử lại vẫn trừ được.
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public DocumentDispatchResponse deductForDocument(DocumentDispatchRequest request) {
+        List<DeductStockItemRequest> items = request.items().stream()
+                .map(i -> new DeductStockItemRequest(i.productId(), i.skuCode(), i.quantity(), null, null))
+                .toList();
+        DeductStockRequest deduct = new DeductStockRequest(request.orderId(), request.orderNumber(), request.warehouseId(),
+                "SALES_DISPATCH", "Trừ tồn đồng bộ khi hoàn tất phiếu xuất " + request.dispatchKey(), items);
+        DeductStockResponse result = deductStockForDispatchEvent(deduct, request.dispatchedBy(), request.dispatchKey());
+        if (result == null) {
+            return findProcessedDispatch(request.dispatchKey())
+                    .orElseThrow(() -> ApiException.conflict("Không đọc được nhật ký trừ tồn của " + request.dispatchKey()));
+        }
+        return new DocumentDispatchResponse(request.dispatchKey(), false, request.orderId(), request.warehouseId(),
+                result.totalDeductedQuantity(), result.dispatchedAt());
+    }
+
+    /** Lần trừ tồn đã ghi với khóa này (trong doanh nghiệp hiện tại), dạng kết quả {@code alreadyProcessed}. */
+    @Transactional(readOnly = true)
+    public Optional<DocumentDispatchResponse> findProcessedDispatch(String dispatchKey) {
+        return stockDispatchRepository.findByMessageId(dispatchKey)
+                .map(d -> new DocumentDispatchResponse(dispatchKey, true, d.getOrderId(), d.getWarehouseId(), null,
+                        d.getCreatedAt()));
     }
 
     /**

@@ -30,8 +30,11 @@ import java.util.List;
  * Phiếu nhập kho (Goods Receipt Note - GRN) theo đơn mua hàng PO (FR11 - WMS-10.1).
  */
 @Entity
-@Table(name = "goods_receipt_notes", uniqueConstraints = @UniqueConstraint(
-        name = "uk_goods_receipt_notes_company_number", columnNames = {"company_id", "grn_number"}))
+@Table(name = "goods_receipt_notes", uniqueConstraints = {
+        @UniqueConstraint(name = "uk_goods_receipt_notes_company_number", columnNames = {"company_id", "grn_number"}),
+        @UniqueConstraint(name = "uk_goods_receipt_notes_company_idempotency",
+                columnNames = {"company_id", "idempotency_key"})
+})
 @Getter
 @Setter
 @NoArgsConstructor
@@ -90,6 +93,13 @@ public class GoodsReceiptNote extends TenantEntity {
 
     @Column(name = "received_by", length = 50)
     private String receivedBy;
+
+    /**
+     * Khóa chống trùng do client gửi qua header {@code Idempotency-Key} khi lập phiếu (WMS-20.4); duy nhất trong một
+     * doanh nghiệp, null nếu client không gửi.
+     */
+    @Column(name = "idempotency_key", length = 100)
+    private String idempotencyKey;
 
     @OneToMany(mappedBy = "goodsReceiptNote", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<GoodsReceiptNoteItem> items = new ArrayList<>();

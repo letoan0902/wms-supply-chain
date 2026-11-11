@@ -13,7 +13,9 @@ import vn.wms.common.messaging.WmsEvents;
 import vn.wms.common.messaging.event.OrderDispatchedEvent;
 import vn.wms.common.messaging.event.OrderLine;
 import vn.wms.common.messaging.event.OrderType;
+import vn.wms.order.client.DocumentDispatchRequest;
 import vn.wms.order.client.InventoryGateway;
+import vn.wms.order.client.InventoryOutcomeUnknownException;
 import vn.wms.order.dto.CreateGdnItemRequest;
 import vn.wms.order.dto.CreateGdnRequest;
 import vn.wms.order.dto.GdnItemResponse;
@@ -77,10 +79,11 @@ public class GoodsDeliveryService {
     /**
      * Lập mới Phiếu xuất kho (GDN) từ Đơn bán hàng SO (WMS-12.1 - FR17).
      * Hỗ trợ xuất một phần (Partial Delivery) hoặc toàn bộ đơn (Full Delivery).
-     * Khi phiếu ở trạng thái COMPLETED, tự động phát sự kiện {@code order.dispatched} sang RabbitMQ
-     * để inventory-service trừ OnHand với Khóa bi quan và giải phóng Reserved.
+     * Phiếu lập ở trạng thái COMPLETED (mặc định) chỉ hoàn tất khi inventory-service đã trừ tồn đồng bộ (WMS-20.4):
+     * trừ tồn bị từ chối thì trả lỗi của inventory-service và không lưu gì; không biết kết quả (hết thời gian chờ) thì
+     * phiếu được lưu ở PICKING (không rollback) và trả 503 để người dùng bấm Xuất kho lại cho đúng phiếu đó.
      */
-    @Transactional
+    @Transactional(noRollbackFor = InventoryOutcomeUnknownException.class)
     public GdnResponse create(CreateGdnRequest request, String username) {
         if (request == null) {
             throw ApiException.badRequest("Yêu cầu lập phiếu xuất kho không được để trống");
@@ -127,7 +130,10 @@ public class GoodsDeliveryService {
         gdn.setDeliveryDate(request.deliveryDate() != null ? request.deliveryDate() : LocalDate.now());
 
         GoodsDeliveryStatus status = request.status() != null ? request.status() : GoodsDeliveryStatus.COMPLETED;
-        gdn.setStatus(status);
+        // Phiếu lập thẳng ở COMPLETED được lưu trước ở PICKING, chỉ thành COMPLETED sau khi inventory-service trừ tồn
+        // xong (WMS-20.4, xem completeAfterStockDeduction).
+        boolean completeNow = status == GoodsDeliveryStatus.COMPLETED;
+        gdn.setStatus(completeNow ? GoodsDeliveryStatus.PICKING : status);
 
         gdn.setRecipientName(normalizeString(request.recipientName() != null ? request.recipientName() : so.getRecipientName()));
         gdn.setRecipientPhone(normalizeString(request.recipientPhone() != null ? request.recipientPhone() : so.getRecipientPhone()));
@@ -135,10 +141,6 @@ public class GoodsDeliveryService {
         gdn.setNote(normalizeString(request.note()));
 
         String operator = (username != null && !username.isBlank()) ? username.trim() : "system";
-        if (status == GoodsDeliveryStatus.COMPLETED) {
-            gdn.setDispatchedBy(operator);
-            gdn.setDispatchedAt(Instant.now());
-        }
 
         BigDecimal totalQuantity = BigDecimal.ZERO;
         BigDecimal totalAmount = BigDecimal.ZERO;
@@ -193,27 +195,65 @@ public class GoodsDeliveryService {
         gdn.setTotalQuantity(totalQuantity);
         gdn.setTotalAmount(totalAmount);
 
-        // Kiểm tra xem đơn hàng đã xuất hết 100% chưa
-        boolean isAllDelivered = so.getItems().stream()
-                .allMatch(it -> it.getDeliveredQuantity() != null
-                        && it.getDeliveredQuantity().compareTo(it.getQuantity()) >= 0);
-
-        if (status == GoodsDeliveryStatus.COMPLETED && isAllDelivered) {
-            so.setStatus(OrderStatus.COMPLETED);
-        }
-
         salesOrderRepository.save(so);
         GoodsDeliveryNote saved = gdnRepository.save(gdn);
+
+        if (completeNow) {
+            try {
+                completeAfterStockDeduction(saved, operator);
+            } catch (InventoryOutcomeUnknownException ex) {
+                // Không biết inventory-service đã trừ hay chưa: giữ phiếu ở PICKING (transaction vẫn commit, xem
+                // noRollbackFor) để người dùng bấm "Xuất kho" lại cho đúng phiếu này; lần đó gửi lại cùng khóa
+                // GDN-<id> nên inventory-service trừ nhiều nhất một lần.
+                throw new InventoryOutcomeUnknownException("Chưa xác nhận được việc trừ tồn với dịch vụ kho. Phiếu xuất "
+                        + saved.getGdnNumber() + " đã được lưu ở trạng thái PICKING, vui lòng bấm Xuất kho lại cho phiếu này"
+                        + " (không lập phiếu mới)", ex);
+            }
+        }
 
         log.info("Đã lập thành công Phiếu xuất kho '{}' cho đơn '{}' (SL: {}, tiền: {} VNĐ, trạng thái: {})",
                 saved.getGdnNumber(), so.getSoNumber(), totalQuantity, totalAmount, saved.getStatus());
 
-        // Phát sự kiện order.dispatched nếu hoàn tất xuất kho
-        if (saved.getStatus() == GoodsDeliveryStatus.COMPLETED) {
-            publishOrderDispatchedEvent(saved);
+        return GdnResponse.from(saved);
+    }
+
+    /**
+     * Hoàn tất phiếu xuất sau khi inventory-service trừ tồn đồng bộ (WMS-20.4): gọi trừ tồn với khóa
+     * {@code GDN-<id phiếu>}, chỉ khi thành công mới chuyển phiếu sang COMPLETED, đóng đơn bán nếu đã giao đủ và phát
+     * {@code order.dispatched} (mang cùng khóa để listener của inventory-service không trừ lần hai; sự kiện vẫn dùng cho
+     * thông báo và KPI). Trừ tồn bị từ chối (không đủ tồn, vị trí đóng băng) thì ném lại lỗi của inventory-service và
+     * phiếu không hoàn tất.
+     */
+    private void completeAfterStockDeduction(GoodsDeliveryNote gdn, String operator) {
+        List<DocumentDispatchRequest.Item> items = gdn.getItems().stream()
+                .map(i -> new DocumentDispatchRequest.Item(i.getProductId(), i.getSkuCode(), i.getDeliveredQuantity()))
+                .toList();
+        SalesOrder so = gdn.getSalesOrder();
+        inventoryGateway.deductForDispatch(new DocumentDispatchRequest(dispatchKeyOf(gdn),
+                so != null ? so.getId() : null, gdn.getSoNumber(), gdn.getWarehouseId(), operator, items));
+
+        gdn.setStatus(GoodsDeliveryStatus.COMPLETED);
+        gdn.setDispatchedBy(operator);
+        gdn.setDispatchedAt(Instant.now());
+
+        // Kiểm tra xem đơn hàng đã xuất hết 100% chưa
+        if (so != null) {
+            boolean isAllDelivered = so.getItems().stream()
+                    .allMatch(it -> it.getDeliveredQuantity() != null
+                            && it.getDeliveredQuantity().compareTo(it.getQuantity()) >= 0);
+            if (isAllDelivered) {
+                so.setStatus(OrderStatus.COMPLETED);
+                salesOrderRepository.save(so);
+            }
         }
 
-        return GdnResponse.from(saved);
+        GoodsDeliveryNote saved = gdnRepository.save(gdn);
+        publishOrderDispatchedEvent(saved);
+    }
+
+    /** Khóa trừ tồn của phiếu xuất: id phiếu không bao giờ dùng lại nên mỗi phiếu đúng một khóa. */
+    static String dispatchKeyOf(GoodsDeliveryNote gdn) {
+        return "GDN-" + gdn.getId();
     }
 
     /**
@@ -233,26 +273,11 @@ public class GoodsDeliveryService {
             throw ApiException.badRequest("Không thể xuất kho phiếu đã bị hủy (" + gdn.getGdnNumber() + ")");
         }
 
-        gdn.setStatus(GoodsDeliveryStatus.COMPLETED);
-        gdn.setDispatchedBy((username != null && !username.isBlank()) ? username.trim() : "system");
-        gdn.setDispatchedAt(Instant.now());
+        // Trừ tồn đồng bộ rồi mới hoàn tất (WMS-20.4). Lỗi hay hết thời gian chờ thì phiếu giữ nguyên trạng thái,
+        // bấm lại an toàn vì cùng khóa GDN-<id>.
+        completeAfterStockDeduction(gdn, (username != null && !username.isBlank()) ? username.trim() : "system");
 
-        // Kiểm tra và cập nhật trạng thái đơn SO nếu đã giao đủ
-        SalesOrder so = gdn.getSalesOrder();
-        if (so != null) {
-            boolean isAllDelivered = so.getItems().stream()
-                    .allMatch(it -> it.getDeliveredQuantity() != null
-                            && it.getDeliveredQuantity().compareTo(it.getQuantity()) >= 0);
-            if (isAllDelivered) {
-                so.setStatus(OrderStatus.COMPLETED);
-                salesOrderRepository.save(so);
-            }
-        }
-
-        GoodsDeliveryNote saved = gdnRepository.save(gdn);
-        publishOrderDispatchedEvent(saved);
-
-        return GdnResponse.from(saved);
+        return GdnResponse.from(gdn);
     }
 
     /**
@@ -380,7 +405,8 @@ public class GoodsDeliveryService {
                 gdn.getWarehouseId(),
                 gdn.getDispatchedBy() != null ? gdn.getDispatchedBy() : "system",
                 gdn.getDispatchedAt() != null ? gdn.getDispatchedAt() : Instant.now(),
-                lines
+                lines,
+                dispatchKeyOf(gdn)
         );
 
         try {

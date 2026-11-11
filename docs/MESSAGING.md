@@ -36,8 +36,8 @@ Không đặt `x-arguments` trực tiếp trên queue (dead-letter đi qua polic
 
 | Routing key | Service phát | Queue nhận (service) | Ý nghĩa và nội dung dự kiến |
 | --- | --- | --- | --- |
-| `order.created` | order-service | `inventory.order-events` (inventory), `notification.order-events` (notification) | Đơn hàng mới (PO hoặc SO) đã tạo: mã đơn, loại đơn, kho, danh sách dòng hàng (SKU, số lượng) |
-| `order.dispatched` | order-service | `inventory.order-events`, `notification.order-events` | Đơn bán đã xuất kho (GDN xác nhận): mã đơn, mã GDN, dòng hàng đã xuất |
+| `order.created` | order-service | `inventory.order-events` (inventory), `notification.order-events` (notification) | Đơn hàng mới (PO hoặc SO) đã tạo: mã đơn, loại đơn, kho, danh sách dòng hàng (SKU, số lượng). Đơn bán đã được giữ chỗ đồng bộ trước khi phát (WMS-20.4, mục 7.4); inventory-service chỉ giữ chỗ theo sự kiện cho đơn chưa có bản ghi giữ chỗ nào |
+| `order.dispatched` | order-service | `inventory.order-events`, `notification.order-events` | Đơn bán đã xuất kho (GDN xác nhận): mã đơn, khóa phiếu `dispatchKey`, dòng hàng đã xuất. Tồn đã được trừ đồng bộ trước khi phát (WMS-20.4, mục 7.4); inventory-service chỉ trừ theo sự kiện khi khóa chưa có trong `stock_dispatches` |
 | `order.received` | order-service | `inventory.order-events`, `notification.order-events` (qua `order.#`) | Phiếu nhập kho GRN đã lưu (WMS-10.3): inventory-service cộng OnHand tại ô và lô đã chọn, trừ Incoming của PO; mỗi GRN chỉ cộng một lần (bảng `stock_receipts`, khóa `(company_id, grn_id)`) |
 | `inventory.updated` | inventory-service | `notification.inventory-events` (notification) | Tồn kho thay đổi sau nhập, xuất, điều chuyển, điều chỉnh: SKU, kho, tồn trước và sau. Điều chỉnh kiểm kê (WMS-14.2): phát sau khi Kế toán duyệt phiếu điều chỉnh, mỗi sản phẩm của phiếu một sự kiện, `reason = ADJUSTMENT`, `referenceNumber` là mã phiếu `ADJ-yyyyMM-NN`, `quantityBefore`/`quantityAfter` là tổng tồn thực tế của sản phẩm trong kho trước và sau, `skuCode` để null (inventory-service không lưu SKU, bên nhận hiển thị theo `productId`), doanh nghiệp ở header `x-wms-company-id` |
 | `alert.low-stock` | inventory-service | `notification.alerts` (notification) | Tồn chạm ngưỡng an toàn: SKU, kho, tồn hiện tại, ngưỡng; notification-service đẩy cảnh báo lên WebSocket `/topic/company/{companyId}/alerts` (mục 8) |
@@ -51,7 +51,7 @@ Nội dung message là JSON (Jackson). Payload của mỗi routing key là một
 | Routing key | Record payload | Trường chính |
 | --- | --- | --- |
 | `order.created` | `OrderCreatedEvent` | `orderId`, `orderNumber`, `orderType` (PURCHASE hoặc SALES), `status`, `supplierId` hoặc `customerId`, `warehouseId`, `warehouseName`, `totalAmount`, `createdBy`, `createdAt`, `items[]` (`OrderLine`: `productId`, `skuCode`, `productName`, `quantity`, `uom`, `unitPrice`) |
-| `order.dispatched` | `OrderDispatchedEvent` | `orderId`, `orderNumber`, `orderType`, `warehouseId`, `dispatchedBy`, `dispatchedAt`, `items[]` |
+| `order.dispatched` | `OrderDispatchedEvent` | `orderId`, `orderNumber`, `orderType`, `warehouseId`, `dispatchedBy`, `dispatchedAt`, `items[]`, `dispatchKey` (`GDN-<id phiếu>`, khóa trừ tồn đã dùng khi gọi đồng bộ, WMS-20.4; null với sự kiện cũ) |
 | `order.received` | `OrderReceivedEvent` | `grnId`, `grnNumber`, `poId`, `poNumber`, `warehouseId`, `supplierId`, `receivedBy`, `receiptDate`, `receivedAt`, `items[]` (`ReceivedItemLine`: `productId`, `skuCode`, `productName`, `acceptedQuantity`, `rejectedQuantity`, `uom`, `locationId`, `locationCode`, `batchNumber`, `mfgDate`, `expDate`) |
 | `inventory.updated` | `InventoryUpdatedEvent` | `warehouseId`, `productId`, `skuCode`, `quantityBefore`, `quantityAfter`, `reason`, `referenceNumber`, `updatedAt` |
 | `alert.low-stock` | `LowStockAlertEvent` | `warehouseId`, `warehouseName`, `productId`, `skuCode`, `productName`, `quantityOnHand`, `minimumQuantity`, `detectedAt` |
@@ -73,6 +73,13 @@ Hai policy trong `definitions.json`:
 Consumer cần đặt `spring.rabbitmq.listener.simple.default-requeue-rejected=false` (order-service, inventory-service và notification-service đã đặt trong `application.yml`, kèm `listener.simple.retry` thử lại 3 lần trong tiến trình trước khi từ chối) để tin lỗi đi vào dead-letter thay vì quay lại queue vô hạn. Tin có nội dung hỏng (không đọc được JSON) thì consumer ném `AmqpRejectAndDontRequeueException` để bỏ qua bước thử lại.
 
 Xem và xử lý tin chết: vào giao diện quản trị (mục 6), queue `wms.dead-letter`, Get messages để đọc nội dung và header `x-death`. Sau khi sửa lỗi, có thể publish lại tin vào `wms.events` với routing key cũ (nút Publish message) hoặc dùng Shovel. Không có consumer tự động cho queue này.
+
+**Phiếu nhập (`order.received`) vào dead-letter.** Từ WMS-20.4 order-service hỏi inventory-service trước khi lưu phiếu nhập (mục 7.4), nên phiếu nhập vào vị trí đang đóng băng kiểm kê bị từ chối 409 ngay khi lập. Listener vẫn kiểm tra lại và từ chối (chốt chặn cuối), nên tin `order.received` chỉ còn vào dead-letter khi đợt kiểm kê bắt đầu đúng trong khoảng giữa lúc lập phiếu và lúc inventory-service xử lý tin (thường dưới một giây, lâu hơn nếu inventory-service đang dừng), hoặc khi kho bị xóa hết vị trí trong khoảng đó. Khi đó phiếu nhập, hóa đơn mua và công nợ đã ghi nhưng tồn chưa tăng. Cách xử lý:
+
+1. Tìm tin trong `wms.dead-letter` có header `x-wms-event = order.received`; thân tin có `grnId`, `grnNumber`, header `x-wms-company-id` là doanh nghiệp. Lý do nằm trong log inventory-service (thông báo "Vị trí ... đang đóng băng để kiểm kê (đợt ...)").
+2. Chờ đợt kiểm kê đó kết thúc (duyệt hoặc hủy, vị trí được mở đóng băng; xem `GET /api/inventory/stocktakes/{id}`).
+3. Publish lại đúng tin đó (giữ nguyên thân và các header `x-wms-*`, nhất là `x-wms-company-id`) vào exchange `wms.events` với routing key `order.received`. Phát lại an toàn: bảng `stock_receipts` (khóa `(company_id, grn_id)`) bảo đảm mỗi phiếu chỉ cộng tồn một lần, phát lại hai lần cũng chỉ cộng một lần.
+4. Kiểm tra tồn và thẻ kho của sản phẩm (`GET /api/inventory/reports/stock-card`) có dòng nhập của phiếu.
 
 ## 5. Thêm sự kiện mới
 
@@ -178,6 +185,43 @@ spring:
 ### 7.3. Gọi đồng bộ bằng OpenFeign
 
 Sự kiện dùng cho những việc "đã xảy ra" và không cần kết quả ngay. Khi lập đơn cần kiểm tra ngay (kho có tồn tại, đang hoạt động không) thì gọi REST qua OpenFeign với Eureka: `vn.wms.order.client.InventoryClient` (`GET /api/inventory/warehouses/{id}`) bọc bởi `InventoryGateway`, quy lỗi về `ApiException`: không có kho thì `NOT_FOUND` (404), kho ngừng hoạt động thì `BAD_REQUEST`, inventory-service không trả lời thì `SERVICE_UNAVAILABLE` (503). Timeout Feign đặt trong `spring.cloud.openfeign.client.config.default` (3 giây kết nối, 5 giây đọc) để request của người dùng không bị treo. Tương tự `ProductClient` cho product-service.
+
+### 7.4. Bước tồn kho đồng bộ khi lập chứng từ (WMS-20.4)
+
+Không có giao dịch phân tán giữa order-service và inventory-service. Trước WMS-20.4 chứng từ được lưu trước rồi tồn mới
+đổi ở luồng nền theo sự kiện; nếu inventory-service từ chối (vị trí đóng băng, thiếu hàng) thì tin vào dead-letter trong
+khi chứng từ đã ghi, hai bên lệch nhau. Nay các bước tồn kho có thể bị từ chối được làm đồng bộ qua endpoint nội bộ
+`/internal/inventory/**` (Feign `InventoryClient`, bọc bởi `InventoryGateway`), và chứng từ chỉ được lưu khi bước đó
+thành công. Lỗi nghiệp vụ 4xx của inventory-service được trả lại nguyên mã và thông báo tiếng Việt cho người dùng;
+không gọi được inventory-service thì 503 và chứng từ không đổi.
+
+| Chứng từ | Gọi đồng bộ | Sự kiện còn dùng cho |
+| --- | --- | --- |
+| Lập hoặc xác nhận phiếu nhập GRN | `POST /internal/inventory/receipts/location-check`: vị trí nhận (xác định như listener: theo ID, theo mã, không chọn thì ô đầu tiên của kho) đang đóng băng kiểm kê thì trả xung đột, order-service trả `409 CONFLICT` và không ghi phiếu, hóa đơn mua, công nợ | `order.received` vẫn là bước cộng tồn (inventory-service), thông báo và KPI (notification-service). Listener vẫn kiểm tra đóng băng; tin bị từ chối xử lý theo mục 4 |
+| Xác nhận đơn bán (`confirm`, lập đơn ở trạng thái CONFIRMED, sửa đơn BACKORDER đủ hàng) | `POST /internal/inventory/reservations`: giữ chỗ toàn bộ đơn dưới khóa bi quan các dòng tồn, tất cả hoặc không, idempotent theo `orderId` (đơn đã có giữ chỗ ACTIVE thì không đổi gì). Thiếu hàng: inventory-service trả 409 và không giữ dòng nào; order-service theo quy tắc cũ: `confirm` trả 400, lập đơn cho phép BACKORDER thì đơn thành BACKORDER, không thì 400. Dòng đơn bán bị khóa khi xác nhận, sửa, hủy nên bấm hai lần chỉ một lần thành công và một sự kiện | `order.created` cho thông báo, KPI. Listener giữ chỗ của inventory-service vẫn chạy cho sự kiện cũ nhưng bỏ qua đơn đã có bất kỳ bản ghi giữ chỗ nào (ACTIVE, FULFILLED, RELEASED), nên không giữ lần hai kể cả khi sự kiện tới trễ sau khi đơn đã xuất hoặc đã hủy |
+
+| Hoàn tất phiếu xuất GDN (lập phiếu ở COMPLETED hoặc `dispatch` phiếu DRAFT/PICKING) | `POST /internal/inventory/dispatches` với khóa `dispatchKey = GDN-<id phiếu>`: trừ tồn như listener (tự phân bổ theo hạn dùng, bỏ ô đóng băng, hoàn tất đúng phần giữ chỗ của đơn, xuất một phần thì phần còn lại vẫn giữ, ghi sổ kho), ghi khóa vào `stock_dispatches` cùng transaction; khóa đã có thì không trừ thêm và trả `alreadyProcessed`. Không đủ tồn hoặc ô đóng băng thì lỗi 4xx của inventory-service được trả nguyên cho người dùng và phiếu không hoàn tất | `order.dispatched` (mang `dispatchKey`) cho thông báo, KPI, báo cáo. Listener trừ tồn của inventory-service tra nhật ký theo `dispatchKey` nên bỏ qua; sự kiện cũ không có khóa vẫn chống trùng theo `messageId` |
+
+Thứ tự bước và khoảng hở còn lại:
+
+- Phiếu nhập: đợt kiểm kê bắt đầu sau lúc kiểm tra nhưng trước lúc listener xử lý tin (mục 4).
+- Xác nhận đơn bán: khóa đơn, kiểm tra ATP và hạn mức, gọi giữ chỗ (inventory-service commit), rồi mới đổi trạng thái
+  và commit bên order-service, sự kiện phát sau commit. Nếu order-service rollback sau khi đã giữ chỗ (lỗi CSDL lúc
+  commit) thì sau rollback gọi giải phóng giữ chỗ của đơn (`/api/inventory/stock/reservations/release`). Nếu lời gọi giữ
+  chỗ hết thời gian chờ (5 giây) mà inventory-service vẫn giữ xong thì đơn vẫn DRAFT nhưng có giữ chỗ: người dùng bấm
+  xác nhận lại thì dùng lại đúng giữ chỗ đó (idempotent), hủy đơn DRAFT/BACKORDER cũng gọi giải phóng. Giữ chỗ treo chỉ
+  còn khi lần gọi hết thời gian chờ và người dùng không bao giờ xác nhận lại hay hủy đơn. Lần xác nhận lại sau khi đã
+  sửa số lượng của đơn dùng giữ chỗ cũ (không giữ lại theo số mới); nên hủy và lập lại đơn trong trường hợp hiếm này.
+- Phiếu xuất: khóa đơn bán (lập phiếu) hoặc phiếu (`dispatch`), lưu phiếu ở PICKING để có ID, gọi trừ tồn với khóa
+  `GDN-<id>` (inventory-service commit), rồi mới chuyển COMPLETED, đóng đơn nếu đã giao đủ, commit, phát sự kiện sau
+  commit. Trừ tồn bị từ chối: lập phiếu thì rollback toàn bộ (không có phiếu), `dispatch` thì phiếu giữ nguyên trạng
+  thái. Hết thời gian chờ, mất kết nối hoặc 5xx (không biết inventory-service đã trừ chưa): lập phiếu thì phiếu vẫn
+  được lưu ở PICKING (không rollback, `noRollbackFor`) và người dùng nhận 503 kèm mã phiếu; `dispatch` thì phiếu giữ
+  nguyên. Bấm Xuất kho lại cho phiếu đó gửi lại cùng khóa: nếu lần trước đã trừ thì inventory-service trả
+  `alreadyProcessed` và phiếu hoàn tất mà không trừ thêm, chưa trừ thì trừ bình thường; hai lần gọi trùng khóa đồng
+  thời chỉ trừ một lần (ràng buộc duy nhất `(company_id, message_id)`, lần sau đọc lại nhật ký). Khoảng hở còn lại:
+  inventory-service đã trừ nhưng order-service không commit được bước hoàn tất (lỗi CSDL) thì phiếu vẫn PICKING trong
+  khi tồn đã giảm cho tới khi có người bấm Xuất kho lại; phiếu PICKING như vậy hiện trong danh sách phiếu xuất.
 
 ## 8. WebSocket STOMP: thông báo thời gian thực (WMS-02.3)
 

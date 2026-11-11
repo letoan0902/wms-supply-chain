@@ -10,10 +10,13 @@ import vn.wms.common.api.ApiResponse;
 import vn.wms.order.dto.GeneratePickingListRequest;
 import vn.wms.order.dto.PickingListResponse;
 
+import java.util.List;
+
 /**
  * Feign client gọi inventory-service qua Eureka (tên service: inventory-service), có cân bằng tải.
- * Dùng cho các tra cứu đồng bộ cần kết quả ngay khi lập đơn (kho có tồn tại và đang hoạt động không);
- * các thay đổi tồn kho thì đi bằng sự kiện RabbitMQ ({@code order.created}) chứ không gọi trực tiếp.
+ * Dùng cho các tra cứu đồng bộ cần kết quả ngay khi lập đơn (kho có tồn tại và đang hoạt động không) và, từ
+ * WMS-20.4, cho các bước tồn kho phải thành công thì chứng từ mới được lưu (kiểm tra vị trí nhập, giữ chỗ khi xác
+ * nhận đơn bán, trừ tồn khi hoàn tất phiếu xuất) qua các endpoint nội bộ {@code /internal/inventory/**}.
  * Nên gọi qua {@link InventoryGateway} để lỗi mạng và 404 được quy về ApiException thống nhất.
  */
 @FeignClient(name = "inventory-service", contextId = "inventoryClient")
@@ -37,4 +40,25 @@ public interface InventoryClient {
     /** Tự động sinh Picking List gợi ý vị trí ô kệ theo lộ trình ngắn nhất và ưu tiên FEFO/FIFO (WMS-12.1). */
     @PostMapping("/api/inventory/stock/picking-list")
     ApiResponse<PickingListResponse> generatePickingList(@RequestBody GeneratePickingListRequest request);
+
+    /**
+     * Endpoint nội bộ (WMS-20.4): các dòng phiếu nhập sẽ cộng tồn vào vị trí đang đóng băng kiểm kê; rỗng là nhập
+     * được. Gọi trước khi lưu phiếu nhập.
+     */
+    @PostMapping("/internal/inventory/receipts/location-check")
+    ApiResponse<List<FrozenLocationConflict>> checkReceiptLocations(@RequestBody ReceiptLocationCheckRequest request);
+
+    /**
+     * Endpoint nội bộ (WMS-20.4): giữ chỗ toàn bộ đơn bán khi xác nhận, tất cả hoặc không, idempotent theo đơn;
+     * thiếu hàng trả 409 kèm danh sách thiếu trong {@code data}.
+     */
+    @PostMapping("/internal/inventory/reservations")
+    ApiResponse<ReserveOrderResponse> reserveOrder(@RequestBody ReserveOrderRequest request);
+
+    /**
+     * Endpoint nội bộ (WMS-20.4): trừ tồn khi hoàn tất phiếu xuất, mỗi {@code dispatchKey} một lần (gọi lại trả
+     * {@code alreadyProcessed}); thiếu tồn hoặc vị trí đóng băng trả lỗi 4xx, không trừ gì.
+     */
+    @PostMapping("/internal/inventory/dispatches")
+    ApiResponse<DocumentDispatchResponse> dispatchStock(@RequestBody DocumentDispatchRequest request);
 }

@@ -66,6 +66,10 @@ class InventoryAuthorizationTest {
             endpoint("GET /api/inventory/incoming-stocks", () -> get("/api/inventory/incoming-stocks")
                     .param("warehouseId", String.valueOf(WAREHOUSE)), A, M, S, P, L, C, I),
             endpoint("GET /api/inventory/lots", () -> get("/api/inventory/lots"), A, M, S, P, L, C, I),
+            endpoint("GET /api/inventory/alerts", () -> get("/api/inventory/alerts").param("kind", "NEAR_EXPIRY"),
+                    A, M, S, P, L, C, I),
+            endpoint("POST /api/inventory/alerts/scan (vai trò không phải ADMIN bị từ chối)",
+                    () -> post("/api/inventory/alerts/scan"), A),
             endpoint("PUT /api/inventory/lots/{id}/unlock", () -> put("/api/inventory/lots/" + MISSING_ID + "/unlock"), A, M),
             endpoint("GET /api/inventory/stock-adjustments", () -> get("/api/inventory/stock-adjustments"), A, M, C),
             endpoint("GET /api/inventory/stock/atp", () -> get("/api/inventory/stock/atp").param("productId", "1"),

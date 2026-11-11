@@ -27,6 +27,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import static vn.wms.common.test.AuthorizationMatrix.endpoint;
 import static vn.wms.common.test.GatewayHeaders.asIntegration;
+import static vn.wms.common.test.GatewayHeaders.companyOnly;
 
 /**
  * Ma trận phân quyền của product-service ở chế độ máy chủ ({@code app.security.allow-anonymous-without-gateway=false},
@@ -103,6 +104,16 @@ class ProductAuthorizationTest {
         // Đường dẫn bí danh /api/categories nằm ngoài /api/products/**: API key không được gọi (IntegrationAccessFilter)
         mockMvc.perform(get("/api/categories").with(asIntegration(1L)))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    void internalProductListServesBackgroundJobsWithoutUser() throws Exception {
+        // Tác vụ quét cảnh báo tồn kho của inventory-service gọi không có người dùng, chỉ có doanh nghiệp (WMS-15.1)
+        mockMvc.perform(get("/internal/products").with(companyOnly(1L)))
+                .andExpect(status().isOk());
+        // Cùng lời gọi không người dùng tới API công khai thì bị từ chối ở chế độ máy chủ
+        mockMvc.perform(get("/api/products").with(companyOnly(1L)))
+                .andExpect(status().isUnauthorized());
     }
 
     @Test

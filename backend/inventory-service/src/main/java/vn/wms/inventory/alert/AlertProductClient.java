@@ -14,7 +14,11 @@ import vn.wms.common.api.PageResponse;
 @FeignClient(name = "product-service", contextId = "alertProductClient")
 public interface AlertProductClient {
 
-    @GetMapping("/api/products")
+    /**
+     * Gọi đường dẫn nội bộ của product-service (không qua gateway): tác vụ quét hằng đêm không có người dùng, mà trên
+     * máy chủ {@code GET /api/products} từ chối request thiếu danh tính (docs/SECURITY.md mục 4).
+     */
+    @GetMapping("/internal/products")
     ApiResponse<PageResponse<AlertProductInfo>> listProducts(@RequestParam("page") int page,
                                                              @RequestParam("size") int size,
                                                              @RequestParam("sort") String sort);

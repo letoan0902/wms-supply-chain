@@ -92,6 +92,8 @@ ADMIN là quản trị của một doanh nghiệp nên có mọi quyền nghiệ
 | `POST /api/inventory/stock/reservations/release` (order-service gọi khi hủy, xóa đơn bán) | W | W | - | - | W | - | - |
 | `POST /api/inventory/stock/deduct`, `/dispatch` (trừ tồn trực tiếp, giao diện không gọi) | W | W | - | - | - | - | - |
 | `GET /api/inventory/reports/**` (nhập-xuất-tồn, thẻ kho, truy vết lô) | R | R (kho được gán) | R (kho được gán) | - | - | R | - |
+| `GET /api/inventory/alerts`, `/alerts/summary` (cảnh báo tồn kho, theo phạm vi kho của người gọi) | R | R | R | R | R | R | R |
+| `POST /api/inventory/alerts/scan` (chạy quét cảnh báo ngay) | W | - | - | - | - | - | - |
 | `GET /api/inventory/stocktakes/**` (danh sách, chi tiết, dòng đếm) | R | R | R | - | - | R | - |
 | `GET /api/inventory/stocktakes/{id}/variances` | R | R | - | - | - | R | - |
 | Lập, bắt đầu, kết thúc, đếm lại, hủy, ghi lý do, duyệt cấp quản lý | W | W (kho được gán) | - | - | - | - | - |
@@ -166,6 +168,8 @@ vai trò ở chế độ máy chủ; dùng `vn.wms.common.test.GatewayHeaders` (
 ## 4. API nội bộ `/internal/**`
 
 `/internal/inventory/kpi-metrics` và `/internal/orders/kpi-metrics` chỉ được notification-service gọi qua mạng nội bộ;
+`/internal/products` (product-service) cho tác vụ quét cảnh báo tồn kho hằng đêm của inventory-service đọc mức tồn an
+toàn và điểm đặt hàng lại; `/internal/auth/users/alert-recipients` (auth-service) trả người nhận email cảnh báo.
 api-gateway không định tuyến tới (route chỉ có `/api/**` và `/ws-wms/**`). Quy tắc:
 
 - Có người dùng chuyển tiếp (notification-service gắn lại `X-User-*` của người xem dashboard): xác thực như request
@@ -230,7 +234,9 @@ WebSocket của notification-service dùng cùng danh sách origin.
   kho ở WarehouseService.
 - SRS 2.5.1 ghi ADMIN "chỉ xem" với vị trí ô kệ, hàng hóa, đơn hàng, phiếu kho; hệ thống cho ADMIN ghi vì ADMIN là chủ
   doanh nghiệp trong mô hình SaaS và các kiểm tra viết tay sẵn có đều cho ADMIN ghi.
-- Các API cảnh báo tồn kho mới (`vn.wms.inventory.alert`) và API trò chuyện mới của ai-service làm song song ngày
-  11/11 chưa có trong bảng; controller mới của inventory-service phải có `@PreAuthorize` (test `everyApiDeclaresItsRoles`
-  sẽ báo).
+- API trò chuyện và tóm tắt của ai-service (`/api/ai/chat`, `/api/ai/summary`) không dùng `@PreAuthorize`: mọi vai trò
+  đã đăng nhập gọi được, quyền xem dữ liệu do service được tra cứu quyết định vì ai-service chuyển tiếp nguyên danh
+  tính của người hỏi.
+- Lời gọi giữa các service từ tác vụ định kỳ hoặc listener không có người dùng: trên máy chủ chỉ gọi được đường dẫn
+  `/internal/**`. Thêm lời gọi nền mới tới `/api/**` của service khác sẽ nhận 401.
 - Chưa kiểm thử xâm nhập; giao diện chưa ẩn nút theo đúng bảng trên ở mọi màn hình.

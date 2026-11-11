@@ -2,6 +2,7 @@ import {
   ArrowRightOutlined,
   EditOutlined,
   EyeOutlined,
+  InboxOutlined,
   RocketOutlined,
   StopOutlined,
 } from '@ant-design/icons'
@@ -23,6 +24,7 @@ interface Props {
   onViewDetail: (transfer: StockTransfer) => void
   onEdit: (transfer: StockTransfer) => void
   onDispatch: (transfer: StockTransfer) => void
+  onReceive: (transfer: StockTransfer) => void
   onCancel: (transfer: StockTransfer) => void
 }
 
@@ -34,6 +36,7 @@ export default function TransferTable({
   onViewDetail,
   onEdit,
   onDispatch,
+  onReceive,
   onCancel,
 }: Props) {
   const columns: ColumnsType<StockTransfer> = [
@@ -85,7 +88,7 @@ export default function TransferTable({
       title: 'Tổng số lượng',
       key: 'totalQuantity',
       align: 'right',
-      width: 130,
+      width: 140,
       render: (_, record: StockTransfer) => (
         <div>
           <span className="font-semibold text-gray-800">
@@ -97,7 +100,11 @@ export default function TransferTable({
             </span>
           )}
           {(record.status === 'COMPLETED' || record.status === 'PARTIAL_RECEIVED') && (
-            <span className="text-xs text-green-600 block">
+            <span
+              className={`text-xs block ${
+                record.status === 'PARTIAL_RECEIVED' ? 'text-amber-600' : 'text-green-600'
+              }`}
+            >
               Đã nhận: {formatNumber(record.totalReceivedQuantity)}
             </span>
           )}
@@ -139,10 +146,11 @@ export default function TransferTable({
     {
       title: 'Thao tác',
       key: 'actions',
-      width: 150,
+      width: 170,
       align: 'center',
       render: (_, record: StockTransfer) => {
         const isDraft = record.status === 'DRAFT'
+        const isInTransit = record.status === 'IN_TRANSIT'
 
         return (
           <Space size="small">
@@ -200,6 +208,20 @@ export default function TransferTable({
                 </Tooltip>
               </>
             )}
+
+            {isInTransit && (
+              <Tooltip title="Xác nhận nhận hàng tại kho đích">
+                <Button
+                  type="primary"
+                  ghost
+                  size="small"
+                  icon={<InboxOutlined />}
+                  onClick={() => onReceive(record)}
+                >
+                  Nhận hàng
+                </Button>
+              </Tooltip>
+            )}
           </Space>
         )
       },
@@ -225,4 +247,3 @@ export default function TransferTable({
     />
   )
 }
-

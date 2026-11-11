@@ -81,6 +81,19 @@ export interface UpdateStockTransferPayload {
   items: CreateStockTransferItemPayload[]
 }
 
+export interface ReceiveStockTransferItemPayload {
+  itemId: number
+  receivedQuantity: number
+  damagedQuantity?: number
+  destinationBinLocationId?: number
+  notes?: string
+}
+
+export interface ReceiveStockTransferPayload {
+  items: ReceiveStockTransferItemPayload[]
+  notes?: string
+}
+
 export interface StockTransferFilterParams {
   status?: StockTransferStatus
   sourceWarehouseId?: number
@@ -98,4 +111,3 @@ export interface StockAtpInfo {
   reservedQuantity: number
   atpQuantity: number
 }
-

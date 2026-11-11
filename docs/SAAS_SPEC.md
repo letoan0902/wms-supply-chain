@@ -632,6 +632,13 @@ Người làm: Linh. Ngày: 16/11. Jira: TASK-146. Phụ thuộc: WMS-23.1, WMS-
 2. Sau khi đặt hết hạn bằng công cụ demo: mọi nút ghi bị khóa, xem dữ liệu bình thường, hộp thoại dẫn tới trang gia hạn.
 3. Gói `FREE` tạo kho thứ 2: hiện hộp thoại vượt giới hạn với số liệu đúng.
 
+**Cách làm (đã làm, thư mục `frontend/src/features/subscription`)**
+
+- `useSubscription()` (zustand, `subscriptionStore.ts`) trả `plan`, `planName`, `status`, `daysLeft` (lấy `daysRemaining` của máy chủ), `readOnly`, `limits`, `usage`, `refresh`. `SubscriptionLayer` gắn một lần trong `MainLayout`: tải `GET /api/auth/subscription` sau khi đăng nhập, tải lại khi quay lại tab sau 30 giây, hiện dải nhắc dùng thử hoặc dải hết hạn (dính ở đầu trang).
+- Lỗi `SUBSCRIPTION_EXPIRED`, `PLAN_LIMIT_EXCEEDED`: interceptor trong `src/services/api.ts` chuyển cho `SubscriptionDialogs` (một hộp thoại cho nhiều request lỗi). Khi đó `getApiErrorMessage` trả chuỗi rỗng và CSS ẩn thông báo nổi rỗng, nên màn hình đang gọi `message.error(getApiErrorMessage(...))` không báo lần hai.
+- Chế độ chỉ đọc (`readOnlyGuard.ts`): thân trang có lớp `wms-read-only`; CSS làm mờ và bộ lắng nghe click pha capture chặn các nút chứa biểu tượng thêm, sửa, xóa, lưu, xác nhận (check-circle), hủy (stop), từ chối (close-circle), thu tiền (dollar), nhận hàng (inbox), phát hành hóa đơn (file-done), nút xác nhận của mọi Popconfirm và vùng có `data-write-action`. Vùng có lớp `wms-read-only-allowed` hoặc `data-read-only-allowed` không bị chặn. Nút ghi không mang các dấu hiệu này (ví dụ "Nhập Excel", "Lấy hàng") vẫn bị gateway trả 403 và mở hộp thoại hết hạn.
+- Trang `/subscription`: gói, trạng thái, ngày hết hạn, số ngày còn lại; bốn thanh mức dùng (`-1` là không giới hạn, `null` là chưa có số liệu); bảng so sánh lấy từ `GET /api/auth/plans`; ADMIN chọn chu kỳ, xem số tiền, chuyển về gói Khởi Đầu khi đang dùng thử hoặc đã hết hạn (`POST /api/auth/subscription/downgrade`); vai trò khác thấy "Liên hệ quản trị viên của doanh nghiệp".
+
 ### WMS-23.5a [Backend] Thanh toán PayOS
 
 Người làm: Toàn. Ngày: 10/11. Jira: TASK-147. Phụ thuộc: WMS-23.1.
@@ -718,6 +725,13 @@ Người làm: Linh. Ngày: 16/11. Jira: TASK-148. Phụ thuộc: WMS-23.5a, WMS
 **Tiêu chí nghiệm thu**
 
 Chạy trọn bước 5 của kịch bản demo trong SAAS_PLAN.md: hết hạn, chọn gói Pro, thanh toán, quay về thấy gói mở lại và ghi được dữ liệu.
+
+**Cách làm (đã làm, thư mục `frontend/src/features/subscription`)**
+
+- Nút thanh toán trên `/subscription` gửi `POST /api/auth/payments` với `plan: "PRO"` và `cycle` (không gửi số tiền), khóa nút trong lúc chờ, rồi chuyển trình duyệt sang `checkoutUrl` (chỉ nhận liên kết http, https).
+- `/payment/result`: đọc `orderCode`; nếu PayOS trả về kèm `cancel=true` hoặc `status=CANCELLED` thì gọi `POST /api/auth/payments/{orderCode}/cancel` trước (409 thì hỏi lại trạng thái thật). Sau đó hỏi `GET /api/auth/payments/{orderCode}` mỗi 2 giây, tối đa 60 giây: `PAID` báo thành công và tải lại thuê bao (tắt chế độ chỉ đọc), `CANCELLED` báo đã hủy, `EXPIRED` báo liên kết hết hạn, quá 60 giây vẫn `PENDING` báo đang chờ ngân hàng kèm nút "Kiểm tra lại", 404 báo không tìm thấy giao dịch.
+- `/payment/mock` (trang riêng, không có menu): mã đơn, số tiền, ô QR giả lập; "Xác nhận đã thanh toán" gọi `mock-confirm`, "Hủy" gọi API hủy, xong chuyển sang `/payment/result`.
+- Bảng lịch sử giao dịch (chỉ `ADMIN`): `GET /api/auth/payments?page=&size=10`, phân trang phía máy chủ; giao dịch đang chờ có liên kết tiếp tục thanh toán và kiểm tra trạng thái.
 
 ### WMS-23.6 [Backend] Kích hoạt doanh nghiệp qua email và đặt lại mật khẩu
 
@@ -990,6 +1004,7 @@ Nhận `data`:
 - Lưu `conversationId` và gửi lại ở câu sau. `newConversation = true` khi hội thoại cũ đã hết hạn (quá 1 giờ) hay không hợp lệ: giao diện nên báo "Đã bắt đầu cuộc trò chuyện mới". Muốn bắt đầu lại thì bỏ `conversationId`.
 - `mode = "MOCK"`: có thể hiện nhãn "Trợ lý giả lập". `lookups` là các phép tra cứu đã chạy (`find_product`, `get_stock`, `get_warehouse_stock`, `list_warehouses`, `get_purchase_order`, `get_sales_order`), rỗng khi trả lời từ hướng dẫn. `usage.max = -1` là không giới hạn, `null` khi chưa đọc được thuê bao.
 - Lỗi: `PLAN_LIMIT_EXCEEDED` dùng hộp thoại chung của WMS-23.4; `SERVICE_UNAVAILABLE` hiện `message` và cho gửi lại; `VALIDATION_ERROR` không xảy ra nếu giao diện chặn ô trống và quá 2000 ký tự. Một câu hỏi có thể mất tới 90 giây: hiện trạng thái đang trả lời và khóa nút gửi.
+- Giao diện đã làm (WMS-18.4, `frontend/src/features/ai/`): nút nổi góc phải dưới mọi trang trong `MainLayout` mở khung chat (điện thoại: hết chiều ngang); `conversationId` chỉ giữ trong bộ nhớ (mất khi tải lại trang, đăng xuất); lời gọi chờ tối đa 120 giây (axios dùng chung chỉ 15 giây); không tự gửi lại khi lỗi. Khi thuê bao `EXPIRED`, gateway chặn `POST /api/ai/chat` bằng `403 SUBSCRIPTION_EXPIRED` (đường dẫn này không nằm trong `write-allowed-paths`): khung chat không bị chế độ chỉ đọc chặn bấm nhưng hiện ghi chú và hộp thoại hết hạn dùng chung.
 
 Chưa kiểm chứng: chưa gọi Claude thật (máy phát triển và CI không có khóa), nên chất lượng câu trả lời, việc Claude chọn đúng công cụ, thời gian thực tế và tỷ lệ đọc lại bộ nhớ đệm chưa đo; vòng công cụ được kiểm thử bằng phản hồi JSON mẫu đọc qua SDK.
 
@@ -1033,6 +1048,7 @@ Hợp đồng JSON cho khối "AI Summary" (WMS-18.3), `data`:
 - Hiển thị `bullets` thành danh sách và `actions` dưới tiêu đề "Gợi ý" (hoặc dùng `summary` là văn bản thường có xuống dòng). `generatedAt` là UTC, hiển thị "Cập nhật lúc ..." theo giờ máy; `fromCache = true` nghĩa là bản đã lưu, nút "Làm mới" gọi lại với `refresh=true` (tốn một lượt AI). `mode = "MOCK"` có thể hiện nhãn "Tóm tắt tự động (chưa dùng AI thật)".
 - Gọi với cùng `warehouseId` mà bộ lọc kho của dashboard đang chọn. Gọi khi mở dashboard, không gọi lại theo chu kỳ.
 - Lỗi: `PLAN_LIMIT_EXCEEDED` hiện lời nhắc nâng gói trong khối (không chặn cả dashboard); `FORBIDDEN` ẩn khối; `SERVICE_UNAVAILABLE` hiện `message` và nút thử lại.
+- Giao diện đã làm (WMS-18.3, `frontend/src/features/ai/components/AiSummaryCard.tsx`, chèn một dòng dưới thanh công cụ của `DashboardPage`): chờ bộ lọc kho của dashboard chọn xong rồi mới gọi (tránh hai lần tạo bản tóm tắt), mỗi kho gọi một lần trong một lần mở trang; "Làm mới" hỏi xác nhận vì tốn một lượt AI; mọi `403` khác `PLAN_LIMIT_EXCEEDED` ẩn khối. Lời gọi đặt `skipPlanLimitDialog: true` (cờ mới của axios dùng chung trong `frontend/src/services/api.ts`) để hết lượt AI chỉ báo trong khối, không mở hộp thoại khi vừa mở dashboard.
 
 Chưa kiểm chứng: chưa gọi Claude thật nên chất lượng câu chữ và thời gian thực tế chưa đo; notification-service hiện tính KPI từ số liệu thật nhưng thẻ "Giá trị tồn kho" luôn `null` (chưa có giá vốn).
 

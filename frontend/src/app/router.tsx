@@ -12,6 +12,7 @@ const ForgotPasswordPage = lazy(() => import('../features/auth/ForgotPasswordPag
 const ActivatePage = lazy(() => import('../features/auth/ActivatePage'))
 const ResetPasswordPage = lazy(() => import('../features/auth/ResetPasswordPage'))
 const LandingPage = lazy(() => import('../features/landing/LandingPage'))
+const MockCheckoutPage = lazy(() => import('../features/subscription/MockCheckoutPage'))
 
 // Các chức năng chưa phát triển dùng trang giữ chỗ, thay bằng trang thật khi hoàn thành
 const placeholderRoutes = navigationItems
@@ -75,6 +76,15 @@ export const router = createBrowserRouter([
     element: <ProtectedRoute />,
     children: [
       {
+        // Trang thanh toán giả lập (PAYOS_MOCK=true) đứng riêng, không có menu, giống một cổng thanh toán
+        path: 'payment/mock',
+        element: (
+          <Suspense fallback={<PageLoading fullScreen tip="Đang tải trang thanh toán..." />}>
+            <MockCheckoutPage />
+          </Suspense>
+        ),
+      },
+      {
         element: <MainLayout />,
         children: [
           // Dashboard chứa Recharts (nặng) nên tải theo yêu cầu để giảm kích thước bundle ban đầu
@@ -91,15 +101,23 @@ export const router = createBrowserRouter([
           { path: 'purchases', Component: lazy(() => import('../features/purchases/PurchasesPage')) },
           // Quản lý Đơn bán hàng (SO) (WMS-11 - Sprint 3)
           { path: 'sales', Component: lazy(() => import('../features/sales/SalesPage')) },
+          // Bảng tồn kho thời gian thực, bộ lọc và thẻ màu cảnh báo
+          { path: 'inventory', Component: lazy(() => import('../features/inventory/InventoryPage')) },
           { path: 'transfers', Component: lazy(() => import('../features/transfers/TransfersPage')) },
           // Quản lý Người dùng & Phân quyền RBAC (FR01, FR02 - Sprint 2)
           { path: 'users', Component: lazy(() => import('../features/users/UsersPage')) },
-          // Báo cáo Nhập-Xuất-Tồn kho & Thống kê (UC-10 - SRS Mục 2.5)
-          { path: 'reports', Component: lazy(() => import('../pages/ReportsPage')) },
+          // Báo cáo kho: Xuất - Nhập - Tồn và thẻ kho (WMS-17.4)
+          { path: 'reports', Component: lazy(() => import('../features/reports/ReportsPage')) },
+          // Truy vết nguồn gốc theo số lô (WMS-17.5)
+          { path: 'reports/lot-trace', Component: lazy(() => import('../features/reports/LotTracePage')) },
           // API key cho hệ thống ngoài (chỉ ADMIN)
           { path: 'settings/api-keys', Component: lazy(() => import('../features/apiKeys/ApiKeysPage')) },
           // Hồ sơ cá nhân & Đổi mật khẩu
           { path: 'profile', Component: lazy(() => import('../features/profile/ProfilePage')) },
+          // Gói dịch vụ, mức dùng và đổi gói của doanh nghiệp
+          { path: 'subscription', Component: lazy(() => import('../features/subscription/SubscriptionPage')) },
+          // Kết quả thanh toán: PAYOS_RETURN_URL và PAYOS_CANCEL_URL trỏ về đây
+          { path: 'payment/result', Component: lazy(() => import('../features/subscription/PaymentResultPage')) },
           ...placeholderRoutes,
           { path: '*', element: <NotFoundPage /> },
         ],

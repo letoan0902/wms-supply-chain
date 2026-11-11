@@ -95,9 +95,10 @@ public class PickingService {
                 continue;
             }
 
-            // Truy vấn các vị trí ô/kệ có sẵn hàng theo FEFO (expDate ASC) kết hợp FIFO (id ASC)
+            // Truy vấn các vị trí ô/kệ còn hàng thực tế theo FEFO (expDate ASC) kết hợp FIFO (id ASC). Không lọc
+            // quantity - reserved > 0 ở câu truy vấn: dòng đã giữ chỗ toàn bộ cho chính đơn này vẫn phải được gợi ý.
             List<StockItem> stockItems = stockItemRepository
-                    .findAvailableStockItemsByProductIdAndWarehouseId(productId, warehouse.getId(), today);
+                    .findPickableStockItemsByProductIdAndWarehouseId(productId, warehouse.getId(), today);
 
             BigDecimal allocatedForDemand = BigDecimal.ZERO;
 

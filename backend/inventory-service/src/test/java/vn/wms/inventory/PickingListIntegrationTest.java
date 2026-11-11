@@ -17,9 +17,11 @@ import vn.wms.inventory.dto.GeneratePickingListRequest;
 import vn.wms.inventory.dto.PickingItemDemand;
 import vn.wms.inventory.entity.BinLocation;
 import vn.wms.inventory.entity.StockItem;
+import vn.wms.inventory.entity.StockReservation;
 import vn.wms.inventory.entity.Warehouse;
 import vn.wms.inventory.repository.BinLocationRepository;
 import vn.wms.inventory.repository.StockItemRepository;
+import vn.wms.inventory.repository.StockReservationRepository;
 import vn.wms.inventory.repository.WarehouseRepository;
 
 import java.math.BigDecimal;
@@ -52,6 +54,9 @@ class PickingListIntegrationTest {
 
     @Autowired
     private StockItemRepository stockItemRepository;
+
+    @Autowired
+    private StockReservationRepository stockReservationRepository;
 
     private Warehouse warehouse;
     private BinLocation binA1;
@@ -194,5 +199,48 @@ class PickingListIntegrationTest {
                 .andExpect(jsonPath("$.data.totalLines", is(1)))
                 .andExpect(jsonPath("$.data.items[0].lotNo", is("LOT-VALID")))
                 .andExpect(jsonPath("$.data.items[0].locationCode", is("B-01-01")));
+    }
+
+    @Test
+    @DisplayName("Lô đã giữ chỗ toàn bộ cho chính đơn vẫn được gợi ý; lô giữ chỗ toàn bộ cho đơn khác thì bỏ qua")
+    void pickingListUsesOwnReservationAndSkipsOtherOrders() throws Exception {
+        LocalDate today = LocalDate.now();
+        Long productId = 105L;
+        Long orderId = 7001L;
+
+        // Lô hạn gần nhất ở A-01-01 đã giữ toàn bộ 20 cho đơn khác (7002)
+        StockItem otherLot = createStock(binA1, productId, "SKU-105", "LOT-OTHER", new BigDecimal("20"), today.plusDays(5), false);
+        reserve(otherLot, 7002L, "20");
+        // Lô ở A-02-01 đã giữ toàn bộ 20 cho chính đơn 7001 (quantity - reserved = 0)
+        StockItem ownLot = createStock(binA2, productId, "SKU-105", "LOT-OWN", new BigDecimal("20"), today.plusDays(10), false);
+        reserve(ownLot, orderId, "20");
+
+        GeneratePickingListRequest req = new GeneratePickingListRequest(
+                orderId, "SO-20261111-7001", warehouse.getId(),
+                List.of(new PickingItemDemand(productId, "SKU-105", "SP 5", "Cái", new BigDecimal("20")))
+        );
+
+        mockMvc.perform(post("/api/inventory/stock/picking-list")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.totalLines", is(1)))
+                .andExpect(jsonPath("$.data.items[0].lotNo", is("LOT-OWN")))
+                .andExpect(jsonPath("$.data.items[0].locationCode", is("A-02-01")))
+                .andExpect(jsonPath("$.data.items[0].quantityToPick").value(20));
+    }
+
+    private void reserve(StockItem stockItem, Long orderId, String quantity) {
+        stockItem.setReservedQuantity(stockItem.getReservedQuantity().add(new BigDecimal(quantity)));
+        stockItemRepository.save(stockItem);
+        StockReservation reservation = new StockReservation();
+        reservation.setOrderId(orderId);
+        reservation.setOrderNumber("SO-" + orderId);
+        reservation.setProductId(stockItem.getProductId());
+        reservation.setStockItem(stockItem);
+        reservation.setWarehouseId(warehouse.getId());
+        reservation.setReservedQuantity(new BigDecimal(quantity));
+        reservation.setStatus("ACTIVE");
+        stockReservationRepository.save(reservation);
     }
 }

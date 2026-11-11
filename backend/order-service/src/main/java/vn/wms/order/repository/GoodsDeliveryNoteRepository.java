@@ -1,8 +1,10 @@
 package vn.wms.order.repository;
 
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -16,6 +18,14 @@ import java.util.Optional;
 
 @Repository
 public interface GoodsDeliveryNoteRepository extends JpaRepository<GoodsDeliveryNote, Long> {
+
+    /**
+     * Khóa dòng bi quan phiếu xuất khi xác nhận xuất kho: bấm hai lần hoặc hai người cùng xác nhận thì lần sau
+     * phải chờ lần trước commit rồi thấy phiếu đã COMPLETED, không phát sự kiện trừ tồn lần thứ hai (WMS-12.1).
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT g FROM GoodsDeliveryNote g WHERE g.id = :id")
+    Optional<GoodsDeliveryNote> findByIdForUpdate(@Param("id") Long id);
 
     Optional<GoodsDeliveryNote> findByGdnNumber(String gdnNumber);
 

@@ -93,7 +93,15 @@ public class GoodsDeliveryService {
             throw ApiException.badRequest("Phiếu xuất kho phải có ít nhất 1 dòng mặt hàng");
         }
 
-        SalesOrder so = salesOrderRepository.findById(request.soId())
+        // Phiếu nháp/đang lấy hàng cũng cộng số lượng đã xuất của dòng đơn ngay khi lập, nên phiếu không được
+        // lập thẳng ở trạng thái CANCELLED: nếu không, số lượng đó bị giữ mãi mà hàng không hề rời kho.
+        if (request.status() == GoodsDeliveryStatus.CANCELLED) {
+            throw ApiException.badRequest("Không thể lập phiếu xuất kho ở trạng thái CANCELLED");
+        }
+
+        // Khóa bi quan đơn bán: hai phiếu xuất đồng thời (bấm hai lần, hai người cùng lập) phải xếp hàng,
+        // phiếu sau đọc số lượng đã xuất mới nhất nên không thể xuất vượt số lượng đặt và trừ tồn hai lần.
+        SalesOrder so = salesOrderRepository.findByIdForUpdate(request.soId())
                 .orElseThrow(() -> ApiException.notFound("Không tìm thấy đơn bán hàng với ID: " + request.soId()));
 
         if (so.getStatus() == OrderStatus.DRAFT) {
@@ -214,7 +222,10 @@ public class GoodsDeliveryService {
      */
     @Transactional
     public GdnResponse dispatch(Long id, String username) {
-        GoodsDeliveryNote gdn = findGdn(id);
+        // Khóa bi quan phiếu xuất: lần xác nhận thứ hai chờ lần đầu commit rồi thấy COMPLETED và trả về luôn,
+        // không phát thêm sự kiện order.dispatched (mỗi sự kiện là một lần trừ tồn bên inventory-service).
+        GoodsDeliveryNote gdn = gdnRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> ApiException.notFound("Không tìm thấy Phiếu xuất kho với ID: " + id));
 
         if (gdn.getStatus() == GoodsDeliveryStatus.COMPLETED) {
             return GdnResponse.from(gdn);

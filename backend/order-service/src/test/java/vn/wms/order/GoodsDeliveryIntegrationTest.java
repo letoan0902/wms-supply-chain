@@ -6,10 +6,15 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import vn.wms.common.exception.ApiException;
+import vn.wms.common.messaging.WmsEventPublisher;
+import vn.wms.common.messaging.WmsEvents;
 import vn.wms.order.dto.CreateGdnItemRequest;
 import vn.wms.order.dto.CreateGdnRequest;
 import vn.wms.order.entity.Customer;
@@ -21,12 +26,22 @@ import vn.wms.order.entity.SalesOrderItem;
 import vn.wms.order.repository.CustomerRepository;
 import vn.wms.order.repository.GoodsDeliveryNoteRepository;
 import vn.wms.order.repository.SalesOrderRepository;
+import vn.wms.order.service.GoodsDeliveryService;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.startsWith;
@@ -55,6 +70,12 @@ class GoodsDeliveryIntegrationTest {
 
     @Autowired
     private GoodsDeliveryNoteRepository gdnRepository;
+
+    @Autowired
+    private GoodsDeliveryService goodsDeliveryService;
+
+    @MockBean
+    private WmsEventPublisher wmsEventPublisher;
 
     private Customer createCustomer(String code, String name) {
         Customer c = new Customer();
@@ -329,5 +350,132 @@ class GoodsDeliveryIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.success", is(true)))
                 .andExpect(jsonPath("$.data.totalGdns").value(org.hamcrest.Matchers.greaterThanOrEqualTo(1)));
+    }
+
+    @Test
+    @DisplayName("Từ chối lập GDN ở trạng thái CANCELLED: không được cộng số lượng đã xuất khi hàng không rời kho")
+    void createGdnWithCancelledStatusThrowsBadRequest() throws Exception {
+        Customer customer = createCustomer("KH-GDN-07", "Công ty Eta");
+        SalesOrder so = createConfirmedSo(customer, 1L, new BigDecimal("10"), new BigDecimal("10000"));
+        SalesOrderItem soItem = so.getItems().get(0);
+
+        CreateGdnRequest req = new CreateGdnRequest(
+                so.getId(), LocalDate.now(), GoodsDeliveryStatus.CANCELLED,
+                "A", "09", "DC", null,
+                List.of(gdnItem(soItem, "10"))
+        );
+
+        mockMvc.perform(post("/api/orders/goods-delivery-notes")
+                        .header("X-User-Roles", "ROLE_ADMIN")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(req)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success", is(false)));
+
+        SalesOrder reloaded = salesOrderRepository.findById(so.getId()).orElseThrow();
+        assertThat(reloaded.getItems().get(0).getDeliveredQuantity()).isEqualByComparingTo("0");
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    @DisplayName("Hai phiếu xuất đồng thời cho cùng một đơn (bấm hai lần): chỉ một phiếu được lập, không xuất vượt số lượng đặt")
+    void concurrentGdnForSameSoDoesNotOverDeliver() throws Exception {
+        Customer customer = createCustomer("KH-GDN-RACE", "Công ty Đồng thời");
+        SalesOrder so = createConfirmedSo(customer, 1L, new BigDecimal("10"), new BigDecimal("10000"));
+        SalesOrderItem soItem = so.getItems().get(0);
+        CreateGdnRequest req = new CreateGdnRequest(
+                so.getId(), LocalDate.now(), GoodsDeliveryStatus.COMPLETED,
+                "A", "09", "DC", null, List.of(gdnItem(soItem, "10")));
+
+        int threadCount = 2;
+        ExecutorService executor = Executors.newFixedThreadPool(threadCount);
+        CountDownLatch start = new CountDownLatch(1);
+        CountDownLatch done = new CountDownLatch(threadCount);
+        AtomicInteger success = new AtomicInteger();
+        AtomicInteger rejected = new AtomicInteger();
+        try {
+            for (int i = 0; i < threadCount; i++) {
+                executor.submit(() -> {
+                    try {
+                        start.await();
+                        goodsDeliveryService.create(req, "thukho");
+                        success.incrementAndGet();
+                    } catch (ApiException ex) {
+                        rejected.incrementAndGet();
+                    } catch (Exception ex) {
+                        rejected.incrementAndGet();
+                    } finally {
+                        done.countDown();
+                    }
+                });
+            }
+            start.countDown();
+            assertThat(done.await(15, TimeUnit.SECONDS)).isTrue();
+
+            assertThat(success.get()).isEqualTo(1);
+            assertThat(rejected.get()).isEqualTo(1);
+            assertThat(gdnRepository.findBySalesOrderIdOrderByIdDesc(so.getId())).hasSize(1);
+            SalesOrder reloaded = salesOrderRepository.findById(so.getId()).orElseThrow();
+            assertThat(reloaded.getItems().get(0).getDeliveredQuantity()).isEqualByComparingTo("10");
+            assertThat(reloaded.getStatus()).isEqualTo(OrderStatus.COMPLETED);
+            // Chỉ đúng một sự kiện order.dispatched, tức inventory-service chỉ trừ tồn một lần
+            verify(wmsEventPublisher, times(1))
+                    .publishAfterCommit(eq(WmsEvents.RoutingKeys.ORDER_DISPATCHED), any());
+        } finally {
+            executor.shutdownNow();
+            cleanUp(so, customer);
+        }
+    }
+
+    @Test
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    @DisplayName("Xác nhận xuất kho hai lần đồng thời cho cùng một phiếu: chỉ phát một sự kiện trừ tồn")
+    void concurrentDispatchPublishesOnce() throws Exception {
+        Customer customer = createCustomer("KH-GDN-RACE2", "Công ty Đồng thời 2");
+        SalesOrder so = createConfirmedSo(customer, 1L, new BigDecimal("10"), new BigDecimal("10000"));
+        SalesOrderItem soItem = so.getItems().get(0);
+        Long gdnId = goodsDeliveryService.create(new CreateGdnRequest(
+                so.getId(), LocalDate.now(), GoodsDeliveryStatus.PICKING,
+                "A", "09", "DC", null, List.of(gdnItem(soItem, "10"))), "thukho").id();
+
+        int threadCount = 2;
+        ExecutorService executor = Executors.newFixedThreadPool(threadCount);
+        CountDownLatch start = new CountDownLatch(1);
+        CountDownLatch done = new CountDownLatch(threadCount);
+        try {
+            for (int i = 0; i < threadCount; i++) {
+                executor.submit(() -> {
+                    try {
+                        start.await();
+                        goodsDeliveryService.dispatch(gdnId, "thukho");
+                    } catch (Exception ignored) {
+                        // Kết quả kiểm tra qua số lần phát sự kiện bên dưới
+                    } finally {
+                        done.countDown();
+                    }
+                });
+            }
+            start.countDown();
+            assertThat(done.await(15, TimeUnit.SECONDS)).isTrue();
+
+            assertThat(gdnRepository.findById(gdnId).orElseThrow().getStatus()).isEqualTo(GoodsDeliveryStatus.COMPLETED);
+            verify(wmsEventPublisher, times(1))
+                    .publishAfterCommit(eq(WmsEvents.RoutingKeys.ORDER_DISPATCHED), any());
+        } finally {
+            executor.shutdownNow();
+            cleanUp(so, customer);
+        }
+    }
+
+    private CreateGdnItemRequest gdnItem(SalesOrderItem soItem, String quantity) {
+        return new CreateGdnItemRequest(
+                soItem.getId(), soItem.getProductId(), soItem.getSkuCode(), soItem.getProductName(),
+                soItem.getUom(), new BigDecimal(quantity), soItem.getUnitPrice(), null, null, null, null);
+    }
+
+    private void cleanUp(SalesOrder so, Customer customer) {
+        gdnRepository.deleteAll(gdnRepository.findBySalesOrderIdOrderByIdDesc(so.getId()));
+        salesOrderRepository.deleteById(so.getId());
+        customerRepository.deleteById(customer.getId());
     }
 }

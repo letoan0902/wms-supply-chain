@@ -13,11 +13,13 @@ import vn.wms.inventory.dto.DeductStockItemRequest;
 import vn.wms.inventory.dto.DeductStockRequest;
 import vn.wms.inventory.dto.DeductStockResponse;
 import vn.wms.inventory.dto.DeductedItemDetail;
+import vn.wms.inventory.entity.StockDispatch;
 import vn.wms.inventory.entity.StockItem;
 import vn.wms.inventory.entity.StockReservation;
 import vn.wms.inventory.entity.Warehouse;
 import vn.wms.inventory.repository.BinLocationRepository;
 import vn.wms.inventory.repository.InventoryLotRepository;
+import vn.wms.inventory.repository.StockDispatchRepository;
 import vn.wms.inventory.repository.StockItemRepository;
 import vn.wms.inventory.repository.StockReservationRepository;
 import vn.wms.inventory.repository.WarehouseRepository;
@@ -43,6 +45,7 @@ public class StockDeductionService {
     private final WarehouseRepository warehouseRepository;
     private final BinLocationRepository binLocationRepository;
     private final InventoryLotRepository inventoryLotRepository;
+    private final StockDispatchRepository stockDispatchRepository;
 
     @Autowired(required = false)
     private WmsEventPublisher wmsEventPublisher;
@@ -51,12 +54,43 @@ public class StockDeductionService {
                                  StockReservationRepository stockReservationRepository,
                                  WarehouseRepository warehouseRepository,
                                  BinLocationRepository binLocationRepository,
-                                 InventoryLotRepository inventoryLotRepository) {
+                                 InventoryLotRepository inventoryLotRepository,
+                                 StockDispatchRepository stockDispatchRepository) {
         this.stockItemRepository = stockItemRepository;
         this.stockReservationRepository = stockReservationRepository;
         this.warehouseRepository = warehouseRepository;
         this.binLocationRepository = binLocationRepository;
         this.inventoryLotRepository = inventoryLotRepository;
+        this.stockDispatchRepository = stockDispatchRepository;
+    }
+
+    /**
+     * Trừ tồn khi nhận sự kiện {@code order.dispatched} (mỗi phiếu xuất kho GDN một sự kiện), chống trừ hai lần
+     * bằng nhật ký lưu trong DB: sự kiện giao lại thấy messageId đã có trong stock_dispatches thì bỏ qua. Nhật ký
+     * được ghi cùng transaction với việc trừ tồn, trừ tồn lỗi thì nhật ký cũng rollback nên lần thử lại vẫn trừ được.
+     * Hai lần giao đồng thời thì lần sau vấp ràng buộc duy nhất (company_id, message_id) và rollback.
+     *
+     * @return kết quả trừ tồn, hoặc {@code null} nếu sự kiện đã được xử lý trước đó
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public DeductStockResponse deductStockForDispatchEvent(DeductStockRequest request, String dispatchedBy, String messageId) {
+        if (messageId != null && !messageId.isBlank()) {
+            if (stockDispatchRepository.existsByMessageId(messageId)) {
+                log.info("Bỏ qua sự kiện order.dispatched của đơn {}: messageId '{}' đã được trừ tồn trước đó",
+                        request != null ? request.orderNumber() : null, messageId);
+                return null;
+            }
+            StockDispatch dispatch = new StockDispatch();
+            dispatch.setMessageId(messageId);
+            dispatch.setOrderId(request != null ? request.orderId() : null);
+            dispatch.setOrderNumber(request != null ? request.orderNumber() : null);
+            dispatch.setWarehouseId(request != null ? request.warehouseId() : null);
+            stockDispatchRepository.saveAndFlush(dispatch);
+        } else {
+            log.warn("Sự kiện order.dispatched của đơn {} thiếu messageId, không kiểm tra được trùng lặp",
+                    request != null ? request.orderNumber() : null);
+        }
+        return deductStock(request, dispatchedBy);
     }
 
     /**
@@ -117,6 +151,10 @@ public class StockDeductionService {
                     .map(row -> (BigDecimal) row[0])
                     .orElse(BigDecimal.ZERO);
 
+            BigDecimal ownReservedBefore = request.orderId() != null
+                    ? sumActiveReservations(request.orderId(), productId)
+                    : BigDecimal.ZERO;
+
             // Trường hợp 1: Chỉ định vị trí ô/kệ cụ thể (BinLocationId)
             if (itemReq.binLocationId() != null) {
                 DeductedItemDetail detail = deductFromSpecificBinLocation(
@@ -134,10 +172,17 @@ public class StockDeductionService {
                 grandTotalDeducted = grandTotalDeducted.add(requiredQty);
             }
 
-            // Đơn đã xuất đủ sản phẩm này: phần giữ chỗ của đơn còn nằm ở vị trí khác (do xuất từ vị trí
-            // không trùng vị trí đã giữ) phải được trả lại, nếu không Reserved ở các vị trí đó bị treo vĩnh viễn.
+            // Phần hàng xuất từ vị trí đơn không giữ chỗ vẫn phải trừ vào lượng giữ chỗ của đơn ở vị trí khác,
+            // nếu không Reserved ở các vị trí đó bị treo vĩnh viễn. Chỉ trả lại đúng phần chênh lệch đó: phiếu xuất
+            // một phần (WMS-12.1) thì phần còn lại của đơn vẫn được giữ chỗ cho các đợt xuất sau.
             if (request.orderId() != null) {
-                releaseLeftoverReservations(request.orderId(), productId);
+                BigDecimal fulfilledFromOwn = ownReservedBefore
+                        .subtract(sumActiveReservations(request.orderId(), productId))
+                        .max(BigDecimal.ZERO);
+                BigDecimal toRelease = requiredQty.subtract(fulfilledFromOwn);
+                if (toRelease.compareTo(BigDecimal.ZERO) > 0) {
+                    releaseLeftoverReservations(request.orderId(), productId, toRelease);
+                }
             }
 
             // Tính tồn kho sau khi trừ để phát sự kiện
@@ -342,23 +387,39 @@ public class StockDeductionService {
         return newReserved;
     }
 
+    private BigDecimal sumActiveReservations(Long orderId, Long productId) {
+        return stockReservationRepository.findByOrderIdAndProductIdAndStatus(orderId, productId, "ACTIVE").stream()
+                .map(StockReservation::getReservedQuantity)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
     /**
-     * Trả lại phần giữ chỗ còn ACTIVE của một đơn cho một sản phẩm sau khi sản phẩm đó đã xuất đủ:
-     * khóa vị trí liên quan, giảm Reserved đúng bằng lượng đang giữ rồi chuyển bản ghi sang FULFILLED.
-     * Sản phẩm khác của cùng đơn chưa xuất thì vẫn giữ chỗ.
+     * Trả lại tối đa {@code quantity} trong phần giữ chỗ còn ACTIVE của một đơn cho một sản phẩm (phần hàng đã
+     * xuất từ vị trí đơn không giữ chỗ): khóa vị trí liên quan, giảm Reserved đúng bằng lượng trả, bản ghi trả hết
+     * thì chuyển sang FULFILLED, trả một phần thì giảm số lượng giữ. Phần giữ chỗ còn lại vẫn ACTIVE cho đợt xuất sau.
      */
-    private void releaseLeftoverReservations(Long orderId, Long productId) {
+    private void releaseLeftoverReservations(Long orderId, Long productId, BigDecimal quantity) {
+        BigDecimal remaining = quantity;
         List<StockReservation> leftovers = stockReservationRepository
                 .findByOrderIdAndProductIdAndStatus(orderId, productId, "ACTIVE");
         for (StockReservation res : leftovers) {
+            if (remaining.compareTo(BigDecimal.ZERO) <= 0) {
+                break;
+            }
+            BigDecimal release = res.getReservedQuantity().min(remaining);
             stockItemRepository.findByIdWithPessimisticLock(res.getStockItem().getId()).ifPresent(item -> {
                 BigDecimal reserved = item.getReservedQuantity() != null ? item.getReservedQuantity() : BigDecimal.ZERO;
-                item.setReservedQuantity(reserved.subtract(res.getReservedQuantity()).max(BigDecimal.ZERO));
+                item.setReservedQuantity(reserved.subtract(release).max(BigDecimal.ZERO));
                 stockItemRepository.save(item);
-                syncReservedQuantityToLot(item, res.getReservedQuantity().negate());
+                syncReservedQuantityToLot(item, release.negate());
             });
-            res.setStatus("FULFILLED");
+            if (release.compareTo(res.getReservedQuantity()) >= 0) {
+                res.setStatus("FULFILLED");
+            } else {
+                res.setReservedQuantity(res.getReservedQuantity().subtract(release));
+            }
             stockReservationRepository.save(res);
+            remaining = remaining.subtract(release);
         }
     }
 

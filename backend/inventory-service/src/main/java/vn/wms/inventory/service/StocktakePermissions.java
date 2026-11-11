@@ -79,6 +79,13 @@ final class StocktakePermissions {
         }
     }
 
+    /** Vai trò được xem danh sách phiếu điều chỉnh (phạm vi kho lọc riêng); nhân viên kho không được xem. */
+    static void requireAdjustmentListRole(CurrentUser user) {
+        if (!user.hasRole(Roles.ADMIN) && !user.hasRole(Roles.ACCOUNTANT) && !user.hasRole(Roles.WAREHOUSE_MANAGER)) {
+            throw ApiException.forbidden("Chỉ Quản trị viên, Kế toán hoặc Quản lý kho mới được xem phiếu điều chỉnh tồn kho");
+        }
+    }
+
     /** Vai trò được xem danh sách đợt kiểm kê (phạm vi kho lọc riêng). */
     static void requireListRole(CurrentUser user) {
         if (!user.hasRole(Roles.ADMIN) && !user.hasRole(Roles.ACCOUNTANT)

@@ -1,5 +1,7 @@
 package vn.wms.inventory.dto;
 
+import vn.wms.inventory.entity.StockAdjustment;
+import vn.wms.inventory.entity.StockAdjustmentStatus;
 import vn.wms.inventory.entity.StocktakeScopeType;
 import vn.wms.inventory.entity.StocktakeSession;
 import vn.wms.inventory.entity.StocktakeStatus;
@@ -41,13 +43,17 @@ public record StocktakeSessionResponse(
         String closedBy,
         Instant closedAt,
         String closeReason,
+        Long adjustmentId,
+        String adjustmentCode,
+        StockAdjustmentStatus adjustmentStatus,
         String createdBy,
         Instant createdAt,
         Instant updatedAt,
         List<StocktakeLocationResponse> locations
 ) {
     public static StocktakeSessionResponse of(StocktakeSession session, long totalLocations, long totalLines,
-                                              long uncountedLines, List<StocktakeLocationResponse> locations) {
+                                              long uncountedLines, List<StocktakeLocationResponse> locations,
+                                              StockAdjustment adjustment) {
         return new StocktakeSessionResponse(
                 session.getId(),
                 session.getCode(),
@@ -75,6 +81,9 @@ public record StocktakeSessionResponse(
                 session.getClosedBy(),
                 session.getClosedAt(),
                 session.getCloseReason(),
+                adjustment != null ? adjustment.getId() : null,
+                adjustment != null ? adjustment.getCode() : null,
+                adjustment != null ? adjustment.getStatus() : null,
                 session.getCreatedBy(),
                 session.getCreatedAt(),
                 session.getUpdatedAt(),

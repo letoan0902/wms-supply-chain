@@ -16,6 +16,7 @@ import vn.wms.inventory.entity.StockItem;
 import vn.wms.inventory.entity.Warehouse;
 import vn.wms.inventory.repository.BinLocationRepository;
 import vn.wms.inventory.repository.IncomingStockRepository;
+import vn.wms.inventory.repository.StockAdjustmentRepository;
 import vn.wms.inventory.repository.InventoryLotRepository;
 import vn.wms.inventory.repository.StockItemRepository;
 import vn.wms.inventory.repository.StockReceiptRepository;
@@ -75,6 +76,8 @@ abstract class StocktakeTestSupport {
     protected StocktakeLocationRepository locationRepository;
     @Autowired
     protected StocktakeLineRepository lineRepository;
+    @Autowired
+    protected StockAdjustmentRepository adjustmentRepository;
 
     protected Warehouse warehouse1;
     protected Warehouse warehouse2;
@@ -125,14 +128,10 @@ abstract class StocktakeTestSupport {
         TenantContext.clear();
     }
 
-    protected void cleanCompanyExtras() {
-        // Lớp con xóa thêm bảng riêng (phiếu điều chỉnh) trước khi xóa dữ liệu chung
-    }
-
     private void cleanAll() {
         for (Long company : List.of(COMPANY_A, COMPANY_B)) {
             TenantContext.runAs(company, () -> {
-                cleanCompanyExtras();
+                adjustmentRepository.deleteAll();
                 lineRepository.deleteAll();
                 locationRepository.deleteAll();
                 sessionRepository.deleteAll();
@@ -206,7 +205,8 @@ abstract class StocktakeTestSupport {
     }
 
     protected JsonNode data(ResultActions actions) throws Exception {
-        return objectMapper.readTree(actions.andReturn().getResponse().getContentAsString()).path("data");
+        return objectMapper.readTree(actions.andReturn().getResponse()
+                .getContentAsString(java.nio.charset.StandardCharsets.UTF_8)).path("data");
     }
 
     protected Map<String, Object> warehouseScope(Long warehouseId) {

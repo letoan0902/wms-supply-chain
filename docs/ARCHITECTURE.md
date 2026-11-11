@@ -152,6 +152,19 @@ danh sách theo `PageResponse`.
 | `POST /{id}/counts` | ADMIN, WAREHOUSE_MANAGER, WAREHOUSE_STAFF của kho | Đếm mù: `lineId` hoặc (`binLocationId`/`binLocationCode`, `productId`, `lotNo`), `quantity`, `mode` ADD (cộng dồn khi quét) hoặc SET; không khớp dòng nào thì tạo dòng phát sinh; phản hồi không có tồn hệ thống |
 | `GET /{id}/count-lines` | như `GET /{id}` | Dòng cần đếm (không có tồn hệ thống), lọc `counted`, `binCode`, `productId` |
 | `POST /{id}/cancel` | ADMIN, WAREHOUSE_MANAGER của kho | Hủy khi DRAFT, COUNTING, COUNTED: mở đóng băng, tồn không đổi |
+| `POST /{id}/finish` | ADMIN, WAREHOUSE_MANAGER của kho | COUNTING sang COUNTED, chênh lệch = số đếm - tồn chụp; còn dòng chưa đếm thì 409 (`data.uncountedLines`) trừ khi gửi `confirmUncountedAsZero=true` |
+| `GET /{id}/variances` | ADMIN, ACCOUNTANT, WAREHOUSE_MANAGER của kho | `summary` (số dòng, thừa, thiếu, ròng, số dòng xung đột giữ chỗ) và `lines` có tồn hệ thống; lọc `onlyDifferences`, `binCode`, `productId` |
+| `POST /{id}/recount` | ADMIN, WAREHOUSE_MANAGER của kho | `lineIds`: xóa số đếm các dòng, quay lại COUNTING |
+| `PUT /{id}/lines/{lineId}/reason` | ADMIN, WAREHOUSE_MANAGER của kho | Ghi lý do chênh lệch (COUNTED) |
+| `POST /{id}/approve` | ADMIN, WAREHOUSE_MANAGER của kho | Cấp Quản lý kho: không lệch thì COMPLETED và mở đóng băng; có lệch thì sinh phiếu `ADJ-yyyyMM-NN`, đợt sang PENDING_ACCOUNTING |
+| `POST /{id}/adjustment/approve` | ACCOUNTANT, ADMIN (khác người duyệt cấp Quản lý) | Cấp Kế toán: một transaction mở đóng băng, khóa bi quan dòng tồn, tồn mới = tồn hiện tại + chênh lệch, đồng bộ `inventory_lots`, ghi tồn trước và sau vào dòng phiếu, đợt COMPLETED, phát `inventory.updated` (`reason = ADJUSTMENT`) |
+| `POST /{id}/reject` | COUNTED: ADMIN, WAREHOUSE_MANAGER; PENDING_ACCOUNTING: thêm ACCOUNTANT | Bắt buộc `reason`; mở đóng băng, phiếu (nếu có) REJECTED, tồn không đổi |
+| `GET /api/inventory/stock-adjustments`, `GET /api/inventory/stock-adjustments/{id}` | ADMIN, ACCOUNTANT, WAREHOUSE_MANAGER (theo kho) | Phiếu điều chỉnh (bảng `stock_adjustments`, `stock_adjustment_lines`, Flyway V12, mỗi đợt tối đa một phiếu theo `(company_id, session_id)`) |
+
+Quy tắc điều chỉnh: tồn mới không được âm và không được nhỏ hơn số đang giữ chỗ cho đơn; vi phạm thì 409 kèm danh sách
+dòng trong `data` (cần hủy hoặc chuyển giữ chỗ của đơn, hoặc đếm lại), giữ chỗ không bị điều chỉnh tự động. Mọi thao tác
+đổi trạng thái khóa bi quan dòng đợt kiểm kê nên duyệt hai lần hoặc đồng thời chỉ áp dụng một lần. Giá trị tiền của chênh
+lệch chưa tính vì inventory-service chưa có giá vốn sản phẩm.
 
 Đóng băng: mỗi vị trí chỉ thuộc một đợt đang kiểm (ràng buộc duy nhất `(company_id, frozen_bin_location_id)`).
 `StocktakeFreezeGuard` là chốt chặn dùng chung: nhập vào ô, xuất chỉ định ô, duyệt xuất điều chuyển từ ô, nhận hàng

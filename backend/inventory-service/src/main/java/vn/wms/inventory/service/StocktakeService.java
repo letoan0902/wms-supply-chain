@@ -22,6 +22,7 @@ import vn.wms.inventory.dto.StocktakeCountRequest;
 import vn.wms.inventory.dto.StocktakeLocationResponse;
 import vn.wms.inventory.dto.StocktakeSessionResponse;
 import vn.wms.inventory.entity.BinLocation;
+import vn.wms.inventory.entity.StockAdjustment;
 import vn.wms.inventory.entity.StockItem;
 import vn.wms.inventory.entity.StocktakeLine;
 import vn.wms.inventory.entity.StocktakeLocation;
@@ -30,6 +31,7 @@ import vn.wms.inventory.entity.StocktakeSession;
 import vn.wms.inventory.entity.StocktakeStatus;
 import vn.wms.inventory.entity.Warehouse;
 import vn.wms.inventory.repository.BinLocationRepository;
+import vn.wms.inventory.repository.StockAdjustmentRepository;
 import vn.wms.inventory.repository.StocktakeLineRepository;
 import vn.wms.inventory.repository.StocktakeLocationRepository;
 import vn.wms.inventory.repository.StocktakeSessionRepository;
@@ -51,7 +53,7 @@ import java.util.Set;
 
 /**
  * Nghiệp vụ đợt kiểm kê (WMS-14.1): lập kế hoạch, bắt đầu (đóng băng vị trí và chụp tồn), đếm mù, hủy, tra cứu.
- * Phần tính chênh lệch, đếm lại và duyệt phiếu điều chỉnh thuộc WMS-14.2.
+ * Phần tính chênh lệch, đếm lại và duyệt phiếu điều chỉnh nằm ở {@link StocktakeApprovalService} (WMS-14.2).
  */
 @Service
 public class StocktakeService {
@@ -64,17 +66,20 @@ public class StocktakeService {
     private final StocktakeLineRepository lineRepository;
     private final WarehouseRepository warehouseRepository;
     private final BinLocationRepository binLocationRepository;
+    private final StockAdjustmentRepository adjustmentRepository;
 
     public StocktakeService(StocktakeSessionRepository sessionRepository,
                             StocktakeLocationRepository locationRepository,
                             StocktakeLineRepository lineRepository,
                             WarehouseRepository warehouseRepository,
-                            BinLocationRepository binLocationRepository) {
+                            BinLocationRepository binLocationRepository,
+                            StockAdjustmentRepository adjustmentRepository) {
         this.sessionRepository = sessionRepository;
         this.locationRepository = locationRepository;
         this.lineRepository = lineRepository;
         this.warehouseRepository = warehouseRepository;
         this.binLocationRepository = binLocationRepository;
+        this.adjustmentRepository = adjustmentRepository;
     }
 
     // =========================================================================================
@@ -446,7 +451,8 @@ public class StocktakeService {
         } else {
             totalLocations = locationRepository.countBySessionId(session.getId());
         }
-        return StocktakeSessionResponse.of(session, totalLocations, totalLines, uncounted, locations);
+        StockAdjustment adjustment = adjustmentRepository.findBySessionId(session.getId()).orElse(null);
+        return StocktakeSessionResponse.of(session, totalLocations, totalLines, uncounted, locations, adjustment);
     }
 
     static BigDecimal nz(BigDecimal value) {

@@ -1,6 +1,6 @@
 # Kế hoạch mở rộng WMS Supply Chain thành nền tảng SaaS cho nhiều doanh nghiệp
 
-Phiên bản chốt ngày 03/11/2026 (Toàn duyệt), bổ sung vào Master Plan v2 thành v3. Nguyên tắc: hạn chót 23/11/2026 giữ nguyên, không làm thứ 7 và chủ nhật, mỗi ngày làm việc mỗi người có ít nhất một commit, chỉ giao việc mới từ ngày 04/11 trở đi (không sửa các việc đã qua), thanh toán qua PayOS, phần giao diện sẽ do Toàn rà soát và chỉnh lại ở tuần cuối theo góp ý của chính mình.
+Phiên bản chốt ngày 03/11/2026 (Toàn duyệt), bổ sung vào Master Plan v2 thành v3. Nguyên tắc: hạn chót lúc đó là 23/11/2026 (từ 11/11/2026 dồn về 13/11/2026, xem phần cập nhật ở mục 5), không làm thứ 7 và chủ nhật, mỗi ngày làm việc mỗi người có ít nhất một commit, chỉ giao việc mới từ ngày 04/11 trở đi (không sửa các việc đã qua), thanh toán qua PayOS, phần giao diện sẽ do Toàn rà soát và chỉnh lại ở tuần cuối theo góp ý của chính mình.
 
 Đặc tả chi tiết từng task (dữ liệu, API, quy tắc nghiệp vụ, tiêu chí nghiệm thu) nằm ở [SAAS_SPEC.md](SAAS_SPEC.md).
 
@@ -90,6 +90,19 @@ Việc chuẩn bị, không tính vào lịch của nhóm: Toàn cập nhật SR
 | 23/11 Thứ 2 | 21.2, 21.3 deploy v1.0.0, 21.4 | 21.4 | 21.4 | 21.4 |
 
 Khối lượng thêm: Toàn 11 ngày (có trợ lý AI nên nhận nhiều hơn), Phương Anh 5 ngày, Việt 5 ngày, Linh 3,5 ngày. Các ngày 10/11 đến 13/11 là nặng nhất với mọi người, cần commit đều và báo sớm nếu kẹt.
+
+### Cập nhật 11/11/2026: hạn cuối là thứ Sáu 13/11/2026
+
+Hạn cuối của dự án là 13/11/2026, không phải 23/11/2026 như bảng ở trên. Từ ngày 11/11 lịch được dồn lại, không còn việc nào xếp sau 13/11. Để các bạn kịp phần giao diện, Toàn (làm cùng trợ lý AI) nhận thêm các task backend, kiểm thử và một phần giao diện; hạn trên Jira đã đổi theo.
+
+| Người | Task giữ từ 11/11 đến 13/11 |
+| --- | --- |
+| Toàn | 24.1, 24.2, 24.4, 18.1 đến 18.4, 22.4b, 22.4c, 25.1, 25.2, 23.4, 23.5b, 23.6, 14.1, 14.2, 15.1, 15.2, 15.3, 17.1, 17.2, 17.4, 17.5, 19.1, 19.2, 19.3, 20.1 đến 20.4, 22.5, 21.1, 21.2, 21.3, 26.1 |
+| Phương Anh | 16.2, 16.3, 16.4, 23.3b, 15.4 |
+| Việt | 12.4, 24.3, 17.3 |
+| Linh | 14.3, 14.4, 21.4 |
+
+Thứ tự trong ba ngày: 11/11 và 12/11 làm xong chức năng (backend trước để giao diện có API), 12/11 và 13/11 chạy kiểm thử đầu cuối trên hệ thống thật và sửa lỗi, 13/11 rà giao diện, đóng gói và triển khai.
 
 ## 6. Thứ tự bắt buộc và rủi ro
 

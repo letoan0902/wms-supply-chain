@@ -4,8 +4,11 @@ import org.springframework.cloud.openfeign.FeignClient;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import vn.wms.common.api.ApiResponse;
+import vn.wms.order.dto.GeneratePickingListRequest;
+import vn.wms.order.dto.PickingListResponse;
 
 /**
  * Feign client gọi inventory-service qua Eureka (tên service: inventory-service), có cân bằng tải.
@@ -30,4 +33,8 @@ public interface InventoryClient {
     /** Giải phóng giữ hàng ảo khi đơn bán bị hủy (WMS-11.2). */
     @PostMapping("/api/inventory/stock/reservations/release")
     ApiResponse<Void> releaseReservations(@RequestParam("orderId") Long orderId);
+
+    /** Tự động sinh Picking List gợi ý vị trí ô kệ theo lộ trình ngắn nhất và ưu tiên FEFO/FIFO (WMS-12.1). */
+    @PostMapping("/api/inventory/stock/picking-list")
+    ApiResponse<PickingListResponse> generatePickingList(@RequestBody GeneratePickingListRequest request);
 }

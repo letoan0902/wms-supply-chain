@@ -20,7 +20,7 @@ public record RecordBillPaymentRequest(
         @Schema(description = "Phương thức thanh toán: BANK_TRANSFER, CASH, CHEQUE...", example = "BANK_TRANSFER")
         String paymentMethod,
 
-        @Size(max = 100, message = "Mã chứng từ / ủy nhiệm chi tối đa 100 ký tự")
+        @Size(max = 50, message = "Mã chứng từ / ủy nhiệm chi tối đa 50 ký tự")
         @Schema(description = "Mã chứng từ tham chiếu (UNC, số séc, mã giao dịch ngân hàng)", example = "UNC-20261108-01")
         String referenceCode,
 

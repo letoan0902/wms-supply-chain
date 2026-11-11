@@ -377,6 +377,72 @@ class StockPessimisticLockTest {
                 .isEqualByComparingTo(new BigDecimal("55.000"));
     }
 
+    @Test
+    @DisplayName("Phiếu xuất một phần (WMS-12.1) từ vị trí khác vị trí giữ chỗ: chỉ trả lại đúng lượng đã xuất, phần còn lại vẫn giữ cho đơn")
+    void testPartialDispatchKeepsRemainingReservation() {
+        BinLocation secondBin = new BinLocation();
+        secondBin.setWarehouse(warehouse);
+        secondBin.setCode("WH-PESS-01-A-01-03");
+        secondBin.setZone("A");
+        secondBin.setRack("01");
+        secondBin.setBin("03");
+        secondBin.setActive(true);
+        secondBin = binLocationRepository.save(secondBin);
+
+        // Vị trí thứ nhất không ai giữ (được lấy trước), vị trí thứ hai giữ 20 cho đơn 6001
+        StockItem first = newStockItem(binLocation, "50.000", "0.000");
+        StockItem second = newStockItem(secondBin, "50.000", "20.000");
+        StockReservation own = newReservation(6001L, second, "20.000");
+
+        DeductStockRequest request = new DeductStockRequest(
+                6001L, "SO-6001", warehouse.getId(), "SALES_DISPATCH", "Xuất đợt 1 của đơn 6001",
+                List.of(new DeductStockItemRequest(testProductId, "SKU-TEST-01", new BigDecimal("8.000"), null, null))
+        );
+        stockDeductionService.deductStock(request, "operator");
+
+        assertThat(stockItemRepository.findById(first.getId()).orElseThrow().getQuantity())
+                .isEqualByComparingTo(new BigDecimal("42.000"));
+        StockItem secondReloaded = stockItemRepository.findById(second.getId()).orElseThrow();
+        assertThat(secondReloaded.getQuantity()).isEqualByComparingTo(new BigDecimal("50.000"));
+        // Đơn đặt 20, mới xuất 8: còn giữ 12 cho đợt sau, không bị trả hết
+        assertThat(secondReloaded.getReservedQuantity()).isEqualByComparingTo(new BigDecimal("12.000"));
+        StockReservation ownReloaded = stockReservationRepository.findById(own.getId()).orElseThrow();
+        assertThat(ownReloaded.getStatus()).isEqualTo("ACTIVE");
+        assertThat(ownReloaded.getReservedQuantity()).isEqualByComparingTo(new BigDecimal("12.000"));
+
+        // Đợt 2 xuất nốt 12: giữ chỗ về 0 và bản ghi FULFILLED
+        DeductStockRequest request2 = new DeductStockRequest(
+                6001L, "SO-6001", warehouse.getId(), "SALES_DISPATCH", "Xuất đợt 2 của đơn 6001",
+                List.of(new DeductStockItemRequest(testProductId, "SKU-TEST-01", new BigDecimal("12.000"), null, null))
+        );
+        stockDeductionService.deductStock(request2, "operator");
+
+        assertThat(stockItemRepository.findById(first.getId()).orElseThrow().getQuantity())
+                .isEqualByComparingTo(new BigDecimal("30.000"));
+        assertThat(stockItemRepository.findById(second.getId()).orElseThrow().getReservedQuantity())
+                .isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(stockReservationRepository.findById(own.getId()).orElseThrow().getStatus()).isEqualTo("FULFILLED");
+    }
+
+    @Test
+    @DisplayName("Sự kiện order.dispatched giao lại sau khi service khởi động lại (mất tập messageId trong bộ nhớ): không trừ tồn hai lần")
+    void testDispatchEventRedeliveredAfterRestartIsSkipped() {
+        StockItem stockItem = newStockItem(binLocation, "80.000", "0.000");
+        DeductStockRequest request = new DeductStockRequest(
+                4003L, "SO-20261111-4003", warehouse.getId(), "SALES_DISPATCH", "Trừ tồn theo sự kiện",
+                List.of(new DeductStockItemRequest(testProductId, "SKU-TEST-01", new BigDecimal("25.000"), null, null))
+        );
+
+        assertThat(stockDeductionService.deductStockForDispatchEvent(request, "warehouse_keeper", "msg-dispatch-restart"))
+                .isNotNull();
+        // Gọi thẳng service (bỏ qua tập messageId trong bộ nhớ của handler) giống như sau khi restart
+        assertThat(stockDeductionService.deductStockForDispatchEvent(request, "warehouse_keeper", "msg-dispatch-restart"))
+                .isNull();
+
+        assertThat(stockItemRepository.findById(stockItem.getId()).orElseThrow().getQuantity())
+                .isEqualByComparingTo(new BigDecimal("55.000"));
+    }
+
     private StockItem newStockItem(BinLocation bin, String quantity, String reserved) {
         StockItem stockItem = new StockItem();
         stockItem.setProductId(testProductId);

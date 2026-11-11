@@ -49,6 +49,10 @@ public class SalesOrderItem extends AuditableEntity {
     @Column(nullable = false, precision = 18, scale = 3)
     private BigDecimal quantity = BigDecimal.ZERO;
 
+    /** Số lượng đã xuất kho thực tế (delivered). */
+    @Column(name = "delivered_quantity", nullable = false, precision = 18, scale = 3)
+    private BigDecimal deliveredQuantity = BigDecimal.ZERO;
+
     @Column(name = "unit_price", nullable = false, precision = 18, scale = 2)
     private BigDecimal unitPrice = BigDecimal.ZERO;
 

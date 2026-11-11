@@ -31,6 +31,7 @@ Các bản cập nhật về sau chỉ cần chạy lại `deploy/deploy.sh`.
                                 |  định tuyến qua Eureka
                                 v
      auth / product / inventory / order / notification  ->  MySQL, Redis, RabbitMQ
+     ai  ->  Redis; gọi Claude (api.anthropic.com) khi đã có khóa AI
 ```
 
 Chỉ cổng 22 (SSH), 80 và 443 nhận kết nối từ Internet. Mọi cổng còn lại (api-gateway 8080, MySQL, Redis, RabbitMQ, Eureka,
@@ -381,6 +382,32 @@ không có tiền thật. Chuyển sang PayOS thật:
 
 Khi `PAYOS_MOCK=false` mà thiếu khóa, tạo thanh toán trả `503 SERVICE_UNAVAILABLE`. Webhook sai chữ ký trả `400 PAYMENT_INVALID`
 và được ghi log cảnh báo (không chứa khóa hay chữ ký): `docker compose logs auth-service | grep "webhook PayOS"`.
+
+### 8.4. Khóa AI
+
+ai-service (cổng 8086, WMS-24.1) mặc định chạy giả lập (`AI_MOCK=true`): trả câu trả lời mẫu, không gọi Claude, vẫn tính
+lượt AI để thử giới hạn gói. Chuyển sang Claude thật:
+
+1. Tech lead tạo khóa API trên Claude Console. Chỉ điền vào `.env` trên máy chủ (quyền `600`), không commit, không gửi qua
+   chat, không đặt ở máy cá nhân của thành viên khác:
+
+   ```bash
+   ANTHROPIC_API_KEY=<khóa>
+   AI_MOCK=false
+   # Không bắt buộc: để trống thì dùng claude-sonnet-5-5 và mức suy nghĩ low
+   AI_MODEL=
+   AI_EFFORT=
+   ```
+
+2. Chạy `deploy/deploy.sh` (hoặc `docker compose up -d ai-service`). Log khởi động có dòng "ai-service gọi Claude thật";
+   kiểm tra nhanh trên máy chủ: `curl -s -H 'X-Company-Id: 1' http://127.0.0.1:8086/api/ai/health` trả `"mode":"LIVE"`.
+3. Hết khóa học: xóa dòng `ANTHROPIC_API_KEY` khỏi `.env`, đặt lại `AI_MOCK=true`, chạy lại `docker compose up -d ai-service`,
+   rồi thu hồi khóa trên Claude Console.
+
+Đặt `AI_MOCK=false` mà thiếu khóa thì ai-service ghi một dòng cảnh báo và tự chạy giả lập. Claude không trả lời trong 60 giây,
+khóa sai hoặc nhà cung cấp quá tải thì API trả `503 SERVICE_UNAVAILABLE` và lượt đó không bị tính. Log không chứa khóa,
+câu hỏi hay phản hồi thô: `docker compose logs ai-service | grep Claude`. Nếu mọi câu hỏi đều trả 503 và log có
+`BadRequestException`, thử đặt `AI_SERVER_FALLBACK=false` trong `.env` (tắt tham số `fallbacks` đang ở dạng beta).
 
 ## 9. Sao lưu và khôi phục MySQL
 

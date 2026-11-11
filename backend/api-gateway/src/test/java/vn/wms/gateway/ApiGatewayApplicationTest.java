@@ -64,7 +64,21 @@ class ApiGatewayApplicationTest {
 
         assertThat(routeIds).containsExactlyInAnyOrder(
                 "auth-service", "product-service", "inventory-service", "order-service", "notification-service",
-                "notification-websocket");
+                "notification-websocket", "ai-service");
+    }
+
+    @Test
+    void aiRouteForwardsToAiServiceAndRequiresLogin() {
+        Route route = routeLocator.getRoutes().filter(candidate -> "ai-service".equals(candidate.getId()))
+                .blockFirst();
+
+        assertThat(route).isNotNull();
+        assertThat(route.getUri().toString()).isEqualTo("lb://ai-service");
+        for (String path : List.of("/api/ai/health", "/api/ai/usage", "/api/ai/ask")) {
+            MockServerWebExchange exchange = MockServerWebExchange.from(MockServerHttpRequest.get(path));
+            assertThat(Mono.from(route.getPredicate().apply(exchange)).block()).as(path).isTrue();
+        }
+        assertThat(jwtProperties.publicPaths()).noneMatch(path -> path.startsWith("/api/ai"));
     }
 
     @Test

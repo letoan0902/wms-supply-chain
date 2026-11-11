@@ -71,6 +71,8 @@ báo cáo và dashboard, phân quyền người dùng, thông báo; mọi biến
                                         |
                                MySQL 8.0  (:3306)
 
+Ngoài sơ đồ: ai-service (:8086) gọi Claude, không có schema MySQL, chỉ dùng Redis (đếm lượt AI theo gói).
+
 Dùng chung:
   Config Server (:8888)                   cấp cấu hình tập trung cho mọi service
   Redis 7 (:6379)                         cache
@@ -90,6 +92,7 @@ Chi tiết trách nhiệm từng service và các luồng dữ liệu chính xem
 | inventory-service | 8083 | Schema `inventory_db` |
 | order-service | 8084 | Schema `order_db` |
 | notification-service | 8085 | Schema `notification_db` |
+| ai-service | 8086 | Không có schema; gọi Claude, đếm lượt AI trên Redis |
 | Discovery Server (Eureka) | 8761 | Giao diện http://localhost:8761 |
 | Config Server | 8888 | |
 | MySQL | 3306 | Tài khoản ứng dụng `wms` |
@@ -103,7 +106,7 @@ Discovery Server, service nghiệp vụ) chỉ mở trên `127.0.0.1` của máy
 
 ```text
 wms-supply-chain/
-  backend/              Gradle multi-project (Spring Cloud): 8 service
+  backend/              Gradle multi-project (Spring Cloud): 9 service
   frontend/             Giao diện React + Vite + TypeScript
   docker/mysql/         Script khởi tạo MySQL (init.sql: 5 schema và user wms)
   docs/                 Tài liệu kỹ thuật

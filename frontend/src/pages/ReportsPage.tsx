@@ -329,7 +329,7 @@ export default function ReportsPage() {
                 onChange={(val) => setSelectedWarehouseId(val)}
                 options={[
                   ...(isGlobalScope
-                    ? [{ label: '🏢 Tất cả các kho (Toàn hệ thống)', value: 'all' as const }]
+                    ? [{ label: 'Tất cả các kho (Toàn hệ thống)', value: 'all' as const }]
                     : []),
                   ...allowedWarehouses.map((w) => ({
                     label: `${w.name} (${w.code})`,

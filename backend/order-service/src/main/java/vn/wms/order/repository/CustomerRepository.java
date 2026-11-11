@@ -57,6 +57,9 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
     @Query("SELECT COUNT(c) FROM Customer c WHERE c.active = true AND c.creditLimit > 0 AND c.currentDebt > c.creditLimit")
     long countOverLimitCustomers();
 
+    @Query("SELECT COUNT(c) FROM Customer c WHERE c.active = true AND c.currentDebt > 0")
+    long countCustomersWithDebt();
+
     long countByActiveTrue();
 
     long countByDebtLockedTrue();

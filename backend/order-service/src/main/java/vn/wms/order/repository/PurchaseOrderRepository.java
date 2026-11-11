@@ -66,4 +66,22 @@ public interface PurchaseOrderRepository extends JpaRepository<PurchaseOrder, Lo
 
     @Query("SELECT COALESCE(SUM(po.totalAmount), 0) FROM PurchaseOrder po WHERE po.status = :status")
     BigDecimal sumTotalAmountByStatus(@Param("status") OrderStatus status);
+
+    @Query("SELECT COUNT(po) FROM PurchaseOrder po " +
+           "WHERE po.status IN :statuses " +
+           "  AND (:warehouseId IS NULL OR po.warehouseId = :warehouseId)")
+    long countByStatusInAndWarehouseId(
+            @Param("statuses") java.util.Collection<OrderStatus> statuses,
+            @Param("warehouseId") Long warehouseId
+    );
+
+    @Query("SELECT COUNT(po) FROM PurchaseOrder po " +
+           "WHERE po.status IN :statuses " +
+           "  AND po.expectedDate = :expectedDate " +
+           "  AND (:warehouseId IS NULL OR po.warehouseId = :warehouseId)")
+    long countArrivingOrders(
+            @Param("statuses") java.util.Collection<OrderStatus> statuses,
+            @Param("expectedDate") LocalDate expectedDate,
+            @Param("warehouseId") Long warehouseId
+    );
 }

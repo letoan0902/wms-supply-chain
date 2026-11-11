@@ -37,12 +37,10 @@ export default function UserFormModal({
           email: editingUser.email,
           roles: editingUser.roles,
           warehouseIds: editingUser.warehouseIds || [],
-          enabled: editingUser.enabled,
         })
       } else {
         form.resetFields()
         form.setFieldsValue({
-          enabled: true,
           roles: ['WAREHOUSE_STAFF'],
           warehouseIds: [],
         })

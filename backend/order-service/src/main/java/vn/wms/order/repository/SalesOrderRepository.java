@@ -61,4 +61,33 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Long> {
 
     @Query("SELECT COALESCE(SUM(so.totalAmount), 0) FROM SalesOrder so WHERE so.status IN :statuses")
     BigDecimal sumTotalAmountByStatuses(@Param("statuses") Collection<OrderStatus> statuses);
+
+    @Query("SELECT COALESCE(SUM(so.totalAmount), 0) FROM SalesOrder so " +
+           "WHERE so.status IN :statuses " +
+           "  AND so.orderDate >= :fromOrderDate AND so.orderDate <= :toOrderDate " +
+           "  AND (:warehouseId IS NULL OR so.warehouseId = :warehouseId)")
+    BigDecimal sumRevenueBetweenDates(
+            @Param("fromOrderDate") LocalDate fromOrderDate,
+            @Param("toOrderDate") LocalDate toOrderDate,
+            @Param("statuses") Collection<OrderStatus> statuses,
+            @Param("warehouseId") Long warehouseId
+    );
+
+    @Query("SELECT COUNT(so) FROM SalesOrder so " +
+           "WHERE so.status IN :statuses " +
+           "  AND (:warehouseId IS NULL OR so.warehouseId = :warehouseId)")
+    long countByStatusInAndWarehouseId(
+            @Param("statuses") Collection<OrderStatus> statuses,
+            @Param("warehouseId") Long warehouseId
+    );
+
+    @Query("SELECT COUNT(so) FROM SalesOrder so " +
+           "WHERE so.status IN :statuses " +
+           "  AND so.expectedDate <= :maxExpectedDate " +
+           "  AND (:warehouseId IS NULL OR so.warehouseId = :warehouseId)")
+    long countUrgentOrders(
+            @Param("statuses") Collection<OrderStatus> statuses,
+            @Param("maxExpectedDate") LocalDate maxExpectedDate,
+            @Param("warehouseId") Long warehouseId
+    );
 }

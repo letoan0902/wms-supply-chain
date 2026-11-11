@@ -33,7 +33,8 @@ import type { ColumnsType } from 'antd/es/table'
 import { useEffect, useState } from 'react'
 import * as XLSX from 'xlsx'
 import { getApiErrorMessage } from '../../services/api'
-import { getStoredUser } from '../../utils/storage'
+import ForbiddenResult from '../../components/ForbiddenResult'
+import { useCan } from '../auth/useCan'
 import CustomerDetailModal from './components/CustomerDetailModal'
 import CustomerFormModal from './components/CustomerFormModal'
 import CustomerMetricsCards from './components/CustomerMetricsCards'
@@ -56,22 +57,15 @@ const formatCurrency = (val?: number): string =>
 export default function CustomersPage() {
   const { message, modal } = App.useApp()
 
-  // Phân quyền RBAC người dùng với fallback an toàn ?? false
-  const currentUser = getStoredUser()
-  const userRoles = currentUser?.roles ?? []
-  const canCreate = userRoles.some((r) =>
-    ['ADMIN', 'SALES', 'WAREHOUSE_MANAGER'].includes(r)
-  )
-  const canEdit = userRoles.some((r) =>
-    ['ADMIN', 'SALES', 'WAREHOUSE_MANAGER'].includes(r)
-  )
-  const canDelete = userRoles.some((r) => ['ADMIN'].includes(r))
-  const canToggleLock = userRoles.some((r) =>
-    ['ADMIN', 'ACCOUNTANT', 'SALES'].includes(r)
-  )
-  const canRecordTransaction = userRoles.some((r) =>
-    ['ADMIN', 'ACCOUNTANT', 'SALES'].includes(r)
-  )
+  // Phân quyền theo bảng quyền dùng chung (features/auth/permissions.ts, khớp backend)
+  const can = useCan()
+  const canRead = can('customer.read')
+  const canCreate = can('customer.write')
+  const canEdit = can('customer.write')
+  const canDelete = can('customer.write')
+  // Khóa, mở khóa công nợ là sửa khách hàng (PUT)
+  const canToggleLock = can('customer.write')
+  const canRecordTransaction = can('customer.transaction')
 
   // State danh sách
   const [customers, setCustomers] = useState<Customer[]>([])
@@ -109,6 +103,7 @@ export default function CustomersPage() {
 
   // Tải danh sách khách hàng
   useEffect(() => {
+    if (!canRead) return
     let ignore = false
     const fetchList = async () => {
       setLoading(true)
@@ -141,10 +136,11 @@ export default function CustomersPage() {
     return () => {
       ignore = true
     }
-  }, [keyword, customerType, active, debtLocked, filterOverLimit, page, pageSize, refreshKey, message])
+  }, [canRead, keyword, customerType, active, debtLocked, filterOverLimit, page, pageSize, refreshKey, message])
 
   // Tải báo cáo tóm tắt công nợ (FR14)
   useEffect(() => {
+    if (!canRead) return
     let ignore = false
     const fetchMetrics = async () => {
       setSummaryLoading(true)
@@ -166,7 +162,7 @@ export default function CustomersPage() {
     return () => {
       ignore = true
     }
-  }, [refreshKey])
+  }, [canRead, refreshKey])
 
   // Xử lý tạo mới hoặc sửa khách hàng
   const handleSaveCustomer = async (
@@ -653,6 +649,12 @@ export default function CustomersPage() {
       ),
     },
   ]
+
+  if (!canRead) {
+    return (
+      <ForbiddenResult description="Danh mục khách hàng dành cho Quản trị viên, Quản lý kho, Bán hàng và Kế toán." />
+    )
+  }
 
   return (
     <div className="p-4 sm:p-6 space-y-6">

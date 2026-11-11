@@ -1,7 +1,9 @@
 # Bảo mật và phân quyền
 
 Tài liệu mô tả cách hệ thống xác thực, phân quyền theo vai trò và theo kho, các giới hạn chống lạm dụng và những điểm
-còn hở. Bản này viết theo mã nguồn sau WMS-20.3 (Jira TASK-125). Khi thêm hoặc đổi API, cập nhật bảng ở mục 3.
+còn hở. Bản này viết theo mã nguồn sau WMS-20.3 (Jira TASK-125). Khi thêm hoặc đổi API, cập nhật bảng ở mục 3 và
+bảng quyền của giao diện `frontend/src/features/auth/permissions.ts` (giao diện dùng bảng này để ẩn nút và hiện trang
+403, hook `useCan()` ở `useCan.ts`) trong cùng một thay đổi.
 
 ## 1. Danh tính đi từ JWT tới service
 

@@ -17,6 +17,8 @@ import {
 } from 'antd'
 import { useEffect, useState } from 'react'
 import { getApiErrorMessage } from '../../services/api'
+import ForbiddenResult from '../../components/ForbiddenResult'
+import { useCan } from '../auth/useCan'
 import { fetchWarehouses } from '../warehouses/warehouseApi'
 import type { Warehouse } from '../warehouses/types'
 import CreateTransferModal from './components/CreateTransferModal'
@@ -37,6 +39,10 @@ import type {
 
 export default function TransfersPage() {
   const { message } = App.useApp()
+  // Phân quyền theo bảng quyền dùng chung (features/auth/permissions.ts, khớp backend)
+  const can = useCan()
+  const canRead = can('transfer.read')
+  const canCreate = can('transfer.create')
 
   // State danh sách và phân trang
   const [transfers, setTransfers] = useState<StockTransfer[]>([])
@@ -66,6 +72,7 @@ export default function TransfersPage() {
 
   // Nạp danh sách kho bãi phục vụ lọc và chọn trong form
   useEffect(() => {
+    if (!canRead) return
     let ignore = false
     fetchWarehouses({ active: true })
       .then((data) => {
@@ -77,10 +84,11 @@ export default function TransfersPage() {
     return () => {
       ignore = true
     }
-  }, [])
+  }, [canRead])
 
   // Nạp danh sách lệnh điều chuyển
   useEffect(() => {
+    if (!canRead) return
     let ignore = false
     const fetchTransfers = async () => {
       setLoading(true)
@@ -115,6 +123,7 @@ export default function TransfersPage() {
       ignore = true
     }
   }, [
+    canRead,
     page,
     pageSize,
     keyword,
@@ -290,6 +299,12 @@ export default function TransfersPage() {
     })
   }
 
+  if (!canRead) {
+    return (
+      <ForbiddenResult description="Điều chuyển hàng hóa dành cho Quản trị viên, Quản lý kho, Nhân viên kho và Kế toán." />
+    )
+  }
+
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       {/* Tiêu đề trang & Nút hành động */}
@@ -310,14 +325,16 @@ export default function TransfersPage() {
           >
             Làm mới
           </Button>
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={handleOpenCreate}
-            className="shadow-sm"
-          >
-            Lập lệnh điều chuyển
-          </Button>
+          {canCreate && (
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={handleOpenCreate}
+              className="shadow-sm"
+            >
+              Lập lệnh điều chuyển
+            </Button>
+          )}
         </Space>
       </div>
 

@@ -18,12 +18,14 @@ import {
   Spin,
   Tabs,
   Tag,
+  Tooltip,
 } from 'antd'
 import dayjs from 'dayjs'
 import { useEffect, useState } from 'react'
 import * as productApi from '../productApi'
 import type { BarcodeData, BarcodeType, BatchBarcodeResult, Product } from '../types'
 import { getApiErrorMessage } from '../../../services/api'
+import { useCan } from '../../auth/useCan'
 
 interface BarcodeModalProps {
   open: boolean
@@ -40,6 +42,7 @@ interface BatchFormValues {
 export default function BarcodeModal({ open, product, onClose }: BarcodeModalProps) {
   const { message } = App.useApp()
   const [form] = Form.useForm<BatchFormValues>()
+  const canPrintBatch = useCan()('product.barcodeBatch')
 
   const [barcodeType, setBarcodeType] = useState<BarcodeType>('CODE_128')
   const [barcodeData, setBarcodeData] = useState<BarcodeData | null>(null)
@@ -296,9 +299,24 @@ export default function BarcodeModal({ open, product, onClose }: BarcodeModalPro
                   </Row>
 
                   <div className="flex justify-end mb-4">
-                    <Button type="primary" htmlType="submit" icon={<QrcodeOutlined />} loading={loadingBatch}>
-                      Tạo tem nhãn kết hợp
-                    </Button>
+                    <Tooltip
+                      title={
+                        canPrintBatch
+                          ? undefined
+                          : 'Chỉ Quản trị viên, Quản lý kho và Nhân viên kho được tạo tem nhãn theo lô.'
+                      }
+                    >
+                      <Button
+                        type="primary"
+                        htmlType="submit"
+                        icon={<QrcodeOutlined />}
+                        loading={loadingBatch}
+                        disabled={!canPrintBatch}
+                        data-write-action
+                      >
+                        Tạo tem nhãn kết hợp
+                      </Button>
+                    </Tooltip>
                   </div>
                 </Form>
 

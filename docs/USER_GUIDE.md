@@ -84,8 +84,8 @@ Thêm một mặt hàng:
 
 Nhập nhiều mặt hàng từ Excel:
 1. Bấm "Nhập Excel", bấm "Tải file mẫu (.xlsx)".
-2. Điền file; cột bắt buộc là Mã SKU, Tên sản phẩm, Mã đơn vị tính. Mã nhóm hàng và đơn vị phải trùng mã có sẵn.
-3. Kéo thả file (.xlsx, .xls, .csv), xem trước, bấm "Tiến hành Import". Dòng trùng SKU báo lỗi.
+2. Điền file; cột bắt buộc là Mã SKU, Tên sản phẩm, Đơn vị tính. Đơn vị tính và nhóm hàng ghi bằng tên (ghi mã có sẵn cũng được); tên chưa có trong doanh nghiệp được tạo mới. Quản lý theo lô và hạn dùng bật sau trong màn hình sửa hàng hóa.
+3. Kéo thả file (.xlsx, .xls, .csv), xem trước, bấm "Tiến hành Import". Bảng kết quả ghi từng dòng: Đã tạo, Bỏ qua (SKU đã có, không ghi đè) hoặc Lỗi kèm lý do. File trên 500 dòng được gửi thành nhiều lần.
 
 Nút ngưng hoạt động trên dòng là xóa mềm, dữ liệu vẫn giữ. Nhóm hàng và đơn vị tính chỉ chọn từ danh sách có sẵn; chưa có màn hình thêm mới hai danh mục này.
 
@@ -211,6 +211,12 @@ Lập phiếu xuất kho:
 1. Bấm "Xuất kho" trên đơn, "Xuất kho (GDN)" trong chi tiết đơn, hoặc "Lập Phiếu Xuất GDN" ở tab "Phiếu xuất kho (GDN)".
 2. Quét mã vạch (hoặc "Quét bằng Camera") để cộng dồn, hoặc nhập số lượng; xuất từng phần được.
 3. Nhập ghi chú (biển số xe, tài xế), bấm "Xác Nhận Xuất Xưởng & In Phiếu Giao Hàng". Tồn kho bị trừ và phiếu giao hàng mở ra để in.
+
+Không đủ tồn hoặc ô lấy hàng đang kiểm kê: màn hình báo lỗi, phiếu không được lưu, form vẫn mở. Nếu màn hình báo phiếu đã được lưu nhưng chưa trừ tồn kho (dịch vụ kho không phản hồi kịp), phiếu ở trạng thái Đang lấy hàng: không lập phiếu mới mà làm bước dưới.
+
+Xác nhận xuất kho phiếu Bản nháp hoặc Đang lấy hàng (Quản trị hệ thống, Quản lý kho, Nhân viên kho):
+1. Vào tab "Phiếu xuất kho (GDN)", bấm nút biểu tượng xuất kho (chú thích "Xác nhận xuất kho") trên dòng phiếu, hoặc mở phiếu rồi bấm "Xác nhận xuất kho".
+2. Bấm "Xác nhận xuất kho" trong hộp xác nhận. Tồn kho bị trừ và phiếu chuyển Đã xuất kho. Gặp lỗi thì bấm lại được, tồn chỉ bị trừ một lần cho mỗi phiếu.
 
 Ở tab "Xuất kho & Lộ trình lấy hàng", nút lấy hàng và xuất kho chỉ bật cho Quản trị hệ thống, Quản lý kho, Nhân viên kho. Tab "Phiếu xuất kho (GDN)" cho xem và in lại các phiếu.
 

@@ -26,13 +26,16 @@ import {
 import type { ColumnsType } from 'antd/es/table'
 import dayjs from 'dayjs'
 import { useEffect, useState } from 'react'
+import { useCan } from '../../auth/useCan'
 import { getApiErrorMessage } from '../../../services/api'
+import { errorMessageOf, stockShortagesOf } from '../../../services/stockDocuments'
 import { formatCurrency, formatNumber } from '../../../utils/format'
 import * as customerApi from '../../customers/customerApi'
 import type { CustomerCreditCheckResponse } from '../../customers/types'
 import * as salesApi from '../salesApi'
 import { SALES_STATUS_CONFIG } from '../statusConfig'
 import type { SalesOrder, SalesOrderItem } from '../types'
+import { StockShortageNotice } from './StockErrorDetails'
 
 interface Props {
   open: boolean
@@ -59,13 +62,15 @@ export default function SalesOrderDetailModal({
   canCancel = false,
   canManageInvoice = false,
 }: Props) {
-  const { message } = App.useApp()
+  const { message, modal } = App.useApp()
+  // Nhân viên kho xem được đơn bán nhưng không đọc được công nợ khách hàng (403)
+  const canReadCustomers = useCan()('customer.read')
   const [actionLoading, setActionLoading] = useState(false)
   const [creditInfo, setCreditInfo] = useState<CustomerCreditCheckResponse | null>(null)
 
   // Tra cứu công nợ khách hàng tức thời (FR14, FR18)
   useEffect(() => {
-    if (!open || !order?.customerId) return
+    if (!open || !order?.customerId || !canReadCustomers) return
 
     let ignore = false
     void customerApi
@@ -80,7 +85,7 @@ export default function SalesOrderDetailModal({
     return () => {
       ignore = true
     }
-  }, [open, order?.customerId])
+  }, [open, order?.customerId, canReadCustomers])
 
   if (!order) return null
 
@@ -94,8 +99,9 @@ export default function SalesOrderDetailModal({
   const isCancellable = ['DRAFT', 'CONFIRMED', 'BACKORDER'].includes(order.status)
   const canCreateInvoice = ['CONFIRMED', 'COMPLETED'].includes(order.status)
 
-  // Xử lý xác nhận đơn bán (tự động giữ hàng ảo Soft Reservation)
+  // Xử lý xác nhận đơn bán (giữ chỗ đồng bộ là một phần của xác nhận; thiếu hàng thì đơn giữ nguyên trạng thái)
   const handleConfirm = async () => {
+    if (actionLoading) return
     setActionLoading(true)
     try {
       const updated = await salesApi.confirmSalesOrder(order.id)
@@ -104,7 +110,28 @@ export default function SalesOrderDetailModal({
       )
       onOrderUpdated?.(updated)
     } catch (err) {
-      message.error(getApiErrorMessage(err, 'Lỗi khi xác nhận đơn bán hàng'))
+      const shortages = stockShortagesOf(err)
+      if (shortages.length > 0) {
+        modal.error({
+          title: `Chưa xác nhận được đơn "${order.soNumber}": không đủ hàng để giữ chỗ`,
+          width: 640,
+          content: (
+            <StockShortageNotice
+              message={errorMessageOf(err)}
+              shortages={shortages}
+              productName={(productId) => order.items?.find((it) => it.productId === productId)?.productName}
+            />
+          ),
+        })
+      } else {
+        message.error(getApiErrorMessage(err, 'Lỗi khi xác nhận đơn bán hàng'))
+      }
+      // Tải lại đơn và danh sách: đơn có thể đã được xác nhận ở nơi khác hoặc số tồn đã đổi
+      try {
+        onOrderUpdated?.(await salesApi.getSalesOrderById(order.id))
+      } catch {
+        // Giữ nguyên dữ liệu đang hiển thị nếu không tải lại được
+      }
     } finally {
       setActionLoading(false)
     }
@@ -289,9 +316,10 @@ export default function SalesOrderDetailModal({
               </Popconfirm>
             )}
 
-            {/* Nút Lấy hàng */}
-            {order.status === 'CONFIRMED' && (
+            {/* Nút Lấy hàng: chỉ hiện khi màn hình cha cho phép (vai trò được xem danh sách lấy hàng) */}
+            {order.status === 'CONFIRMED' && onOpenPicking && (
               <Button
+                data-write-action
                 type="primary"
                 icon={<RocketOutlined />}
                 onClick={() => {
@@ -305,8 +333,8 @@ export default function SalesOrderDetailModal({
               </Button>
             )}
 
-            {/* Nút Xuất kho (GDN) */}
-            {order.status === 'CONFIRMED' && (
+            {/* Nút Xuất kho (GDN): chỉ hiện khi vai trò được lập phiếu xuất */}
+            {order.status === 'CONFIRMED' && onOpenDelivery && (
               <Button
                 type="primary"
                 icon={<CheckCircleOutlined />}

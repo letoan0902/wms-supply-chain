@@ -207,6 +207,7 @@ export default function PurchaseOrderDetailModal({
 
               {onOpenCreateGrn && (order.status === 'APPROVED' || order.status === 'PARTIALLY_RECEIVED') && (
                 <Button
+                  data-write-action
                   type="primary"
                   icon={<BarcodeOutlined />}
                   onClick={() => {

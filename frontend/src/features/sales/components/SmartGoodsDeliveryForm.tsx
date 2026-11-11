@@ -28,7 +28,14 @@ import type { InputRef } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { useEffect, useRef, useState } from 'react'
 import BarcodeCameraScanner from '../../purchases/components/BarcodeCameraScanner'
-import { getApiErrorMessage, getErrorStatus } from '../../../services/api'
+import { getApiErrorMessage } from '../../../services/api'
+import {
+  errorMessageOf,
+  errorStatusOf,
+  frozenLocationsOf,
+  isOutcomeUnknown,
+  pendingDispatchGdnNumberOf,
+} from '../../../services/stockDocuments'
 import { formatNumber } from '../../../utils/format'
 import { playErrorBeep, playSuccessBeep, playWarningBeep } from '../../../utils/sound'
 import * as pickingApi from '../pickingApi'
@@ -37,6 +44,7 @@ import type { SalesOrder, SalesOrderItem } from '../types'
 import * as gdnApi from '../gdnApi'
 import type { CreateGdnRequest, GdnResponse } from '../gdnTypes'
 import PrintDeliveryNoteModal from './PrintDeliveryNoteModal'
+import { FrozenLocationList } from './StockErrorDetails'
 
 const { Text } = Typography
 
@@ -84,6 +92,11 @@ interface SmartGoodsDeliveryFormProps {
   order: SalesOrder | null
   onClose: () => void
   onSuccess?: (createdGdn: GdnResponse) => void
+  /**
+   * Phiếu đã được lưu ở PICKING nhưng chưa trừ tồn (máy chủ trả 503 nêu mã phiếu): form đã đóng, nơi mở form tải lại
+   * danh sách và chỉ cho người dùng phiếu cần bấm "Xác nhận xuất kho".
+   */
+  onSavedPendingDispatch?: (gdnNumber: string) => void
 }
 
 export default function SmartGoodsDeliveryForm({
@@ -91,8 +104,9 @@ export default function SmartGoodsDeliveryForm({
   order,
   onClose,
   onSuccess,
+  onSavedPendingDispatch,
 }: SmartGoodsDeliveryFormProps) {
-  const { message } = App.useApp()
+  const { message, modal } = App.useApp()
 
   const [selectedOrderId, setSelectedOrderId] = useState<number | null>(null)
   const [confirmedOrders, setConfirmedOrders] = useState<SalesOrder[]>([])
@@ -409,15 +423,45 @@ export default function SmartGoodsDeliveryForm({
       }
     } catch (err) {
       playErrorBeep()
-      const status = getErrorStatus(err)
-      if (status === undefined || status >= 500) {
-        // Không nhận được phản hồi (mất mạng, hết thời gian chờ): phiếu có thể đã được lập ở máy chủ.
-        // Không gửi lại nguyên yêu cầu cũ, tải lại số lượng còn lại để người dùng kiểm tra rồi mới xuất tiếp.
+      const status = errorStatusOf(err)
+      const pendingGdnNumber = pendingDispatchGdnNumberOf(err)
+      const frozen = status === 409 ? frozenLocationsOf(err) : []
+      if (pendingGdnNumber) {
+        // Phiếu đã được lưu ở PICKING, tồn chưa chắc đã trừ: không cho lập phiếu thứ hai cho cùng số lượng,
+        // đóng form và chỉ người dùng bấm "Xác nhận xuất kho" trên đúng phiếu này (máy chủ chỉ trừ tồn một lần).
+        modal.warning({
+          title: `Phiếu ${pendingGdnNumber} đã được lưu nhưng chưa trừ tồn kho`,
+          content: `Chưa xác nhận được việc trừ tồn với dịch vụ kho nên phiếu ${pendingGdnNumber} đang ở trạng thái Đang lấy hàng. Mở tab "Phiếu xuất kho (GDN)" và bấm "Xác nhận xuất kho" trên phiếu này (bấm lại an toàn, tồn chỉ bị trừ một lần). Không lập phiếu mới cho cùng số lượng.`,
+        })
+        onSavedPendingDispatch?.(pendingGdnNumber)
+        onClose()
+      } else if (frozen.length > 0) {
+        // Ô lấy hàng đang đóng băng kiểm kê: không phiếu nào được lưu, giữ form để chọn lại
+        modal.error({
+          title: 'Chưa xuất kho được',
+          width: 560,
+          content: (
+            <div className="space-y-1">
+              <div>{errorMessageOf(err)}</div>
+              <FrozenLocationList
+                locations={frozen}
+                productName={(productId) => items.find((it) => it.productId === productId)?.productName}
+              />
+              <div className="text-xs text-slate-500">Phiếu chưa được lưu. Chờ đợt kiểm kê kết thúc rồi xuất lại.</div>
+            </div>
+          ),
+        })
+      } else if (status === undefined || status >= 500 || isOutcomeUnknown(err)) {
+        // Không nhận được phản hồi (mất mạng, hết thời gian chờ) hoặc lỗi máy chủ: phiếu có thể đã được lập.
+        // Không gửi lại nguyên yêu cầu cũ, tải lại số lượng còn lại (phiếu đã lập, kể cả PICKING, đã được trừ khỏi
+        // phần còn lại) để người dùng kiểm tra rồi mới xuất tiếp.
         message.warning(
-          'Không xác định được phiếu xuất đã được lập hay chưa. Đã tải lại số lượng còn lại của đơn, vui lòng kiểm tra danh sách phiếu xuất trước khi xuất tiếp.'
+          'Không xác định được phiếu xuất đã được lập hay chưa. Đã tải lại số lượng còn lại của đơn, vui lòng kiểm tra danh sách phiếu xuất (phiếu Đang lấy hàng thì bấm "Xác nhận xuất kho" trên phiếu đó) trước khi xuất tiếp.',
+          8
         )
         setReloadKey((k) => k + 1)
       } else {
+        // Không đủ tồn thực tế, lô khóa, kho ngừng hoạt động...: không phiếu nào được lưu, giữ form
         message.error(getApiErrorMessage(err, 'Lỗi khi xác nhận xuất xưởng phiếu GDN'))
       }
     } finally {
@@ -692,6 +736,7 @@ export default function SmartGoodsDeliveryForm({
 
               <Space wrap>
                 <Button
+                  data-write-action
                   icon={<CameraOutlined />}
                   onClick={() => setIsCameraOpen(true)}
                   className="text-slate-700"

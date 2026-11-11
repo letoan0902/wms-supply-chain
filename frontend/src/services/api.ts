@@ -8,6 +8,7 @@ import {
   saveRefreshToken,
   saveToken,
 } from '../utils/storage'
+import { loginPathWithRedirect } from '../features/auth/loginRedirect'
 
 const LOGIN_PATH = '/login'
 
@@ -134,12 +135,14 @@ api.interceptors.response.use(
         return Promise.reject(error)
       }
 
+      // Phiên hết hạn: chuyển về trang đăng nhập kèm trang hiện tại (đường dẫn và query, ví dụ orderCode khi quay
+      // lại từ PayOS) để đăng nhập xong quay lại đúng chỗ.
       // Bẫy lặp vô hạn: nếu chính API refresh bị 401 hoặc request này đã được retry một lần rồi mà vẫn 401
       if (!originalRequest || requestUrl.includes('/auth/refresh') || originalRequest._retry) {
         processQueue(error, null)
         clearAuth()
         if (window.location.pathname !== LOGIN_PATH) {
-          window.location.assign(LOGIN_PATH)
+          window.location.assign(loginPathWithRedirect())
         }
         return Promise.reject(error)
       }
@@ -165,7 +168,7 @@ api.interceptors.response.use(
       if (!currentRefreshToken) {
         clearAuth()
         if (window.location.pathname !== LOGIN_PATH) {
-          window.location.assign(LOGIN_PATH)
+          window.location.assign(loginPathWithRedirect())
         }
         return Promise.reject(error)
       }
@@ -204,7 +207,7 @@ api.interceptors.response.use(
         processQueue(refreshErr, null)
         clearAuth()
         if (window.location.pathname !== LOGIN_PATH) {
-          window.location.assign(LOGIN_PATH)
+          window.location.assign(loginPathWithRedirect())
         }
         return Promise.reject(refreshErr)
       } finally {

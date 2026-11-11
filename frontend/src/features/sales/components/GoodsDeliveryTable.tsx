@@ -1,5 +1,6 @@
 import {
   CheckCircleOutlined,
+  ExportOutlined,
   EyeOutlined,
   FileExcelOutlined,
   InboxOutlined,
@@ -11,12 +12,14 @@ import {
   SyncOutlined,
 } from '@ant-design/icons'
 import {
+  Alert,
   App,
   Button,
   Card,
   Col,
   DatePicker,
   Input,
+  Popconfirm,
   Row,
   Select,
   Space,
@@ -27,7 +30,8 @@ import {
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import dayjs from 'dayjs'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { useCan } from '../../auth/useCan'
 import * as XLSX from 'xlsx'
 import { getApiErrorMessage } from '../../../services/api'
 import { formatNumber } from '../../../utils/format'
@@ -35,6 +39,8 @@ import * as warehouseApi from '../../warehouses/warehouseApi'
 import type { Warehouse } from '../../warehouses/types'
 import * as gdnApi from '../gdnApi'
 import type { GdnResponse, GdnSummaryResponse, GoodsDeliveryStatus } from '../gdnTypes'
+import { isAwaitingDispatch, useGdnDispatch } from '../useGdnDispatch'
+import { useOutboundLiveRefresh } from '../useOutboundLiveRefresh'
 import GoodsDeliveryDetailModal from './GoodsDeliveryDetailModal'
 import PrintDeliveryNoteModal from './PrintDeliveryNoteModal'
 import SmartGoodsDeliveryForm from './SmartGoodsDeliveryForm'
@@ -50,6 +56,10 @@ const GDN_STATUS_LABEL: Record<GoodsDeliveryStatus, string> = {
 
 export default function GoodsDeliveryTable() {
   const { message } = App.useApp()
+  // Lập phiếu xuất kho và xác nhận xuất kho: ADMIN, Quản lý kho, Nhân viên kho
+  const can = useCan()
+  const canCreateGdn = can('gdn.create')
+  const { dispatchingId, dispatchGdn } = useGdnDispatch()
 
   const [gdns, setGdns] = useState<GdnResponse[]>([])
   const [total, setTotal] = useState(0)
@@ -74,6 +84,22 @@ export default function GoodsDeliveryTable() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [selectedGdnForDetail, setSelectedGdnForDetail] = useState<GdnResponse | null>(null)
   const [selectedGdnForPrint, setSelectedGdnForPrint] = useState<GdnResponse | null>(null)
+  // Phiếu vừa lập đã lưu ở PICKING nhưng chưa trừ tồn (máy chủ trả 503): tô màu dòng để bấm "Xác nhận xuất kho"
+  const [pendingGdnNumber, setPendingGdnNumber] = useState<string | null>(null)
+
+  const reloadList = useCallback(() => setRefreshKey((k) => k + 1), [])
+  // Tin thời gian thực về đơn bán hoặc tồn kho qua kết nối chung: làm mới bảng (giãn cách, không hỏi định kỳ)
+  useOutboundLiveRefresh(reloadList)
+
+  // Xác nhận xuất kho phiếu DRAFT/PICKING; tải lại danh sách sau cả thành công lẫn thất bại
+  const handleDispatch = async (gdn: GdnResponse) => {
+    const updated = await dispatchGdn(gdn)
+    if (updated) {
+      if (pendingGdnNumber === updated.gdnNumber && updated.status === 'COMPLETED') setPendingGdnNumber(null)
+      setSelectedGdnForDetail((current) => (current?.id === updated.id ? updated : current))
+    }
+    reloadList()
+  }
 
   // Debounce tìm kiếm
   useEffect(() => {
@@ -266,10 +292,32 @@ export default function GoodsDeliveryTable() {
     {
       title: 'Thao tác',
       key: 'actions',
-      width: 130,
+      width: 150,
       fixed: 'right',
       render: (_, r) => (
         <Space size="small">
+          {isAwaitingDispatch(r) && can('gdn.create', r.warehouseId) && (
+            <Tooltip title="Xác nhận xuất kho (trừ tồn theo phiếu)">
+              <Popconfirm
+                title="Xác nhận xuất kho?"
+                description={`Trừ tồn kho theo phiếu "${r.gdnNumber}" và hoàn tất phiếu.`}
+                onConfirm={() => handleDispatch(r)}
+                okText="Xác nhận xuất kho"
+                cancelText="Hủy"
+              >
+                <Button
+                  data-write-action
+                  size="small"
+                  icon={<ExportOutlined />}
+                  aria-label="Xác nhận xuất kho"
+                  loading={dispatchingId === r.id}
+                  disabled={dispatchingId !== null && dispatchingId !== r.id}
+                  className="text-orange-600 border-orange-400"
+                />
+              </Popconfirm>
+            </Tooltip>
+          )}
+
           <Tooltip title="Xem chi tiết phiếu GDN">
             <Button
               size="small"
@@ -309,14 +357,16 @@ export default function GoodsDeliveryTable() {
         </div>
 
         <Space wrap>
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => setIsCreateModalOpen(true)}
-            className="bg-emerald-600 hover:bg-emerald-700 font-semibold"
-          >
-            Lập Phiếu Xuất GDN
-          </Button>
+          {canCreateGdn && (
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => setIsCreateModalOpen(true)}
+              className="bg-emerald-600 hover:bg-emerald-700 font-semibold"
+            >
+              Lập Phiếu Xuất GDN
+            </Button>
+          )}
 
           <Button
             icon={<FileExcelOutlined />}
@@ -460,6 +510,17 @@ export default function GoodsDeliveryTable() {
         </div>
       </div>
 
+      {pendingGdnNumber && (
+        <Alert
+          type="warning"
+          showIcon
+          closable
+          onClose={() => setPendingGdnNumber(null)}
+          message={`Phiếu ${pendingGdnNumber} đã được lưu ở trạng thái Đang lấy hàng nhưng chưa trừ tồn kho`}
+          description='Bấm "Xác nhận xuất kho" trên dòng được tô màu (hoặc trong chi tiết phiếu) để trừ tồn và hoàn tất phiếu. Không lập phiếu mới cho cùng số lượng.'
+        />
+      )}
+
       {/* 4. Table */}
       <Card variant="borderless" className="shadow-2xs">
         <Table
@@ -467,7 +528,8 @@ export default function GoodsDeliveryTable() {
           columns={columns}
           dataSource={gdns}
           loading={loading}
-          scroll={{ x: 1050 }}
+          rowClassName={(r) => (pendingGdnNumber && r.gdnNumber === pendingGdnNumber ? '[&>td]:!bg-amber-100' : '')}
+          scroll={{ x: 1100 }}
           pagination={{
             current: page + 1,
             pageSize,
@@ -491,6 +553,12 @@ export default function GoodsDeliveryTable() {
           setIsCreateModalOpen(false)
           setRefreshKey((k) => k + 1)
         }}
+        onSavedPendingDispatch={(gdnNumber) => {
+          setIsCreateModalOpen(false)
+          setPendingGdnNumber(gdnNumber)
+          setPage(0)
+          reloadList()
+        }}
       />
 
       {/* Modal Chi tiết GDN */}
@@ -501,6 +569,9 @@ export default function GoodsDeliveryTable() {
         onPrint={(g) => {
           setSelectedGdnForPrint(g)
         }}
+        canDispatch={Boolean(selectedGdnForDetail && can('gdn.create', selectedGdnForDetail.warehouseId))}
+        dispatching={selectedGdnForDetail != null && dispatchingId === selectedGdnForDetail.id}
+        onDispatch={handleDispatch}
       />
 
       {/* Modal In Phiếu Giao Hàng */}

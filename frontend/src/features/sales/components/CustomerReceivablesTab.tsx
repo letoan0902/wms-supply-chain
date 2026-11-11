@@ -31,6 +31,7 @@ import {
 import type { ColumnsType } from 'antd/es/table'
 import dayjs from 'dayjs'
 import { useEffect, useState } from 'react'
+import { useCan } from '../../auth/useCan'
 import { getApiErrorMessage } from '../../../services/api'
 import { formatCurrency } from '../../../utils/format'
 import * as customerApi from '../../customers/customerApi'
@@ -43,6 +44,8 @@ import CreateSalesInvoiceModal from './CreateSalesInvoiceModal'
 
 export default function CustomerReceivablesTab() {
   const { message } = App.useApp()
+  // Lập hóa đơn bán và thu tiền đều ghi giao dịch công nợ khách hàng: ADMIN, Kế toán
+  const canRecord = useCan()('customer.transaction')
 
   // State danh sách khách hàng
   const [customers, setCustomers] = useState<Customer[]>([])
@@ -250,8 +253,10 @@ export default function CustomerReceivablesTab() {
       align: 'center',
       render: (_val, r) => (
         <Space size="small">
+          {canRecord && (
           <Tooltip title="Lập hóa đơn bán (Bán nợ)">
             <Button
+              data-write-action
               size="small"
               type="text"
               icon={<FileTextOutlined className="text-blue-600" />}
@@ -261,6 +266,8 @@ export default function CustomerReceivablesTab() {
               }}
             />
           </Tooltip>
+          )}
+          {canRecord && (
           <Tooltip title="Thu tiền nợ (Thanh toán)">
             <Button
               size="small"
@@ -277,6 +284,7 @@ export default function CustomerReceivablesTab() {
               }}
             />
           </Tooltip>
+          )}
           <Tooltip title="Xem lịch sử hóa đơn">
             <Button
               size="small"
@@ -475,6 +483,7 @@ export default function CustomerReceivablesTab() {
                     )}
                   </span>
                 </div>
+                {canRecord && (
                 <Space>
                   <Button
                     size="small"
@@ -506,6 +515,7 @@ export default function CustomerReceivablesTab() {
                     Thu tiền
                   </Button>
                 </Space>
+                )}
               </div>
             }
             className="shadow-2xs border-slate-200"

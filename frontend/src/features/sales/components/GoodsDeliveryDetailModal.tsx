@@ -1,9 +1,10 @@
-import { PrinterOutlined } from '@ant-design/icons'
-import { Button, Descriptions, Modal, Table, Tag } from 'antd'
+import { ExportOutlined, PrinterOutlined } from '@ant-design/icons'
+import { Alert, Button, Descriptions, Modal, Popconfirm, Table, Tag } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import dayjs from 'dayjs'
 import { formatNumber } from '../../../utils/format'
 import type { GdnItemResponse, GdnResponse, GoodsDeliveryStatus } from '../gdnTypes'
+import { isAwaitingDispatch } from '../useGdnDispatch'
 
 const GDN_STATUS_TAG: Record<GoodsDeliveryStatus, { color: string; label: string }> = {
   DRAFT: { color: 'warning', label: 'Bản nháp' },
@@ -17,6 +18,11 @@ interface GoodsDeliveryDetailModalProps {
   gdn: GdnResponse | null
   onClose: () => void
   onPrint?: (gdn: GdnResponse) => void
+  /** Xác nhận xuất kho phiếu DRAFT/PICKING (trừ tồn); không truyền thì không hiện nút */
+  onDispatch?: (gdn: GdnResponse) => Promise<void> | void
+  /** Người dùng được xuất kho phiếu này (quyền gdn.create) */
+  canDispatch?: boolean
+  dispatching?: boolean
 }
 
 export default function GoodsDeliveryDetailModal({
@@ -24,6 +30,9 @@ export default function GoodsDeliveryDetailModal({
   gdn,
   onClose,
   onPrint,
+  onDispatch,
+  canDispatch = false,
+  dispatching = false,
 }: GoodsDeliveryDetailModalProps) {
   if (!gdn) return null
 
@@ -88,6 +97,7 @@ export default function GoodsDeliveryDetailModal({
 
   const totalQty = Number(gdn.totalQuantity ?? 0)
   const statusTag = GDN_STATUS_TAG[gdn.status] ?? { color: 'default', label: gdn.status }
+  const showDispatch = Boolean(onDispatch) && canDispatch && isAwaitingDispatch(gdn)
 
   return (
     <Modal
@@ -106,6 +116,27 @@ export default function GoodsDeliveryDetailModal({
         <Button key="close" onClick={onClose}>
           Đóng
         </Button>,
+        ...(showDispatch
+          ? [
+              <Popconfirm
+                key="dispatch"
+                title="Xác nhận xuất kho?"
+                description={`Trừ tồn kho theo phiếu "${gdn.gdnNumber}" và hoàn tất phiếu.`}
+                onConfirm={() => onDispatch?.(gdn)}
+                okText="Xác nhận xuất kho"
+                cancelText="Hủy"
+              >
+                <Button
+                  data-write-action
+                  icon={<ExportOutlined />}
+                  loading={dispatching}
+                  className="text-orange-600 border-orange-400"
+                >
+                  Xác nhận xuất kho
+                </Button>
+              </Popconfirm>,
+            ]
+          : []),
         <Button
           key="print"
           type="primary"
@@ -121,6 +152,19 @@ export default function GoodsDeliveryDetailModal({
       destroyOnClose
     >
       <div className="space-y-4 pt-2">
+        {isAwaitingDispatch(gdn) && (
+          <Alert
+            type="warning"
+            showIcon
+            message="Phiếu chưa trừ tồn kho"
+            description={
+              showDispatch
+                ? 'Bấm "Xác nhận xuất kho" để trừ tồn và hoàn tất phiếu. Bấm lại sau lỗi là an toàn: tồn chỉ bị trừ một lần cho mỗi phiếu.'
+                : 'Quản trị hệ thống, Quản lý kho hoặc Nhân viên kho bấm "Xác nhận xuất kho" để trừ tồn và hoàn tất phiếu.'
+            }
+          />
+        )}
+
         <Descriptions size="small" bordered column={{ xs: 1, sm: 2 }}>
           <Descriptions.Item label="Mã Phiếu GDN">
             <span className="font-mono font-bold text-emerald-700">{gdn.gdnNumber}</span>

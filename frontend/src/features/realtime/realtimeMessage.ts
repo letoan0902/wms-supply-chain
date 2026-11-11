@@ -14,6 +14,7 @@ export function realtimeTopics(companyId: number): string[] {
 /** Tiêu đề và mức độ mặc định theo loại tin, chỉ dùng khi backend gửi thiếu trường. */
 const MESSAGE_DEFAULTS: Record<RealtimeMessageType, { title: string; severity: RealtimeSeverity }> = {
   LOW_STOCK: { title: 'Cảnh báo tồn kho thấp', severity: 'warning' },
+  STOCK_ALERT: { title: 'Cảnh báo tồn kho', severity: 'warning' },
   ORDER_CREATED: { title: 'Đơn hàng mới', severity: 'info' },
   ORDER_DISPATCHED: { title: 'Đơn hàng đã xuất kho', severity: 'success' },
   INVENTORY_UPDATED: { title: 'Cập nhật tồn kho', severity: 'info' },

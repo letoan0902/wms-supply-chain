@@ -101,6 +101,8 @@ export const router = createBrowserRouter([
           { path: 'purchases', Component: lazy(() => import('../features/purchases/PurchasesPage')) },
           // Quản lý Đơn bán hàng (SO) (WMS-11 - Sprint 3)
           { path: 'sales', Component: lazy(() => import('../features/sales/SalesPage')) },
+          // Bảng tồn kho thời gian thực, bộ lọc và thẻ màu cảnh báo
+          { path: 'inventory', Component: lazy(() => import('../features/inventory/InventoryPage')) },
           { path: 'transfers', Component: lazy(() => import('../features/transfers/TransfersPage')) },
           // Quản lý Người dùng & Phân quyền RBAC (FR01, FR02 - Sprint 2)
           { path: 'users', Component: lazy(() => import('../features/users/UsersPage')) },

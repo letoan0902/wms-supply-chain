@@ -33,6 +33,22 @@ export interface LowStockPayload {
   detectedAt: string | null
 }
 
+/**
+ * Bản tổng hợp cảnh báo tồn kho của một kho và một loại (STOCK_ALERT, kênh alerts), phát sau tác vụ 00:00 hoặc sau
+ * khi ADMIN bấm quét. Chỉ khai báo các trường giao diện dùng tới.
+ */
+export interface StockAlertPayload {
+  companyId: number | null
+  alertDate: string | null
+  kind: 'NEAR_EXPIRY' | 'EXPIRED' | 'DEAD_STOCK' | 'LOW_STOCK' | null
+  severity: 'CRITICAL' | 'WARNING' | 'INFO' | null
+  warehouseId: number | null
+  warehouseCode: string | null
+  warehouseName: string | null
+  totalItems: number | null
+  detectedAt: string | null
+}
+
 export interface OrderCreatedPayload {
   orderId: number | null
   orderNumber: string | null
@@ -83,6 +99,7 @@ export interface KpiSnapshot {
 /** Ánh xạ loại tin sang kiểu payload tương ứng. */
 export interface RealtimePayloadMap {
   LOW_STOCK: LowStockPayload
+  STOCK_ALERT: StockAlertPayload
   ORDER_CREATED: OrderCreatedPayload
   ORDER_DISPATCHED: OrderDispatchedPayload
   INVENTORY_UPDATED: InventoryUpdatedPayload
@@ -112,7 +129,7 @@ export type RealtimeMessage = {
 /** Các loại tin được lưu vào danh sách thông báo (chuông) và hiện toast. */
 export type NotifiableMessage = Extract<
   RealtimeMessage,
-  { type: 'LOW_STOCK' | 'ORDER_CREATED' | 'ORDER_DISPATCHED' }
+  { type: 'LOW_STOCK' | 'STOCK_ALERT' | 'ORDER_CREATED' | 'ORDER_DISPATCHED' }
 >
 
 /** Một mục trong danh sách thông báo gần đây. */

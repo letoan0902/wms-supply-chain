@@ -1,0 +1,17 @@
+/* Dòng tồn kho cần phân biệt bằng màu nền (Ant Design tô nền ở từng ô nên phải đặt cho td). */
+
+/* Lô bị khóa: nền xám, chữ nhạt */
+.inventory-row-locked > td {
+  background: #f5f5f5 !important;
+  color: rgba(0, 0, 0, 0.45);
+}
+
+/* Lô đã hết hạn hoặc mặt hàng có lô hết hạn: nền đỏ nhạt */
+.inventory-row-expired > td {
+  background: #fff1f0 !important;
+}
+
+/* Mặt hàng chạm mức tồn an toàn: viền trái đỏ */
+.inventory-row-critical > td:first-child {
+  box-shadow: inset 3px 0 0 #ff4d4f;
+}

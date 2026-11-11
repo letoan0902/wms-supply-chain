@@ -53,6 +53,14 @@ public interface StockItemRepository extends JpaRepository<StockItem, Long> {
     @Query("SELECT COUNT(DISTINCT s.binLocation.id) FROM StockItem s WHERE s.quantity > 0")
     long countTotalOccupiedLocations();
 
+    @Query("SELECT COALESCE(SUM(s.quantity - s.reservedQuantity), 0) FROM StockItem s " +
+           "WHERE s.locked = false AND (s.expDate IS NULL OR s.expDate > :today) " +
+           "  AND (:warehouseId IS NULL OR s.binLocation.warehouse.id = :warehouseId)")
+    BigDecimal sumAvailableQuantity(
+            @Param("warehouseId") Long warehouseId,
+            @Param("today") LocalDate today
+    );
+
     @Query("SELECT s FROM StockItem s " +
            "WHERE s.productId = :productId " +
            "  AND (s.quantity - s.reservedQuantity) > 0 " +

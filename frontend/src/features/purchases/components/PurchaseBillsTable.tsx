@@ -27,6 +27,7 @@ import { useEffect, useState } from 'react'
 import * as XLSX from 'xlsx'
 import { getApiErrorMessage } from '../../../services/api'
 import { formatCurrency, formatNumber } from '../../../utils/format'
+import { getStoredUser } from '../../../utils/storage'
 import * as supplierApi from '../../suppliers/supplierApi'
 import type { Supplier } from '../../suppliers/types'
 import * as purchaseBillsApi from '../purchaseBillsApi'
@@ -47,6 +48,9 @@ interface PurchaseBillsTableProps {
 
 export default function PurchaseBillsTable({ onBillUpdated }: PurchaseBillsTableProps) {
   const { message } = App.useApp()
+  const currentUser = getStoredUser()
+  const canRecordPayment =
+    currentUser?.roles?.some((r) => ['ADMIN', 'ACCOUNTANT'].includes(r)) ?? false
 
   // Danh sách hóa đơn & phân trang
   const [bills, setBills] = useState<PurchaseBill[]>([])
@@ -320,7 +324,11 @@ export default function PurchaseBillsTable({ onBillUpdated }: PurchaseBillsTable
       width: 160,
       fixed: 'right',
       render: (_, r) => {
-        const canPay = r.status !== 'PAID' && r.status !== 'CANCELLED' && r.remainingAmount > 0
+        const canPay =
+          canRecordPayment &&
+          r.status !== 'PAID' &&
+          r.status !== 'CANCELLED' &&
+          r.remainingAmount > 0
         return (
           <Space size="small">
             <Tooltip title="Xem chi tiết hóa đơn">

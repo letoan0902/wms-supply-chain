@@ -39,6 +39,9 @@ public interface BinLocationRepository extends JpaRepository<BinLocation, Long> 
 
     long countByStatus(String status);
 
+    @Query("SELECT COUNT(b) FROM BinLocation b WHERE b.active = true AND (:warehouseId IS NULL OR b.warehouse.id = :warehouseId)")
+    long countActiveLocations(@Param("warehouseId") Long warehouseId);
+
     @Query("SELECT DISTINCT b.zone FROM BinLocation b WHERE b.warehouse.id = :warehouseId ORDER BY b.zone ASC")
     List<String> findDistinctZonesByWarehouseId(@Param("warehouseId") Long warehouseId);
 }

@@ -85,7 +85,7 @@ gateway:
     # Mặc định TẮT ở máy phát triển để nhóm gọi API không bị chặn; production bật qua deploy/docker-compose.prod.yml.
     # Bật (GATEWAY_JWT_ENABLED=true trong .env) thì gateway mới chuyển tiếp X-User-Name, X-User-Roles, X-User-Warehouse-Ids,
     # nhờ đó các service lọc dữ liệu theo kho được phân quyền (WMS-04.2), và X-Company-Id để lọc theo doanh nghiệp (WMS-22.3).
-    enabled: ${GATEWAY_JWT_ENABLED:false}
+    enabled: ${GATEWAY_JWT_ENABLED:true}
     # PHẢI trùng JWT_SECRET của auth-service. Chỉ là giá trị dev, đổi ở môi trường thật.
     secret: ${JWT_SECRET:change_me_dev_only_jwt_secret_key_min_32_bytes}
     # Token hợp lệ nhưng không có claim companyId (cấp trước khi chuyển sang mô hình nhiều doanh nghiệp) thì trả 401

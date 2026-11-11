@@ -102,7 +102,7 @@ public class JwtAuthenticationGlobalFilter implements GlobalFilter, Ordered {
 
         String authorization = request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
         if (authorization == null || !authorization.startsWith(BEARER_PREFIX)) {
-            return reject(exchange, "Thiếu token xác thực (header Authorization dạng Bearer)");
+            return reject(exchange, "Chưa xác thực, vui lòng đăng nhập để xem thông tin");
         }
 
         try {
@@ -126,7 +126,7 @@ public class JwtAuthenticationGlobalFilter implements GlobalFilter, Ordered {
             return chain.filter(exchange.mutate().request(authenticated.build()).build());
         } catch (JwtException | IllegalArgumentException ex) {
             log.debug("Từ chối token không hợp lệ: {}", ex.getMessage());
-            return reject(exchange, "Token không hợp lệ hoặc đã hết hạn");
+            return reject(exchange, "Token không hợp lệ, vui lòng kiểm tra lại");
         }
     }
 

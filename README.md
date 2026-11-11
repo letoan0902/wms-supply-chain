@@ -190,6 +190,7 @@ xem trong `docker-compose.yml`; chi tiết về frontend xem [frontend/README.md
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Kiến trúc microservice, trách nhiệm từng service, luồng dữ liệu PO, GRN, SO, GDN |
 | [docs/SPRINT_PLAN.md](docs/SPRINT_PLAN.md) | Kế hoạch bốn sprint và mục tiêu theo phân hệ |
 | [docs/CONVENTIONS.md](docs/CONVENTIONS.md) | Quy ước API, mã lỗi, định dạng response, chuẩn code Java và TypeScript |
+| [docs/INTEGRATION.md](docs/INTEGRATION.md) | Tích hợp hệ thống ngoài bằng API key chỉ đọc: tạo key, API, ví dụ, mã lỗi, giới hạn tốc độ |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Git flow, commit, Pull Request, board, Definition of Done |
 
 ## Quy ước Git (tóm tắt)

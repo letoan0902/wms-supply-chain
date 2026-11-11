@@ -14,6 +14,7 @@ Mục lục tài liệu của dự án. Hướng dẫn chạy dự án và thôn
 | [CONVENTIONS.md](CONVENTIONS.md) | Quy ước đặt tên API, mã lỗi, định dạng response, chuẩn code Java và TypeScript | Trước khi viết code và khi review |
 | [CI_CD.md](CI_CD.md) | Các job GitHub Actions, kiểm tra bắt buộc trước khi merge, tên và thẻ image trên GHCR, cách kéo image | Khi sửa workflow CI, khi cần image để triển khai |
 | [MESSAGING.md](MESSAGING.md) | Sự kiện RabbitMQ: exchange `wms.events`, quy ước routing key và queue, danh sách sự kiện, dead-letter, cách thêm sự kiện mới, tài khoản broker | Khi publish hoặc nhận sự kiện giữa các service, khi thêm sự kiện mới |
+| [INTEGRATION.md](INTEGRATION.md) | Hướng dẫn cho hệ thống ngoài: tạo API key, gửi `X-Api-Key`, các API chỉ đọc (hàng hóa, tồn kho, đơn hàng), ví dụ `curl`, bảng lỗi, giới hạn tốc độ, Swagger | Khi tích hợp một hệ thống ngoài với WMS |
 | [../deploy/README.md](../deploy/README.md) | Hướng dẫn triển khai lên VPS Ubuntu bằng Docker Compose và Caddy: cài Docker, DNS, HTTPS tự động, script `deploy.sh`, sao lưu MySQL, khắc phục sự cố | Khi triển khai hoặc cập nhật máy chủ production |
 | [../CONTRIBUTING.md](../CONTRIBUTING.md) | Git flow, Conventional Commits, Pull Request, quy trình board, Definition of Done | Trước khi tạo nhánh và mở Pull Request |
 

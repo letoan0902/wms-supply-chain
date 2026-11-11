@@ -79,6 +79,10 @@ public class StocktakeApprovalService {
     @Autowired(required = false)
     private WmsEventPublisher wmsEventPublisher;
 
+    /** Ghi sổ kho cho từng dòng tồn bị điều chỉnh, để báo cáo xuất nhập tồn và thẻ kho khớp với tồn (WMS-17.1). */
+    @Autowired(required = false)
+    private StockMovementRecorder stockMovementRecorder;
+
     public StocktakeApprovalService(StocktakeService stocktakeService,
                                     StocktakeSessionRepository sessionRepository,
                                     StocktakeLineRepository lineRepository,
@@ -365,7 +369,7 @@ public class StocktakeApprovalService {
 
         List<StocktakeReservedConflict> conflicts = new ArrayList<>();
         for (StockAdjustmentLine line : adjustment.getLines()) {
-            applyLine(line, conflicts);
+            applyLine(line, conflicts, user.username());
         }
         throwIfConflicts(conflicts);
 
@@ -509,7 +513,7 @@ public class StocktakeApprovalService {
     }
 
     /** Áp dụng một dòng phiếu vào tồn kho dưới khóa bi quan; vi phạm thì ghi vào danh sách xung đột, không đổi tồn. */
-    private void applyLine(StockAdjustmentLine line, List<StocktakeReservedConflict> conflicts) {
+    private void applyLine(StockAdjustmentLine line, List<StocktakeReservedConflict> conflicts, String performedBy) {
         Long binId = line.getBinLocation().getId();
         List<StockItem> rows = stockItemRepository.findByBinLocationIdAndProductIdAndLotNoForUpdate(
                 binId, line.getProductId(), line.getLotNo());
@@ -530,19 +534,23 @@ public class StocktakeApprovalService {
                 created.setReservedQuantity(BigDecimal.ZERO);
                 created.setLocked(false);
                 stockItemRepository.save(created);
+                recordMovement(created, difference, line, performedBy);
             } else {
                 StockItem first = rows.get(0);
                 first.setQuantity(StocktakeService.nz(first.getQuantity()).add(difference));
                 stockItemRepository.save(first);
+                recordMovement(first, difference, line, performedBy);
             }
         } else {
             // Giảm phần tồn chưa giữ chỗ trước; tổng tồn mới đã được kiểm tra không nhỏ hơn tổng giữ chỗ
             BigDecimal remaining = difference.negate();
+            Map<StockItem, BigDecimal> takenByRow = new LinkedHashMap<>();
             for (StockItem row : rows) {
                 BigDecimal free = StocktakeService.nz(row.getQuantity()).subtract(StocktakeService.nz(row.getReservedQuantity())).max(BigDecimal.ZERO);
                 BigDecimal take = free.min(remaining);
                 row.setQuantity(StocktakeService.nz(row.getQuantity()).subtract(take));
                 remaining = remaining.subtract(take);
+                takenByRow.merge(row, take, BigDecimal::add);
             }
             for (StockItem row : rows) {
                 if (remaining.signum() <= 0) {
@@ -551,12 +559,24 @@ public class StocktakeApprovalService {
                 BigDecimal take = StocktakeService.nz(row.getQuantity()).min(remaining);
                 row.setQuantity(StocktakeService.nz(row.getQuantity()).subtract(take));
                 remaining = remaining.subtract(take);
+                takenByRow.merge(row, take, BigDecimal::add);
             }
             stockItemRepository.saveAll(rows);
+            takenByRow.forEach((row, taken) -> recordMovement(row, taken.negate(), line, performedBy));
         }
         line.setQuantityBefore(before);
         line.setQuantityAfter(before.add(difference));
         syncLot(line, difference);
+    }
+
+    /** Ghi một dòng sổ kho cho phần tồn vừa điều chỉnh của một dòng tồn; chứng từ là phiếu điều chỉnh của đợt kiểm kê. */
+    private void recordMovement(StockItem stockItem, BigDecimal delta, StockAdjustmentLine line, String performedBy) {
+        if (stockMovementRecorder == null || delta == null || delta.signum() == 0) {
+            return;
+        }
+        StockAdjustment adjustment = line.getAdjustment();
+        stockMovementRecorder.recordAdjustment(stockItem, delta, "STOCKTAKE", adjustment.getId(), adjustment.getCode(),
+                line.getReason(), performedBy);
     }
 
     /** Đồng bộ bảng inventory_lots cho hàng theo lô (cùng cách các luồng nhập, xuất đang làm). */

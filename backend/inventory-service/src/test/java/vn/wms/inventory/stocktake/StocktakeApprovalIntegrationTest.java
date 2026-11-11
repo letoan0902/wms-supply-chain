@@ -16,6 +16,9 @@ import vn.wms.inventory.dto.DeductStockItemRequest;
 import vn.wms.inventory.dto.DeductStockRequest;
 import vn.wms.inventory.entity.InventoryLot;
 import vn.wms.inventory.entity.StockItem;
+import org.springframework.beans.factory.annotation.Autowired;
+import vn.wms.inventory.entity.StockMovement;
+import vn.wms.inventory.repository.StockMovementRepository;
 import vn.wms.inventory.entity.StocktakeLine;
 
 import java.math.BigDecimal;
@@ -56,6 +59,9 @@ class StocktakeApprovalIntegrationTest extends StocktakeTestSupport {
 
     @MockBean
     private WmsEventPublisher wmsEventPublisher;
+
+    @Autowired
+    private StockMovementRepository stockMovementRepository;
 
     private StockItem itemA1;
     private StockItem itemA2;
@@ -168,6 +174,23 @@ class StocktakeApprovalIntegrationTest extends StocktakeTestSupport {
         // Duyệt lần hai không áp dụng lại
         postJson(BASE + "/" + id + "/adjustment/approve", null, COMPANY_A, admin).andExpect(status().isConflict());
         assertStockAfterApproval();
+
+        // Sổ kho (WMS-17.1): mỗi dòng tồn bị điều chỉnh có đúng một bút toán mang số phiếu điều chỉnh, tổng khớp chênh lệch
+        TenantContext.runAs(COMPANY_A, () -> {
+            List<StockMovement> ledger = stockMovementRepository.findAll().stream()
+                    .filter(m -> "STOCKTAKE".equals(m.getDocumentType()) && Long.valueOf(adjustmentId).equals(m.getDocumentId()))
+                    .toList();
+            assertThat(ledger).hasSize(4);
+            assertThat(ledger).allSatisfy(m -> {
+                assertThat(m.getDocumentNumber()).startsWith("ADJ-");
+                assertThat(m.getPerformedBy()).isEqualTo("acc01");
+            });
+            BigDecimal net = ledger.stream().map(m -> m.getQuantityIn().subtract(m.getQuantityOut()))
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+            assertThat(net).isEqualByComparingTo("0.995");
+            assertThat(ledger.stream().filter(m -> itemA1.getId().equals(m.getStockItemId())).findFirst().orElseThrow()
+                    .getQuantityOut()).isEqualByComparingTo("0.005");
+        });
 
         getAs("/api/inventory/stock-adjustments/" + adjustmentId, COMPANY_A, accountant)
                 .andExpect(status().isOk())

@@ -32,6 +32,9 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+      # Redis chỉ là bộ nhớ đệm (WMS-19.1) và bộ đếm gói: lỗi thì đọc cơ sở dữ liệu, nên không chờ lâu.
+      timeout: ${REDIS_TIMEOUT:2s}
+      connect-timeout: ${REDIS_CONNECT_TIMEOUT:2s}
       repositories:
         enabled: false
     web:
@@ -98,6 +101,12 @@ app:
     top-items: 10
     # Loại cảnh báo được gửi email tới quản lý kho và admin (WMS-15.2); hàng tồn lâu chỉ lên chuông thông báo.
     email-kinds: ${ALERT_EMAIL_KINDS:LOW_STOCK,NEAR_EXPIRY,EXPIRED}
+
+  # Bộ nhớ đệm Redis cho tổng tồn và tồn khả dụng (WMS-19.1, docs/PERFORMANCE.md).
+  stock-cache:
+    enabled: ${STOCK_CACHE_ENABLED:true}
+    ttl: ${STOCK_CACHE_TTL:60s}
+    retry-after: ${STOCK_CACHE_RETRY_AFTER:30s}
 ---
 # Nạp cấu hình tập trung từ Config Server. Tiền tố optional nghĩa là Config Server chưa chạy thì service vẫn
 # khởi động bằng cấu hình cục bộ ở trên. Tài liệu này bị bỏ qua khi chạy test (profile test) để test không gọi mạng.

@@ -21,7 +21,7 @@ import vn.wms.inventory.dto.StockAtpResponse;
 import vn.wms.inventory.service.PickingService;
 import vn.wms.inventory.service.StockDeductionService;
 import vn.wms.inventory.service.StockReservationService;
-import vn.wms.inventory.service.StockService;
+import vn.wms.inventory.service.StockReadService;
 
 /**
  * REST API Quản lý Tồn kho, Tính toán ATP, Sinh Picking List & Xác nhận Trừ tồn kho với Khóa bi quan (WMS-11.1, WMS-11.2, WMS-12.1, WMS-12.2).
@@ -31,16 +31,17 @@ import vn.wms.inventory.service.StockService;
 @Tag(name = "Stock & Outbound Management", description = "Quản lý tồn kho, tính toán ATP, sinh Picking List FEFO/FIFO và trừ tồn kho xuất hàng với Khóa bi quan")
 public class StockController {
 
-    private final StockService stockService;
+    /** API chỉ đọc ATP đi qua bộ nhớ đệm Redis (WMS-19.1); trừ tồn và giữ chỗ vẫn đọc cơ sở dữ liệu dưới khóa. */
+    private final StockReadService stockReadService;
     private final StockReservationService stockReservationService;
     private final StockDeductionService stockDeductionService;
     private final PickingService pickingService;
 
-    public StockController(StockService stockService,
+    public StockController(StockReadService stockReadService,
                            StockReservationService stockReservationService,
                            StockDeductionService stockDeductionService,
                            PickingService pickingService) {
-        this.stockService = stockService;
+        this.stockReadService = stockReadService;
         this.stockReservationService = stockReservationService;
         this.stockDeductionService = stockDeductionService;
         this.pickingService = pickingService;
@@ -58,13 +59,13 @@ public class StockController {
             @RequestParam Long productId,
             @RequestParam(required = false) Long warehouseId
     ) {
-        return ApiResponse.ok(stockService.getAtp(productId, warehouseId));
+        return ApiResponse.ok(stockReadService.getAtp(productId, warehouseId));
     }
 
     @PostMapping("/atp/batch")
     @Operation(summary = "Kiểm tra tồn khả dụng ATP cho danh sách nhiều sản phẩm cùng lúc (Batch ATP)")
     public ApiResponse<BatchAtpResponse> getBatchAtp(@Valid @RequestBody BatchAtpRequest request) {
-        return ApiResponse.ok(stockService.getBatchAtp(request.productIds(), request.warehouseId()));
+        return ApiResponse.ok(stockReadService.getBatchAtp(request.productIds(), request.warehouseId()));
     }
 
     @PostMapping("/reservations/release")

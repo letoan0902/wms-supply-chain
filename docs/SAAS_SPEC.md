@@ -1122,7 +1122,7 @@ Toàn dùng thử toàn bộ hệ thống, ghi danh sách góp ý (bố cục, l
 | Vai trò `ADMIN` | Là quản trị của một doanh nghiệp |
 | Test của các service | Phải đặt doanh nghiệp (header `X-Company-Id` hoặc `TenantContext`) trước khi gọi |
 | WebSocket | Kênh đổi sang dạng theo doanh nghiệp ở WMS-22.4c, Toàn sửa hook dùng chung |
-| Cache Redis (WMS-19.1) | Tên khóa phải có `companyId` |
+| Cache Redis (WMS-19.1) | Tên khóa phải có `companyId`. Đã làm: `wms:stock:{companyId}:...` (chi tiết ở [PERFORMANCE.md](PERFORMANCE.md)) |
 | Báo cáo WMS-15, WMS-16, WMS-17 | Bảng và truy vấn mới phải có `company_id` ngay từ đầu; truy vấn SQL gốc phải tự lọc |
 | Task nghiệp vụ làm từ 09/11 (WMS-10, 12, 13, 14) | Thực thể mới kế thừa `TenantEntity` ngay khi tạo |
 

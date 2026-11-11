@@ -96,4 +96,24 @@ public class InventoryGateway {
                     orderId, ex.status(), ex.getMessage());
         }
     }
+
+    /**
+     * Tự động sinh danh sách lấy hàng (Picking List) gợi ý vị trí ô kệ và lô theo FEFO/FIFO (WMS-12.1).
+     */
+    public vn.wms.order.dto.PickingListResponse generatePickingList(vn.wms.order.dto.GeneratePickingListRequest request) {
+        if (request == null) {
+            throw ApiException.badRequest("Yêu cầu sinh danh sách lấy hàng không được để trống");
+        }
+        try {
+            ApiResponse<vn.wms.order.dto.PickingListResponse> response = inventoryClient.generatePickingList(request);
+            if (response != null && response.success() && response.data() != null) {
+                return response.data();
+            }
+            throw new ApiException(ErrorCode.INTERNAL_ERROR, "Không thể sinh danh sách lấy hàng từ inventory-service");
+        } catch (FeignException ex) {
+            log.warn("Gọi inventory-service sinh Picking List thất bại (status {}): {}", ex.status(), ex.getMessage());
+            throw new ApiException(ErrorCode.SERVICE_UNAVAILABLE,
+                    "Không kết nối được dịch vụ kho để sinh lộ trình lấy hàng, vui lòng thử lại sau", ex);
+        }
+    }
 }

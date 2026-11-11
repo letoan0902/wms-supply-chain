@@ -81,7 +81,11 @@ public class DispatchStockHandler implements OrderEventHandler {
         );
 
         try {
-            stockDeductionService.deductStock(request, event.dispatchedBy());
+            // Tập messageId trong bộ nhớ chỉ chặn trùng khi service còn chạy; nhật ký stock_dispatches trong DB
+            // chặn cả trường hợp giao lại sau khi restart hoặc phát lại từ dead-letter (WMS-12.1).
+            if (stockDeductionService.deductStockForDispatchEvent(request, event.dispatchedBy(), messageId) == null) {
+                return;
+            }
             log.info("Đã hoàn tất trừ tồn kho với Khóa bi quan cho đơn xuất {}", event.orderNumber());
         } catch (Exception ex) {
             log.error("Lỗi khi trừ tồn kho cho đơn xuất {}: {}", event.orderNumber(), ex.getMessage(), ex);

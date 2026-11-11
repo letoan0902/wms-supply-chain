@@ -36,6 +36,8 @@ public interface PurchaseBillRepository extends JpaRepository<PurchaseBill, Long
 
     Page<PurchaseBill> findBySupplierIdOrderByIdDesc(Long supplierId, Pageable pageable);
 
+    List<PurchaseBill> findBySupplierIdAndStatusInOrderByBillDateAsc(Long supplierId, java.util.Collection<PurchaseBillStatus> statuses);
+
     @Query("SELECT b FROM PurchaseBill b WHERE " +
            "(:keyword IS NULL OR LOWER(b.billNumber) LIKE LOWER(CONCAT('%', :keyword, '%')) " +
            "  OR LOWER(b.grnNumber) LIKE LOWER(CONCAT('%', :keyword, '%')) " +

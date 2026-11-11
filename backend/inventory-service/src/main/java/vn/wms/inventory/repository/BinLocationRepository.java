@@ -19,6 +19,8 @@ public interface BinLocationRepository extends JpaRepository<BinLocation, Long> 
 
     Optional<BinLocation> findByCode(String code);
 
+    Optional<BinLocation> findByWarehouseIdAndCode(Long warehouseId, String code);
+
     boolean existsByCode(String code);
 
     boolean existsByCodeAndIdNot(String code, Long id);

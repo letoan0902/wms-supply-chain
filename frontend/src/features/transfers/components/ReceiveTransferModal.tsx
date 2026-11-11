@@ -68,6 +68,19 @@ const INCIDENT_PRESETS = [
   'Đổ vỡ không thể nhập kho',
 ]
 
+// Làm tròn 3 chữ số thập phân như cột DECIMAL(18,3) của backend. Phép trừ số thực của JS
+// (ví dụ 0.07 - 0.01 = 0.060000000000000005) làm tổng thực nhận + hư hỏng gửi lên vượt SL đã xuất
+// và backend từ chối phiếu nhận hợp lệ.
+const round3 = (value: number) => Math.round(value * 1000) / 1000
+
+// Số lượng còn có thể ghi nhận thực nhận cho một dòng (SL đã xuất - hư hỏng - đã nhận)
+const remainingOf = (r: ReceiveRowItem) =>
+  round3(r.transferredQuantity - r.damagedQuantity - r.receivedQuantity)
+
+// Số lượng thiếu của một dòng (không âm)
+const missingOf = (r: ReceiveRowItem) =>
+  Math.max(0, round3(r.transferredQuantity - r.receivedQuantity - r.damagedQuantity))
+
 export default function ReceiveTransferModal({
   open,
   transfer,
@@ -165,9 +178,13 @@ export default function ReceiveTransferModal({
       totalTransferred += r.transferredQuantity
       totalReceived += r.receivedQuantity
       totalDamaged += r.damagedQuantity
-      const missing = Math.max(0, r.transferredQuantity - r.receivedQuantity - r.damagedQuantity)
-      totalMissing += missing
+      totalMissing += missingOf(r)
     }
+
+    totalTransferred = round3(totalTransferred)
+    totalReceived = round3(totalReceived)
+    totalDamaged = round3(totalDamaged)
+    totalMissing = round3(totalMissing)
 
     const hasDiscrepancy = totalDamaged > 0 || totalMissing > 0
     return {
@@ -181,12 +198,12 @@ export default function ReceiveTransferModal({
 
   // Cập nhật số lượng thực nhận với tự động ràng buộc tổng <= SL đã xuất
   const handleReceivedChange = (itemId: number, value: number | null) => {
-    const raw = Math.max(0, Number(value ?? 0))
+    const raw = round3(Math.max(0, Number(value ?? 0)))
     setRows((prev) =>
       prev.map((r) => {
         if (r.itemId !== itemId) return r
         const clampedReceived = Math.min(raw, r.transferredQuantity)
-        const maxDamaged = Math.max(0, r.transferredQuantity - clampedReceived)
+        const maxDamaged = Math.max(0, round3(r.transferredQuantity - clampedReceived))
         const nextDamaged = Math.min(r.damagedQuantity, maxDamaged)
         return {
           ...r,
@@ -199,12 +216,12 @@ export default function ReceiveTransferModal({
 
   // Cập nhật số lượng hư hỏng / mất mát
   const handleDamagedChange = (itemId: number, value: number | null) => {
-    const raw = Math.max(0, Number(value ?? 0))
+    const raw = round3(Math.max(0, Number(value ?? 0)))
     setRows((prev) =>
       prev.map((r) => {
         if (r.itemId !== itemId) return r
         const clampedDamaged = Math.min(raw, r.transferredQuantity)
-        const maxReceived = Math.max(0, r.transferredQuantity - clampedDamaged)
+        const maxReceived = Math.max(0, round3(r.transferredQuantity - clampedDamaged))
         const nextReceived = Math.min(r.receivedQuantity, maxReceived)
         return {
           ...r,
@@ -274,18 +291,21 @@ export default function ReceiveTransferModal({
     if (!code) return
 
     const lower = code.toLowerCase()
-    let matched = rows.find((r) => r.skuCode.toLowerCase() === lower)
+    let candidates = rows.filter((r) => r.skuCode.toLowerCase() === lower)
 
-    if (!matched) {
+    if (candidates.length === 0) {
       const matchedProduct = products.find(
         (p) =>
           (p.barcode && p.barcode.toLowerCase() === lower) ||
           p.sku.toLowerCase() === lower
       )
       if (matchedProduct) {
-        matched = rows.find((r) => r.productId === matchedProduct.id)
+        candidates = rows.filter((r) => r.productId === matchedProduct.id)
       }
     }
+
+    // Một lệnh có thể có nhiều dòng cùng SKU (xuất từ nhiều ô/kệ): ưu tiên dòng còn thiếu số lượng
+    const matched = candidates.find((r) => remainingOf(r) > 0) ?? candidates[0]
 
     setBarcodeInput('')
 
@@ -295,8 +315,8 @@ export default function ReceiveTransferModal({
       return
     }
 
-    const maxAllowed = matched.transferredQuantity - matched.damagedQuantity
-    const room = maxAllowed - matched.receivedQuantity
+    const maxAllowed = round3(matched.transferredQuantity - matched.damagedQuantity)
+    const room = remainingOf(matched)
 
     if (room <= 0) {
       playWarningBeep()
@@ -307,10 +327,16 @@ export default function ReceiveTransferModal({
     }
 
     const added = Math.min(scanStep, room)
+    // Tính lại trên state mới nhất để quét liên tục không đẩy dòng vượt SL đã xuất
     setRows((prev) =>
       prev.map((r) =>
         r.itemId === matched.itemId
-          ? { ...r, receivedQuantity: r.receivedQuantity + added }
+          ? {
+              ...r,
+              receivedQuantity: round3(
+                r.receivedQuantity + Math.min(scanStep, Math.max(0, remainingOf(r)))
+              ),
+            }
           : r
       )
     )
@@ -333,7 +359,7 @@ export default function ReceiveTransferModal({
   const handleAutoBuildIncidentReport = () => {
     const discrepancyLines = rows
       .map((r) => {
-        const missing = Math.max(0, r.transferredQuantity - r.receivedQuantity - r.damagedQuantity)
+        const missing = missingOf(r)
         if (r.damagedQuantity === 0 && missing === 0) return null
         const parts: string[] = [
           `Xuất ${formatNumber(r.transferredQuantity)}`,
@@ -378,7 +404,7 @@ export default function ReceiveTransferModal({
     }
 
     const overRow = rows.find(
-      (r) => r.receivedQuantity + r.damagedQuantity > r.transferredQuantity
+      (r) => round3(r.receivedQuantity + r.damagedQuantity) > r.transferredQuantity
     )
     if (overRow) {
       Modal.error({
@@ -485,10 +511,7 @@ export default function ReceiveTransferModal({
       key: 'diff',
       width: 125,
       render: (_, record) => {
-        const missing = Math.max(
-          0,
-          record.transferredQuantity - record.receivedQuantity - record.damagedQuantity
-        )
+        const missing = missingOf(record)
         if (record.damagedQuantity === 0 && missing === 0) {
           return (
             <Tag color="success" icon={<CheckCircleOutlined />}>

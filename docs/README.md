@@ -15,6 +15,7 @@ Mục lục tài liệu của dự án. Hướng dẫn chạy dự án và thôn
 | [CI_CD.md](CI_CD.md) | Các job GitHub Actions, kiểm tra bắt buộc trước khi merge, tên và thẻ image trên GHCR, cách kéo image | Khi sửa workflow CI, khi cần image để triển khai |
 | [MESSAGING.md](MESSAGING.md) | Sự kiện RabbitMQ: exchange `wms.events`, quy ước routing key và queue, danh sách sự kiện, dead-letter, cách thêm sự kiện mới, tài khoản broker | Khi publish hoặc nhận sự kiện giữa các service, khi thêm sự kiện mới |
 | [INTEGRATION.md](INTEGRATION.md) | Hướng dẫn cho hệ thống ngoài: tạo API key, gửi `X-Api-Key`, các API chỉ đọc (hàng hóa, tồn kho, đơn hàng), ví dụ `curl`, bảng lỗi, giới hạn tốc độ, Swagger | Khi tích hợp một hệ thống ngoài với WMS |
+| [OPERATIONS.md](OPERATIONS.md) | Bàn giao vận hành: yêu cầu máy chủ, cài đặt lần đầu, bảng biến môi trường, cập nhật và quay lại bản cũ, kiểm tra sự cố (log, RabbitMQ dead-letter, Redis, Flyway), sao lưu và phục hồi MySQL, việc định kỳ, danh sách bàn giao | Khi tiếp quản hoặc vận hành máy chủ |
 | [../deploy/README.md](../deploy/README.md) | Hướng dẫn triển khai lên VPS Ubuntu bằng Docker Compose và Caddy: cài Docker, DNS, HTTPS tự động, script `deploy.sh`, sao lưu MySQL, khắc phục sự cố | Khi triển khai hoặc cập nhật máy chủ production |
 | [../CONTRIBUTING.md](../CONTRIBUTING.md) | Git flow, Conventional Commits, Pull Request, quy trình board, Definition of Done | Trước khi tạo nhánh và mở Pull Request |
 
@@ -25,7 +26,6 @@ Mục lục tài liệu của dự án. Hướng dẫn chạy dự án và thôn
 | Sơ đồ ERD của từng schema (`auth_db`, `product_db`, `inventory_db`, `order_db`, `notification_db`) | Sprint 2 |
 | Tài liệu API của từng service (Swagger/OpenAPI) | Từ Sprint 2, cập nhật cùng tính năng |
 | Cấu trúc JSON chi tiết của từng sự kiện RabbitMQ (bổ sung vào MESSAGING.md) | Sprint 3 |
-| Hướng dẫn triển khai và vận hành | Sprint 4 |
 
 ## Quy ước viết tài liệu
 

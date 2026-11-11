@@ -36,7 +36,7 @@ Không đặt `x-arguments` trực tiếp trên queue (dead-letter đi qua polic
 
 | Routing key | Service phát | Queue nhận (service) | Ý nghĩa và nội dung dự kiến |
 | --- | --- | --- | --- |
-| `order.created` | order-service | `inventory.order-events` (inventory), `notification.order-events` (notification) | Đơn hàng mới (PO hoặc SO) đã tạo: mã đơn, loại đơn, kho, danh sách dòng hàng (SKU, số lượng) |
+| `order.created` | order-service | `inventory.order-events` (inventory), `notification.order-events` (notification) | Đơn hàng mới (PO hoặc SO) đã tạo: mã đơn, loại đơn, kho, danh sách dòng hàng (SKU, số lượng). Đơn bán đã được giữ chỗ đồng bộ trước khi phát (WMS-20.4, mục 7.4); inventory-service chỉ giữ chỗ theo sự kiện cho đơn chưa có bản ghi giữ chỗ nào |
 | `order.dispatched` | order-service | `inventory.order-events`, `notification.order-events` | Đơn bán đã xuất kho (GDN xác nhận): mã đơn, mã GDN, dòng hàng đã xuất |
 | `order.received` | order-service | `inventory.order-events`, `notification.order-events` (qua `order.#`) | Phiếu nhập kho GRN đã lưu (WMS-10.3): inventory-service cộng OnHand tại ô và lô đã chọn, trừ Incoming của PO; mỗi GRN chỉ cộng một lần (bảng `stock_receipts`, khóa `(company_id, grn_id)`) |
 | `inventory.updated` | inventory-service | `notification.inventory-events` (notification) | Tồn kho thay đổi sau nhập, xuất, điều chuyển, điều chỉnh: SKU, kho, tồn trước và sau. Điều chỉnh kiểm kê (WMS-14.2): phát sau khi Kế toán duyệt phiếu điều chỉnh, mỗi sản phẩm của phiếu một sự kiện, `reason = ADJUSTMENT`, `referenceNumber` là mã phiếu `ADJ-yyyyMM-NN`, `quantityBefore`/`quantityAfter` là tổng tồn thực tế của sản phẩm trong kho trước và sau, `skuCode` để null (inventory-service không lưu SKU, bên nhận hiển thị theo `productId`), doanh nghiệp ở header `x-wms-company-id` |
@@ -198,8 +198,18 @@ không gọi được inventory-service thì 503 và chứng từ không đổi.
 | Chứng từ | Gọi đồng bộ | Sự kiện còn dùng cho |
 | --- | --- | --- |
 | Lập hoặc xác nhận phiếu nhập GRN | `POST /internal/inventory/receipts/location-check`: vị trí nhận (xác định như listener: theo ID, theo mã, không chọn thì ô đầu tiên của kho) đang đóng băng kiểm kê thì trả xung đột, order-service trả `409 CONFLICT` và không ghi phiếu, hóa đơn mua, công nợ | `order.received` vẫn là bước cộng tồn (inventory-service), thông báo và KPI (notification-service). Listener vẫn kiểm tra đóng băng; tin bị từ chối xử lý theo mục 4 |
+| Xác nhận đơn bán (`confirm`, lập đơn ở trạng thái CONFIRMED, sửa đơn BACKORDER đủ hàng) | `POST /internal/inventory/reservations`: giữ chỗ toàn bộ đơn dưới khóa bi quan các dòng tồn, tất cả hoặc không, idempotent theo `orderId` (đơn đã có giữ chỗ ACTIVE thì không đổi gì). Thiếu hàng: inventory-service trả 409 và không giữ dòng nào; order-service theo quy tắc cũ: `confirm` trả 400, lập đơn cho phép BACKORDER thì đơn thành BACKORDER, không thì 400. Dòng đơn bán bị khóa khi xác nhận, sửa, hủy nên bấm hai lần chỉ một lần thành công và một sự kiện | `order.created` cho thông báo, KPI. Listener giữ chỗ của inventory-service vẫn chạy cho sự kiện cũ nhưng bỏ qua đơn đã có bất kỳ bản ghi giữ chỗ nào (ACTIVE, FULFILLED, RELEASED), nên không giữ lần hai kể cả khi sự kiện tới trễ sau khi đơn đã xuất hoặc đã hủy |
 
-Khoảng hở còn lại của phiếu nhập: đợt kiểm kê bắt đầu sau lúc kiểm tra nhưng trước lúc listener xử lý tin (mục 4).
+Thứ tự bước và khoảng hở còn lại:
+
+- Phiếu nhập: đợt kiểm kê bắt đầu sau lúc kiểm tra nhưng trước lúc listener xử lý tin (mục 4).
+- Xác nhận đơn bán: khóa đơn, kiểm tra ATP và hạn mức, gọi giữ chỗ (inventory-service commit), rồi mới đổi trạng thái
+  và commit bên order-service, sự kiện phát sau commit. Nếu order-service rollback sau khi đã giữ chỗ (lỗi CSDL lúc
+  commit) thì sau rollback gọi giải phóng giữ chỗ của đơn (`/api/inventory/stock/reservations/release`). Nếu lời gọi giữ
+  chỗ hết thời gian chờ (5 giây) mà inventory-service vẫn giữ xong thì đơn vẫn DRAFT nhưng có giữ chỗ: người dùng bấm
+  xác nhận lại thì dùng lại đúng giữ chỗ đó (idempotent), hủy đơn DRAFT/BACKORDER cũng gọi giải phóng. Giữ chỗ treo chỉ
+  còn khi lần gọi hết thời gian chờ và người dùng không bao giờ xác nhận lại hay hủy đơn. Lần xác nhận lại sau khi đã
+  sửa số lượng của đơn dùng giữ chỗ cũ (không giữ lại theo số mới); nên hủy và lập lại đơn trong trường hợp hiếm này.
 
 ## 8. WebSocket STOMP: thông báo thời gian thực (WMS-02.3)
 

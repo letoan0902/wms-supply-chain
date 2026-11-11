@@ -47,4 +47,11 @@ public interface InventoryClient {
      */
     @PostMapping("/internal/inventory/receipts/location-check")
     ApiResponse<List<FrozenLocationConflict>> checkReceiptLocations(@RequestBody ReceiptLocationCheckRequest request);
+
+    /**
+     * Endpoint nội bộ (WMS-20.4): giữ chỗ toàn bộ đơn bán khi xác nhận, tất cả hoặc không, idempotent theo đơn;
+     * thiếu hàng trả 409 kèm danh sách thiếu trong {@code data}.
+     */
+    @PostMapping("/internal/inventory/reservations")
+    ApiResponse<ReserveOrderResponse> reserveOrder(@RequestBody ReserveOrderRequest request);
 }

@@ -6,6 +6,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import vn.wms.common.api.ErrorCode;
 import vn.wms.common.api.PageResponse;
 import vn.wms.common.exception.ApiException;
 import vn.wms.common.messaging.WmsEvents;
@@ -15,6 +18,8 @@ import vn.wms.common.messaging.event.OrderLine;
 import vn.wms.common.messaging.event.OrderType;
 import vn.wms.order.client.AtpResponse;
 import vn.wms.order.client.InventoryGateway;
+import vn.wms.order.client.ReserveOrderRequest;
+import vn.wms.order.client.StockShortageException;
 import vn.wms.order.client.WarehouseSummary;
 import vn.wms.order.dto.AtpCheckRequest;
 import vn.wms.order.dto.AtpCheckResponse;
@@ -221,6 +226,25 @@ public class SalesOrderService {
 
         SalesOrder saved = salesOrderRepository.save(so);
 
+        // Đơn xác nhận ngay khi lập: giữ chỗ đồng bộ ở inventory-service (WMS-20.4, cần ID đơn nên làm sau khi lưu).
+        // Thiếu hàng (đơn khác vừa giữ mất phần ATP vừa đọc) thì theo quy tắc của bước lập đơn: cho phép BACKORDER thì
+        // chuyển BACKORDER, không thì 400 và đơn không được lưu.
+        if (saved.getStatus() == OrderStatus.CONFIRMED) {
+            try {
+                reserveStockForConfirmation(saved);
+            } catch (StockShortageException ex) {
+                if (!request.isAllowBackorder()) {
+                    throw ApiException.withData(ErrorCode.BAD_REQUEST, ex.getMessage()
+                            + ". Đơn hàng không cho phép chuyển sang BACKORDER!", ex.getShortages());
+                }
+                saved.setStatus(OrderStatus.BACKORDER);
+                saved.setBackorderReason(ex.getMessage());
+                saved.setConfirmedBy(null);
+                saved.setConfirmedAt(null);
+                log.info("Đơn bán hàng {} chuyển sang BACKORDER do không giữ đủ chỗ: {}", soNumber, ex.getMessage());
+            }
+        }
+
         // Nếu đơn được CONFIRMED ngay lập tức, phát sự kiện order.created sang RabbitMQ
         if (saved.getStatus() == OrderStatus.CONFIRMED) {
             publishOrderCreatedEvent(saved);
@@ -234,7 +258,8 @@ public class SalesOrderService {
      */
     @Transactional
     public SalesOrderResponse update(Long id, UpdateSalesOrderRequest request, String username) {
-        SalesOrder so = findOrder(id);
+        // Khóa đơn: sửa đơn BACKORDER có thể xác nhận đơn (giữ chỗ), hai lần lưu đồng thời phải xếp hàng (WMS-20.4)
+        SalesOrder so = findOrderForUpdate(id);
 
         if (so.getStatus() != OrderStatus.DRAFT && so.getStatus() != OrderStatus.BACKORDER) {
             throw ApiException.badRequest("Chỉ được chỉnh sửa đơn bán hàng khi đang ở trạng thái DRAFT hoặc BACKORDER");
@@ -276,12 +301,18 @@ public class SalesOrderService {
             so.setStatus(OrderStatus.BACKORDER);
             so.setBackorderReason(String.join("; ", backorderReasons));
         } else if (so.getStatus() == OrderStatus.BACKORDER) {
-            // Tồn kho đã đủ sau khi sửa dòng hàng
-            so.setStatus(OrderStatus.CONFIRMED);
-            so.setBackorderReason(null);
-            so.setConfirmedBy(username != null ? username : "system");
-            so.setConfirmedAt(Instant.now());
-            publishOrderCreatedEvent(so);
+            // Tồn kho đã đủ sau khi sửa dòng hàng: giữ chỗ đồng bộ rồi mới xác nhận (WMS-20.4); không giữ đủ thì đơn
+            // vẫn BACKORDER với lý do của inventory-service.
+            try {
+                reserveStockForConfirmation(so);
+                so.setStatus(OrderStatus.CONFIRMED);
+                so.setBackorderReason(null);
+                so.setConfirmedBy(username != null ? username : "system");
+                so.setConfirmedAt(Instant.now());
+                publishOrderCreatedEvent(so);
+            } catch (StockShortageException ex) {
+                so.setBackorderReason(ex.getMessage());
+            }
         }
 
         SalesOrder updated = salesOrderRepository.save(so);
@@ -290,11 +321,14 @@ public class SalesOrderService {
 
     /**
      * Xác nhận đơn bán hàng (DRAFT hoặc BACKORDER -> CONFIRMED).
-     * Re-check tồn khả dụng ATP; nếu đủ hàng chuyển sang CONFIRMED và gửi sự kiện order.created sang RabbitMQ.
+     * Re-check tồn khả dụng ATP, rồi giữ chỗ đồng bộ ở inventory-service (WMS-20.4): chỉ khi giữ đủ toàn bộ đơn mới
+     * chuyển CONFIRMED và gửi sự kiện order.created; không giữ đủ thì 400 như khi thiếu ATP, không để lại giữ chỗ.
+     * Dòng đơn được khóa bi quan nên bấm xác nhận hai lần chỉ một lần thành công (lần sau thấy CONFIRMED, 400) và chỉ
+     * phát một sự kiện.
      */
     @Transactional
     public SalesOrderResponse confirm(Long id, String username) {
-        SalesOrder so = findOrder(id);
+        SalesOrder so = findOrderForUpdate(id);
 
         if (so.getStatus() != OrderStatus.DRAFT && so.getStatus() != OrderStatus.BACKORDER) {
             throw ApiException.badRequest("Không thể xác nhận đơn bán hàng đang ở trạng thái: " + so.getStatus());
@@ -327,6 +361,15 @@ public class SalesOrderService {
             throw ApiException.badRequest(creditCheck.message());
         }
 
+        // Giữ chỗ là một phần của xác nhận: hai đơn xác nhận cùng lúc có thể cùng qua bước ATP ở trên, inventory-service
+        // giữ dưới khóa bi quan nên đơn sau không giữ đủ và bị từ chối thay vì CONFIRMED mà thiếu giữ chỗ.
+        try {
+            reserveStockForConfirmation(so);
+        } catch (StockShortageException ex) {
+            throw ApiException.withData(ErrorCode.BAD_REQUEST,
+                    "Không thể xác nhận đơn do thiếu tồn khả dụng: " + ex.getMessage(), ex.getShortages());
+        }
+
         so.setStatus(OrderStatus.CONFIRMED);
         so.setBackorderReason(null);
         so.setConfirmedBy(username != null ? username : "system");
@@ -344,7 +387,8 @@ public class SalesOrderService {
      */
     @Transactional
     public SalesOrderResponse cancel(Long id) {
-        SalesOrder so = findOrder(id);
+        // Khóa đơn để hủy không chen giữa lúc đơn đang được xác nhận (giữ chỗ) (WMS-20.4)
+        SalesOrder so = findOrderForUpdate(id);
 
         if (so.getStatus() == OrderStatus.COMPLETED) {
             throw ApiException.badRequest("Không thể hủy đơn bán hàng đã hoàn tất xuất kho (COMPLETED)");
@@ -357,8 +401,10 @@ public class SalesOrderService {
         so.setStatus(OrderStatus.CANCELLED);
         SalesOrder cancelled = salesOrderRepository.save(so);
 
-        // Nếu đơn từng ở trạng thái CONFIRMED (đã giữ hàng ảo), giải phóng giữ chỗ bên inventory-service (WMS-11.2)
-        if (oldStatus == OrderStatus.CONFIRMED) {
+        // Giải phóng giữ chỗ bên inventory-service (WMS-11.2). Đơn CONFIRMED có giữ chỗ; đơn DRAFT, BACKORDER thường
+        // không có, nhưng có thể còn giữ chỗ của một lần xác nhận bị hết thời gian chờ sau khi inventory-service đã giữ
+        // (WMS-20.4), nên vẫn gọi: giải phóng là idempotent, không có gì thì không đổi.
+        if (oldStatus == OrderStatus.CONFIRMED || oldStatus == OrderStatus.DRAFT || oldStatus == OrderStatus.BACKORDER) {
             inventoryGateway.releaseReservations(so.getId());
         }
 
@@ -564,6 +610,43 @@ public class SalesOrderService {
     private SalesOrder findOrder(Long id) {
         return salesOrderRepository.findById(id)
                 .orElseThrow(() -> ApiException.notFound("Không tìm thấy đơn bán hàng với ID: " + id));
+    }
+
+    /** Đọc đơn với khóa bi quan (SELECT ... FOR UPDATE), dùng cho các thao tác đổi trạng thái đơn. */
+    private SalesOrder findOrderForUpdate(Long id) {
+        return salesOrderRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> ApiException.notFound("Không tìm thấy đơn bán hàng với ID: " + id));
+    }
+
+    /**
+     * Giữ chỗ toàn bộ đơn ở inventory-service trước khi đơn thành CONFIRMED (WMS-20.4). Ném
+     * {@link StockShortageException} khi không giữ đủ (inventory-service không giữ dòng nào), ApiException 503 khi
+     * không gọi được (gọi lại an toàn vì idempotent theo đơn).
+     * <p>
+     * Không có giao dịch phân tán: giữ chỗ đã commit bên inventory-service trước khi transaction này commit. Nếu sau đó
+     * transaction này rollback (lỗi CSDL lúc commit, lỗi phát sinh sau bước giữ chỗ) thì sau khi rollback gọi giải
+     * phóng giữ chỗ của đơn để không treo hàng; lỗi khi giải phóng chỉ ghi log, giữ chỗ còn lại được trả khi xác nhận
+     * lại (dùng lại giữ chỗ cũ) hoặc khi hủy đơn.
+     */
+    private void reserveStockForConfirmation(SalesOrder so) {
+        List<ReserveOrderRequest.Item> items = so.getItems().stream()
+                .map(i -> new ReserveOrderRequest.Item(i.getProductId(), i.getSkuCode(), i.getQuantity()))
+                .toList();
+        inventoryGateway.reserveForOrder(new ReserveOrderRequest(so.getId(), so.getSoNumber(), so.getWarehouseId(), items));
+
+        Long orderId = so.getId();
+        String soNumber = so.getSoNumber();
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCompletion(int status) {
+                    if (status != STATUS_COMMITTED) {
+                        log.warn("Xác nhận đơn bán {} không commit được sau khi đã giữ chỗ, giải phóng giữ chỗ bên kho", soNumber);
+                        inventoryGateway.releaseReservations(orderId);
+                    }
+                }
+            });
+        }
     }
 
     private String normalizeString(String val) {

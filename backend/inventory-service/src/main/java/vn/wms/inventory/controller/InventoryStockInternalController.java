@@ -10,7 +10,10 @@ import org.springframework.web.bind.annotation.RestController;
 import vn.wms.common.api.ApiResponse;
 import vn.wms.inventory.dto.FrozenLocationConflict;
 import vn.wms.inventory.dto.internal.ReceiptLocationCheckRequest;
+import vn.wms.inventory.dto.internal.ReserveOrderRequest;
+import vn.wms.inventory.dto.internal.ReserveOrderResponse;
 import vn.wms.inventory.service.StockReceiptService;
+import vn.wms.inventory.service.StockReservationService;
 
 import java.util.List;
 
@@ -26,9 +29,18 @@ import java.util.List;
 public class InventoryStockInternalController {
 
     private final StockReceiptService stockReceiptService;
+    private final StockReservationService stockReservationService;
 
-    public InventoryStockInternalController(StockReceiptService stockReceiptService) {
+    public InventoryStockInternalController(StockReceiptService stockReceiptService,
+                                            StockReservationService stockReservationService) {
         this.stockReceiptService = stockReceiptService;
+        this.stockReservationService = stockReservationService;
+    }
+
+    @PostMapping("/reservations")
+    @Operation(summary = "Giữ chỗ toàn bộ đơn bán khi xác nhận (tất cả hoặc không, idempotent theo đơn); thiếu hàng trả 409")
+    public ApiResponse<ReserveOrderResponse> reserveOrder(@Valid @RequestBody ReserveOrderRequest request) {
+        return ApiResponse.ok(stockReservationService.reserveForOrder(request));
     }
 
     @PostMapping("/receipts/location-check")

@@ -109,6 +109,49 @@ class InventoryInternalContractTest {
                 .extracting(ex -> ((ApiException) ex).getErrorCode()).isEqualTo(ErrorCode.SERVICE_UNAVAILABLE);
     }
 
+    @Test
+    @DisplayName("Giữ chỗ: POST /internal/inventory/reservations với orderId, warehouseId, items; đọc được kết quả")
+    void reserveOrderSendsOrderLinesAndReadsResult() throws Exception {
+        stub.respond(200, "{\"success\":true,\"code\":\"OK\",\"message\":\"Thành công\",\"data\":{\"orderId\":55,"
+                + "\"alreadyReserved\":true,\"lines\":[{\"productId\":101,\"reservedQuantity\":6.000}]}}");
+
+        ReserveOrderResponse result = inventoryGateway.reserveForOrder(new ReserveOrderRequest(55L, "SO-20261111-0001", 3L,
+                List.of(new ReserveOrderRequest.Item(101L, "SKU-1", new java.math.BigDecimal("6.000")))));
+
+        assertThat(result.alreadyReserved()).isTrue();
+        assertThat(result.lines().get(0).reservedQuantity()).isEqualByComparingTo("6");
+        Request sent = stub.last();
+        assertThat(sent.httpMethod()).isEqualTo(Request.HttpMethod.POST);
+        assertThat(sent.url()).endsWith("/internal/inventory/reservations");
+        JsonNode body = json.readTree(sent.body());
+        assertThat(body.path("orderId").asLong()).isEqualTo(55L);
+        assertThat(body.path("orderNumber").asText()).isEqualTo("SO-20261111-0001");
+        assertThat(body.path("warehouseId").asLong()).isEqualTo(3L);
+        assertThat(body.path("items").get(0).path("productId").asLong()).isEqualTo(101L);
+        assertThat(body.path("items").get(0).path("skuCode").asText()).isEqualTo("SKU-1");
+        assertThat(body.path("items").get(0).path("quantity").decimalValue()).isEqualByComparingTo("6");
+    }
+
+    @Test
+    @DisplayName("Giữ chỗ: 409 thiếu hàng thành StockShortageException mang thông báo và danh sách thiếu; 503 thành SERVICE_UNAVAILABLE")
+    void reserveOrderShortageAndUnavailable() {
+        stub.respond(409, "{\"success\":false,\"code\":\"CONFLICT\",\"message\":\"Không đủ tồn khả dụng để giữ chỗ cho đơn "
+                + "SO-1: SKU SKU-1 thiếu 2 (yêu cầu 5, giữ được 3)\",\"data\":[{\"productId\":101,\"skuCode\":\"SKU-1\","
+                + "\"requestedQuantity\":5,\"availableQuantity\":3,\"shortageQuantity\":2}]}");
+        ReserveOrderRequest request = new ReserveOrderRequest(56L, "SO-1", 3L,
+                List.of(new ReserveOrderRequest.Item(101L, "SKU-1", new java.math.BigDecimal("5"))));
+
+        assertThatThrownBy(() -> inventoryGateway.reserveForOrder(request))
+                .isInstanceOf(StockShortageException.class)
+                .hasMessageContaining("SKU-1 thiếu 2")
+                .satisfies(ex -> assertThat(((StockShortageException) ex).getShortages()).isInstanceOf(List.class));
+
+        stub.respond(503, "");
+        assertThatThrownBy(() -> inventoryGateway.reserveForOrder(request))
+                .isInstanceOf(ApiException.class)
+                .extracting(ex -> ((ApiException) ex).getErrorCode()).isEqualTo(ErrorCode.SERVICE_UNAVAILABLE);
+    }
+
     /** {@link Client} giả: ghi lại request và trả phản hồi đặt trước, thay cho inventory-service qua mạng. */
     static class StubInventory {
         private final List<Request> requests = new CopyOnWriteArrayList<>();

@@ -134,6 +134,27 @@ public class InventoryGateway {
     }
 
     /**
+     * Giữ chỗ toàn bộ đơn bán ngay khi xác nhận (WMS-20.4). Thành công thì inventory-service đã commit giữ chỗ (hoặc
+     * đơn đã được giữ từ lần gọi trước). Thiếu hàng thì ném {@link StockShortageException} (inventory-service không
+     * giữ dòng nào); lỗi nghiệp vụ khác giữ nguyên mã; không gọi được hoặc hết thời gian chờ thì 503, khi đó không
+     * biết inventory-service đã giữ hay chưa, nhưng gọi lại cùng đơn là an toàn (idempotent theo đơn).
+     */
+    public ReserveOrderResponse reserveForOrder(ReserveOrderRequest request) {
+        try {
+            ApiResponse<ReserveOrderResponse> response = inventoryClient.reserveOrder(request);
+            log.info("inventory-service đã giữ chỗ cho đơn bán {} (ID {})", request.orderNumber(), request.orderId());
+            return response != null ? response.data() : null;
+        } catch (FeignException ex) {
+            ApiException translated = translate(ex, "Không kết nối được dịch vụ kho để giữ chỗ tồn kho cho đơn, "
+                    + "đơn chưa được xác nhận, vui lòng thử lại sau");
+            if (translated.getErrorCode() == ErrorCode.CONFLICT) {
+                throw new StockShortageException(translated.getMessage(), translated.getData());
+            }
+            throw translated;
+        }
+    }
+
+    /**
      * Quy lỗi Feign về {@link ApiException}: inventory-service trả lỗi 4xx theo khung ApiResponse thì giữ nguyên mã,
      * thông báo tiếng Việt và {@code data}; lỗi kết nối, hết thời gian chờ hoặc 5xx thì trả SERVICE_UNAVAILABLE.
      */

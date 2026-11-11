@@ -29,3 +29,20 @@ không chọn ô mà kho cất mặc định vào ô đầu tiên đang đóng b
 `sessionId`, `sessionCode`, `binLocationId`, `binLocationCode`, `productId`. Phiếu, hóa đơn mua, công nợ không được
 ghi. Kho chưa có ô nào nhận `400` với thông báo của inventory-service. Không gọi được inventory-service: `503
 SERVICE_UNAVAILABLE`, không ghi gì, bấm lại được (cùng `Idempotency-Key`).
+
+## 2. Xác nhận đơn bán
+
+Áp dụng cho `POST /api/orders/sales/{id}/confirm`, `POST /api/orders/sales` khi đơn được xác nhận ngay (`status`
+CONFIRMED hoặc bỏ trống) và `PUT /api/orders/sales/{id}` khi đơn BACKORDER đủ hàng. Đường dẫn, vai trò, thân yêu cầu
+và phản hồi không đổi; giữ chỗ nay là một phần của xác nhận nên đơn CONFIRMED luôn đã được giữ đủ hàng.
+
+| Tình huống | Kết quả |
+| --- | --- |
+| `confirm` khi đơn khác vừa giữ mất phần tồn (ATP đọc lúc trước vẫn đủ) | `400 BAD_REQUEST` "Không thể xác nhận đơn do thiếu tồn khả dụng: Không đủ tồn khả dụng để giữ chỗ cho đơn ...: SKU ... thiếu ..."; `data` là mảng `productId`, `skuCode`, `requestedQuantity`, `availableQuantity`, `shortageQuantity`; đơn giữ nguyên DRAFT/BACKORDER |
+| Bấm `confirm` hai lần cùng lúc | Một lần `200`, lần sau `400` (đơn đã CONFIRMED) |
+| Lập đơn xác nhận ngay, không giữ đủ, `allowBackorder = true` | `201`, `status` BACKORDER, `backorderReason` là thông báo thiếu hàng |
+| Lập đơn xác nhận ngay, không giữ đủ, `allowBackorder = false` | `400`, đơn không được lưu |
+| Sửa đơn BACKORDER, ATP đủ nhưng không giữ đủ | `200`, đơn vẫn BACKORDER, `backorderReason` cập nhật |
+| Không gọi được inventory-service hoặc hết thời gian chờ | `503 SERVICE_UNAVAILABLE`, đơn không đổi; bấm xác nhận lại là an toàn (inventory-service không giữ hai lần cho cùng đơn) |
+
+Hàng ở lô khóa, lô hết hạn và ô đang đóng băng kiểm kê không được giữ, nên có thể thiếu dù ATP trên màn hình đủ.

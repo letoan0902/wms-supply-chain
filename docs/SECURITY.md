@@ -177,6 +177,7 @@ order-service gọi đồng bộ các endpoint tồn kho nội bộ của invent
 | Endpoint | Gọi từ | Việc làm |
 | --- | --- | --- |
 | `POST /internal/inventory/receipts/location-check` | lập, xác nhận phiếu nhập | Trả các dòng sẽ cộng tồn vào vị trí đang đóng băng kiểm kê (không đổi dữ liệu) |
+| `POST /internal/inventory/reservations` | xác nhận đơn bán (cả lập đơn CONFIRMED, sửa đơn BACKORDER) | Giữ chỗ toàn bộ đơn, tất cả hoặc không, idempotent theo đơn; thiếu hàng trả 409 |
 
 api-gateway không định tuyến tới (route chỉ có `/api/**` và `/ws-wms/**`). Quy tắc:
 

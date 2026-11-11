@@ -1,7 +1,7 @@
 # Bộ kiểm thử tự động WMS
 
 Thư mục `qa/` chứa bộ kiểm thử đầu cuối chạy qua api-gateway (`http://localhost:8080`) cho các task QA:
-WMS-20.1 (luồng mua, nhập kho), WMS-20.2 (bán, xuất kho, điều chuyển, kiểm kê), WMS-22.5 (cách ly doanh nghiệp, giới hạn gói, hết hạn, API key).
+WMS-20.1 (luồng mua, nhập kho), WMS-20.2 (bán, xuất kho, điều chuyển, kiểm kê), WMS-22.5 (cách ly doanh nghiệp, giới hạn gói, hết hạn, API key), WMS-19.2 (tải đồng thời).
 Bảng test case, hành vi dự kiến không đạt và truy vết yêu cầu ở [docs/TEST_PLAN.md](../docs/TEST_PLAN.md).
 
 ## 1. Thành phần
@@ -15,7 +15,8 @@ Bảng test case, hành vi dự kiến không đạt và truy vết yêu cầu �
 | `postman/wms-qa.postman_environment.json` | Môi trường: `baseUrl` và `runId` (để trống, truyền khi chạy). Không chứa bí mật |
 | `postman/files/hang-hoa-qa.csv` | File mẫu cho API trích xuất bằng AI |
 | `docker-compose.qa.yml` | File compose bổ sung bật các công tắc cho stack kiểm thử |
-| `run-all.mjs` | Chạy lần lượt các collection bằng Postman CLI với cùng một `runId` |
+| `run-all.mjs` | Chạy lần lượt các collection bằng Postman CLI với cùng một `runId`, tùy chọn chạy cả kịch bản tải |
+| `load/concurrency.mjs` | WMS-19.2: kịch bản tải đồng thời và kiểm tra bất biến tồn kho, không cần thư viện ngoài |
 
 ## 2. Yêu cầu
 
@@ -44,7 +45,7 @@ File `qa/docker-compose.qa.yml` đặt các biến sau (ghi đè giá trị tron
 | `APP_DEMO_TOOLS` | auth-service | `true` | Bật `POST /api/auth/subscription/demo/expire` cho phần hết hạn (TC-EXP-01). `docker-compose.yml` không truyền biến này vào container nên phải dùng file bổ sung |
 | `PAYOS_MOCK` | auth-service | `true` | Thanh toán giả lập: `POST /api/auth/payments/{orderCode}/mock-confirm` chạy đúng đường xử lý của webhook hợp lệ |
 | `AI_MOCK` | ai-service | `true` | Không gọi Claude; câu trả lời giả lập vẫn bị tính lượt (`AI_MOCK_COUNTS_USAGE` mặc định `true`) nên thử được giới hạn 20 lượt của gói FREE |
-| `RATE_LIMIT_ENABLED` | api-gateway | `false` (đổi bằng `QA_RATE_LIMIT_ENABLED`) | Giới hạn chung 20 request/giây, bùng nổ 40 theo người dùng: Postman CLI gửi liên tiếp nhanh hơn mức này. Giới hạn riêng của API key (`API_KEY_RATE_LIMIT_PER_SECOND`, 20/giây) vẫn bật nên ca 429 của API key vẫn kiểm tra được |
+| `RATE_LIMIT_ENABLED` | api-gateway | `false` (đổi bằng `QA_RATE_LIMIT_ENABLED`) | Giới hạn chung 20 request/giây, bùng nổ 40 theo người dùng: Postman CLI gửi liên tiếp nhanh hơn mức này và kịch bản tải bắn 40 request/giây bằng một tài khoản. Giới hạn riêng của API key (`API_KEY_RATE_LIMIT_PER_SECOND`, 20/giây) vẫn bật nên ca 429 của API key vẫn kiểm tra được |
 
 Các biến khác giữ như `.env` (`MAIL_HOST` để trống là được). Không cần dữ liệu mẫu: mọi doanh nghiệp đều do bộ kiểm thử
 đăng ký mới.
@@ -56,6 +57,7 @@ Các biến khác giữ như `.env` (`MAIL_HOST` để trống là được). Kh
 ```bash
 node qa/run-all.mjs                      # sinh runId mới, chạy 00-setup, 10-inbound, 20-outbound-transfer-stocktake, 30-isolation-plan-expiry
 node qa/run-all.mjs --base-url http://<máy chủ>:8080 --output qa/results
+node qa/run-all.mjs --load              # chạy thêm qa/load/concurrency.mjs (cả hai chế độ) sau các collection
 ```
 
 Script in `runId` ở đầu, dừng nếu `00-setup` thất bại, chạy tiếp các collection còn lại dù có test lỗi, cuối cùng in
@@ -95,6 +97,33 @@ chạy xong trong vài phút).
 truyền bằng `--env-var`: `baseUrl` (mặc định `http://localhost:8080`), `pollMax` (số lần hỏi lại khi chờ sự kiện
 RabbitMQ, mặc định 20), `pollDelayMs` (mặc định 1500).
 
+### 4.3. Kịch bản tải đồng thời (WMS-19.2)
+
+```bash
+node qa/load/concurrency.mjs                                  # cả hai chế độ, 40 request/giây trong 30 giây
+node qa/load/concurrency.mjs --mode load --rps 50 --duration 60 --initial-stock 500
+node qa/load/concurrency.mjs --mode idempotency
+node qa/load/concurrency.mjs --base-url http://<máy chủ>:8080 --max-p95-ms 500
+```
+
+Script tự đăng ký một doanh nghiệp mới (cần `REGISTRATION_REQUIRE_ACTIVATION=false`), chuẩn bị kho, một sản phẩm và tồn
+đã biết, rồi:
+
+- Chế độ `load`: bắn đều `--rps` request mỗi giây trong `--duration` giây, trộn lập đơn bán nháp, xác nhận đơn (cùng giữ
+  một tồn), lập phiếu xuất cho đơn đã xác nhận, đọc tồn, danh sách đơn bán, lô, phiếu xuất. Hết giờ thì chờ sự kiện xử lý
+  xong rồi kiểm tra bất biến qua API: `I1` tồn và giữ chỗ không âm; `I2` giữ chỗ không vượt tồn (tổng và từng lô);
+  `I3` tổng đã xuất không vượt tồn đã nhập; `I4` tồn = đã nhập - đã xuất (mỗi phiếu xuất trừ đúng một lần); `I5` giữ
+  chỗ bằng tổng số lượng các đơn đang CONFIRMED; `I6` tổng cam kết không vượt tồn; `I7` sổ kho khớp tồn; `I8` không có
+  5xx, lỗi mạng; `I9` không có phản hồi nhắc tới deadlock.
+- Chế độ `idempotency`: `G1` hai phiếu nhập giống nhau nhận đủ phần còn lại gửi cùng lúc; `G2` hai phiếu nhập từng phần
+  giống nhau gửi cùng lúc; `G3` hai lần xác nhận cùng một đơn bán (giữ chỗ một lần) và `G3b` (chỉ một lần trả 200); `G4` hai phiếu xuất đủ số lượng gửi cùng lúc; `G5`
+  bấm xác nhận xuất hai lần cùng lúc cho một phiếu nháp. Mỗi trường hợp kiểm tra tồn chỉ thay đổi đúng một lần.
+
+Kết quả: bảng độ trễ p50, p95, p99, lớn nhất theo API (cột NFR ghi "vượt" khi p95 lớn hơn 500 ms theo SRS), bảng lỗi
+theo API, mã HTTP và `code`, danh sách bất biến ĐẠT hoặc VI PHẠM. Mã thoát: 0 khi mọi bất biến đạt, 1 khi có vi phạm,
+2 khi bước chuẩn bị lỗi. `--json <file>` ghi toàn bộ kết quả ra file. Sau khi chạy nên xem thêm
+`docker compose logs inventory-service order-service | grep -i -E "deadlock|lock wait"`.
+
 ## 5. Đọc kết quả
 
 - Postman CLI in từng request với các test `Pass` hoặc lỗi, cuối cùng là bảng tổng hợp và danh sách lỗi chi tiết (kèm 500
@@ -118,6 +147,7 @@ Không cần xóa dữ liệu hay khởi động lại stack giữa các lượt
   nghiệp mới của lượt chạy; số chứng từ do hệ thống cấp theo doanh nghiệp.
 - `30`: doanh nghiệp C mới theo `runId`; B tạo dữ liệu trùng mã với A trong chính B; giao dịch thanh toán, API key do hệ
   thống sinh. Key và giao dịch chờ của A được thu hồi, hủy ở cuối nhóm tương ứng.
+- Kịch bản tải: tự đăng ký doanh nghiệp riêng với hậu tố ngẫu nhiên mỗi lần chạy.
 
 Chạy lại một collection với `runId` cũ sẽ lỗi trùng mã (409) hoặc trùng tên đăng nhập: muốn chạy lại thì chạy từ
 `00-setup` với `runId` mới. Dữ liệu các lượt cũ chỉ làm cơ sở dữ liệu lớn dần; muốn xóa hết thì

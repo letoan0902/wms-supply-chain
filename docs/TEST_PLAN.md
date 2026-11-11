@@ -8,7 +8,7 @@ Tài liệu gồm bảng test case của bốn task QA, phần kiểm tra thủ 
 | WMS-20.1 | TASK-123 | Luồng mua và nhập kho | `qa/postman/00-setup`, `qa/postman/10-inbound` |
 | WMS-20.2 | TASK-124 | Bán, xuất kho, điều chuyển, kiểm kê, sổ kho | `qa/postman/20-outbound-transfer-stocktake` |
 | WMS-22.5 | TASK-139 | Cách ly doanh nghiệp, giới hạn gói, hết hạn, API key | `qa/postman/30-isolation-plan-expiry` |
-| WMS-19.2 | TASK-52 | Tải đồng thời, bất biến tồn kho, chống nộp trùng | bổ sung ở commit sau |
+| WMS-19.2 | TASK-52 | Tải đồng thời, bất biến tồn kho, chống nộp trùng | `qa/load/concurrency.mjs` |
 
 ## 1. Quy ước
 
@@ -28,6 +28,10 @@ cho tới khi sửa:
 | Test case | Hành vi | Nguyên nhân trong mã và hướng sửa |
 | --- | --- | --- |
 | TC-STK-01.10 | Lập phiếu nhập vào vị trí đang kiểm kê trả 201 thay vì 409 | order-service `GoodsReceiptService.create` không hỏi inventory-service; `StockReceiptService.processOrderReceived` mới kiểm tra đóng băng ở luồng nền, ném 409 trong listener, message thử lại 3 lần rồi vào dead-letter. Hậu quả: phiếu nhập, hóa đơn mua, công nợ nhà cung cấp đã ghi nhưng tồn không tăng (lệch sổ). Sửa: order-service gọi inventory kiểm tra vị trí trước khi lưu phiếu, hoặc lập phiếu ở trạng thái chờ và chỉ hoàn tất khi inventory xác nhận. |
+| TC-LOAD-02.2 | Nộp trùng cùng một phiếu nhập từng phần cộng tồn hai lần | API lập phiếu nhập không có khóa chống trùng (idempotency key); hai request giống nhau với số lượng còn trong phần còn lại của đơn đều được ghi (khóa bi quan trên đơn mua chỉ chặn được khi tổng vượt số còn lại). Sửa: nhận header `Idempotency-Key` hoặc mã phiếu do client sinh, ràng buộc duy nhất theo doanh nghiệp. |
+| TC-LOAD-02.3 | Hai lần xác nhận cùng một đơn bán có thể cùng thành công (G3b) | `SalesOrderService.confirm` đọc đơn bằng `findById` (không `findByIdForUpdate`, entity không có `@Version`): hai request đồng thời cùng thấy DRAFT, cùng trả 200 và phát hai sự kiện `order.created`. Giữ chỗ vẫn một lần (`reserveStock` bỏ qua đơn đã có giữ chỗ ACTIVE) nhưng KPI đơn bán có thể đếm hai lần. Sửa: khóa dòng đơn bán khi xác nhận như `GoodsDeliveryService` đang làm. |
+| TC-LOAD-01.6 | Xác nhận đơn bán đồng thời có thể bán vượt tồn | `SalesOrderService.confirm` kiểm tra ATP đồng bộ nhưng giữ chỗ chạy sau qua sự kiện `order.created`; hai lần xác nhận đồng thời cùng đọc một ATP. `StockReservationService.reserveStock` giữ phần còn lại được và chỉ ghi cảnh báo khi thiếu, đơn vẫn CONFIRMED. Dự kiến thấy tổng cam kết lớn hơn giữ chỗ khi tải 40 request/giây. |
+| TC-LOAD-01.5 | Phiếu xuất không kiểm tra tồn, trừ tồn chạy nền | `GoodsDeliveryService.create` lưu phiếu COMPLETED rồi phát `order.dispatched`; nếu khi xử lý không đủ tồn (do bán vượt ở dòng trên), `StockDeductionService` ném lỗi, message vào dead-letter, phiếu xuất vẫn COMPLETED nhưng tồn không giảm. Chỉ xảy ra khi TC-LOAD-01.6 đã sai. |
 
 Các điểm khác ghi nhận khi đọc mã (không có test khẳng định vì yêu cầu chưa chốt):
 
@@ -850,7 +854,26 @@ Cần PAYOS_MOCK=true.
 | TC-KEY-01.17 | Gửi dồn 40 request trong một giây bằng một key | Hệ thống ngoài (API key) gọi `GET /api/products?size=1`; script gửi song song thêm 40 request cùng key bằng pm.sendRequest | ít nhất một phản hồi 429 TOO_MANY_REQUESTS kèm header Retry-After: 1 | `30-isolation-plan-expiry` / TC-KEY-01.17 Gửi dồn 40 request trong một giây bằng một key | chưa chạy |
 | TC-KEY-01.18 | Thu hồi key thứ hai | ADMIN của C gọi `DELETE /api/auth/api-keys/{{C_key2Id}}` | 200 | `30-isolation-plan-expiry` / TC-KEY-01.18 Thu hồi key thứ hai | chưa chạy |
 
-## 6. Kiểm tra thủ công (không tự động hóa được ở đây)
+## 6. WMS-19.2 Tải đồng thời và bất biến tồn kho (qa/load/concurrency.mjs)
+
+| ID | Tên | Các bước | Kết quả mong đợi | Tự động hóa | Kết quả |
+| --- | --- | --- | --- | --- | --- |
+| TC-LOAD-01.1 | Chuẩn bị doanh nghiệp, hàng hóa và tồn đã biết | Đăng ký doanh nghiệp mới, tạo kho, vị trí, hàng hóa, nhà cung cấp, khách hàng; đơn mua `--initial-stock` (mặc định 300), duyệt, nhập đủ; chờ `GET /api/inventory/stock/atp` đạt số tồn | Tồn thực tế bằng số đã nhập, giữ chỗ 0 | `qa/load/concurrency.mjs` / phần `prepare()` | chưa chạy |
+| TC-LOAD-01.2 | Tải hỗn hợp 40 request/giây trong 30 giây | Bắn lịch đều `--rps` request/giây trong `--duration` giây, trộn: lập đơn bán nháp, xác nhận đơn (giữ cùng một tồn), lập phiếu xuất cho đơn đã xác nhận, đọc tồn, danh sách đơn bán, lô, phiếu xuất | Không có HTTP 5xx; từ chối nghiệp vụ là 400 (thiếu tồn khả dụng, xuất vượt) hoặc 409 | `qa/load/concurrency.mjs` / chế độ `load` | chưa chạy |
+| TC-LOAD-01.3 | Tồn thực tế không âm, giữ chỗ không vượt tồn | Sau khi tải xong, chờ sự kiện xử lý xong (giữ chỗ và tồn ổn định 3 lần đọc liên tiếp), đọc ATP và từng lô | onHand >= 0, reserved >= 0, reserved <= onHand ở tổng và ở từng lô | `qa/load/concurrency.mjs` / bất biến `I1`, `I2` | chưa chạy |
+| TC-LOAD-01.4 | Tổng đã xuất không vượt tồn đã nhập | Cộng `totalQuantity` của mọi phiếu xuất của kho | Tổng đã xuất <= tồn đã nhập | `qa/load/concurrency.mjs` / bất biến `I3` | chưa chạy |
+| TC-LOAD-01.5 | Mỗi phiếu xuất trừ tồn đúng một lần | So tồn hiện tại với tồn đã nhập trừ tổng đã xuất | onHand = tồn đã nhập - tổng đã xuất. Dự kiến KHÔNG ĐẠT: Phiếu xuất không kiểm tra tồn, trừ tồn chạy nền | `qa/load/concurrency.mjs` / bất biến `I4` | chưa chạy |
+| TC-LOAD-01.6 | Đơn đã xác nhận được giữ đủ hàng | Cộng số lượng các đơn bán đang CONFIRMED (chưa xuất), so với giữ chỗ và tồn | Tổng cam kết = giữ chỗ và <= tồn thực tế (không bán vượt tồn khi xác nhận đồng thời). Dự kiến KHÔNG ĐẠT: Xác nhận đơn bán đồng thời có thể bán vượt tồn | `qa/load/concurrency.mjs` / bất biến `I5`, `I6` | chưa chạy |
+| TC-LOAD-01.7 | Sổ kho khớp tồn sau tải | `GET /api/inventory/reports/in-out-balance` cho sản phẩm và kho trong ngày | Nhập = tồn đã nhập, xuất = tổng đã xuất, tồn cuối = onHand | `qa/load/concurrency.mjs` / bất biến `I7` | chưa chạy |
+| TC-LOAD-01.8 | Không lỗi máy chủ, không deadlock | Đếm phản hồi 5xx, lỗi mạng, phản hồi có chữ deadlock hoặc lock wait | Bằng 0 (xem thêm log: `docker compose logs inventory-service order-service \\| grep -i deadlock`) | `qa/load/concurrency.mjs` / bất biến `I8`, `I9` | chưa chạy |
+| TC-LOAD-01.9 | Độ trễ theo API | In p50, p95, p99, lớn nhất theo từng API | Báo cáo; SRS yêu cầu API nghiệp vụ trả lời trong 500 ms (cột NFR in "vượt" khi p95 > 500 ms, không làm thất bại lượt chạy trừ khi đặt `--max-p95-ms`) | `qa/load/concurrency.mjs` / bảng độ trễ | chưa chạy |
+| TC-LOAD-02.1 | Nộp trùng song song phiếu nhập nhận đủ phần còn lại | Đơn mua 50, duyệt; gửi đồng thời hai `POST /api/orders/goods-receipt-notes` nhận đủ 50 | Đúng một 201, một 400; tồn tăng đúng 50 | `qa/load/concurrency.mjs` / chế độ `idempotency`, `G1` | chưa chạy |
+| TC-LOAD-02.2 | Nộp trùng song song cùng một phiếu nhập từng phần | Đơn mua 100; gửi đồng thời hai lần cùng body nhận 30 | Theo yêu cầu: chỉ một lần được ghi, tồn tăng 30. Dự kiến KHÔNG ĐẠT: Nộp trùng cùng một phiếu nhập từng phần cộng tồn hai lần | `qa/load/concurrency.mjs` / chế độ `idempotency`, `G2` | chưa chạy |
+| TC-LOAD-02.3 | Xác nhận đồng thời cùng một đơn bán | Đơn bán nháp 20; gửi đồng thời hai `POST /api/orders/sales/{id}/confirm` | Giữ chỗ tăng đúng 20, không lỗi 5xx (`G3`); chỉ một lần thành công, lần sau 400 (`G3b`). Dự kiến KHÔNG ĐẠT: Hai lần xác nhận cùng một đơn bán có thể cùng thành công (G3b) | `qa/load/concurrency.mjs` / chế độ `idempotency`, `G3`, `G3b` | chưa chạy |
+| TC-LOAD-02.4 | Nộp trùng song song phiếu xuất đủ số lượng | Đơn bán 20 đã xác nhận; gửi đồng thời hai `POST /api/orders/goods-delivery-notes` xuất 20 | Một 201, một 400; tồn giảm đúng 20, giữ chỗ về 0 | `qa/load/concurrency.mjs` / chế độ `idempotency`, `G4` | chưa chạy |
+| TC-LOAD-02.5 | Bấm xác nhận xuất hai lần cùng lúc | Phiếu xuất nháp (status DRAFT) 10; gửi đồng thời hai `POST /api/orders/goods-delivery-notes/{id}/dispatch` | Cả hai 200 nhưng tồn chỉ giảm 10 | `qa/load/concurrency.mjs` / chế độ `idempotency`, `G5` | chưa chạy |
+
+## 7. Kiểm tra thủ công (không tự động hóa được ở đây)
 
 | ID | Nội dung | Các bước | Kết quả mong đợi | Kết quả |
 | --- | --- | --- | --- | --- |
@@ -867,7 +890,7 @@ Cần PAYOS_MOCK=true.
 | TC-MAN-11 | Xuất Excel báo cáo, giao diện điện thoại | Xuất báo cáo xuất nhập tồn, thẻ kho; mở các màn hình chính ở bề rộng 375 px | File mở được, số liệu khớp màn hình; bố cục không vỡ | chưa chạy |
 | TC-MAN-12 | Chuyển hết hạn bằng tác vụ định kỳ | Sửa `trial_ends_at` của một doanh nghiệp thử về quá khứ trong CSDL, chờ tối đa 5 phút không đăng nhập lại | Thuê bao chuyển EXPIRED, gateway chặn ghi | chưa chạy |
 
-## 7. Truy vết yêu cầu
+## 8. Truy vết yêu cầu
 
 Mã FR theo danh sách yêu cầu chức năng ở `docs/PROPOSAL_PHAN_CONG_PHAM_VI.md` mục 2 (SRS `docs/project-management/srs`
 dùng mã UC và tham chiếu các FR này); phần SaaS theo `docs/SAAS_SPEC.md`.
@@ -888,14 +911,15 @@ dùng mã UC và tham chiếu các FR này); phần SaaS theo `docs/SAAS_SPEC.md
 | FR13 Hóa đơn mua, công nợ phải trả, thanh toán | TC-IN-08 |
 | FR14 Khách hàng, hạn mức công nợ | TC-OUT-01 |
 | FR15 Đơn bán kiểm tra ATP | TC-OUT-02.1, TC-OUT-02.9 đến TC-OUT-02.11 |
-| FR16 Giữ hàng mềm khi xác nhận | TC-OUT-02.2, TC-OUT-02.5 đến TC-OUT-02.8, TC-OUT-02.13 |
-| FR17 Picking list, phiếu xuất trừ OnHand, giải phóng Reserved | TC-OUT-03, TC-OUT-04 |
+| FR16 Giữ hàng mềm khi xác nhận | TC-OUT-02.2, TC-OUT-02.5 đến TC-OUT-02.8, TC-OUT-02.13, TC-LOAD-01.6, TC-LOAD-02.3 |
+| FR17 Picking list, phiếu xuất trừ OnHand, giải phóng Reserved | TC-OUT-03, TC-OUT-04, TC-LOAD-01.5, TC-LOAD-02.4, TC-LOAD-02.5 |
 | FR19 Kiểm kê: đóng băng, snapshot, đếm mù, chênh lệch | TC-STK-01.3 đến TC-STK-01.18, TC-STK-02.1 đến TC-STK-02.5 |
 | FR20 Điều chỉnh, duyệt Quản lý kho và Kế toán, mở đóng băng | TC-STK-01.19 đến TC-STK-01.28, TC-STK-02.6 đến TC-STK-02.10 |
 | FR21 Cảnh báo tồn kho (phần cách ly) | TC-ISO-19 |
 | FR23 KPI (phần cách ly) | TC-ISO-20 |
 | FR25 Xuất nhập tồn, thẻ kho, truy vết lô | TC-IN-08.13, TC-RPT-01, TC-RPT-02 |
 | SRS UC-09 luồng 1a: nhập, xuất vào vị trí FROZEN bị từ chối | TC-STK-01.8, TC-STK-01.9, TC-STK-01.10 |
+| SRS yêu cầu phi chức năng: API nghiệp vụ trả lời trong 500 ms, trừ tồn chịu 30 đến 50 request đồng thời | TC-LOAD-01, TC-LOAD-02 |
 | SAAS_SPEC 2.3 Tách dữ liệu theo doanh nghiệp (SRS UC-11) | TC-ISO-01 đến TC-ISO-25 |
 | SAAS_SPEC 2.5, WMS-23.2 Giới hạn gói | TC-SET-01.2, TC-PLAN-01 đến TC-PLAN-06 |
 | SAAS_SPEC 2.6, WMS-23.1, WMS-23.2 Vòng đời thuê bao, chỉ đọc khi hết hạn | TC-SET-03.3, TC-PLAN-01, TC-EXP-01 |

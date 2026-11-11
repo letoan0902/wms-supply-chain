@@ -12,7 +12,7 @@ import java.util.List;
  *                          X-Plan và không chặn request ghi khi thuê bao hết hạn
  * @param writeAllowedPaths các đường dẫn (kiểu Ant) vẫn được gọi bằng POST, PUT, PATCH, DELETE khi thuê bao đã hết hạn:
  *                          đăng nhập, làm mới token, đăng xuất, đổi mật khẩu, API thuê bao và thanh toán
- *                          (docs/SAAS_SPEC.md, mục 2.6)
+ *                          (docs/SAAS_SPEC.md, mục 2.6), và thu hồi API key ({@code DELETE /api/auth/api-keys/{id}})
  */
 @ConfigurationProperties(prefix = "gateway.subscription")
 public record SubscriptionProperties(
@@ -24,5 +24,6 @@ public record SubscriptionProperties(
                 "/api/users/change-password",
                 "/api/auth/users/change-password",
                 "/api/auth/subscription/**",
-                "/api/auth/payments/**"}) List<String> writeAllowedPaths) {
+                "/api/auth/payments/**",
+                "/api/auth/api-keys/*"}) List<String> writeAllowedPaths) {
 }

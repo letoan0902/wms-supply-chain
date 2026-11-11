@@ -96,6 +96,7 @@ Toàn thêm toàn bộ các mã dưới đây vào `ErrorCode` của module `com
 | `PLAN_LIMIT_EXCEEDED` | 403 | Tạo mới vượt giới hạn của gói. Trường `data` gồm `limit` (`USERS`, `WAREHOUSES`, `SKUS`, `AI_REQUESTS`, `API_ACCESS`), `current`, `max`, `plan` |
 | `PAYMENT_INVALID` | 400 | Webhook thanh toán sai chữ ký, sai số tiền hoặc mã đơn không tồn tại |
 | `TOKEN_INVALID` | 400 | Mã kích hoạt hoặc mã đặt lại mật khẩu sai, đã dùng hoặc hết hạn |
+| `TOO_MANY_REQUESTS` | 429 | API key gọi quá giới hạn tốc độ (thêm ở WMS-25.1, gateway trả) |
 
 Các trường hợp còn lại dùng mã đã có (`VALIDATION_ERROR`, `CONFLICT`, `NOT_FOUND`, `UNAUTHORIZED`, `FORBIDDEN`). Frontend xử lý theo `code`, không theo nội dung `message`.
 
@@ -135,7 +136,7 @@ TRIAL/ACTIVE --(chọn gói Khởi Đầu)--> FREE/ACTIVE --(thanh toán)--> PRO
 
 - Mỗi lần thanh toán thành công: `expires_at = max(thời điểm hiện tại, mốc hết hạn đang còn hiệu lực) + 30 hoặc 365 ngày`. Thanh toán sớm không bị mất ngày còn lại.
 - Chuyển về `FREE` chỉ được phép khi đang `TRIAL` hoặc khi thuê bao đã `EXPIRED`. Đang `PRO` còn hạn thì chờ hết hạn.
-- Khi `EXPIRED`: mọi request `POST`, `PUT`, `PATCH`, `DELETE` trả `SUBSCRIPTION_EXPIRED`, trừ đăng nhập, làm mới token, đăng xuất, đổi mật khẩu và các API dưới `/api/auth/subscription/**`, `/api/auth/payments/**`. Request `GET` vẫn chạy bình thường.
+- Khi `EXPIRED`: mọi request `POST`, `PUT`, `PATCH`, `DELETE` trả `SUBSCRIPTION_EXPIRED`, trừ đăng nhập, làm mới token, đăng xuất, đổi mật khẩu, thu hồi API key (`DELETE /api/auth/api-keys/{id}`) và các API dưới `/api/auth/subscription/**`, `/api/auth/payments/**`. Request `GET` vẫn chạy bình thường.
 
 ### 2.7. Bộ nhớ đệm thuê bao trên Redis
 
@@ -830,7 +831,7 @@ Hỏi "tạo kho thế nào" nhận hướng dẫn đúng các bước trên gia
 
 ### WMS-25.1 [Backend] API key cho hệ thống ngoài
 
-Người làm: Toàn. Ngày: 17/11. Jira: TASK-156. Phụ thuộc: WMS-22.3.
+Người làm: Toàn. Ngày: 17/11 (làm sớm ngày 11/11). Jira: TASK-156. Phụ thuộc: WMS-22.3.
 
 **Mô tả chức năng**
 
@@ -844,6 +845,54 @@ Người làm: Toàn. Ngày: 17/11. Jira: TASK-156. Phụ thuộc: WMS-22.3.
 **Tiêu chí nghiệm thu**
 
 Gọi `curl` với API key đọc được tồn kho của đúng doanh nghiệp; gọi `POST` bằng key bị từ chối; key đã thu hồi nhận `401`.
+
+**Đã làm (nhánh `t-25-1`)**
+
+*Dạng key.* `wms_` cộng 43 ký tự base64url (không đệm) của 32 byte ngẫu nhiên sinh bằng `SecureRandom`, tổng 47 ký tự. `key_prefix` là 8 ký tự đầu (gồm cả `wms_`). Cơ sở dữ liệu và Redis chỉ có SHA-256 của key (hex chữ thường 64 ký tự, tính trên chuỗi key mã hóa UTF-8); key gốc chỉ có trong kết quả tạo, không ghi log, không lưu ở đâu.
+
+*Dữ liệu.* Migration V7 của auth-service tạo bảng `api_keys`: `id`, `company_id` (khóa ngoại `companies`), `name` (tối đa 100 ký tự), `key_prefix` (8), `key_hash` (64, duy nhất toàn hệ thống), `last_used_at`, `revoked_at` (khác NULL là đã thu hồi), `created_by_user` (khóa ngoại `users`), bốn cột audit; chỉ mục `(company_id, revoked_at)`. auth-service lọc tường minh theo `companyId` trong JWT, không dùng `@TenantId`. Key không bị xóa khỏi bảng, chỉ thu hồi.
+
+*API của auth-service.* Mọi API cần JWT của `ADMIN`; tài khoản khác nhận `403 FORBIDDEN`, chưa đăng nhập nhận `401 UNAUTHORIZED`.
+
+| API | Mô tả |
+| --- | --- |
+| `POST /api/auth/api-keys` | Body `{ "name": "Website bán hàng" }` (2 đến 100 ký tự). Trả `201`, `data`: `id`, `name`, `keyPrefix`, `key` (key đầy đủ, chỉ lần này), `createdAt`. Lỗi: gói không có `apiAccess` (gói `FREE`) trả `403 PLAN_LIMIT_EXCEEDED`, `data = { limit: "API_ACCESS", current: <số key đang hoạt động>, max: 0, plan: "FREE" }`; thuê bao `EXPIRED` trả `403 SUBSCRIPTION_EXPIRED` (gateway chặn trước); đã có 5 key đang hoạt động trả `409 CONFLICT`; tên trống trả `400 VALIDATION_ERROR`. Gói và trạng thái đọc từ cơ sở dữ liệu của auth-service, không qua bộ nhớ đệm |
+| `GET /api/auth/api-keys` | `data` là mảng, mới nhất trước, gồm cả key đã thu hồi: `id`, `name`, `keyPrefix`, `active`, `createdAt`, `createdBy` (tên đăng nhập người tạo), `lastUsedAt` (cập nhật mỗi phút, có thể `null`), `revokedAt` |
+| `DELETE /api/auth/api-keys/{id}` | Thu hồi, trả một phần tử như trong danh sách với `active = false`. Gọi lại với key đã thu hồi vẫn trả `200`, không đổi `revokedAt`. Key của doanh nghiệp khác hoặc không tồn tại trả `404 NOT_FOUND`. Gọi được cả khi thuê bao đã hết hạn (`/api/auth/api-keys/*` nằm trong `gateway.subscription.write-allowed-paths`) |
+
+*Cách gateway kiểm tra key.* Tên khóa nằm ở `vn.wms.common.plan.ApiKeyCacheKeys` (gateway khai báo lại vì không phụ thuộc `common`):
+
+| Khóa Redis | Kiểu | Ai ghi | Nội dung |
+| --- | --- | --- | --- |
+| `wms:apikey:{sha256}` | hash | auth-service | `companyId`, `keyId`, `prefix`. Ghi sau khi giao dịch tạo key commit, xóa sau khi giao dịch thu hồi commit. Tác vụ định kỳ (`app.api-key.sync-interval-ms`, mặc định 5 phút) ghi lại mọi key đang hoạt động và xóa khóa của key đã thu hồi, nên Redis bị xóa dữ liệu hoặc một lần ghi lỗi tự lành trong một chu kỳ |
+| `wms:apikey:last-used` | hash | gateway | Trường `{keyId}`, giá trị epoch mili giây của request hợp lệ gần nhất (một lệnh HSET mỗi request). auth-service đổ vào cột `last_used_at` mỗi `app.api-key.last-used-flush-ms` (mặc định 1 phút), chỉ ghi khi mới hơn; không có lần ghi cơ sở dữ liệu nào theo từng request |
+| `wms:apikey:rate:{keyId}:{epochSecond}` | chuỗi số | gateway | Bộ đếm request của key trong một giây (INCR, tự hết hạn sau 2 giây) |
+
+Bộ lọc `ApiKeyAuthenticationGlobalFilter` (order -101, ngay trước bộ lọc JWT) xử lý request có `X-Api-Key` và không có `Authorization`, theo thứ tự:
+
+1. Key sai dạng (`wms_` cộng 20 đến 200 ký tự base64url) hoặc không có `wms:apikey:{sha256}`: `401 UNAUTHORIZED` ("API key không hợp lệ hoặc đã bị thu hồi"). Key đã thu hồi bị từ chối ngay khi auth-service commit việc thu hồi. Không đọc được Redis: `503 SERVICE_UNAVAILABLE` (không xác thực được thì không cho qua).
+2. Chỉ `GET` trên `gateway.api-key.allowed-paths` (mặc định `/api/products/**`, `/api/inventory/**`, `/api/orders/**`); phương thức hoặc đường dẫn khác: `403 FORBIDDEN`.
+3. Đọc `wms:subscription:{companyId}`: `status = EXPIRED` trả `403 SUBSCRIPTION_EXPIRED`; `apiAccess` khác `true` (gói `FREE`) trả `403 PLAN_LIMIT_EXCEEDED` với `data = { limit: "API_ACCESS", plan }`. Thiếu hash hoặc Redis lỗi thì cho qua (fail open, cùng quy tắc mục 2.7; auth-service ghi lại hash mỗi 5 phút nên khoảng thiếu ngắn).
+4. Giới hạn tốc độ: quá `gateway.api-key.rate-limit-per-second` (biến `API_KEY_RATE_LIMIT_PER_SECOND`, mặc định 20) request trong cùng một giây trả `429 TOO_MANY_REQUESTS` kèm header `Retry-After: 1`. Redis lỗi thì cho qua. Bộ lọc `RequestRateLimiter` chung của gateway (theo `X-User-Name`) vẫn áp dụng thêm với ngưỡng 20 mỗi giây, sức chứa 40.
+5. Gỡ mọi header `X-User-*`, `X-Company-Id`, `X-Plan`, `X-Warehouse-Ids` và chính `X-Api-Key` do client gửi; gắn `X-Company-Id` của key, `X-User-Roles: INTEGRATION`, `X-User-Name: apikey-{keyId}` (không gắn kho). `SubscriptionGlobalFilter` sau đó gắn `X-Plan` như với request JWT.
+
+Request có cả `Authorization` lẫn `X-Api-Key` được xử lý như request JWT (key bị gỡ, không chuyển xuống service). Hành vi của request JWT không đổi. Tắt cả cơ chế bằng `GATEWAY_API_KEY_ENABLED=false`. Bộ lọc chạy cả khi `GATEWAY_JWT_ENABLED=false`. Thân lỗi cùng khung `{ success: false, code, message }`, thêm `data` với `PLAN_LIMIT_EXCEEDED`.
+
+*Vai trò `INTEGRATION` ở service nghiệp vụ.* Hằng số `Roles.INTEGRATION` không nằm trong `Roles.ALL` nên không gán được cho tài khoản. `UserContext.isGlobalReadScope` coi `INTEGRATION` là đọc được mọi kho của doanh nghiệp (giống `ADMIN`, `ACCOUNTANT` khi đọc); `requireWarehouseWriteAccess` vẫn từ chối. Bộ lọc `IntegrationAccessFilter` của module `common` (tự đăng ký ở mọi service servlet, chạy ngay sau `TenantFilter`) trả `403 FORBIDDEN` cho mọi request mang vai trò `INTEGRATION` mà không phải `GET`/`HEAD` hoặc nằm ngoài ba nhóm đường dẫn trên, để vai trò này chỉ đọc kể cả khi request không qua gateway. product-service và order-service không kiểm tra vai trò khi đọc nên không phải sửa; dữ liệu vẫn lọc theo `X-Company-Id`.
+
+*Ví dụ cho tài liệu tích hợp (WMS-25.2).*
+
+```bash
+# Tồn khả dụng của một sản phẩm trên mọi kho của doanh nghiệp (thêm &warehouseId= để lọc một kho)
+curl -H "X-Api-Key: $WMS_API_KEY" "https://<gateway>/api/inventory/stock/atp?productId=15"
+# Danh mục hàng hóa và đơn bán
+curl -H "X-Api-Key: $WMS_API_KEY" "https://<gateway>/api/products?page=0&size=20"
+curl -H "X-Api-Key: $WMS_API_KEY" "https://<gateway>/api/orders/sales"
+# Ghi bằng key: 403 FORBIDDEN; key đã thu hồi: 401 UNAUTHORIZED
+curl -X POST -H "X-Api-Key: $WMS_API_KEY" "https://<gateway>/api/products"
+```
+
+*Màn hình.* `/settings/api-keys` (mục "API key" trên menu, sau "Người dùng"); tài khoản không phải `ADMIN` thấy trang 403. Tạo key theo tên gợi nhớ; hộp thoại hiện key đúng một lần với nút sao chép và cảnh báo không xem lại được; danh sách; thu hồi có xác nhận. `PLAN_LIMIT_EXCEEDED` và `SUBSCRIPTION_EXPIRED` hiện lời nhắc kèm nút sang `/subscription`.
 
 ### WMS-25.2 [Docs] Hướng dẫn tích hợp và Swagger công khai
 

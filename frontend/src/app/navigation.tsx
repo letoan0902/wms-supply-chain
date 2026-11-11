@@ -1,4 +1,5 @@
 import {
+  ApiOutlined,
   AppstoreOutlined,
   AuditOutlined,
   BarChartOutlined,
@@ -41,4 +42,5 @@ export const navigationItems: NavigationItem[] = [
   { path: '/stocktakes', label: 'Kiểm kê', icon: <AuditOutlined />, sprint: 4 },
   { path: '/reports', label: 'Báo cáo', icon: <BarChartOutlined /> },
   { path: '/users', label: 'Người dùng', icon: <TeamOutlined /> },
+  { path: '/settings/api-keys', label: 'API key', icon: <ApiOutlined /> },
 ]

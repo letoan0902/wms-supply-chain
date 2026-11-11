@@ -123,6 +123,19 @@ gateway:
       - /api/auth/users/change-password
       - /api/auth/subscription/**
       - /api/auth/payments/**
+      # Thu hồi API key (DELETE /api/auth/api-keys/{id}) luôn được phép, kể cả khi thuê bao đã hết hạn (WMS-25.1)
+      - /api/auth/api-keys/*
+  # API key cho hệ thống ngoài (WMS-25.1, xem vn.wms.gateway.apikey.ApiKeyAuthenticationGlobalFilter): request có header
+  # X-Api-Key và không có Authorization được xác thực bằng key (tra hash Redis wms:apikey:{sha256} do auth-service ghi),
+  # mang vai trò INTEGRATION, chỉ được GET trên allowed-paths. Hoạt động độc lập với gateway.jwt.enabled.
+  api-key:
+    enabled: ${GATEWAY_API_KEY_ENABLED:true}
+    # Số request tối đa mỗi giây của một key, vượt thì 429 (bộ đếm Redis theo key và theo giây).
+    rate-limit-per-second: ${API_KEY_RATE_LIMIT_PER_SECOND:20}
+    allowed-paths:
+      - /api/products/**
+      - /api/inventory/**
+      - /api/orders/**
   rate-limit:
     # Tắt (RATE_LIMIT_ENABLED=false) khi chạy kiểm thử tải JMeter (WMS-19.2) để gateway không chặn kịch bản.
     enabled: ${RATE_LIMIT_ENABLED:true}

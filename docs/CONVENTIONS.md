@@ -132,6 +132,7 @@ một HTTP status và thông báo mặc định bằng tiếng Việt. Frontend 
 | `UNSUPPORTED_MEDIA_TYPE` | 415 | Định dạng nội dung không được hỗ trợ |
 | `INTERNAL_ERROR` | 500 | Lỗi hệ thống không xác định |
 | `SERVICE_UNAVAILABLE` | 503 | Dịch vụ phụ thuộc chưa sẵn sàng |
+| `TOO_MANY_REQUESTS` | 429 | Gọi quá giới hạn tốc độ (api-gateway trả cho API key vượt số request mỗi giây, kèm header `Retry-After`) |
 | `COMPANY_REQUIRED` | 403 | Request tới service nghiệp vụ không xác định được doanh nghiệp |
 | `COMPANY_INACTIVE` | 403 | Doanh nghiệp chưa kích hoạt qua email hoặc đang bị tạm khóa |
 | `SUBSCRIPTION_EXPIRED` | 403 | Gọi API ghi khi gói dịch vụ đã hết hạn |

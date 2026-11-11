@@ -78,6 +78,8 @@ export const router = createBrowserRouter([
           { path: 'users', Component: lazy(() => import('../features/users/UsersPage')) },
           // Báo cáo Nhập-Xuất-Tồn kho & Thống kê (UC-10 - SRS Mục 2.5)
           { path: 'reports', Component: lazy(() => import('../pages/ReportsPage')) },
+          // API key cho hệ thống ngoài (chỉ ADMIN)
+          { path: 'settings/api-keys', Component: lazy(() => import('../features/apiKeys/ApiKeysPage')) },
           // Hồ sơ cá nhân & Đổi mật khẩu
           { path: 'profile', Component: lazy(() => import('../features/profile/ProfilePage')) },
           ...placeholderRoutes,

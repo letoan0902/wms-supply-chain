@@ -12,6 +12,8 @@ import org.springframework.mock.web.server.MockServerWebExchange;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Mono;
+import vn.wms.gateway.apikey.ApiKeyAuthenticationGlobalFilter;
+import vn.wms.gateway.apikey.ApiKeyProperties;
 import vn.wms.gateway.ratelimit.UserOrIpKeyResolver;
 import vn.wms.gateway.security.GatewayJwtProperties;
 import vn.wms.gateway.subscription.SubscriptionGlobalFilter;
@@ -49,6 +51,12 @@ class ApiGatewayApplicationTest {
 
     @Autowired
     private SubscriptionGlobalFilter subscriptionFilter;
+
+    @Autowired
+    private ApiKeyAuthenticationGlobalFilter apiKeyFilter;
+
+    @Autowired
+    private ApiKeyProperties apiKeyProperties;
 
     @Test
     void healthEndpointIsUp() {
@@ -118,6 +126,15 @@ class ApiGatewayApplicationTest {
         assertThat(subscriptionProperties.enabled()).isTrue();
         assertThat(subscriptionProperties.writeAllowedPaths()).contains(
                 "/api/auth/login", "/api/auth/refresh", "/api/auth/logout", "/api/users/change-password",
-                "/api/auth/subscription/**", "/api/auth/payments/**");
+                "/api/auth/subscription/**", "/api/auth/payments/**", "/api/auth/api-keys/*");
+    }
+
+    @Test
+    void registersApiKeyFilterBeforeJwtWithReadOnlyScopeFromConfiguration() {
+        assertThat(apiKeyFilter.getOrder()).isEqualTo(ApiKeyAuthenticationGlobalFilter.ORDER).isLessThan(-100);
+        assertThat(apiKeyProperties.enabled()).isTrue();
+        assertThat(apiKeyProperties.rateLimitPerSecond()).isEqualTo(20);
+        assertThat(apiKeyProperties.allowedPaths())
+                .containsExactly("/api/products/**", "/api/inventory/**", "/api/orders/**");
     }
 }

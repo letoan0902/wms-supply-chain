@@ -114,6 +114,9 @@ services:
       RATE_LIMIT_ENABLED: ${RATE_LIMIT_ENABLED:-true}
       RATE_LIMIT_REPLENISH_RATE: ${RATE_LIMIT_REPLENISH_RATE:-20}
       RATE_LIMIT_BURST_CAPACITY: ${RATE_LIMIT_BURST_CAPACITY:-40}
+      # API key cho hệ thống ngoài (WMS-25.1): bật/tắt và số request tối đa mỗi giây của một key.
+      GATEWAY_API_KEY_ENABLED: ${GATEWAY_API_KEY_ENABLED:-true}
+      API_KEY_RATE_LIMIT_PER_SECOND: ${API_KEY_RATE_LIMIT_PER_SECOND:-20}
 
   # --------------------------------------------------------------------------
   # Doanh nghiệp mặc định: file compose gốc đặt TENANT_DEFAULT_COMPANY_ID=1 cho máy phát triển. Trên máy chủ phải để

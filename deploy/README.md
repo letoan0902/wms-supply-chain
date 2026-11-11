@@ -207,6 +207,7 @@ nano .env     # điền ACME_EMAIL, kiểm tra DOMAIN và CORS_ALLOWED_ORIGINS
 | `CORS_ALLOWED_ORIGINS` | Không (mặc định `https://<DOMAIN>`) | Origin của giao diện. Sai giá trị thì đăng nhập bị gateway từ chối (403) |
 | `GATEWAY_JWT_ENABLED` | Không (mặc định `true`) | Gateway bắt buộc Bearer token hợp lệ cho mọi API trừ `/api/auth/login` |
 | `RATE_LIMIT_ENABLED`, `RATE_LIMIT_REPLENISH_RATE`, `RATE_LIMIT_BURST_CAPACITY` | Không | Giới hạn tốc độ tại gateway (mặc định bật, 20 request/giây, bùng nổ tối đa 40) |
+| `GATEWAY_API_KEY_ENABLED`, `API_KEY_RATE_LIMIT_PER_SECOND` | Không | API key cho hệ thống ngoài qua header `X-Api-Key` (mặc định bật, mỗi key tối đa 20 request/giây, vượt thì 429); xem docs/SAAS_SPEC.md mục WMS-25.1 |
 | `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD` | Không | SMTP gửi email cảnh báo tồn kho |
 | `RABBITMQ_USERNAME`, `RABBITMQ_PASSWORD` | Nên đặt | Tài khoản RabbitMQ riêng cho các service và container `rabbitmq-init` (không dùng `guest`). Volume mới: broker tự tạo tài khoản này. Volume đã có dữ liệu: tạo trước bằng `rabbitmqctl` theo mục 6 của [docs/MESSAGING.md](../docs/MESSAGING.md) rồi mới ghi vào `.env` |
 | `COMPOSE_PATH_SEPARATOR`, `COMPOSE_FILE` | Nên giữ | Để lệnh `docker compose` trong thư mục này tự dùng cả hai file compose |

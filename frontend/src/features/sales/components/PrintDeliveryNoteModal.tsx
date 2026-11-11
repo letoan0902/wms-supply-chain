@@ -36,7 +36,7 @@ export default function PrintDeliveryNoteModal({
       render: (_, r) => (
         <div>
           <div className="font-semibold text-slate-900">{r.productName}</div>
-          <div className="text-xs text-slate-500 font-mono mt-0.5">{r.productSku}</div>
+          <div className="text-xs text-slate-500 font-mono mt-0.5">{r.skuCode}</div>
         </div>
       ),
     },
@@ -46,7 +46,7 @@ export default function PrintDeliveryNoteModal({
       key: 'uom',
       width: 75,
       align: 'center',
-      render: (uom) => uom || 'Cái',
+      render: (uom) => uom || '',
     },
     {
       title: 'Số Lô & Vị Trí Xuất',
@@ -54,18 +54,18 @@ export default function PrintDeliveryNoteModal({
       width: 180,
       render: (_, r) => (
         <div className="text-xs space-y-0.5">
-          {r.lotNo ? (
+          {r.batchNumber ? (
             <div>
               <Tag color="blue" className="text-[11px] m-0 font-mono">
-                Lô: {r.lotNo}
+                Lô: {r.batchNumber}
               </Tag>
             </div>
           ) : (
             <span className="text-slate-400 italic">Không theo lô</span>
           )}
-          {r.binCode && (
+          {r.locationCode && (
             <div className="text-slate-600 font-mono text-[11px]">
-              Vị trí: <strong>{r.binCode}</strong>
+              Vị trí: <strong>{r.locationCode}</strong>
             </div>
           )}
         </div>
@@ -73,8 +73,8 @@ export default function PrintDeliveryNoteModal({
     },
     {
       title: 'Số lượng thực xuất',
-      dataIndex: 'quantity',
-      key: 'quantity',
+      dataIndex: 'deliveredQuantity',
+      key: 'deliveredQuantity',
       width: 140,
       align: 'right',
       render: (qty, r) => (
@@ -82,13 +82,13 @@ export default function PrintDeliveryNoteModal({
           <span className="font-bold text-base text-slate-900">
             {formatNumber(qty)}
           </span>{' '}
-          <span className="text-xs text-slate-500">{r.uom || 'Cái'}</span>
+          <span className="text-xs text-slate-500">{r.uom || ''}</span>
         </div>
       ),
     },
   ]
 
-  const totalQty = (gdn.items || []).reduce((sum, it) => sum + (it.quantity || 0), 0)
+  const totalQty = Number(gdn.totalQuantity ?? 0)
 
   return (
     <Modal
@@ -151,13 +151,18 @@ export default function PrintDeliveryNoteModal({
           <div className="text-right">
             <div className="text-xs text-slate-500">Số Phiếu GDN:</div>
             <div className="text-lg font-mono font-bold text-emerald-700">
-              {gdn.code}
+              {gdn.gdnNumber}
             </div>
             <div className="text-xs text-slate-600 font-medium">
-              Đơn SO: <span className="font-mono text-blue-700">{gdn.salesOrderCode}</span>
+              Đơn SO: <span className="font-mono text-blue-700">{gdn.soNumber}</span>
             </div>
             <div className="text-[11px] text-slate-400">
-              Ngày xuất: {dayjs(gdn.createdAt).format('DD/MM/YYYY HH:mm')}
+              Ngày xuất:{' '}
+              {gdn.dispatchedAt
+                ? dayjs(gdn.dispatchedAt).format('DD/MM/YYYY HH:mm')
+                : gdn.deliveryDate
+                  ? dayjs(gdn.deliveryDate).format('DD/MM/YYYY')
+                  : ''}
             </div>
           </div>
         </div>
@@ -170,6 +175,11 @@ export default function PrintDeliveryNoteModal({
           <Descriptions.Item label="Khách hàng / Đơn vị nhận">
             <strong className="text-slate-900">{gdn.customerName || 'N/A'}</strong>
           </Descriptions.Item>
+          {(gdn.recipientName || gdn.recipientPhone) && (
+            <Descriptions.Item label="Người nhận" span={2}>
+              {[gdn.recipientName, gdn.recipientPhone].filter(Boolean).join(' - ')}
+            </Descriptions.Item>
+          )}
           <Descriptions.Item label="Địa chỉ nhận hàng" span={2}>
             {gdn.deliveryAddress || 'Giao tại kho khách hàng'}
           </Descriptions.Item>

@@ -41,6 +41,13 @@ import SmartGoodsDeliveryForm from './SmartGoodsDeliveryForm'
 
 const { RangePicker } = DatePicker
 
+const GDN_STATUS_LABEL: Record<GoodsDeliveryStatus, string> = {
+  DRAFT: 'Bản nháp',
+  PICKING: 'Đang lấy hàng',
+  COMPLETED: 'Đã xuất kho',
+  CANCELLED: 'Đã hủy',
+}
+
 export default function GoodsDeliveryTable() {
   const { message } = App.useApp()
 
@@ -140,14 +147,14 @@ export default function GoodsDeliveryTable() {
 
     const excelData = gdns.map((g, idx) => ({
       STT: idx + 1,
-      'Số Phiếu GDN': g.code,
-      'Mã Đơn SO': g.salesOrderCode,
+      'Số Phiếu GDN': g.gdnNumber,
+      'Mã Đơn SO': g.soNumber || '',
       'Khách Hàng': g.customerName || 'N/A',
       'Kho Xuất': g.warehouseName || 'Chưa gán',
-      'Ngày Xuất': dayjs(g.createdAt).format('DD/MM/YYYY HH:mm'),
+      'Ngày Xuất': g.deliveryDate ? dayjs(g.deliveryDate).format('DD/MM/YYYY') : '',
       'Số Mặt Hàng': g.items?.length || 0,
-      'Tổng SL Xuất': (g.items || []).reduce((s, it) => s + (it.quantity || 0), 0),
-      'Trạng Thái': g.status,
+      'Tổng SL Xuất': Number(g.totalQuantity ?? 0),
+      'Trạng Thái': GDN_STATUS_LABEL[g.status] || g.status,
       'Địa Chỉ Giao': g.deliveryAddress || '',
       'Ghi Chú': g.note || '',
     }))
@@ -162,8 +169,8 @@ export default function GoodsDeliveryTable() {
   const columns: ColumnsType<GdnResponse> = [
     {
       title: 'Mã Phiếu GDN',
-      dataIndex: 'code',
-      key: 'code',
+      dataIndex: 'gdnNumber',
+      key: 'gdnNumber',
       width: 170,
       render: (code, r) => (
         <a
@@ -176,8 +183,8 @@ export default function GoodsDeliveryTable() {
     },
     {
       title: 'Mã Đơn SO',
-      dataIndex: 'salesOrderCode',
-      key: 'salesOrderCode',
+      dataIndex: 'soNumber',
+      key: 'soNumber',
       width: 160,
       render: (soCode) => (
         <span className="font-mono font-bold text-blue-700">{soCode}</span>
@@ -208,7 +215,7 @@ export default function GoodsDeliveryTable() {
       width: 170,
       align: 'center',
       render: (_, r) => {
-        const totalUnits = (r.items || []).reduce((s, it) => s + (it.quantity || 0), 0)
+        const totalUnits = Number(r.totalQuantity ?? 0)
         return (
           <div>
             <span className="font-semibold text-slate-800">{r.items?.length || 0}</span> mặt hàng
@@ -221,12 +228,15 @@ export default function GoodsDeliveryTable() {
     },
     {
       title: 'Thời gian xuất',
-      dataIndex: 'createdAt',
-      key: 'createdAt',
+      key: 'dispatchedAt',
       width: 150,
-      render: (d) => (
+      render: (_, r) => (
         <span className="text-xs text-slate-600">
-          {dayjs(d).format('DD/MM/YYYY HH:mm')}
+          {r.dispatchedAt
+            ? dayjs(r.dispatchedAt).format('DD/MM/YYYY HH:mm')
+            : r.deliveryDate
+              ? dayjs(r.deliveryDate).format('DD/MM/YYYY')
+              : '-'}
         </span>
       ),
     },
@@ -236,8 +246,8 @@ export default function GoodsDeliveryTable() {
       key: 'status',
       width: 130,
       align: 'center',
-      render: (status) => {
-        if (status === 'COMPLETED' || status === 'DISPATCHED') {
+      render: (status: GoodsDeliveryStatus) => {
+        if (status === 'COMPLETED') {
           return (
             <Tag color="success" className="m-0 font-medium">
               <CheckCircleOutlined /> Đã xuất kho
@@ -246,6 +256,9 @@ export default function GoodsDeliveryTable() {
         }
         if (status === 'CANCELLED') {
           return <Tag color="error">Đã hủy</Tag>
+        }
+        if (status === 'PICKING') {
+          return <Tag color="processing">Đang lấy hàng</Tag>
         }
         return <Tag color="warning">Nháp</Tag>
       },
@@ -329,7 +342,7 @@ export default function GoodsDeliveryTable() {
           <Card size="small" className="border-l-4 border-l-emerald-600 shadow-2xs">
             <Statistic
               title={<span className="text-xs text-slate-500">Tổng số phiếu xuất kho</span>}
-              value={summary?.totalGdn ?? total}
+              value={summary?.totalGdns ?? total}
               valueStyle={{ color: '#059669', fontWeight: 'bold' }}
               prefix={<RocketOutlined />}
               suffix="phiếu"
@@ -341,7 +354,7 @@ export default function GoodsDeliveryTable() {
           <Card size="small" className="border-l-4 border-l-blue-600 shadow-2xs">
             <Statistic
               title={<span className="text-xs text-slate-500">Đã xuất kho thành công</span>}
-              value={summary?.completedGdn ?? (summary?.dispatchedGdn ?? total)}
+              value={summary?.completedGdns ?? 0}
               valueStyle={{ color: '#2563eb', fontWeight: 'bold' }}
               prefix={<CheckCircleOutlined />}
               suffix="phiếu"
@@ -353,7 +366,7 @@ export default function GoodsDeliveryTable() {
           <Card size="small" className="border-l-4 border-l-orange-500 shadow-2xs">
             <Statistic
               title={<span className="text-xs text-slate-500">Tổng sản phẩm đã xuất xưởng</span>}
-              value={summary?.totalDispatchedQuantity ?? 0}
+              value={summary?.totalQuantityDispatched ?? 0}
               valueStyle={{ color: '#ea580c', fontWeight: 'bold' }}
               prefix={<InboxOutlined />}
               formatter={(v) => formatNumber(Number(v))}
@@ -364,11 +377,11 @@ export default function GoodsDeliveryTable() {
         <Col xs={24} sm={12} lg={6}>
           <Card size="small" className="border-l-4 border-l-purple-600 shadow-2xs">
             <Statistic
-              title={<span className="text-xs text-slate-500">Tỷ lệ xuất thành công</span>}
-              value={total > 0 ? 100 : 0}
+              title={<span className="text-xs text-slate-500">Phiếu nháp / đang lấy hàng</span>}
+              value={(summary?.draftGdns ?? 0) + (summary?.pickingGdns ?? 0)}
               valueStyle={{ color: '#7c3aed', fontWeight: 'bold' }}
               prefix={<SyncOutlined />}
-              suffix="%"
+              suffix="phiếu"
             />
           </Card>
         </Col>
@@ -410,9 +423,10 @@ export default function GoodsDeliveryTable() {
             className="w-44"
             options={[
               { value: 'ALL', label: 'Tất cả trạng thái' },
-              { value: 'COMPLETED', label: 'Đã xuất kho' },
-              { value: 'DISPATCHED', label: 'Đã dispatch' },
-              { value: 'DRAFT', label: 'Bản nháp' },
+              { value: 'COMPLETED', label: GDN_STATUS_LABEL.COMPLETED },
+              { value: 'PICKING', label: GDN_STATUS_LABEL.PICKING },
+              { value: 'DRAFT', label: GDN_STATUS_LABEL.DRAFT },
+              { value: 'CANCELLED', label: GDN_STATUS_LABEL.CANCELLED },
             ]}
           />
 

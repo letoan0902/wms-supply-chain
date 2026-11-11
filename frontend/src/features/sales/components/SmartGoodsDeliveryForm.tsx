@@ -28,17 +28,37 @@ import type { InputRef } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { useEffect, useRef, useState } from 'react'
 import BarcodeCameraScanner from '../../purchases/components/BarcodeCameraScanner'
-import { getApiErrorMessage } from '../../../services/api'
+import { getApiErrorMessage, getErrorStatus } from '../../../services/api'
 import { formatNumber } from '../../../utils/format'
 import { playErrorBeep, playSuccessBeep, playWarningBeep } from '../../../utils/sound'
 import * as pickingApi from '../pickingApi'
 import * as salesApi from '../salesApi'
 import type { SalesOrder, SalesOrderItem } from '../types'
 import * as gdnApi from '../gdnApi'
-import type { GdnResponse } from '../gdnTypes'
+import type { CreateGdnRequest, GdnResponse } from '../gdnTypes'
 import PrintDeliveryNoteModal from './PrintDeliveryNoteModal'
 
 const { Text } = Typography
+
+/** Số lượng lưu DECIMAL(18,3): làm tròn 3 chữ số để tránh sai số dấu phẩy động (0.07 - 0.01) */
+const round3 = (value: number) => Math.round(value * 1000) / 1000
+
+/**
+ * Số lượng đã xuất của từng dòng đơn bán, cộng từ các phiếu xuất đã lập (trừ phiếu đã hủy).
+ * SalesOrderItemResponse không trả deliveredQuantity nên phải tính từ lịch sử phiếu xuất của đơn.
+ */
+function sumDeliveredBySoItem(gdns: GdnResponse[]): Map<number, number> {
+  const delivered = new Map<number, number>()
+  gdns
+    .filter((g) => g.status !== 'CANCELLED')
+    .forEach((g) => {
+      ;(g.items || []).forEach((it) => {
+        if (it.soItemId == null) return
+        delivered.set(it.soItemId, round3((delivered.get(it.soItemId) ?? 0) + Number(it.deliveredQuantity ?? 0)))
+      })
+    })
+  return delivered
+}
 
 export interface DeliveryItemRow {
   key: string
@@ -85,6 +105,10 @@ export default function SmartGoodsDeliveryForm({
   const [loadingItems, setLoadingItems] = useState(false)
   const [deliveryNoteText, setDeliveryNoteText] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  // Chặn gửi hai lần (bấm đúp, phím Enter của súng quét rơi vào nút xác nhận) trước khi state kịp cập nhật
+  const submittingRef = useRef(false)
+  // Tăng để tải lại số lượng còn lại từ máy chủ (sau lỗi mạng không rõ phiếu đã được lập hay chưa)
+  const [reloadKey, setReloadKey] = useState(0)
 
   // Quét mã vạch tự động
   const [barcodeInput, setBarcodeInput] = useState('')
@@ -111,7 +135,10 @@ export default function SmartGoodsDeliveryForm({
           const list = res.content || []
           setConfirmedOrders(list)
           if (list.length > 0) {
-            setSelectedOrderId((prev) => prev ?? list[0].id)
+            // Đơn đã chọn trước đó có thể đã xuất đủ (COMPLETED) nên không còn trong danh sách
+            setSelectedOrderId((prev) =>
+              prev != null && list.some((o) => o.id === prev) ? prev : list[0].id
+            )
           }
         }
       } catch (err) {
@@ -161,10 +188,15 @@ export default function SmartGoodsDeliveryForm({
     let ignore = false
     const loadOrderItemsForDelivery = async () => {
       setLoadingItems(true)
+      setItems([])
       try {
-        // Tải chi tiết SO mới nhất để lấy số lượng đã giao
-        const fullOrder = await salesApi.getSalesOrderById(activeOrder.id)
+        // Tải chi tiết SO mới nhất và các phiếu xuất đã lập để tính số lượng còn phải giao
+        const [fullOrder, existingGdns] = await Promise.all([
+          salesApi.getSalesOrderById(activeOrder.id),
+          gdnApi.fetchGoodsDeliveriesBySoId(activeOrder.id),
+        ])
         if (ignore) return
+        const deliveredMap = sumDeliveredBySoItem(existingGdns || [])
 
         // Tải gợi ý lấy hàng từ API hoặc optimizer
         const pickingMap = new Map<number, { locationCode: string; binId?: number; lotNo?: string }>()
@@ -184,23 +216,24 @@ export default function SmartGoodsDeliveryForm({
         }
 
         const rows: DeliveryItemRow[] = (fullOrder.items || []).map((it: SalesOrderItem, idx: number) => {
-          const delivered = it.deliveredQuantity || 0
-          const remaining = Math.max(0, it.quantity - delivered)
+          const ordered = Number(it.quantity ?? 0)
+          const delivered = deliveredMap.get(it.id) ?? 0
+          const remaining = Math.max(0, round3(ordered - delivered))
           const pInfo = pickingMap.get(it.productId)
 
           return {
             key: `so-item-${it.id || idx}`,
             salesOrderItemId: it.id,
             productId: it.productId,
-            skuCode: it.productSku || it.skuCode || `SKU-${it.productId}`,
-            productName: it.productName || 'Sản phẩm',
+            skuCode: it.skuCode,
+            productName: it.productName,
             barcode: it.barcode,
-            uom: it.uom || 'Cái',
-            orderedQuantity: it.quantity,
+            uom: it.uom || '',
+            orderedQuantity: ordered,
             alreadyDeliveredQuantity: delivered,
             remainingQuantity: remaining,
             // Ban đầu để 0 chờ súng bắn mã quét hoặc nhập
-            dispatchQuantity: remaining > 0 ? 0 : 0,
+            dispatchQuantity: 0,
             lotNo: pInfo?.lotNo,
             binLocationId: pInfo?.binId,
             binCode: pInfo?.locationCode,
@@ -224,11 +257,11 @@ export default function SmartGoodsDeliveryForm({
     return () => {
       ignore = true
     }
-  }, [open, activeOrder, message])
+  }, [open, activeOrder, message, reloadKey])
 
   // Cập nhật số lượng xuất thủ công
   const handleQuantityChange = (key: string, qty: number | null) => {
-    const val = Math.max(0, qty || 0)
+    const val = Math.max(0, round3(Number(qty ?? 0)))
     setItems((prev) =>
       prev.map((it) => {
         if (it.key === key) {
@@ -296,7 +329,7 @@ export default function SmartGoodsDeliveryForm({
     setItems((prev) =>
       prev.map((it) => {
         if (it.key === target.key) {
-          const nextQty = Math.min(it.remainingQuantity, it.dispatchQuantity + 1)
+          const nextQty = Math.min(it.remainingQuantity, round3(it.dispatchQuantity + 1))
           return {
             ...it,
             dispatchQuantity: nextQty,
@@ -332,8 +365,11 @@ export default function SmartGoodsDeliveryForm({
       return
     }
 
-    // Lọc các mặt hàng có số lượng xuất > 0
-    const itemsToDispatch = items.filter((it) => it.dispatchQuantity > 0)
+    // Chỉ gửi các dòng có số lượng xuất > 0 (backend yêu cầu deliveredQuantity > 0),
+    // không vượt số lượng còn lại của dòng đơn bán, làm tròn 3 chữ số như DECIMAL(18,3)
+    const itemsToDispatch = items
+      .map((it) => ({ ...it, dispatchQuantity: Math.min(round3(it.dispatchQuantity), it.remainingQuantity) }))
+      .filter((it) => it.dispatchQuantity > 0)
 
     if (itemsToDispatch.length === 0) {
       message.warning('Vui lòng quét mã vạch hoặc nhập số lượng xuất cho ít nhất 1 mặt hàng!')
@@ -341,24 +377,28 @@ export default function SmartGoodsDeliveryForm({
       return
     }
 
+    if (submittingRef.current || createdGdnForPrint) return
+    submittingRef.current = true
     setSubmitting(true)
     try {
-      const payload = {
-        salesOrderId: activeOrder.id,
-        warehouseId: activeOrder.warehouseId || 1,
+      const payload: CreateGdnRequest = {
+        soId: activeOrder.id,
+        // COMPLETED: xuất ngay, backend phát một sự kiện order.dispatched và inventory-service trừ tồn một lần
+        status: 'COMPLETED',
         note: deliveryNoteText.trim() || undefined,
         items: itemsToDispatch.map((it) => ({
-          salesOrderItemId: it.salesOrderItemId,
+          soItemId: it.salesOrderItemId,
           productId: it.productId,
-          lotNo: it.lotNo,
-          binLocationId: it.binLocationId,
-          quantity: it.dispatchQuantity,
+          deliveredQuantity: it.dispatchQuantity,
+          batchNumber: it.lotNo,
+          locationId: it.binLocationId,
+          locationCode: it.binCode,
         })),
       }
 
       const createdGdn = await gdnApi.createGoodsDelivery(payload)
       playSuccessBeep()
-      message.success(`Đã lập thành công Phiếu xuất kho ${createdGdn.code}! Hệ thống đã tự động trừ tồn kho.`)
+      message.success(`Đã lập Phiếu xuất kho ${createdGdn.gdnNumber}, tồn kho được trừ theo phiếu này.`)
 
       // Chuẩn bị in phiếu giao hàng
       setCreatedGdnForPrint(createdGdn)
@@ -369,8 +409,19 @@ export default function SmartGoodsDeliveryForm({
       }
     } catch (err) {
       playErrorBeep()
-      message.error(getApiErrorMessage(err, 'Lỗi khi xác nhận xuất xưởng phiếu GDN'))
+      const status = getErrorStatus(err)
+      if (status === undefined || status >= 500) {
+        // Không nhận được phản hồi (mất mạng, hết thời gian chờ): phiếu có thể đã được lập ở máy chủ.
+        // Không gửi lại nguyên yêu cầu cũ, tải lại số lượng còn lại để người dùng kiểm tra rồi mới xuất tiếp.
+        message.warning(
+          'Không xác định được phiếu xuất đã được lập hay chưa. Đã tải lại số lượng còn lại của đơn, vui lòng kiểm tra danh sách phiếu xuất trước khi xuất tiếp.'
+        )
+        setReloadKey((k) => k + 1)
+      } else {
+        message.error(getApiErrorMessage(err, 'Lỗi khi xác nhận xuất xưởng phiếu GDN'))
+      }
     } finally {
+      submittingRef.current = false
       setSubmitting(false)
     }
   }
@@ -378,8 +429,8 @@ export default function SmartGoodsDeliveryForm({
   // Thống kê tiến độ đóng gói
   const verifiedCount = items.filter((it) => it.isVerified && it.remainingQuantity > 0).length
   const activeItemsCount = items.filter((it) => it.remainingQuantity > 0).length
-  const totalRemainingUnits = items.reduce((s, it) => s + it.remainingQuantity, 0)
-  const totalDispatchUnits = items.reduce((s, it) => s + it.dispatchQuantity, 0)
+  const totalRemainingUnits = round3(items.reduce((s, it) => s + it.remainingQuantity, 0))
+  const totalDispatchUnits = round3(items.reduce((s, it) => s + it.dispatchQuantity, 0))
 
   const progressPercent =
     activeItemsCount > 0 ? Math.round((verifiedCount / activeItemsCount) * 100) : 100
@@ -457,6 +508,7 @@ export default function SmartGoodsDeliveryForm({
           <InputNumber
             min={0}
             max={r.remainingQuantity}
+            precision={3}
             value={r.dispatchQuantity}
             onChange={(val) => handleQuantityChange(r.key, val)}
             disabled={r.remainingQuantity === 0}
@@ -516,6 +568,7 @@ export default function SmartGoodsDeliveryForm({
             type="primary"
             icon={<CheckCircleOutlined />}
             loading={submitting}
+            disabled={!activeOrder || loadingItems || Boolean(createdGdnForPrint)}
             onClick={() => void handleConfirmDispatch()}
             className="bg-emerald-600 hover:bg-emerald-700 font-semibold"
           >
@@ -596,7 +649,7 @@ export default function SmartGoodsDeliveryForm({
                       </span>
                       {isFullyPacked && (
                         <span className="text-emerald-600 font-semibold">
-                          ✓ Đã kiểm đủ số lượng
+                          Đã kiểm đủ số lượng
                         </span>
                       )}
                     </div>

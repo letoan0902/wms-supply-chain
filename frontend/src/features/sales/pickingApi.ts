@@ -1,8 +1,9 @@
 /**
  * REST API Client cho phân hệ Bảng xuất kho thời gian thực & Lộ trình lấy hàng (WMS-12.3 - FR17).
  *
- * Màn hình chỉ ĐỌC tồn theo lô/ô kệ (GET /api/inventory/lots) để lập lộ trình lấy hàng.
- * Xác nhận xuất kho và trừ tồn thuộc luồng phiếu xuất kho của order-service (WMS-12.1, chưa có API):
+ * Màn hình chỉ ĐỌC: gợi ý lấy hàng của order-service (GET /api/orders/sales/{id}/picking-list), nếu lỗi thì
+ * tự lập lộ trình từ tồn theo lô/ô kệ (GET /api/inventory/lots).
+ * Xác nhận xuất kho và trừ tồn chỉ đi qua phiếu xuất kho của order-service (gdnApi, WMS-12.1):
  * không gọi thẳng /api/inventory/stock/deduct hay /dispatch từ trình duyệt, vì đơn bán không được cập nhật
  * trạng thái nên có thể bị xuất lại và trừ tồn hai lần.
  */
@@ -133,25 +134,25 @@ export async function loadPickingRoute(order: SalesOrder): Promise<PickingItem[]
         productId: it.productId,
         skuCode: it.skuCode,
         productName: it.productName,
-        uom: it.uom || 'Cái',
+        uom: it.uom || '',
         orderedQuantity: it.quantityToPick,
         pickedQuantity: 0,
         isPicked: false,
         shortage: false,
         locationId: it.binLocationId,
-        locationCode: it.locationCode || `${it.zone || 'A'}-${it.rack || '01'}-${it.bin || '01'}`,
-        zone: it.zone || 'A',
-        rack: it.rack || '01',
-        bin: it.bin || '01',
+        // Không dựng vị trí giả: thiếu thông tin ô kệ thì để trống như bộ tối ưu phía client
+        locationCode: it.locationCode || '',
+        zone: it.zone || '',
+        rack: it.rack || '',
+        bin: it.bin || '',
         lotNo: it.lotNo,
         mfgDate: it.mfgDate,
         expDate: it.expDate,
         step: it.step || idx + 1,
       }))
     }
-  } catch (err) {
+  } catch {
     // Nếu backend chưa deploy hoặc gặp lỗi tạm thời, tiếp tục với bộ tối ưu hóa phía client
-    console.debug('Không thể tải picking-list từ order-service, tiếp tục với FE optimizer:', err)
   }
 
   // 2. Fallback: Tải tồn theo lô/vị trí và tối ưu hóa phía frontend

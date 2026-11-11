@@ -13,6 +13,8 @@ import type {
 
 /**
  * Lập mới Phiếu xuất kho GDN từ Đơn bán hàng SO (WMS-12.1, WMS-12.4).
+ * Phiếu COMPLETED phát một sự kiện order.dispatched, inventory-service trừ tồn đúng một lần.
+ * Không tự gửi lại khi lỗi mạng: yêu cầu có thể đã được ghi nhận ở máy chủ.
  */
 export async function createGoodsDelivery(payload: CreateGdnRequest): Promise<GdnResponse> {
   const res = await api.post<ApiResponse<GdnResponse>>('/orders/goods-delivery-notes', payload)
@@ -61,7 +63,7 @@ export async function fetchGoodsDeliveryById(id: number): Promise<GdnResponse> {
  * Lấy chi tiết phiếu xuất kho theo Mã GDN.
  */
 export async function fetchGoodsDeliveryByNumber(gdnNumber: string): Promise<GdnResponse> {
-  const res = await api.get<ApiResponse<GdnResponse>>(`/orders/goods-delivery-notes/number/${gdnNumber}`)
+  const res = await api.get<ApiResponse<GdnResponse>>(`/orders/goods-delivery-notes/number/${encodeURIComponent(gdnNumber)}`)
   return res.data.data
 }
 

@@ -1,59 +1,94 @@
 /**
- * Kiểu dữ liệu Phiếu xuất kho (Goods Delivery Note - GDN) & Xuất xưởng (FR17 - WMS-12).
+ * Kiểu dữ liệu Phiếu xuất kho (Goods Delivery Note - GDN) & Xuất xưởng (WMS-12).
+ * Khớp các DTO của order-service: CreateGdnRequest, CreateGdnItemRequest, GdnResponse, GdnItemResponse,
+ * GdnSummaryResponse và enum GoodsDeliveryStatus.
  */
 
-export type GoodsDeliveryStatus = 'DRAFT' | 'DISPATCHED' | 'COMPLETED' | 'CANCELLED'
+export type GoodsDeliveryStatus = 'DRAFT' | 'PICKING' | 'COMPLETED' | 'CANCELLED'
 
+/** Khớp vn.wms.order.dto.CreateGdnItemRequest */
 export interface CreateGdnItemRequest {
-  salesOrderItemId: number
+  soItemId: number
   productId: number
-  lotNo?: string
-  binLocationId?: number
-  quantity: number
+  skuCode?: string
+  productName?: string
+  uom?: string
+  /** Số lượng thực xuất, backend yêu cầu > 0 (DECIMAL(18,3)) */
+  deliveredQuantity: number
+  unitPrice?: number
+  batchNumber?: string
+  locationId?: number
+  locationCode?: string
+  note?: string
 }
 
+/** Khớp vn.wms.order.dto.CreateGdnRequest. Kho xuất lấy theo đơn bán, không gửi từ trình duyệt. */
 export interface CreateGdnRequest {
-  salesOrderId: number
-  warehouseId: number
+  soId: number
+  /** yyyy-MM-dd, để trống thì backend lấy ngày hôm nay */
+  deliveryDate?: string
+  /** Mặc định COMPLETED (xuất ngay); backend từ chối CANCELLED */
+  status?: Exclude<GoodsDeliveryStatus, 'CANCELLED'>
+  recipientName?: string
+  recipientPhone?: string
+  deliveryAddress?: string
   note?: string
   items: CreateGdnItemRequest[]
 }
 
+/** Khớp vn.wms.order.dto.GdnItemResponse */
 export interface GdnItemResponse {
   id: number
-  salesOrderItemId: number
+  soItemId?: number
   productId: number
-  productSku: string
-  productName: string
+  skuCode?: string
+  productName?: string
   uom?: string
-  lotNo?: string
-  binLocationId?: number
-  binCode?: string
-  quantity: number
+  orderedQuantity?: number
+  deliveredQuantity: number
+  unitPrice?: number
+  lineTotal?: number
+  batchNumber?: string
+  locationId?: number
+  locationCode?: string
+  note?: string
+  createdAt?: string
 }
 
+/** Khớp vn.wms.order.dto.GdnResponse */
 export interface GdnResponse {
   id: number
-  code: string
-  salesOrderId: number
-  salesOrderCode: string
-  warehouseId: number
-  warehouseName?: string
+  gdnNumber: string
+  soId?: number
+  soNumber?: string
+  customerId?: number
   customerName?: string
-  deliveryAddress?: string
+  warehouseId?: number
+  warehouseName?: string
   status: GoodsDeliveryStatus
+  deliveryDate?: string
+  totalQuantity?: number
+  totalAmount?: number
+  recipientName?: string
+  recipientPhone?: string
+  deliveryAddress?: string
   note?: string
-  createdAt: string
+  dispatchedBy?: string
+  dispatchedAt?: string
   items: GdnItemResponse[]
+  createdAt?: string
+  updatedAt?: string
 }
 
+/** Khớp vn.wms.order.dto.GdnSummaryResponse */
 export interface GdnSummaryResponse {
-  totalGdn: number
-  completedGdn: number
-  dispatchedGdn: number
-  draftGdn: number
-  cancelledGdn: number
-  totalDispatchedQuantity: number
+  totalGdns: number
+  draftGdns: number
+  pickingGdns: number
+  completedGdns: number
+  cancelledGdns: number
+  totalQuantityDispatched: number
+  totalAmountDispatched: number
 }
 
 export interface GdnSearchParams {

@@ -100,6 +100,11 @@ app:
   tenant:
     required: true
     default-company-id: ${TENANT_DEFAULT_COMPANY_ID:}
+  # Danh tính từ header của api-gateway (docs/SECURITY.md, WMS-20.3). true (máy phát triển, gateway tắt kiểm tra JWT):
+  # request không có X-User-Name được coi là nhà phát triển đủ vai trò. Máy chủ đặt SECURITY_ALLOW_ANONYMOUS=false
+  # (deploy/docker-compose.prod.yml): request thiếu danh tính nhận 401 ngay tại service.
+  security:
+    allow-anonymous-without-gateway: ${SECURITY_ALLOW_ANONYMOUS:true}
 
 ---
 # Nạp cấu hình tập trung từ Config Server. Tiền tố optional nghĩa là Config Server chưa chạy thì service vẫn

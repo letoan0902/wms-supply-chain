@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -31,18 +32,21 @@ public class UomController {
 
     @GetMapping
     @Operation(summary = "Lấy danh sách tất cả các đơn vị tính trong hệ thống")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'PURCHASING', 'SALES', 'ACCOUNTANT', 'INTEGRATION')")
     public ApiResponse<List<UomResponse>> listAll() {
         return ApiResponse.ok(uomService.listAll());
     }
 
     @GetMapping("/{id}")
     @Operation(summary = "Xem chi tiết đơn vị tính theo ID")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'PURCHASING', 'SALES', 'ACCOUNTANT', 'INTEGRATION')")
     public ApiResponse<UomResponse> getById(@PathVariable Long id) {
         return ApiResponse.ok(uomService.getById(id));
     }
 
     @PostMapping
     @Operation(summary = "Tạo mới đơn vị tính")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'PURCHASING')")
     public ResponseEntity<ApiResponse<UomResponse>> create(@Valid @RequestBody CreateUomRequest request) {
         UomResponse created = uomService.create(request);
         return ResponseEntity.created(URI.create("/api/uoms/" + created.id()))

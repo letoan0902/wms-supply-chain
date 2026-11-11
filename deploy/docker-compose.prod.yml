@@ -25,6 +25,9 @@
 #   6. inventory-service: đặt TENANT_DEFAULT_COMPANY_ID rỗng, bỏ doanh nghiệp mặc định chỉ dành cho môi trường phát triển.
 #   7. auth-service: PAYOS_MOCK (mặc định true) và địa chỉ trả về của PayOS theo DOMAIN (WMS-23.5a).
 #   8. ai-service: TENANT_DEFAULT_COMPANY_ID rỗng và AI_MOCK (mặc định true) cho tới khi có khóa AI (WMS-24.1).
+#   9. product, order, inventory, notification, ai: SECURITY_ALLOW_ANONYMOUS=false (WMS-20.3, docs/SECURITY.md). Request tới
+#      service mà không có danh tính do gateway gắn (X-User-Name) nhận 401, kể cả khi gọi thẳng vào cổng của service.
+#      Máy phát triển giữ mặc định true để gọi API khi gateway tắt kiểm tra JWT.
 #
 # Yêu cầu Docker Compose v2.24.4 trở lên vì file dùng hai thẻ YAML của Compose:
 #   !reset      xóa giá trị kế thừa từ file gốc (hỗ trợ từ v2.24.0)
@@ -128,10 +131,12 @@ services:
   product-service:
     environment:
       TENANT_DEFAULT_COMPANY_ID: ""
+      SECURITY_ALLOW_ANONYMOUS: ${SECURITY_ALLOW_ANONYMOUS:-false}
 
   order-service:
     environment:
       TENANT_DEFAULT_COMPANY_ID: ""
+      SECURITY_ALLOW_ANONYMOUS: ${SECURITY_ALLOW_ANONYMOUS:-false}
 
   # --------------------------------------------------------------------------
   # notification-service: hub WebSocket /ws-wms (WMS-02.3). Gateway để /ws-wms/** là đường dẫn công khai vì handshake
@@ -149,6 +154,7 @@ services:
       MAIL_USERNAME: ${MAIL_USERNAME:-}
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
       MAIL_FROM: ${MAIL_FROM:-}
+      SECURITY_ALLOW_ANONYMOUS: ${SECURITY_ALLOW_ANONYMOUS:-false}
 
   # --------------------------------------------------------------------------
   # auth-service: thanh toán PayOS (WMS-23.5a). Ba khóa đọc từ .env (file gốc đã truyền vào container).
@@ -171,6 +177,7 @@ services:
     environment:
       # Ghi đè thành rỗng: trên máy chủ request không có doanh nghiệp phải bị từ chối (403), không được ngầm coi là doanh nghiệp 1.
       TENANT_DEFAULT_COMPANY_ID: ""
+      SECURITY_ALLOW_ANONYMOUS: ${SECURITY_ALLOW_ANONYMOUS:-false}
 
   # --------------------------------------------------------------------------
   # ai-service (WMS-24.1): khóa ANTHROPIC_API_KEY đọc từ .env (file gốc đã truyền vào container). AI_MOCK mặc định vẫn
@@ -181,6 +188,7 @@ services:
     environment:
       AI_MOCK: ${AI_MOCK:-true}
       TENANT_DEFAULT_COMPANY_ID: ""
+      SECURITY_ALLOW_ANONYMOUS: ${SECURITY_ALLOW_ANONYMOUS:-false}
 
 volumes:
   caddy_data:

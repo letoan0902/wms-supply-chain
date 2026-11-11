@@ -55,7 +55,7 @@ public class SalesOrderController {
 
     @GetMapping
     @Operation(summary = "Danh sách đơn bán hàng (SO) có phân trang, tìm kiếm và lọc đa tiêu chí")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SALES', 'WAREHOUSE_MANAGER', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SALES', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'ACCOUNTANT', 'INTEGRATION')")
     public ApiResponse<PageResponse<SalesOrderResponse>> listSalesOrders(
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) Long customerId,
@@ -71,21 +71,21 @@ public class SalesOrderController {
 
     @GetMapping("/summary")
     @Operation(summary = "Báo cáo tổng quan tình hình đơn bán hàng (SO Metrics Summary)")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SALES', 'WAREHOUSE_MANAGER', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SALES', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'ACCOUNTANT', 'INTEGRATION')")
     public ApiResponse<SalesOrderSummaryResponse> getSummary() {
         return ApiResponse.ok(salesOrderService.getSummary());
     }
 
     @GetMapping("/{id}")
     @Operation(summary = "Chi tiết đơn bán hàng theo ID (kèm danh sách mặt hàng và tồn khả dụng ATP)")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SALES', 'WAREHOUSE_MANAGER', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SALES', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'ACCOUNTANT', 'INTEGRATION')")
     public ApiResponse<SalesOrderResponse> getById(@PathVariable Long id) {
         return ApiResponse.ok(salesOrderService.getById(id));
     }
 
     @GetMapping("/number/{soNumber}")
     @Operation(summary = "Chi tiết đơn bán hàng theo Mã SO")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SALES', 'WAREHOUSE_MANAGER', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SALES', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'ACCOUNTANT', 'INTEGRATION')")
     public ApiResponse<SalesOrderResponse> getBySoNumber(@PathVariable String soNumber) {
         return ApiResponse.ok(salesOrderService.getBySoNumber(soNumber));
     }

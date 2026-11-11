@@ -30,5 +30,7 @@ dependencies {
     implementation "org.springdoc:springdoc-openapi-starter-webmvc-ui:${springdocVersion}"
 
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    // Header danh tính của gateway cho test MockMvc (vn.wms.common.test.GatewayHeaders)
+    testImplementation testFixtures(project(':common'))
     testRuntimeOnly 'com.h2database:h2'
 }

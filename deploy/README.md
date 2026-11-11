@@ -206,6 +206,7 @@ nano .env     # điền ACME_EMAIL, kiểm tra DOMAIN và CORS_ALLOWED_ORIGINS
 | `JWT_SECRET` | Có | Khóa ký JWT, tối thiểu 32 ký tự, dùng chung cho api-gateway và auth-service |
 | `CORS_ALLOWED_ORIGINS` | Không (mặc định `https://<DOMAIN>`) | Origin của giao diện. Sai giá trị thì đăng nhập bị gateway từ chối (403) |
 | `GATEWAY_JWT_ENABLED` | Không (mặc định `true`) | Gateway bắt buộc Bearer token hợp lệ cho mọi API trừ `/api/auth/login` |
+| `SECURITY_ALLOW_ANONYMOUS` | Không (mặc định `false` trên máy chủ) | product, inventory, order, notification, ai: `false` thì request không có danh tính do gateway gắn nhận 401 ngay tại service. Đặt `GATEWAY_JWT_ENABLED=false` để chẩn đoán thì mọi API nghiệp vụ cũng trả 401 trừ khi đặt tạm biến này `true`; xem [docs/SECURITY.md](../docs/SECURITY.md) |
 | `RATE_LIMIT_ENABLED`, `RATE_LIMIT_REPLENISH_RATE`, `RATE_LIMIT_BURST_CAPACITY` | Không | Giới hạn tốc độ tại gateway (mặc định bật, 20 request/giây, bùng nổ tối đa 40) |
 | `GATEWAY_API_KEY_ENABLED`, `API_KEY_RATE_LIMIT_PER_SECOND` | Không | API key cho hệ thống ngoài qua header `X-Api-Key` (mặc định bật, mỗi key tối đa 20 request/giây, vượt thì 429); xem docs/SAAS_SPEC.md mục WMS-25.1 |
 | `STOCK_CACHE_ENABLED`, `STOCK_CACHE_TTL` | Không (mặc định `true`, `60s`) | Bộ nhớ đệm Redis cho tổng tồn và tồn khả dụng của inventory-service; số bị xóa ngay sau mỗi thay đổi tồn, TTL chỉ là lưới an toàn. Redis lỗi thì đọc thẳng cơ sở dữ liệu. Xem [docs/PERFORMANCE.md](../docs/PERFORMANCE.md) |

@@ -57,6 +57,11 @@ app:
   tenant:
     required: true
     default-company-id: ${TENANT_DEFAULT_COMPANY_ID:}
+  # Danh tính từ header của api-gateway (docs/SECURITY.md, WMS-20.3). true (máy phát triển, gateway tắt kiểm tra JWT):
+  # request không có X-User-Name được coi là nhà phát triển đủ vai trò. Máy chủ đặt SECURITY_ALLOW_ANONYMOUS=false
+  # (deploy/docker-compose.prod.yml): request thiếu danh tính nhận 401 ngay tại service.
+  security:
+    allow-anonymous-without-gateway: ${SECURITY_ALLOW_ANONYMOUS:true}
   # Gọi Claude (xem vn.wms.ai.config.AiProperties). Khóa KHÔNG đặt ở đây: SDK đọc biến môi trường ANTHROPIC_API_KEY.
   # AI_MOCK=true (mặc định) hoặc chưa có khóa: trả câu trả lời mẫu, không gọi Claude.
   ai:

@@ -103,6 +103,14 @@ app:
       - /ws-wms/**
       # Chỉ trả cấu hình RabbitMQ và SMTP đang chạy, không có dữ liệu của doanh nghiệp nào.
       - /api/notifications/health-info
+  # Danh tính từ header của api-gateway (docs/SECURITY.md, WMS-20.3). true (máy phát triển, gateway tắt kiểm tra JWT):
+  # request không có X-User-Name được coi là nhà phát triển đủ vai trò. Máy chủ đặt SECURITY_ALLOW_ANONYMOUS=false
+  # (deploy/docker-compose.prod.yml): request thiếu danh tính nhận 401 ngay tại service.
+  security:
+    allow-anonymous-without-gateway: ${SECURITY_ALLOW_ANONYMOUS:true}
+    public-paths:
+      # Handshake WebSocket không gửi được header Bearer; JWT kiểm tra ở frame STOMP CONNECT.
+      - /ws-wms/**
   mail:
     # Địa chỉ người gửi; để trống thì dùng MAIL_USERNAME, không có nữa thì no-reply@wms.local.
     from: ${MAIL_FROM:}

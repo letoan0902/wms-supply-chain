@@ -745,7 +745,7 @@ Bảng `account_tokens` (migration `V8__create_account_tokens.sql`): `company_id
 - 30 ngày dùng thử vẫn tính từ lúc đăng ký; kích hoạt không đổi thuê bao.
 - auth-service không gửi mail: phát `auth.activation-requested` hoặc `auth.password-reset-requested` (payload `AccountEmailRequestedEvent`, header `x-wms-company-id` là doanh nghiệp của người nhận) sau khi transaction commit, xem `docs/MESSAGING.md` mục 3 và 8.7. notification-service gửi email HTML tiếng Việt và ghi `notification_logs` dưới doanh nghiệp đó.
 - Không để lộ email có tồn tại: hai API nhận email trả cùng nội dung, việc tra cứu, phát mã và phát sự kiện chạy ở luồng nền (`app.account-email.async`, mặc định `true`) nên thời gian trả lời như nhau. Giới hạn một lần mỗi phút đếm bằng khóa Redis `wms:auth:mail-throttle:{activation|password-reset}:{sha256(email)}` (không lưu email gốc); Redis lỗi thì cho qua.
-- Không ghi mã hay liên kết ra log ở auth-service. Môi trường chưa cấu hình SMTP (không có `MAIL_HOST`, hoặc có host nhưng không có `MAIL_USERNAME` và host không phải máy cục bộ): notification-service không gửi, ghi đúng một dòng INFO gồm người nhận và liên kết đầy đủ để nhóm bấm thử (`docker compose logs notification-service | grep "liên kết"`), nhật ký ghi `FAILED`.
+- Không ghi mã hay liên kết ra log ở auth-service. Môi trường chưa cấu hình SMTP (không có `MAIL_HOST`, hoặc có host nhưng không có `MAIL_USERNAME` và host không phải máy cục bộ): notification-service không gửi, ghi đúng một dòng INFO gồm người nhận và liên kết đầy đủ để nhóm bấm thử (`docker compose logs notification-service | grep "liên kết"`), nhật ký ghi `LOGGED`.
 - Access token đã cấp trước khi đặt lại mật khẩu vẫn dùng được tới khi hết hạn (tối đa 15 phút), sau đó không làm mới được.
 
 **Cấu hình**

@@ -282,7 +282,7 @@ auth-service không gửi mail. Khi đăng ký doanh nghiệp, xin gửi lại l
 - Đọc doanh nghiệp như mục 8.5a; không có doanh nghiệp, thiếu `kind`, người nhận hoặc liên kết thì ghi cảnh báo và bỏ qua; JSON hỏng thì sang dead-letter.
 - `AccountEmailService` chạy trong `TenantContext.runAs(companyId, ...)`: gửi email HTML tiếng Việt (`EmailService.sendHtml`) và ghi `notification_logs` của doanh nghiệp đó với `event_type` `ACCOUNT_ACTIVATION` hoặc `PASSWORD_RESET`, trạng thái `SENT` hoặc `FAILED`.
 - SMTP lỗi: ghi `FAILED` kèm nguyên nhân, không ném lỗi nên tin không quay lại hàng đợi; người dùng tự bấm gửi lại trên giao diện (auth-service giới hạn một lần mỗi phút cho mỗi email).
-- Chưa cấu hình SMTP (`MAIL_HOST` rỗng, hoặc có host nhưng `MAIL_USERNAME` rỗng và host không phải `localhost`/`127.0.0.1`): không gửi, ghi đúng một dòng INFO gồm người nhận và liên kết đầy đủ để nhóm bấm thử (`docker compose logs notification-service | grep "liên kết"`), nhật ký ghi `FAILED` với lý do "Chưa cấu hình SMTP". Đây là nơi duy nhất liên kết xuất hiện trong log; payload có `toString()` che liên kết.
+- Chưa cấu hình SMTP (`MAIL_HOST` rỗng, hoặc có host nhưng `MAIL_USERNAME` rỗng và host không phải `localhost`/`127.0.0.1`): không gửi, ghi đúng một dòng INFO gồm người nhận và liên kết đầy đủ để nhóm bấm thử (`docker compose logs notification-service | grep "liên kết"`), nhật ký ghi `LOGGED` với lý do "Chưa cấu hình SMTP". Đây là nơi duy nhất liên kết xuất hiện trong log; payload có `toString()` che liên kết.
 - Broker giao lại cùng `messageId`: không gửi lần hai (khóa Redis `wms:notification:account-email:processed:<messageId>` giữ 1 ngày; Redis lỗi thì vẫn gửi).
 
 ## 9. Việc tiếp theo

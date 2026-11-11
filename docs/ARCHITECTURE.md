@@ -48,6 +48,8 @@ Nguyên tắc thiết kế:
                                         |
                                MySQL 8.0  (:3306)
 
+Ngoài sơ đồ: ai-service (:8086) gọi Claude, không có schema MySQL, chỉ dùng Redis (đếm lượt AI theo gói).
+
 Dùng chung:
   Config Server (:8888)                   cấp cấu hình tập trung cho mọi service
   Redis 7 (:6379)                         cache
@@ -66,6 +68,7 @@ Dùng chung:
 | inventory-service | 8083 | `inventory_db` | Đa kho, vị trí Zone/Rack/Bin, tồn kho và thẻ kho, biến động tồn, điều chuyển, kiểm kê và điều chỉnh, cảnh báo tồn an toàn | Lê Phú Toàn |
 | order-service | 8084 | `order_db` | Nhà cung cấp và khách hàng kèm công nợ, PO, GRN, SO, Picking, GDN, thông tin lô và hạn dùng, hóa đơn mua và bán | Lê Phương Linh |
 | notification-service | 8085 | `notification_db` | Notification và Report: thẻ KPI, báo cáo Xuất-Nhập-Tồn, doanh thu, công nợ, xuất Excel, email cảnh báo, job hằng ngày | Trần Đăng Việt |
+| ai-service | 8086 | không có (Redis) | Gọi Claude qua SDK Java chính thức của Anthropic: hỏi đáp, trích xuất tài liệu, trợ lý; kiểm tra và đếm lượt AI theo gói; chế độ giả lập khi chưa có khóa | Lê Phú Toàn |
 
 Báo cáo và Dashboard do notification-service tổng hợp từ dữ liệu của inventory-service và order-service; frontend hiển thị
 ở trang Dashboard và Báo cáo.
@@ -164,7 +167,8 @@ Hệ thống mở rộng để nhiều doanh nghiệp tự đăng ký và dùng 
   `PlanLimitChecker` trong `common` trả mã lỗi `PLAN_LIMIT_EXCEEDED` hoặc `SUBSCRIPTION_EXPIRED` (HTTP 403), hết hạn thì
   hệ thống chỉ đọc. Gia hạn thanh toán qua PayOS: backend tạo link thanh toán có chữ ký, PayOS gọi webhook về
   `/api/auth/payments/payos/webhook`, kiểm tra chữ ký và số tiền rồi mới kích hoạt gói; khóa PayOS chỉ nằm trong `.env`.
-- **ai-service (cổng 8086)**: Spring AI với Claude; trích xuất tài liệu (Excel, CSV, PDF, ảnh) thành hàng hóa, nhà cung cấp,
+- **ai-service (cổng 8086)**: gọi Claude qua SDK Java chính thức của Anthropic (`com.anthropic:anthropic-java`, không dùng
+  Spring AI vì bản 1.x cần Spring Boot 3.4+), chạy giả lập khi chưa có khóa; trích xuất tài liệu (Excel, CSV, PDF, ảnh) thành hàng hóa, nhà cung cấp,
   khách hàng để người dùng xem trước rồi nhập hàng loạt qua API của product-service và order-service; trợ lý AI hướng dẫn
   sử dụng và tra cứu tồn kho, đơn hàng của chính công ty; tóm tắt báo cáo. Mỗi lượt gọi trừ hạn mức của gói.
 - **Tích hợp ngoài**: API key theo doanh nghiệp (bảng `api_keys`), gateway chấp nhận header `X-Api-Key` với vai trò

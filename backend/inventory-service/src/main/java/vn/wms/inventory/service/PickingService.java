@@ -2,6 +2,7 @@ package vn.wms.inventory.service;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.wms.common.exception.ApiException;
@@ -36,6 +37,10 @@ public class PickingService {
     private final StockItemRepository stockItemRepository;
     private final StockReservationRepository stockReservationRepository;
     private final WarehouseRepository warehouseRepository;
+
+    /** Bỏ qua vị trí đang đóng băng kiểm kê khi gợi ý lấy hàng (WMS-14.1), cùng quy tắc với lúc trừ tồn. */
+    @Autowired
+    private StocktakeFreezeGuard stocktakeFreezeGuard;
 
     public PickingService(StockItemRepository stockItemRepository,
                           StockReservationRepository stockReservationRepository,
@@ -99,6 +104,7 @@ public class PickingService {
             // quantity - reserved > 0 ở câu truy vấn: dòng đã giữ chỗ toàn bộ cho chính đơn này vẫn phải được gợi ý.
             List<StockItem> stockItems = stockItemRepository
                     .findPickableStockItemsByProductIdAndWarehouseId(productId, warehouse.getId(), today);
+            if (stocktakeFreezeGuard != null) stockItems = stocktakeFreezeGuard.excludeFrozen(stockItems);
 
             BigDecimal allocatedForDemand = BigDecimal.ZERO;
 

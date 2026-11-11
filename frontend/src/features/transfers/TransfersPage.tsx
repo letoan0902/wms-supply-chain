@@ -20,6 +20,7 @@ import { getApiErrorMessage } from '../../services/api'
 import { fetchWarehouses } from '../warehouses/warehouseApi'
 import type { Warehouse } from '../warehouses/types'
 import CreateTransferModal from './components/CreateTransferModal'
+import ReceiveTransferModal from './components/ReceiveTransferModal'
 import TransferDetailModal from './components/TransferDetailModal'
 import TransferMetricsCards from './components/TransferMetricsCards'
 import TransferTable from './components/TransferTable'
@@ -27,6 +28,7 @@ import { TRANSFER_STATUS_CONFIG } from './statusConfig'
 import * as transferApi from './transferApi'
 import type {
   CreateStockTransferPayload,
+  ReceiveStockTransferPayload,
   StockTransfer,
   StockTransferFilterParams,
   StockTransferStatus,
@@ -58,6 +60,9 @@ export default function TransfersPage() {
 
   const [detailModalOpen, setDetailModalOpen] = useState<boolean>(false)
   const [selectedTransfer, setSelectedTransfer] = useState<StockTransfer | null>(null)
+
+  const [receivingTransfer, setReceivingTransfer] = useState<StockTransfer | null>(null)
+  const [submittingReceive, setSubmittingReceive] = useState<boolean>(false)
 
   // Nạp danh sách kho bãi phục vụ lọc và chọn trong form
   useEffect(() => {
@@ -171,6 +176,18 @@ export default function TransfersPage() {
     }
   }
 
+  // Mở modal xác nhận nhận hàng tại kho đích
+  const handleOpenReceive = async (transfer: StockTransfer) => {
+    setDetailModalOpen(false)
+    setSelectedTransfer(null)
+    try {
+      const detailed = await transferApi.fetchTransferById(transfer.id)
+      setReceivingTransfer(detailed)
+    } catch {
+      setReceivingTransfer(transfer)
+    }
+  }
+
   // Tạo mới lệnh điều chuyển
   const handleSubmitCreate = async (payload: CreateStockTransferPayload) => {
     setSubmittingTransfer(true)
@@ -207,10 +224,35 @@ export default function TransfersPage() {
   const handleDispatch = async (transfer: StockTransfer) => {
     try {
       await transferApi.dispatchTransfer(transfer.id)
-      message.success(`Đã duyệt xuất kho cho lệnh ${transfer.transferNumber}. Hàng đang được vận chuyển!`)
+      message.success(
+        `Đã duyệt xuất kho cho lệnh ${transfer.transferNumber}. Hàng đang được vận chuyển!`
+      )
       reloadData()
     } catch (err) {
       message.error(getApiErrorMessage(err, 'Không thể duyệt xuất kho'))
+    }
+  }
+
+  // Xác nhận nhận hàng tại kho đích và lưu biên bản thiếu/hỏng
+  const handleSubmitReceive = async (id: number, payload: ReceiveStockTransferPayload) => {
+    setSubmittingReceive(true)
+    try {
+      const updated = await transferApi.receiveTransfer(id, payload)
+      if (updated.status === 'PARTIAL_RECEIVED') {
+        message.warning(
+          `Đã xác nhận nhận một phần lệnh ${updated.transferNumber} và lưu biên bản sự cố.`
+        )
+      } else {
+        message.success(
+          `Đã xác nhận nhận đủ hàng lệnh ${updated.transferNumber} và cộng tồn kho đích!`
+        )
+      }
+      setReceivingTransfer(null)
+      reloadData()
+    } catch (err) {
+      message.error(getApiErrorMessage(err, 'Không thể xác nhận nhận hàng điều chuyển'))
+    } finally {
+      setSubmittingReceive(false)
     }
   }
 
@@ -376,6 +418,7 @@ export default function TransfersPage() {
         onViewDetail={handleViewDetail}
         onEdit={handleOpenEdit}
         onDispatch={handleDispatch}
+        onReceive={handleOpenReceive}
         onCancel={handleCancelTransfer}
       />
 
@@ -400,11 +443,24 @@ export default function TransfersPage() {
       <TransferDetailModal
         open={detailModalOpen}
         transfer={selectedTransfer}
+        onReceive={handleOpenReceive}
         onClose={() => {
           setDetailModalOpen(false)
           setSelectedTransfer(null)
         }}
       />
+
+      {/* Modal Xác nhận nhận hàng tại kho đích & Lập biên bản thiếu/hỏng */}
+      {receivingTransfer && (
+        <ReceiveTransferModal
+          key={receivingTransfer.id}
+          open={!!receivingTransfer}
+          transfer={receivingTransfer}
+          submitting={submittingReceive}
+          onClose={() => setReceivingTransfer(null)}
+          onSubmitReceive={handleSubmitReceive}
+        />
+      )}
     </div>
   )
 }

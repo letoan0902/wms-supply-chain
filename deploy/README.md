@@ -411,6 +411,18 @@ khóa sai hoặc nhà cung cấp quá tải thì API trả `503 SERVICE_UNAVAILA
 câu hỏi hay phản hồi thô: `docker compose logs ai-service | grep Claude`. Nếu mọi câu hỏi đều trả 503 và log có
 `BadRequestException`, thử đặt `AI_SERVER_FALLBACK=false` trong `.env` (tắt tham số `fallbacks` đang ở dạng beta).
 
+### 8.5. Email kích hoạt doanh nghiệp và đặt lại mật khẩu
+
+Từ WMS-23.6 doanh nghiệp mới đăng ký ở trạng thái chờ kích hoạt và chỉ đăng nhập được sau khi bấm liên kết trong email;
+quên mật khẩu cũng nhận liên kết qua email. Trên máy chủ cần:
+
+1. Cấu hình SMTP trong `.env` (`MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`). Chưa có tài khoản SMTP thì
+   notification-service không gửi mà ghi liên kết ra log: `docker compose logs notification-service | grep "liên kết"`.
+2. `APP_FRONTEND_URL` để trống thì liên kết trỏ về `https://<DOMAIN>`; `REGISTRATION_REQUIRE_ACTIVATION` để trống (luôn
+   bắt buộc kích hoạt). Chỉ máy phát triển không có mail mới đặt `REGISTRATION_REQUIRE_ACTIVATION=false`.
+
+Chi tiết API và sự kiện: [docs/SAAS_SPEC.md](../docs/SAAS_SPEC.md) mục WMS-23.6, [docs/MESSAGING.md](../docs/MESSAGING.md) mục 8.7.
+
 ## 9. Sao lưu và khôi phục MySQL
 
 Mỗi service dùng một schema riêng: `auth_db`, `product_db`, `inventory_db`, `order_db`, `notification_db`. Redis và RabbitMQ chỉ giữ dữ liệu tạm nên không cần sao lưu thường xuyên.

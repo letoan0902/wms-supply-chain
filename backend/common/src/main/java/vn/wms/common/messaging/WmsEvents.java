@@ -53,8 +53,21 @@ public final class WmsEvents {
         /** inventory-service: tồn kho chạm ngưỡng an toàn, cần cảnh báo. */
         public static final String ALERT_LOW_STOCK = "alert.low-stock";
 
+        /**
+         * auth-service: doanh nghiệp vừa đăng ký hoặc xin gửi lại liên kết kích hoạt; notification-service gửi email
+         * chứa liên kết (WMS-23.6). Payload {@code AccountEmailRequestedEvent} với {@code kind = ACTIVATION}.
+         */
+        public static final String AUTH_ACTIVATION_REQUESTED = "auth.activation-requested";
+
+        /**
+         * auth-service: người dùng quên mật khẩu; notification-service gửi email chứa liên kết đặt lại (WMS-23.6).
+         * Payload {@code AccountEmailRequestedEvent} với {@code kind = PASSWORD_RESET}.
+         */
+        public static final String AUTH_PASSWORD_RESET_REQUESTED = "auth.password-reset-requested";
+
         /** Danh sách mọi routing key sự kiện, dùng cho test và tài liệu. */
-        public static final List<String> ALL = List.of(ORDER_CREATED, ORDER_DISPATCHED, ORDER_RECEIVED, INVENTORY_UPDATED, ALERT_LOW_STOCK);
+        public static final List<String> ALL = List.of(ORDER_CREATED, ORDER_DISPATCHED, ORDER_RECEIVED, INVENTORY_UPDATED,
+                ALERT_LOW_STOCK, AUTH_ACTIVATION_REQUESTED, AUTH_PASSWORD_RESET_REQUESTED);
 
         /** Mẫu binding: mọi sự kiện của domain đơn hàng. */
         public static final String ORDER_ALL = "order.#";
@@ -64,6 +77,9 @@ public final class WmsEvents {
 
         /** Mẫu binding: mọi cảnh báo. */
         public static final String ALERT_ALL = "alert.#";
+
+        /** Mẫu binding: mọi yêu cầu gửi email tài khoản của auth-service (kích hoạt, đặt lại mật khẩu). */
+        public static final String AUTH_ALL = "auth.#";
 
         private RoutingKeys() {
         }
@@ -84,9 +100,13 @@ public final class WmsEvents {
         /** notification-service nhận cảnh báo (alert.#): đẩy WebSocket (alert.low-stock) và gửi email. */
         public static final String NOTIFICATION_ALERTS = "notification.alerts";
 
+        /** notification-service nhận yêu cầu gửi email tài khoản (auth.#): kích hoạt doanh nghiệp, đặt lại mật khẩu. */
+        public static final String NOTIFICATION_AUTH_EMAILS = "notification.auth-emails";
+
         /** Danh sách mọi queue nghiệp vụ (không gồm queue dead-letter). */
         public static final List<String> ALL = List.of(
-                INVENTORY_ORDER_EVENTS, NOTIFICATION_ORDER_EVENTS, NOTIFICATION_INVENTORY_EVENTS, NOTIFICATION_ALERTS);
+                INVENTORY_ORDER_EVENTS, NOTIFICATION_ORDER_EVENTS, NOTIFICATION_INVENTORY_EVENTS, NOTIFICATION_ALERTS,
+                NOTIFICATION_AUTH_EMAILS);
 
         private Queues() {
         }

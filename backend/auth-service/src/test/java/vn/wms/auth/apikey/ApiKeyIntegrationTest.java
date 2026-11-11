@@ -84,6 +84,7 @@ class ApiKeyIntegrationTest extends BaseIntegrationTest {
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         long companyId = objectMapper.readTree(reg).path("data").path("company").path("id").asLong();
+        activateCompanyByEmail(username + "@wms.vn");
         return new Tenant(companyId, username, loginAndGetToken(username, DEFAULT_PASSWORD));
     }
 

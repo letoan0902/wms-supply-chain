@@ -54,6 +54,10 @@ public class SecurityConfig {
                     .requestMatchers("/api/auth/payments", "/api/auth/payments/**").authenticated()
                     // API key cho hệ thống ngoài: chỉ ADMIN quản lý (WMS-25.1)
                     .requestMatchers("/api/auth/api-keys", "/api/auth/api-keys/**").hasRole("ADMIN")
+                    // Kích hoạt doanh nghiệp và đặt lại mật khẩu qua liên kết email: công khai, chỉ POST (WMS-23.6)
+                    .requestMatchers(HttpMethod.POST, "/api/auth/companies/activate",
+                            "/api/auth/companies/resend-activation",
+                            "/api/auth/password/forgot", "/api/auth/password/reset").permitAll()
                     .requestMatchers("/api/auth/**", "/actuator/**",
                             "/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
                     .anyRequest().authenticated())

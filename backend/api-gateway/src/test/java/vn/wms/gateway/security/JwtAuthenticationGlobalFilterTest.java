@@ -1,5 +1,6 @@
 package vn.wms.gateway.security;
 
+import io.jsonwebtoken.JwtBuilder;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.Test;
@@ -13,6 +14,7 @@ import reactor.core.publisher.Mono;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
@@ -33,14 +35,29 @@ class JwtAuthenticationGlobalFilterTest {
     };
 
     private static JwtAuthenticationGlobalFilter filter(boolean enabled) {
-        return new JwtAuthenticationGlobalFilter(new GatewayJwtProperties(enabled, SECRET, PUBLIC_PATHS));
+        return filter(enabled, true);
+    }
+
+    private static JwtAuthenticationGlobalFilter filter(boolean enabled, boolean requireCompany) {
+        return new JwtAuthenticationGlobalFilter(
+                new GatewayJwtProperties(enabled, SECRET, PUBLIC_PATHS, requireCompany));
     }
 
     private static String token(String secret, Instant expiresAt) {
+        return token(secret, expiresAt, 7L);
+    }
+
+    /** companyId null thì token không có claim này, giống token cấp trước khi hệ thống có nhiều doanh nghiệp. */
+    private static String token(String secret, Instant expiresAt, Object companyId) {
         SecretKey key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
-        return Jwts.builder()
+        JwtBuilder builder = Jwts.builder()
                 .subject("manager01")
                 .claim("roles", List.of("WAREHOUSE_MANAGER", "SALES"))
+                .claim("warehouseIds", List.of(1L, 2L));
+        if (companyId != null) {
+            builder.claim("companyId", companyId);
+        }
+        return builder
                 .issuedAt(new Date())
                 .expiration(Date.from(expiresAt))
                 .signWith(key, Jwts.SIG.HS256)
@@ -50,7 +67,10 @@ class JwtAuthenticationGlobalFilterTest {
     private static MockServerWebExchange exchange(String path, String authorization) {
         MockServerHttpRequest.BaseBuilder<?> builder = MockServerHttpRequest.get(path)
                 .header("X-User-Name", "ke-gia-mao")
-                .header("X-User-Roles", "ADMIN");
+                .header("X-User-Roles", "ADMIN")
+                .header("X-User-Warehouse-Ids", "99")
+                .header("X-Company-Id", "999")
+                .header("X-Plan", "PRO");
         if (authorization != null) {
             builder.header("Authorization", authorization);
         }
@@ -66,6 +86,9 @@ class JwtAuthenticationGlobalFilterTest {
         assertThat(forwarded.get()).isNotNull();
         assertThat(forwarded.get().getRequest().getHeaders().containsKey("X-User-Name")).isFalse();
         assertThat(forwarded.get().getRequest().getHeaders().containsKey("X-User-Roles")).isFalse();
+        assertThat(forwarded.get().getRequest().getHeaders().containsKey("X-User-Warehouse-Ids")).isFalse();
+        assertThat(forwarded.get().getRequest().getHeaders().containsKey("X-Company-Id")).isFalse();
+        assertThat(forwarded.get().getRequest().getHeaders().containsKey("X-Plan")).isFalse();
     }
 
     @Test
@@ -111,6 +134,81 @@ class JwtAuthenticationGlobalFilterTest {
         assertThat(forwarded.get().getRequest().getHeaders().getFirst("X-User-Name")).isEqualTo("manager01");
         assertThat(forwarded.get().getRequest().getHeaders().getFirst("X-User-Roles"))
                 .isEqualTo("WAREHOUSE_MANAGER,SALES");
+        assertThat(forwarded.get().getRequest().getHeaders().getFirst("X-User-Warehouse-Ids"))
+                .isEqualTo("1,2");
+    }
+
+    @Test
+    void forwardsCompanyFromTokenAndIgnoresCompanySentByClient() {
+        // Client tự gửi X-Company-Id: 999 (xem exchange()), token thuộc doanh nghiệp 7: service phải nhận 7
+        String valid = token(SECRET, Instant.now().plusSeconds(600), 7L);
+        MockServerWebExchange exchange = exchange("/api/inventory/warehouses", "Bearer " + valid);
+
+        filter(true).filter(exchange, chain).block();
+
+        assertThat(forwarded.get()).isNotNull();
+        assertThat(forwarded.get().getRequest().getHeaders().get("X-Company-Id")).containsExactly("7");
+        assertThat(forwarded.get().getRequest().getHeaders().containsKey("X-Plan")).isFalse();
+    }
+
+    @Test
+    void twoCompaniesGetTheirOwnCompanyHeader() {
+        for (long companyId : List.of(1L, 2L)) {
+            forwarded.set(null);
+            String valid = token(SECRET, Instant.now().plusSeconds(600), companyId);
+            filter(true).filter(exchange("/api/inventory/warehouses", "Bearer " + valid), chain).block();
+            assertThat(forwarded.get().getRequest().getHeaders().getFirst("X-Company-Id"))
+                    .isEqualTo(String.valueOf(companyId));
+        }
+    }
+
+    @Test
+    void acceptsCompanyClaimAsIntegerOrNumericString() {
+        for (Object claim : List.of(7, "7", " 7 ")) {
+            forwarded.set(null);
+            String valid = token(SECRET, Instant.now().plusSeconds(600), claim);
+            filter(true).filter(exchange("/api/products", "Bearer " + valid), chain).block();
+            assertThat(forwarded.get()).as("claim %s", claim).isNotNull();
+            assertThat(forwarded.get().getRequest().getHeaders().getFirst("X-Company-Id")).isEqualTo("7");
+        }
+    }
+
+    @Test
+    void rejectsValidTokenWithoutCompanyWhenCompanyIsRequired() {
+        for (Object claim : Arrays.asList(null, 0, -3, "abc", "")) {
+            forwarded.set(null);
+            String old = token(SECRET, Instant.now().plusSeconds(600), claim);
+            MockServerWebExchange exchange = exchange("/api/products", "Bearer " + old);
+
+            filter(true).filter(exchange, chain).block();
+
+            assertThat(forwarded.get()).as("claim %s", claim).isNull();
+            assertThat(exchange.getResponse().getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED);
+        }
+    }
+
+    @Test
+    void forwardsTokenWithoutCompanyWhenCompanyIsNotRequired() {
+        String old = token(SECRET, Instant.now().plusSeconds(600), null);
+        MockServerWebExchange exchange = exchange("/api/products", "Bearer " + old);
+
+        filter(true, false).filter(exchange, chain).block();
+
+        assertThat(forwarded.get()).isNotNull();
+        assertThat(forwarded.get().getRequest().getHeaders().getFirst("X-User-Name")).isEqualTo("manager01");
+        // Không có doanh nghiệp trong token thì cũng không được chuyển tiếp giá trị client tự gửi
+        assertThat(forwarded.get().getRequest().getHeaders().containsKey("X-Company-Id")).isFalse();
+    }
+
+    @Test
+    void publicPathsStripCompanyHeaderSentByClient() {
+        MockServerWebExchange exchange = exchange("/api/auth/login", null);
+
+        filter(true).filter(exchange, chain).block();
+
+        assertThat(forwarded.get()).isNotNull();
+        assertThat(forwarded.get().getRequest().getHeaders().containsKey("X-Company-Id")).isFalse();
+        assertThat(forwarded.get().getRequest().getHeaders().containsKey("X-Plan")).isFalse();
     }
 
     @Test
@@ -136,7 +234,7 @@ class JwtAuthenticationGlobalFilterTest {
 
     @Test
     void enabledFilterRefusesTooShortSecret() {
-        GatewayJwtProperties weak = new GatewayJwtProperties(true, "change_me", PUBLIC_PATHS);
+        GatewayJwtProperties weak = new GatewayJwtProperties(true, "change_me", PUBLIC_PATHS, true);
 
         assertThatThrownBy(() -> new JwtAuthenticationGlobalFilter(weak))
                 .isInstanceOf(IllegalStateException.class)

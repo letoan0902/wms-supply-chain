@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import vn.wms.inventory.entity.BinLocation;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -12,9 +13,13 @@ public interface BinLocationRepository extends JpaRepository<BinLocation, Long> 
 
     List<BinLocation> findByWarehouseIdOrderByZoneAscRackAscBinAsc(Long warehouseId);
 
+    List<BinLocation> findByWarehouseIdInOrderByZoneAscRackAscBinAsc(Collection<Long> warehouseIds);
+
     List<BinLocation> findByWarehouseIdAndZoneOrderByRackAscBinAsc(Long warehouseId, String zone);
 
     Optional<BinLocation> findByCode(String code);
+
+    Optional<BinLocation> findByWarehouseIdAndCode(Long warehouseId, String code);
 
     boolean existsByCode(String code);
 
@@ -26,11 +31,16 @@ public interface BinLocationRepository extends JpaRepository<BinLocation, Long> 
 
     long countByWarehouseId(Long warehouseId);
 
+    long countByWarehouseIdIn(Collection<Long> warehouseIds);
+
     long countByWarehouseIdAndActive(Long warehouseId, boolean active);
 
     long countByWarehouseIdAndStatus(Long warehouseId, String status);
 
     long countByStatus(String status);
+
+    @Query("SELECT COUNT(b) FROM BinLocation b WHERE b.active = true AND (:warehouseId IS NULL OR b.warehouse.id = :warehouseId)")
+    long countActiveLocations(@Param("warehouseId") Long warehouseId);
 
     @Query("SELECT DISTINCT b.zone FROM BinLocation b WHERE b.warehouse.id = :warehouseId ORDER BY b.zone ASC")
     List<String> findDistinctZonesByWarehouseId(@Param("warehouseId") Long warehouseId);

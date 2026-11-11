@@ -7,6 +7,7 @@ import vn.wms.inventory.dto.StockAtpResponse;
 import vn.wms.inventory.repository.StockItemRepository;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -15,6 +16,7 @@ import java.util.Map;
 /**
  * Service quản lý tồn kho và tính toán Tồn khả dụng (ATP - Available To Promise) (FR15 - WMS-11.1).
  * Công thức: ATP = OnHand - Reserved
+ * Lô hàng bị khóa hoặc đã hết hạn sử dụng (expDate <= hôm nay) tự động bị loại khỏi phép tính ATP.
  */
 @Service
 public class StockService {
@@ -34,11 +36,12 @@ public class StockService {
             return StockAtpResponse.of(null, warehouseId, BigDecimal.ZERO, BigDecimal.ZERO);
         }
 
+        LocalDate today = LocalDate.now();
         List<Object[]> results;
         if (warehouseId != null) {
-            results = stockItemRepository.getStockTotalsByProductIdAndWarehouseId(productId, warehouseId);
+            results = stockItemRepository.getStockTotalsByProductIdAndWarehouseId(productId, warehouseId, today);
         } else {
-            results = stockItemRepository.getStockTotalsByProductId(productId);
+            results = stockItemRepository.getStockTotalsByProductId(productId, today);
         }
 
         if (results == null || results.isEmpty() || results.get(0) == null) {
@@ -66,11 +69,12 @@ public class StockService {
             return new BatchAtpResponse(warehouseId, List.of());
         }
 
+        LocalDate today = LocalDate.now();
         List<Object[]> rawStats;
         if (warehouseId != null) {
-            rawStats = stockItemRepository.getBatchStockTotalsByProductIdsAndWarehouseId(distinctIds, warehouseId);
+            rawStats = stockItemRepository.getBatchStockTotalsByProductIdsAndWarehouseId(distinctIds, warehouseId, today);
         } else {
-            rawStats = stockItemRepository.getBatchStockTotalsByProductIds(distinctIds);
+            rawStats = stockItemRepository.getBatchStockTotalsByProductIds(distinctIds, today);
         }
 
         Map<Long, Object[]> statsMap = new HashMap<>();

@@ -7,8 +7,18 @@ export interface LoginRequest {
 export interface AuthUser {
   username: string
   roles: string[]
-  /** Chưa có trong response đăng nhập ở Sprint 1, sẽ bổ sung cùng hồ sơ người dùng (FR02) */
   fullName?: string
+  email?: string
+  warehouseIds?: number[]
+  /** Doanh nghiệp của người dùng (từ `company` của kết quả đăng nhập) */
+  company?: CompanySummary
+}
+
+/** Doanh nghiệp của người dùng, trả trong `company` của kết quả đăng nhập và của GET /api/auth/me. */
+export interface CompanySummary {
+  id: number
+  code: string
+  name: string
 }
 
 /** Dữ liệu trả về trong `data` của POST /api/auth/login (vn.wms.auth.dto.LoginResponse). */
@@ -20,6 +30,7 @@ export interface LoginResult {
   expiresIn: number
   username: string
   roles: string[]
+  company?: CompanySummary
 }
 
 /** Payload yêu cầu làm mới Access Token. */

@@ -45,6 +45,9 @@ Thêm tiền tố mới thì phải khai báo route tương ứng ở api-gatewa
 | Cập nhật toàn bộ | PUT | 200 | 400, 404, 409 |
 | Cập nhật một phần | PATCH | 200 | 400, 404, 409 |
 | Xóa | DELETE | 204 | 404, 409 khi đang được tham chiếu |
+| Nhập hàng loạt (`.../bulk`) | POST | 200 kèm kết quả từng dòng | 400 `VALIDATION_ERROR` khi body trống, danh sách rỗng hoặc quá 500 dòng |
+
+API nhập hàng loạt dùng chung các lớp trong gói `vn.wms.common.bulk` của module `common`: body `BulkRequest<T>` (`{ "items": [...] }`, kiểm tra bằng `BulkRequest.requireItems`), kết quả `BulkResult` (`total`, `created`, `skipped`, `failed`, `results`) và `BulkRowResult` (`row` từ 1, `status` là `CREATED`, `SKIPPED` hoặc `FAILED`, `id`, `code`, `message`). Mỗi dòng lưu trong một transaction riêng (`Propagation.REQUIRES_NEW` ở một bean khác, không gọi nội bộ trong cùng lớp), dòng lỗi không làm hỏng dòng khác; mã đã có trong doanh nghiệp thì `SKIPPED`, không ghi đè. Mẫu: `ProductBulkService` và `ProductBulkRowImporter` của product-service.
 
 Mã chung: 401 chưa đăng nhập hoặc token hết hạn, 403 không đủ quyền, 500 lỗi hệ thống, 503 service phụ thuộc không khả dụng.
 
@@ -128,6 +131,16 @@ một HTTP status và thông báo mặc định bằng tiếng Việt. Frontend 
 | `CONFLICT` | 409 | Dữ liệu bị xung đột hoặc đã tồn tại (ví dụ trùng mã SKU) |
 | `UNSUPPORTED_MEDIA_TYPE` | 415 | Định dạng nội dung không được hỗ trợ |
 | `INTERNAL_ERROR` | 500 | Lỗi hệ thống không xác định |
+| `SERVICE_UNAVAILABLE` | 503 | Dịch vụ phụ thuộc chưa sẵn sàng |
+| `TOO_MANY_REQUESTS` | 429 | Gọi quá giới hạn tốc độ (api-gateway trả cho API key vượt số request mỗi giây, kèm header `Retry-After`) |
+| `COMPANY_REQUIRED` | 403 | Request tới service nghiệp vụ không xác định được doanh nghiệp |
+| `COMPANY_INACTIVE` | 403 | Doanh nghiệp chưa kích hoạt qua email hoặc đang bị tạm khóa |
+| `SUBSCRIPTION_EXPIRED` | 403 | Gọi API ghi khi gói dịch vụ đã hết hạn |
+| `PLAN_LIMIT_EXCEEDED` | 403 | Tạo mới vượt giới hạn của gói; `data` gồm `limit`, `current`, `max`, `plan` |
+| `PAYMENT_INVALID` | 400 | Webhook thanh toán sai chữ ký, sai số tiền hoặc mã đơn không tồn tại |
+| `TOKEN_INVALID` | 400 | Mã kích hoạt hoặc mã đặt lại mật khẩu sai, đã dùng hoặc hết hạn |
+
+Sáu mã từ `COMPANY_REQUIRED` trở xuống thuộc mô hình SaaS đa doanh nghiệp, mô tả chi tiết ở [SAAS_SPEC.md](SAAS_SPEC.md) mục 2.4 và [MULTI_TENANT.md](MULTI_TENANT.md).
 
 Quy tắc:
 
@@ -166,6 +179,7 @@ Quy tắc:
 - Đặt tên: lớp `PascalCase`, phương thức và biến `camelCase`, hằng số `UPPER_SNAKE_CASE`, gói chữ thường.
 - Dùng constructor injection với trường `final`, không dùng `@Autowired` trên trường.
 - Lỗi nghiệp vụ ném `ApiException`; `GlobalExceptionHandler` (module `common`) chuyển mọi ngoại lệ thành response chuẩn ở mục 3.
+  Lỗi cần trả thêm chi tiết cho frontend (ví dụ `PLAN_LIMIT_EXCEEDED`) dùng `ApiException.withData(code, message, data)`, `data` nằm trong trường `data` của response.
   Mọi service dùng chung `ApiResponse` và `PageResponse` của module `common`, không tự định nghĩa lại.
 - Validate đầu vào bằng Jakarta Validation (`@Valid`, `@NotNull`, `@Positive`...).
 - Hai lớp log: audit log nghiệp vụ (ai làm gì trên chứng từ nào) và error log kỹ thuật. Log bằng SLF4J với tham số (`log.info("Confirmed GRN {}", grnNo)`), không dùng `System.out`, không log mật khẩu, token hay dữ liệu cá nhân.

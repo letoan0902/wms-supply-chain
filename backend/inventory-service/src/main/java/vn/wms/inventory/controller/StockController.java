@@ -6,30 +6,50 @@ import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import vn.wms.common.api.ApiResponse;
 import vn.wms.inventory.dto.BatchAtpRequest;
 import vn.wms.inventory.dto.BatchAtpResponse;
+import vn.wms.inventory.dto.DeductStockRequest;
+import vn.wms.inventory.dto.DeductStockResponse;
+import vn.wms.inventory.dto.GeneratePickingListRequest;
+import vn.wms.inventory.dto.PickingListResponse;
 import vn.wms.inventory.dto.StockAtpResponse;
+import vn.wms.inventory.service.PickingService;
+import vn.wms.inventory.service.StockDeductionService;
+import vn.wms.inventory.service.StockReservationService;
 import vn.wms.inventory.service.StockService;
 
 /**
- * REST API Tra cứu tồn kho & Tính toán tồn khả dụng (ATP - Available To Promise) (FR15 - WMS-11.1).
+ * REST API Quản lý Tồn kho, Tính toán ATP, Sinh Picking List & Xác nhận Trừ tồn kho với Khóa bi quan (WMS-11.1, WMS-11.2, WMS-12.1, WMS-12.2).
  */
 @RestController
 @RequestMapping("/api/inventory/stock")
-@Tag(name = "Stock & ATP Management", description = "Tra cứu tồn kho thực tế và tính toán tồn khả dụng ATP (FR15 - WMS-11.1)")
+@Tag(name = "Stock & Outbound Management", description = "Quản lý tồn kho, tính toán ATP, sinh Picking List FEFO/FIFO và trừ tồn kho xuất hàng với Khóa bi quan")
 public class StockController {
 
     private final StockService stockService;
-    private final vn.wms.inventory.service.StockReservationService stockReservationService;
+    private final StockReservationService stockReservationService;
+    private final StockDeductionService stockDeductionService;
+    private final PickingService pickingService;
 
     public StockController(StockService stockService,
-                           vn.wms.inventory.service.StockReservationService stockReservationService) {
+                           StockReservationService stockReservationService,
+                           StockDeductionService stockDeductionService,
+                           PickingService pickingService) {
         this.stockService = stockService;
         this.stockReservationService = stockReservationService;
+        this.stockDeductionService = stockDeductionService;
+        this.pickingService = pickingService;
+    }
+
+    @PostMapping("/picking-list")
+    @Operation(summary = "Tự động sinh danh sách lấy hàng (Picking List) gợi ý vị trí ô kệ theo lộ trình ngắn nhất (Zone -> Rack -> Bin) và ưu tiên FEFO/FIFO (FR12, FR17 - WMS-12.1)")
+    public ApiResponse<PickingListResponse> generatePickingList(@Valid @RequestBody GeneratePickingListRequest request) {
+        return ApiResponse.ok(pickingService.generatePickingList(request));
     }
 
     @GetMapping("/atp")
@@ -52,5 +72,25 @@ public class StockController {
     public ApiResponse<Void> releaseReservations(@RequestParam Long orderId) {
         stockReservationService.releaseReservationsByOrderId(orderId);
         return ApiResponse.ok();
+    }
+
+    @PostMapping("/deduct")
+    @Operation(summary = "Xác nhận trừ tồn kho với Khóa bi quan (PESSIMISTIC_WRITE) chống âm kho tuyệt đối (WMS-12.2 - FR17, NFR03)")
+    public ApiResponse<DeductStockResponse> deductStock(
+            @Valid @RequestBody DeductStockRequest request,
+            @RequestHeader(value = "X-User-Name", required = false) String username
+    ) {
+        String operator = (username != null && !username.isBlank()) ? username : "system";
+        return ApiResponse.ok(stockDeductionService.deductStock(request, operator));
+    }
+
+    @PostMapping("/dispatch")
+    @Operation(summary = "Xác nhận xuất xưởng đơn hàng (Dispatch & Deduct Stock with Pessimistic Lock)")
+    public ApiResponse<DeductStockResponse> dispatchOrder(
+            @Valid @RequestBody DeductStockRequest request,
+            @RequestHeader(value = "X-User-Name", required = false) String username
+    ) {
+        String operator = (username != null && !username.isBlank()) ? username : "system";
+        return ApiResponse.ok(stockDeductionService.deductStock(request, operator));
     }
 }

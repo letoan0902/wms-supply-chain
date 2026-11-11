@@ -8,6 +8,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestExecutionListeners;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 import vn.wms.product.dto.BarcodeType;
@@ -30,6 +31,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Transactional
+@TestExecutionListeners(listeners = DefaultCompanyTestExecutionListener.class,
+        mergeMode = TestExecutionListeners.MergeMode.MERGE_WITH_DEFAULTS)
 class BarcodeIntegrationTest {
 
     @Autowired

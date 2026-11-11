@@ -90,6 +90,15 @@ springdoc:
     path: /swagger-ui.html
   api-docs:
     path: /v3/api-docs
+
+# Tách dữ liệu theo doanh nghiệp (docs/MULTI_TENANT.md, WMS-22.4b): request không xác định được doanh nghiệp nhận
+# 403 COMPANY_REQUIRED. Doanh nghiệp mặc định chỉ dành cho máy phát triển chạy không qua gateway (docker-compose.yml
+# đặt 1); trên máy chủ biến này để rỗng (deploy/docker-compose.prod.yml).
+app:
+  tenant:
+    required: true
+    default-company-id: ${TENANT_DEFAULT_COMPANY_ID:}
+
 ---
 # Nạp cấu hình tập trung từ Config Server. Tiền tố optional nghĩa là Config Server chưa chạy thì service vẫn
 # khởi động bằng cấu hình cục bộ ở trên. Tài liệu này bị bỏ qua khi chạy test (profile test) để test không gọi mạng.

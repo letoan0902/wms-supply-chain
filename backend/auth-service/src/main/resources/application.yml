@@ -80,6 +80,25 @@ app:
       # Đăng nhập giả lập cho giai đoạn khung. TODO: đặt false khi đã có đăng nhập thật dựa trên bảng users.
       enabled: ${AUTH_DEV_LOGIN_ENABLED:true}
       password: ${AUTH_DEV_PASSWORD:change_me}
+  demo-tools: ${APP_DEMO_TOOLS:false}
+  # API key cho hệ thống ngoài (WMS-25.1, xem vn.wms.auth.apikey.service.ApiKeyScheduler): chu kỳ ghi lại toàn bộ
+  # khóa wms:apikey:{sha256} lên Redis và chu kỳ đổ lần dùng gần nhất (gateway ghi trên Redis) vào cột last_used_at.
+  api-key:
+    sync-interval-ms: 300000
+    last-used-flush-ms: 60000
+  # Thanh toán PayOS (WMS-23.5a). Ba khóa chỉ đặt trong .env trên máy chủ, không commit, không ghi log.
+  # Để trống URL thì dùng http://localhost:5173/payment/result (máy phát triển chạy Vite).
+  payos:
+    client-id: ${PAYOS_CLIENT_ID:}
+    api-key: ${PAYOS_API_KEY:}
+    checksum-key: ${PAYOS_CHECKSUM_KEY:}
+    return-url: ${PAYOS_RETURN_URL:}
+    cancel-url: ${PAYOS_CANCEL_URL:}
+    base-url: ${PAYOS_BASE_URL:https://api-merchant.payos.vn}
+    mock: ${PAYOS_MOCK:true}
+
+payos:
+  mock: ${PAYOS_MOCK:true}
 
 ---
 # Nạp cấu hình tập trung từ Config Server. Tiền tố optional nghĩa là Config Server chưa chạy thì service vẫn

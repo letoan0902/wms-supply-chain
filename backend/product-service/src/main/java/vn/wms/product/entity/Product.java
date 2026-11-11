@@ -9,31 +9,34 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import vn.wms.common.persistence.AuditableEntity;
+import vn.wms.common.tenant.TenantEntity;
 
 import java.math.BigDecimal;
 
-/** Sản phẩm / mã hàng (SKU) quản lý trong kho. */
+/** Sản phẩm / mã hàng (SKU) quản lý trong kho, thuộc về một doanh nghiệp. */
 @Entity
-@Table(name = "products")
+@Table(name = "products", uniqueConstraints = {
+        @UniqueConstraint(name = "uk_products_company_sku", columnNames = {"company_id", "sku"}),
+        @UniqueConstraint(name = "uk_products_company_barcode", columnNames = {"company_id", "barcode"})})
 @Getter
 @Setter
 @NoArgsConstructor
-public class Product extends AuditableEntity {
+public class Product extends TenantEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    /** Mã SKU, duy nhất trong toàn hệ thống. */
-    @Column(nullable = false, unique = true, length = 64)
+    /** Mã SKU, duy nhất trong doanh nghiệp (hai doanh nghiệp được dùng trùng SKU). */
+    @Column(nullable = false, length = 64)
     private String sku;
 
-    /** Mã vạch (EAN/UPC...), có thể chưa có nhưng nếu có phải duy nhất. */
-    @Column(unique = true, length = 64)
+    /** Mã vạch (EAN/UPC...), có thể chưa có (NULL) nhưng nếu có phải duy nhất trong doanh nghiệp. */
+    @Column(length = 64)
     private String barcode;
 
     @Column(nullable = false, length = 255)

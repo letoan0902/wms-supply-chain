@@ -8,10 +8,12 @@ import vn.wms.common.messaging.event.OrderCreatedEvent;
 import vn.wms.common.messaging.event.OrderLine;
 import vn.wms.inventory.entity.StockItem;
 import vn.wms.inventory.entity.StockReservation;
+import vn.wms.inventory.repository.InventoryLotRepository;
 import vn.wms.inventory.repository.StockItemRepository;
 import vn.wms.inventory.repository.StockReservationRepository;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 
 /**
@@ -25,11 +27,18 @@ public class StockReservationService {
 
     private final StockReservationRepository stockReservationRepository;
     private final StockItemRepository stockItemRepository;
+    private final InventoryLotRepository inventoryLotRepository;
+
+    /** Không giữ chỗ đơn mới ở vị trí đang đóng băng kiểm kê (WMS-14.1). */
+    @org.springframework.beans.factory.annotation.Autowired
+    private StocktakeFreezeGuard stocktakeFreezeGuard;
 
     public StockReservationService(StockReservationRepository stockReservationRepository,
-                                   StockItemRepository stockItemRepository) {
+                                   StockItemRepository stockItemRepository,
+                                   InventoryLotRepository inventoryLotRepository) {
         this.stockReservationRepository = stockReservationRepository;
         this.stockItemRepository = stockItemRepository;
+        this.inventoryLotRepository = inventoryLotRepository;
     }
 
     /**
@@ -71,9 +80,11 @@ public class StockReservationService {
                 continue;
             }
 
+            LocalDate today = LocalDate.now();
             List<StockItem> availableItems = event.warehouseId() != null
-                    ? stockItemRepository.findAvailableStockItemsByProductIdAndWarehouseId(productId, event.warehouseId())
-                    : stockItemRepository.findAvailableStockItemsByProductId(productId);
+                    ? stockItemRepository.findAvailableStockItemsByProductIdAndWarehouseIdForUpdate(productId, event.warehouseId(), today)
+                    : stockItemRepository.findAvailableStockItemsByProductIdForUpdate(productId, today);
+            if (stocktakeFreezeGuard != null) availableItems = stocktakeFreezeGuard.excludeFrozen(availableItems);
 
             for (StockItem stockItem : availableItems) {
                 BigDecimal available = stockItem.getQuantity().subtract(stockItem.getReservedQuantity()).max(BigDecimal.ZERO);
@@ -84,6 +95,8 @@ public class StockReservationService {
                 BigDecimal allocate = remaining.min(available);
                 stockItem.setReservedQuantity(stockItem.getReservedQuantity().add(allocate));
                 stockItemRepository.save(stockItem);
+
+                syncReservedQuantityToLot(stockItem, allocate);
 
                 StockReservation reservation = new StockReservation();
                 reservation.setOrderId(event.orderId());
@@ -138,6 +151,8 @@ public class StockReservationService {
                         .max(BigDecimal.ZERO);
                 stockItem.setReservedQuantity(newReserved);
                 stockItemRepository.save(stockItem);
+
+                syncReservedQuantityToLot(stockItem, reservation.getReservedQuantity().negate());
             }
 
             reservation.setStatus("RELEASED");
@@ -145,6 +160,23 @@ public class StockReservationService {
         }
 
         log.info("Đã giải phóng {} bản ghi giữ chỗ cho đơn bán ID {}", activeReservations.size(), orderId);
+    }
+
+    private void syncReservedQuantityToLot(StockItem stockItem, BigDecimal delta) {
+        if (stockItem == null || stockItem.getBinLocation() == null || stockItem.getLotNo() == null || delta == null) {
+            return;
+        }
+        try {
+            inventoryLotRepository.findByLotNumberAndBinLocationIdAndProductId(
+                    stockItem.getLotNo(), stockItem.getBinLocation().getId(), stockItem.getProductId())
+                    .ifPresent(lot -> {
+                        BigDecimal newRes = lot.getReservedQuantity().add(delta).max(BigDecimal.ZERO);
+                        lot.setReservedQuantity(newRes);
+                        inventoryLotRepository.save(lot);
+                    });
+        } catch (Exception ex) {
+            log.warn("Không thể đồng bộ reservedQuantity sang inventory_lots: {}", ex.getMessage());
+        }
     }
 
     /**

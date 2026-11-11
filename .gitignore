@@ -6,6 +6,8 @@
 # Node / frontend
 node_modules/
 dist/
+skills-lock.json
+.agents/
 
 # Gradle / Java
 build/
@@ -23,3 +25,4 @@ build/
 
 demo/
 untitled/
+unslop/

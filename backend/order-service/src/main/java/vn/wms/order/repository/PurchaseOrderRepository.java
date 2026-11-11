@@ -1,9 +1,11 @@
 package vn.wms.order.repository;
 
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import vn.wms.order.entity.OrderStatus;
@@ -25,6 +27,15 @@ public interface PurchaseOrderRepository extends JpaRepository<PurchaseOrder, Lo
     @Override
     @EntityGraph(attributePaths = {"supplier", "items"})
     Optional<PurchaseOrder> findById(Long id);
+
+    /**
+     * Khóa dòng bi quan (SELECT FOR UPDATE) để đồng bộ kiểm tra số lượng khi lập phiếu nhập kho đồng thời,
+     * ngăn chặn tình trạng race condition dẫn đến nhập vượt số lượng đơn mua (WMS-10.2).
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @EntityGraph(attributePaths = {"supplier", "items"})
+    @Query("SELECT po FROM PurchaseOrder po WHERE po.id = :id")
+    Optional<PurchaseOrder> findByIdForUpdate(@Param("id") Long id);
 
     @Override
     @EntityGraph(attributePaths = {"supplier"})
@@ -55,4 +66,22 @@ public interface PurchaseOrderRepository extends JpaRepository<PurchaseOrder, Lo
 
     @Query("SELECT COALESCE(SUM(po.totalAmount), 0) FROM PurchaseOrder po WHERE po.status = :status")
     BigDecimal sumTotalAmountByStatus(@Param("status") OrderStatus status);
+
+    @Query("SELECT COUNT(po) FROM PurchaseOrder po " +
+           "WHERE po.status IN :statuses " +
+           "  AND (:warehouseId IS NULL OR po.warehouseId = :warehouseId)")
+    long countByStatusInAndWarehouseId(
+            @Param("statuses") java.util.Collection<OrderStatus> statuses,
+            @Param("warehouseId") Long warehouseId
+    );
+
+    @Query("SELECT COUNT(po) FROM PurchaseOrder po " +
+           "WHERE po.status IN :statuses " +
+           "  AND po.expectedDate = :expectedDate " +
+           "  AND (:warehouseId IS NULL OR po.warehouseId = :warehouseId)")
+    long countArrivingOrders(
+            @Param("statuses") java.util.Collection<OrderStatus> statuses,
+            @Param("expectedDate") LocalDate expectedDate,
+            @Param("warehouseId") Long warehouseId
+    );
 }

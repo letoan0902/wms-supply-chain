@@ -1,9 +1,9 @@
 import { Client, ReconnectionTimeMode } from '@stomp/stompjs'
 import type { IMessage } from '@stomp/stompjs'
 import SockJS from 'sockjs-client'
-import { getToken } from '../../utils/storage'
+import { getStoredUser, getToken } from '../../utils/storage'
 import { fetchKpiSnapshot } from './realtimeApi'
-import { parseRealtimeMessage, REALTIME_TOPICS } from './realtimeMessage'
+import { parseRealtimeMessage, realtimeTopics } from './realtimeMessage'
 import { useRealtimeStore } from './realtimeStore'
 import type { ConnectionStatus, NotifiableMessage, RealtimeMessage } from './types'
 
@@ -37,6 +37,33 @@ const listeners = new Set<NotificationListener>()
 
 function setStatus(status: ConnectionStatus): void {
   useRealtimeStore.getState().setStatus(status)
+}
+
+/** Đọc claim `companyId` trong phần payload của JWT (không kiểm tra chữ ký, máy chủ kiểm tra ở frame CONNECT). */
+function companyIdFromToken(token: string | null): number | null {
+  const payload = token?.split('.')[1]
+  if (!payload) return null
+  try {
+    const base64 = payload.replace(/-/g, '+').replace(/_/g, '/')
+    const json = decodeURIComponent(
+      Array.from(atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, '=')))
+        .map((char) => `%${char.charCodeAt(0).toString(16).padStart(2, '0')}`)
+        .join(''),
+    )
+    const value: unknown = (JSON.parse(json) as Record<string, unknown>).companyId
+    const id = typeof value === 'string' ? Number(value) : value
+    return typeof id === 'number' && Number.isInteger(id) && id > 0 ? id : null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Doanh nghiệp của người đang đăng nhập: ưu tiên claim `companyId` của chính token gửi ở frame CONNECT (máy chủ chỉ
+ * cho đăng ký kênh của doanh nghiệp này), không có thì lấy `company.id` đã lưu lúc đăng nhập.
+ */
+function currentCompanyId(token: string | null): number | null {
+  return companyIdFromToken(token) ?? getStoredUser()?.company?.id ?? null
 }
 
 /** Lấy số KPI hiện tại qua REST; lỗi (backend chưa triển khai, mất mạng...) thì bỏ qua yên lặng. */
@@ -106,9 +133,20 @@ function createClient(): Client {
 
     onConnect: () => {
       if (client !== stompClient) return
+      const companyId = currentCompanyId(tokenInUse)
+      if (companyId === null) {
+        // Token cấp trước khi có doanh nghiệp: không có kênh nào để đăng ký; gateway cũng buộc đăng nhập lại
+        if (import.meta.env.DEV) {
+          console.warn('[realtime] Không xác định được doanh nghiệp của phiên đăng nhập, bỏ qua đăng ký kênh')
+        }
+        rejectedToken = tokenInUse
+        setStatus('disconnected')
+        void stompClient.deactivate()
+        return
+      }
       rejectedToken = null
       setStatus('connected')
-      REALTIME_TOPICS.forEach((topic) => {
+      realtimeTopics(companyId).forEach((topic) => {
         stompClient.subscribe(topic, handleFrame)
       })
       void loadKpiSnapshot()

@@ -9,6 +9,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
+import vn.wms.common.tenant.TenantContext;
 import vn.wms.order.dto.CreateSupplierRequest;
 import vn.wms.order.dto.RecordSupplierTransactionRequest;
 import vn.wms.order.dto.UpdateSupplierRequest;
@@ -16,6 +17,7 @@ import vn.wms.order.entity.Supplier;
 import vn.wms.order.entity.SupplierTransactionType;
 import vn.wms.order.repository.SupplierRepository;
 import vn.wms.order.repository.SupplierTransactionRepository;
+import vn.wms.order.support.TenantTestExecutionListener;
 
 import java.math.BigDecimal;
 
@@ -306,12 +308,14 @@ class SupplierIntegrationTest {
                 final int index = i;
                 executor.submit(() -> {
                     try {
-                        supplierService.recordTransaction(saved.getId(), new RecordSupplierTransactionRequest(
-                                SupplierTransactionType.PURCHASE_INVOICE,
-                                amountPerThread,
-                                "REF-" + index,
-                                "Giao dịch đồng thời " + index
-                        ));
+                        // Luồng mới không mang TenantContext: chạy dưới doanh nghiệp của test (docs/MULTI_TENANT.md mục 3.7)
+                        TenantContext.runAs(TenantTestExecutionListener.DEFAULT_TEST_COMPANY, () ->
+                                supplierService.recordTransaction(saved.getId(), new RecordSupplierTransactionRequest(
+                                        SupplierTransactionType.PURCHASE_INVOICE,
+                                        amountPerThread,
+                                        "REF-" + index,
+                                        "Giao dịch đồng thời " + index
+                                )));
                     } finally {
                         latch.countDown();
                     }

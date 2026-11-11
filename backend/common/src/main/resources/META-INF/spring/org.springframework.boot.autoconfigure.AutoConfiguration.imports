@@ -1,3 +1,5 @@
 vn.wms.common.config.WmsCommonAutoConfiguration
 vn.wms.common.config.WmsMessagingAutoConfiguration
 vn.wms.common.config.WmsEventPublisherAutoConfiguration
+vn.wms.common.config.WmsTenantAutoConfiguration
+vn.wms.common.config.WmsPlanLimitAutoConfiguration

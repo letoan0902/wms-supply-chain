@@ -12,20 +12,19 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import vn.wms.common.persistence.AuditableEntity;
+import vn.wms.common.tenant.TenantEntity;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 
 /**
- * Chi tiết dòng hàng trong đơn mua hàng (PO Items - FR10, WMS-09.1).
+ * Chi tiết dòng hàng trong đơn mua hàng (PO Items - FR10, WMS-09.1, WMS-10.1).
  */
 @Entity
 @Table(name = "po_items")
 @Getter
 @Setter
 @NoArgsConstructor
-public class PurchaseOrderItem extends AuditableEntity {
+public class PurchaseOrderItem extends TenantEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -47,8 +46,13 @@ public class PurchaseOrderItem extends AuditableEntity {
     @Column(length = 30)
     private String uom;
 
+    /** Số lượng đặt mua theo PO. */
     @Column(nullable = false, precision = 18, scale = 3)
     private BigDecimal quantity = BigDecimal.ZERO;
+
+    /** Tổng số lượng thực tế đã nhập kho đạt chuẩn qua các đợt GRN (FR11 - WMS-10.1). */
+    @Column(name = "received_quantity", nullable = false, precision = 18, scale = 3)
+    private BigDecimal receivedQuantity = BigDecimal.ZERO;
 
     @Column(name = "unit_price", nullable = false, precision = 18, scale = 2)
     private BigDecimal unitPrice = BigDecimal.ZERO;
@@ -70,4 +74,13 @@ public class PurchaseOrderItem extends AuditableEntity {
 
     @Column(length = 255)
     private String note;
+
+    /**
+     * Tính số lượng còn lại cần nhập kho của dòng PO.
+     */
+    public BigDecimal getRemainingQuantity() {
+        BigDecimal ordered = quantity != null ? quantity : BigDecimal.ZERO;
+        BigDecimal received = receivedQuantity != null ? receivedQuantity : BigDecimal.ZERO;
+        return ordered.subtract(received).max(BigDecimal.ZERO);
+    }
 }

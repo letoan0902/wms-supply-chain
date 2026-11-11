@@ -59,7 +59,11 @@ export default function LoginPage() {
     setSubmitting(true)
     try {
       const result = await login(values)
-      saveAuth(result.accessToken, { username: result.username, roles: result.roles }, result.refreshToken)
+      saveAuth(
+        result.accessToken,
+        { username: result.username, roles: result.roles, company: result.company },
+        result.refreshToken,
+      )
       message.success('Đăng nhập thành công')
       navigate(redirectTo, { replace: true })
     } catch (error) {
@@ -125,14 +129,22 @@ export default function LoginPage() {
 
       {/* CỘT PHẢI: Form Đăng nhập - Nền Ombre hài hòa liên kết với hình ảnh, không sinh thanh cuộn */}
       <div className="flex h-full w-full flex-col justify-between bg-gradient-to-br from-slate-50 via-blue-50/25 to-slate-100/70 px-8 py-8 sm:px-14 lg:w-5/12 lg:px-12 xl:w-2/5 xl:px-16">
-        {/* Phần đầu: Nhãn hiển thị trên Mobile (khi ẩn slide trái) */}
-        <div className="flex items-center gap-2.5 lg:invisible">
-          <img
-            src="/logo.png"
-            alt="WMS Logo"
-            className="h-9 w-9 rounded-lg bg-white object-contain p-1 shadow-xs"
-          />
-          <span className="text-base font-bold text-slate-800">WMS Supply Chain</span>
+        {/* Phần đầu: Nhãn hiển thị trên Mobile và nút chuyển hướng sang Trang Landing */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5 lg:invisible">
+            <img
+              src="/logo.png"
+              alt="WMS Logo"
+              className="h-9 w-9 rounded-lg bg-white object-contain p-1 shadow-xs"
+            />
+            <span className="text-base font-bold text-slate-800">WMS Supply Chain</span>
+          </div>
+          <Link
+            to="/landing"
+            className="text-xs font-semibold text-blue-600 transition-colors hover:text-blue-700 hover:underline"
+          >
+            ← Xem tính năng & Bảng giá
+          </Link>
         </div>
 
         {/* Khung giữa: Form nhập liệu */}
@@ -204,6 +216,16 @@ export default function LoginPage() {
             >
               Đăng nhập
             </Button>
+
+            <div className="mt-4 text-center">
+              <span className="text-xs text-slate-500">Doanh nghiệp chưa có tài khoản? </span>
+              <Link
+                to="/landing#pricing"
+                className="text-xs font-bold text-blue-600 transition-colors hover:text-blue-700 hover:underline"
+              >
+                Dùng thử 30 ngày
+              </Link>
+            </div>
           </Form>
         </div>
 

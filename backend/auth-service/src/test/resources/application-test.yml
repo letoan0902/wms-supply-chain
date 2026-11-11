@@ -18,3 +18,9 @@ spring:
 eureka:
   client:
     enabled: false
+# Tác vụ định kỳ của API key (WMS-25.1) không chạy trong lúc test để không ghi đè dữ liệu Redis giả lập;
+# test gọi thẳng ApiKeyService.syncAllToRedis() và flushLastUsed().
+app:
+  api-key:
+    sync-initial-delay-ms: 3600000
+    last-used-flush-ms: 3600000

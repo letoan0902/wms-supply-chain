@@ -23,11 +23,18 @@ public final class Roles {
     public static final String SALES = "SALES";
     /** Kế toán. */
     public static final String ACCOUNTANT = "ACCOUNTANT";
+    /**
+     * Hệ thống ngoài gọi bằng API key (WMS-25.1). Không phải vai trò của tài khoản nên không nằm trong {@link #ALL}
+     * và không gán được cho người dùng: chỉ api-gateway gắn vai trò này (header X-User-Roles) khi xác thực bằng key.
+     * Chỉ đọc hàng hóa, tồn kho, đơn hàng của doanh nghiệp sở hữu key, trên mọi kho của doanh nghiệp đó
+     * (xem {@code UserContext#isGlobalReadScope} và {@code IntegrationAccessFilter}).
+     */
+    public static final String INTEGRATION = "INTEGRATION";
 
     /** Tiền tố authority mà Spring Security dùng cho vai trò. */
     public static final String AUTHORITY_PREFIX = "ROLE_";
 
-    /** Toàn bộ vai trò hợp lệ của hệ thống. */
+    /** Toàn bộ vai trò gán được cho tài khoản (không gồm {@link #INTEGRATION}). */
     public static final List<String> ALL = List.of(
             ADMIN, WAREHOUSE_MANAGER, WAREHOUSE_STAFF, PURCHASING, SALES, ACCOUNTANT);
 

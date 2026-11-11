@@ -2,10 +2,11 @@ package vn.wms.inventory.messaging;
 
 import vn.wms.common.messaging.event.OrderCreatedEvent;
 import vn.wms.common.messaging.event.OrderDispatchedEvent;
+import vn.wms.common.messaging.event.OrderReceivedEvent;
 
 /**
  * Điểm nối cho nghiệp vụ kho xử lý sự kiện đơn hàng. Khai báo một {@code @Component} implement interface này
- * (ví dụ cập nhật tồn chờ nhập cho đơn mua ở WMS-09.2, giữ hàng cho đơn bán ở WMS-11.2) là
+ * (ví dụ cập nhật tồn chờ nhập cho đơn mua ở WMS-09.2, giữ hàng cho đơn bán ở WMS-11.2, nhận hàng tăng tồn OnHand ở WMS-10.3) là
  * {@link OrderEventsListener} tự gọi tới; có thể có nhiều handler cùng lúc.
  *
  * <p>Handler ném exception thì message được thử lại theo cấu hình {@code spring.rabbitmq.listener.simple.retry},
@@ -20,5 +21,9 @@ public interface OrderEventHandler {
 
     /** Đơn hàng đã được kho xử lý xong ({@code order.dispatched}). */
     default void onOrderDispatched(OrderDispatchedEvent event, String messageId) {
+    }
+
+    /** Hàng đã nhập kho hoàn tất theo phiếu nhập GRN ({@code order.received} - WMS-10.3). */
+    default void onOrderReceived(OrderReceivedEvent event, String messageId) {
     }
 }

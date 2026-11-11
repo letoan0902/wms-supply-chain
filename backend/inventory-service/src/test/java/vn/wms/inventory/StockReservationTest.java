@@ -1,5 +1,6 @@
 package vn.wms.inventory;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -12,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import vn.wms.common.messaging.event.OrderCreatedEvent;
 import vn.wms.common.messaging.event.OrderLine;
 import vn.wms.common.messaging.event.OrderType;
+import vn.wms.common.tenant.TenantContext;
 import vn.wms.inventory.dto.StockAtpResponse;
 import vn.wms.inventory.entity.BinLocation;
 import vn.wms.inventory.entity.StockItem;
@@ -72,6 +74,7 @@ class StockReservationTest {
 
     @BeforeEach
     void setUp() {
+        TenantContext.setCompanyId(1L);
         warehouse = new Warehouse();
         warehouse.setCode("WH-RES-01");
         warehouse.setName("Kho Giữ Hàng Tân Bình");
@@ -94,6 +97,11 @@ class StockReservationTest {
         stockItem.setQuantity(new BigDecimal("100.000"));
         stockItem.setReservedQuantity(BigDecimal.ZERO);
         stockItem = stockItemRepository.save(stockItem);
+    }
+
+    @AfterEach
+    void tearDown() {
+        TenantContext.clear();
     }
 
     @Test
@@ -227,5 +235,54 @@ class StockReservationTest {
         StockAtpResponse atp = stockService.getAtp(productId, warehouse.getId());
         assertThat(atp.reservedQuantity()).isEqualByComparingTo("0.000");
         assertThat(atp.atpQuantity()).isEqualByComparingTo("100.000");
+    }
+
+    @Test
+    @DisplayName("Giữ hàng ảo tự động bỏ qua các vị trí/lô bị khóa hoặc đã hết hạn sử dụng")
+    void testReservationSkipsLockedAndExpiredLots() {
+        Long pId = 5002L;
+        java.time.LocalDate today = java.time.LocalDate.now();
+
+        // Ô 1: Lô bị khóa
+        StockItem locked = new StockItem();
+        locked.setProductId(pId);
+        locked.setBinLocation(binLocation);
+        locked.setLotNo("LOT-LOCKED-01");
+        locked.setQuantity(new BigDecimal("50.000"));
+        locked.setReservedQuantity(BigDecimal.ZERO);
+        locked.setLocked(true);
+        stockItemRepository.save(locked);
+
+        // Ô 2: Lô hết hạn
+        StockItem expired = new StockItem();
+        expired.setProductId(pId);
+        expired.setBinLocation(binLocation);
+        expired.setLotNo("LOT-EXPIRED-01");
+        expired.setQuantity(new BigDecimal("40.000"));
+        expired.setReservedQuantity(BigDecimal.ZERO);
+        expired.setExpDate(today.minusDays(2));
+        stockItemRepository.save(expired);
+
+        // Tạo đơn bán yêu cầu 20 cái
+        OrderCreatedEvent event = new OrderCreatedEvent(
+                3001L,
+                "SO-2026-SKIP-01",
+                OrderType.SALES,
+                "CONFIRMED",
+                null,
+                201L,
+                warehouse.getId(),
+                warehouse.getName(),
+                new BigDecimal("2000000.00"),
+                "sales_user",
+                Instant.now(),
+                List.of(new OrderLine(pId, "SKU-5002", "Bánh Quy", new BigDecimal("20.000"), "Hộp", new BigDecimal("100000.00")))
+        );
+
+        softReservationHandler.onOrderCreated(event, "msg-skip-001");
+
+        // Không có bản ghi giữ chỗ nào được tạo vì cả 2 lô đều không khả dụng (bị khóa hoặc hết hạn)
+        List<StockReservation> reservations = stockReservationRepository.findByOrderIdAndStatus(3001L, "ACTIVE");
+        assertThat(reservations).isEmpty();
     }
 }

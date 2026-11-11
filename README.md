@@ -71,6 +71,8 @@ báo cáo và dashboard, phân quyền người dùng, thông báo; mọi biến
                                         |
                                MySQL 8.0  (:3306)
 
+Ngoài sơ đồ: ai-service (:8086) gọi Claude, không có schema MySQL, chỉ dùng Redis (đếm lượt AI theo gói).
+
 Dùng chung:
   Config Server (:8888)                   cấp cấu hình tập trung cho mọi service
   Redis 7 (:6379)                         cache
@@ -90,6 +92,7 @@ Chi tiết trách nhiệm từng service và các luồng dữ liệu chính xem
 | inventory-service | 8083 | Schema `inventory_db` |
 | order-service | 8084 | Schema `order_db` |
 | notification-service | 8085 | Schema `notification_db` |
+| ai-service | 8086 | Không có schema; gọi Claude, đếm lượt AI trên Redis |
 | Discovery Server (Eureka) | 8761 | Giao diện http://localhost:8761 |
 | Config Server | 8888 | |
 | MySQL | 3306 | Tài khoản ứng dụng `wms` |
@@ -103,7 +106,7 @@ Discovery Server, service nghiệp vụ) chỉ mở trên `127.0.0.1` của máy
 
 ```text
 wms-supply-chain/
-  backend/              Gradle multi-project (Spring Cloud): 8 service
+  backend/              Gradle multi-project (Spring Cloud): 9 service
   frontend/             Giao diện React + Vite + TypeScript
   docker/mysql/         Script khởi tạo MySQL (init.sql: 5 schema và user wms)
   docs/                 Tài liệu kỹ thuật
@@ -169,6 +172,15 @@ Theo cấu hình mặc định trong `application.yml`, các service đã trỏ 
 Eureka 8761, Config Server 8888). Chỉ cần đặt `DB_USERNAME=wms` và `DB_PASSWORD` trùng với giá trị trong `.env` (trong cấu hình chạy
 của IDE hoặc bằng `export` trước khi chạy). `JWT_SECRET` phải giống nhau ở api-gateway và auth-service. Danh sách đầy đủ các biến môi trường
 xem trong `docker-compose.yml`; chi tiết về frontend xem [frontend/README.md](frontend/README.md).
+
+### Tài liệu API (Swagger)
+
+- Qua gateway (một nơi cho mọi service): <http://localhost:8080/swagger-ui.html>, chọn service ở danh sách thả xuống
+  (Auth, Products, Inventory, Orders, Notifications, AI). Bấm Authorize và nhập token đăng nhập (`Authorization: Bearer <JWT>`)
+  hoặc `X-Api-Key` rồi dùng "Try it out"; request đi qua gateway.
+- Từng service: `http://localhost:<cổng>/swagger-ui.html` và `/v3/api-docs` (cổng ở bảng trên). Địa chỉ gateway trong
+  mô tả lấy từ `GATEWAY_PUBLIC_URL` (mặc định `http://localhost:8080`).
+- Tắt bằng `SWAGGER_ENABLED=false` tại gateway; máy chủ production mặc định tắt, xem [deploy/README.md](deploy/README.md).
 
 ## Tài liệu
 

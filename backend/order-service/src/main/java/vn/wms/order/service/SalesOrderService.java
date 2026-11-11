@@ -38,9 +38,6 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Service Quản lý Đơn bán hàng (Sales Order - SO) & Tồn khả dụng (ATP) (FR15 - WMS-11.1).
@@ -59,16 +56,18 @@ public class SalesOrderService {
     @Autowired(required = false)
     private WmsEventPublisher wmsEventPublisher;
 
-    private final ConcurrentHashMap<String, AtomicInteger> dailySequences = new ConcurrentHashMap<>();
+    private final DocumentNumberService documentNumberService;
 
     public SalesOrderService(SalesOrderRepository salesOrderRepository,
                              CustomerRepository customerRepository,
                              CustomerService customerService,
-                             InventoryGateway inventoryGateway) {
+                             InventoryGateway inventoryGateway,
+                             DocumentNumberService documentNumberService) {
         this.salesOrderRepository = salesOrderRepository;
         this.customerRepository = customerRepository;
         this.customerService = customerService;
         this.inventoryGateway = inventoryGateway;
+        this.documentNumberService = documentNumberService;
     }
 
     /**
@@ -407,33 +406,13 @@ public class SalesOrderService {
     }
 
     /**
-     * Tự động sinh mã SO tuần tự theo ngày: SO-YYYYMMDD-XXXX.
+     * Tự động sinh mã SO tuần tự theo ngày: SO-YYYYMMDD-XXXX, đánh số riêng cho từng doanh nghiệp (WMS-22.4b).
      */
     private String generateNextSoNumber() {
-        String todayStr = LocalDate.now().format(DATE_FORMATTER);
-        String prefix = "SO-" + todayStr + "-";
-
-        AtomicInteger seq = dailySequences.computeIfAbsent(todayStr, k -> {
-            Optional<SalesOrder> latest = salesOrderRepository
-                    .findTopBySoNumberStartingWithOrderBySoNumberDesc(prefix);
-            if (latest.isPresent()) {
-                String latestNumber = latest.get().getSoNumber();
-                try {
-                    String seqStr = latestNumber.substring(prefix.length());
-                    return new AtomicInteger(Integer.parseInt(seqStr));
-                } catch (Exception ignored) {
-                }
-            }
-            return new AtomicInteger(0);
-        });
-
-        int nextVal = seq.incrementAndGet();
-        String candidate = String.format("%s%04d", prefix, nextVal);
-        while (salesOrderRepository.existsBySoNumber(candidate)) {
-            nextVal = seq.incrementAndGet();
-            candidate = String.format("%s%04d", prefix, nextVal);
-        }
-        return candidate;
+        return documentNumberService.next("SO-" + LocalDate.now().format(DATE_FORMATTER) + "-",
+                prefix -> salesOrderRepository.findTopBySoNumberStartingWithOrderBySoNumberDesc(prefix)
+                        .map(SalesOrder::getSoNumber),
+                salesOrderRepository::existsBySoNumber);
     }
 
     /**

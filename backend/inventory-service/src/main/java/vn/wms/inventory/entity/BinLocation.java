@@ -9,23 +9,27 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import vn.wms.common.persistence.AuditableEntity;
+import vn.wms.common.tenant.TenantEntity;
 
 import java.math.BigDecimal;
 
 /**
  * Vị trí lưu trữ trong kho theo cấu trúc 4 cấp: Warehouse - Zone - Rack - Bin (Kho - Khu - Kệ - Ô) (WMS-06).
- * Mã vị trí (code) định dạng WHxx-ZONE-Rxx-Bxx, duy nhất toàn hệ thống.
+ * Mã vị trí (code) định dạng WHxx-ZONE-Rxx-Bxx, duy nhất trong từng doanh nghiệp (WMS-22.4a).
  */
 @Entity
-@Table(name = "bin_locations")
+@Table(name = "bin_locations", uniqueConstraints = {
+        @UniqueConstraint(name = "uk_bin_locations_company_code", columnNames = {"company_id", "code"}),
+        @UniqueConstraint(name = "uk_bin_locations_position", columnNames = {"warehouse_id", "zone", "rack", "bin"})
+})
 @Getter
 @Setter
 @NoArgsConstructor
-public class BinLocation extends AuditableEntity {
+public class BinLocation extends TenantEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -47,8 +51,8 @@ public class BinLocation extends AuditableEntity {
     @Column(nullable = false, length = 20)
     private String bin;
 
-    /** Mã vị trí duy nhất (ví dụ: WH01-ZA-R01-B01). */
-    @Column(nullable = false, unique = true, length = 80)
+    /** Mã vị trí duy nhất trong doanh nghiệp (ví dụ: WH01-ZA-R01-B01). */
+    @Column(nullable = false, length = 80)
     private String code;
 
     /** Tải trọng tối đa (kg). */

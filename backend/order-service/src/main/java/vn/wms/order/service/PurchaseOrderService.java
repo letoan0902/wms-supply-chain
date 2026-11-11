@@ -26,8 +26,6 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Service Quản lý Đơn mua hàng (Purchase Order - PO) & Phê duyệt (FR10 - WMS-09.1).
@@ -40,15 +38,16 @@ public class PurchaseOrderService {
     private final PurchaseOrderRepository purchaseOrderRepository;
     private final SupplierRepository supplierRepository;
     private final ApplicationEventPublisher eventPublisher;
-
-    private final ConcurrentHashMap<String, AtomicInteger> dailySequences = new ConcurrentHashMap<>();
+    private final DocumentNumberService documentNumberService;
 
     public PurchaseOrderService(PurchaseOrderRepository purchaseOrderRepository,
                                 SupplierRepository supplierRepository,
-                                ApplicationEventPublisher eventPublisher) {
+                                ApplicationEventPublisher eventPublisher,
+                                DocumentNumberService documentNumberService) {
         this.purchaseOrderRepository = purchaseOrderRepository;
         this.supplierRepository = supplierRepository;
         this.eventPublisher = eventPublisher;
+        this.documentNumberService = documentNumberService;
     }
 
     /**
@@ -178,8 +177,9 @@ public class PurchaseOrderService {
     @Transactional
     public void delete(Long id) {
         PurchaseOrder po = findOrder(id);
-        if (po.getStatus() == OrderStatus.APPROVED || po.getStatus() == OrderStatus.CONFIRMED || po.getStatus() == OrderStatus.COMPLETED) {
-            throw ApiException.badRequest("Không thể xóa đơn mua hàng đã được phê duyệt hoặc đang thực hiện!");
+        if (po.getStatus() == OrderStatus.APPROVED || po.getStatus() == OrderStatus.CONFIRMED
+                || po.getStatus() == OrderStatus.PARTIALLY_RECEIVED || po.getStatus() == OrderStatus.COMPLETED) {
+            throw ApiException.badRequest("Không thể xóa đơn mua hàng đã được phê duyệt hoặc đang trong quá trình nhập kho (trạng thái: " + po.getStatus() + ")!");
         }
         purchaseOrderRepository.delete(po);
     }
@@ -220,6 +220,7 @@ public class PurchaseOrderService {
                 .toList();
 
         eventPublisher.publishEvent(new PurchaseOrderApprovedEvent(
+                saved.getCompanyId(),
                 saved.getId(),
                 saved.getPoNumber(),
                 saved.getSupplier() != null ? saved.getSupplier().getId() : null,
@@ -285,6 +286,8 @@ public class PurchaseOrderService {
         long approved = purchaseOrderRepository.countByStatus(OrderStatus.APPROVED);
         long rejected = purchaseOrderRepository.countByStatus(OrderStatus.REJECTED);
         long cancelled = purchaseOrderRepository.countByStatus(OrderStatus.CANCELLED);
+        long partiallyReceived = purchaseOrderRepository.countByStatus(OrderStatus.PARTIALLY_RECEIVED);
+        long completed = purchaseOrderRepository.countByStatus(OrderStatus.COMPLETED);
         BigDecimal totalApprovedAmount = purchaseOrderRepository.sumTotalAmountByStatus(OrderStatus.APPROVED);
 
         return new PurchaseOrderSummaryResponse(
@@ -294,40 +297,21 @@ public class PurchaseOrderService {
                 approved,
                 rejected,
                 cancelled,
+                partiallyReceived,
+                completed,
                 totalApprovedAmount != null ? totalApprovedAmount : BigDecimal.ZERO
         );
     }
 
     /**
-     * Tự động sinh mã PO theo ngày hiện tại: PO-YYYYMMDD-XXXX.
-     * Sử dụng bộ đếm AtomicInteger kết hợp kiểm tra DB để chống va chạm mã khi nhiều giao dịch chạy đồng thời.
+     * Tự động sinh mã PO theo ngày: PO-YYYYMMDD-XXXX, đánh số riêng cho từng doanh nghiệp (WMS-22.4b).
+     * Bộ đếm có khóa dòng trong cơ sở dữ liệu nên giao dịch đồng thời không nhận trùng số (xem {@link DocumentNumberService}).
      */
     public String generatePoNumber(LocalDate date) {
-        String dateStr = date.format(DATE_FORMATTER);
-        String prefix = "PO-" + dateStr + "-";
-
-        AtomicInteger counter = dailySequences.computeIfAbsent(dateStr, key -> {
-            int maxSeq = purchaseOrderRepository.findTopByPoNumberStartingWithOrderByPoNumberDesc(prefix)
-                    .map(PurchaseOrder::getPoNumber)
-                    .map(latestCode -> {
-                        try {
-                            String suffix = latestCode.substring(prefix.length());
-                            return Integer.parseInt(suffix);
-                        } catch (Exception e) {
-                            return 0;
-                        }
-                    })
-                    .orElse(0);
-            return new AtomicInteger(maxSeq);
-        });
-
-        String candidate;
-        do {
-            int nextSeq = counter.incrementAndGet();
-            candidate = String.format("%s%04d", prefix, nextSeq);
-        } while (purchaseOrderRepository.existsByPoNumber(candidate));
-
-        return candidate;
+        return documentNumberService.next("PO-" + date.format(DATE_FORMATTER) + "-",
+                prefix -> purchaseOrderRepository.findTopByPoNumberStartingWithOrderByPoNumberDesc(prefix)
+                        .map(PurchaseOrder::getPoNumber),
+                purchaseOrderRepository::existsByPoNumber);
     }
 
     /**

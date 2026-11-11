@@ -12,6 +12,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import vn.wms.common.messaging.WmsEvents;
 import vn.wms.common.messaging.event.LowStockAlertEvent;
+import vn.wms.common.tenant.TenantContext;
 import vn.wms.notification.realtime.KpiMetric;
 import vn.wms.notification.realtime.RealtimeNotificationFactory;
 import vn.wms.notification.realtime.RealtimeNotificationService;
@@ -24,12 +25,13 @@ import vn.wms.notification.service.NotificationService;
  *
  * <ul>
  *   <li>{@code alert.low-stock}: payload {@link LowStockAlertEvent} (docs/MESSAGING.md mục 3), đẩy phong bì lên
- *       {@code /topic/alerts} và tăng KPI cảnh báo tồn thấp.</li>
+ *       {@code /topic/company/{companyId}/alerts} và tăng KPI cảnh báo tồn thấp của doanh nghiệp đó.</li>
  *   <li>Mọi routing key {@code alert.*} khác (ví dụ {@code alert.email}): payload {@link NotificationMessage} cũ,
- *       chuyển cho {@link NotificationService} gửi email và ghi nhật ký như trước. Tin không có người nhận
- *       (loại cảnh báo chưa hỗ trợ) thì ghi log và bỏ qua.</li>
+ *       chuyển cho {@link NotificationService} gửi email và ghi nhật ký dưới doanh nghiệp của sự kiện. Tin không có
+ *       người nhận (loại cảnh báo chưa hỗ trợ) thì ghi log và bỏ qua.</li>
  * </ul>
- * JSON hỏng ở cả hai nhánh thì chuyển dead-letter.
+ * Cả hai nhánh chạy trong ngữ cảnh doanh nghiệp của sự kiện (WMS-22.4c); sự kiện không xác định được doanh nghiệp thì
+ * ghi log cảnh báo và bỏ qua (ack, không thử lại, không gửi email). JSON hỏng ở cả hai nhánh thì chuyển dead-letter.
  */
 @Component
 public class AlertEventsListener {
@@ -57,11 +59,23 @@ public class AlertEventsListener {
         MessageProperties properties = message.getMessageProperties();
         String eventType = EventMessages.eventType(properties);
         String messageId = properties.getMessageId();
+        Long companyId = EventMessages.companyId(eventReader, message);
+        if (companyId == null) {
+            log.warn("Bỏ qua cảnh báo không có doanh nghiệp (header x-wms-company-id hoặc trường companyId): "
+                    + "routingKey='{}' messageId={}", eventType, messageId);
+            return;
+        }
+        // Đặt ngữ cảnh trước khi gọi NotificationService để transaction ghi nhật ký mở đúng doanh nghiệp
+        TenantContext.runAs(companyId, () -> handle(message, properties, eventType, messageId, companyId));
+    }
+
+    private void handle(Message message, MessageProperties properties, String eventType, String messageId,
+                        Long companyId) {
         if (WmsEvents.RoutingKeys.ALERT_LOW_STOCK.equals(eventType)) {
             LowStockAlertEvent event = EventMessages.read(eventReader, message, LowStockAlertEvent.class);
-            log.info("Nhận {} cho {} tại kho {} (messageId={}), đẩy lên WebSocket",
-                    eventType, event.skuCode(), event.warehouseId(), messageId);
-            realtimeService.dispatch(factory.lowStock(event, messageId, EventMessages.timestamp(properties)),
+            log.info("Nhận {} cho {} tại kho {} (messageId={}, companyId={}), đẩy lên WebSocket",
+                    eventType, event.skuCode(), event.warehouseId(), messageId, companyId);
+            realtimeService.dispatch(companyId, factory.lowStock(event, messageId, EventMessages.timestamp(properties)),
                     KpiMetric.LOW_STOCK_ALERTS, messageId);
             return;
         }
@@ -71,7 +85,8 @@ public class AlertEventsListener {
                     eventType, messageId);
             return;
         }
-        log.info("Nhận sự kiện {} cho {} (routingKey='{}'), gửi email", email.eventType(), email.recipient(), eventType);
+        log.info("Nhận sự kiện {} cho {} (routingKey='{}', companyId={}), gửi email",
+                email.eventType(), email.recipient(), eventType, companyId);
         notificationService.process(email);
     }
 }

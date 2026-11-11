@@ -55,6 +55,57 @@ function processQueue(error: unknown, token: string | null = null): void {
   failedQueue = []
 }
 
+/** Mã lỗi thuê bao do hộp thoại dùng chung hiển thị (docs/SAAS_SPEC.md mục 2.4). */
+export const SUBSCRIPTION_EXPIRED = 'SUBSCRIPTION_EXPIRED'
+export const PLAN_LIMIT_EXCEEDED = 'PLAN_LIMIT_EXCEEDED'
+
+/** Lỗi thuê bao gửi cho hộp thoại dùng chung. `data` của PLAN_LIMIT_EXCEEDED gồm `limit`, `current`, `max`, `plan`. */
+export interface SubscriptionApiError {
+  code: typeof SUBSCRIPTION_EXPIRED | typeof PLAN_LIMIT_EXCEEDED
+  message: string
+  data?: unknown
+}
+
+type SubscriptionErrorListener = (error: SubscriptionApiError) => void
+
+const subscriptionErrorListeners = new Set<SubscriptionErrorListener>()
+// Lỗi đã được hộp thoại dùng chung hiển thị: getApiErrorMessage trả chuỗi rỗng để màn hình không báo lần hai
+const handledErrors = new WeakSet<object>()
+
+/**
+ * Đăng ký nhận lỗi SUBSCRIPTION_EXPIRED và PLAN_LIMIT_EXCEEDED từ mọi request (hộp thoại dùng chung của
+ * phân hệ Gói dịch vụ đăng ký ở đây). Trả hàm hủy đăng ký.
+ */
+export function onSubscriptionApiError(listener: SubscriptionErrorListener): () => void {
+  subscriptionErrorListeners.add(listener)
+  return () => {
+    subscriptionErrorListeners.delete(listener)
+  }
+}
+
+/** Lỗi này đã được hộp thoại dùng chung hiển thị hay chưa. */
+export function isHandledByGlobalDialog(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && handledErrors.has(error)
+}
+
+// Lỗi thuê bao (403 SUBSCRIPTION_EXPIRED, 403 PLAN_LIMIT_EXCEEDED): chuyển cho hộp thoại dùng chung rồi vẫn
+// từ chối promise để màn hình gọi API tắt trạng thái đang tải như mọi lỗi khác.
+api.interceptors.response.use(
+  (response) => response,
+  (error: unknown) => {
+    if (axios.isAxiosError<ApiErrorResponse>(error) && error.response?.status === 403) {
+      const body = error.response.data as { code?: string; message?: string; data?: unknown } | undefined
+      const code = body?.code
+      if ((code === SUBSCRIPTION_EXPIRED || code === PLAN_LIMIT_EXCEEDED) && subscriptionErrorListeners.size > 0) {
+        handledErrors.add(error)
+        const payload: SubscriptionApiError = { code, message: body?.message ?? '', data: body?.data }
+        subscriptionErrorListeners.forEach((listener) => listener(payload))
+      }
+    }
+    return Promise.reject(error)
+  },
+)
+
 // Xử lý 401: Tự động dùng Refresh Token để gia hạn Access Token và thử lại request bị lỗi.
 api.interceptors.response.use(
   (response) => response,
@@ -155,8 +206,15 @@ export function getErrorStatus(error: unknown): number | undefined {
   return axios.isAxiosError(error) ? error.response?.status : undefined
 }
 
-/** Lấy thông báo lỗi thân thiện để hiển thị cho người dùng. */
+/**
+ * Lấy thông báo lỗi thân thiện để hiển thị cho người dùng.
+ * Trả chuỗi rỗng khi lỗi đã được hộp thoại gói dịch vụ hiển thị (hết hạn, vượt giới hạn gói): thông báo nổi
+ * rỗng bị ẩn bằng CSS trong src/index.css, nhờ vậy màn hình đang gọi `message.error(...)` không báo lần hai.
+ */
 export function getApiErrorMessage(error: unknown, fallback: string): string {
+  if (isHandledByGlobalDialog(error)) {
+    return ''
+  }
   if (axios.isAxiosError<ApiErrorResponse>(error)) {
     if (!error.response) {
       return 'Không kết nối được máy chủ. Vui lòng kiểm tra mạng hoặc thử lại sau.'

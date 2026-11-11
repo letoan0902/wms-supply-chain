@@ -632,6 +632,13 @@ Người làm: Linh. Ngày: 16/11. Jira: TASK-146. Phụ thuộc: WMS-23.1, WMS-
 2. Sau khi đặt hết hạn bằng công cụ demo: mọi nút ghi bị khóa, xem dữ liệu bình thường, hộp thoại dẫn tới trang gia hạn.
 3. Gói `FREE` tạo kho thứ 2: hiện hộp thoại vượt giới hạn với số liệu đúng.
 
+**Cách làm (đã làm, thư mục `frontend/src/features/subscription`)**
+
+- `useSubscription()` (zustand, `subscriptionStore.ts`) trả `plan`, `planName`, `status`, `daysLeft` (lấy `daysRemaining` của máy chủ), `readOnly`, `limits`, `usage`, `refresh`. `SubscriptionLayer` gắn một lần trong `MainLayout`: tải `GET /api/auth/subscription` sau khi đăng nhập, tải lại khi quay lại tab sau 30 giây, hiện dải nhắc dùng thử hoặc dải hết hạn (dính ở đầu trang).
+- Lỗi `SUBSCRIPTION_EXPIRED`, `PLAN_LIMIT_EXCEEDED`: interceptor trong `src/services/api.ts` chuyển cho `SubscriptionDialogs` (một hộp thoại cho nhiều request lỗi). Khi đó `getApiErrorMessage` trả chuỗi rỗng và CSS ẩn thông báo nổi rỗng, nên màn hình đang gọi `message.error(getApiErrorMessage(...))` không báo lần hai.
+- Chế độ chỉ đọc (`readOnlyGuard.ts`): thân trang có lớp `wms-read-only`; CSS làm mờ và bộ lắng nghe click pha capture chặn các nút chứa biểu tượng thêm, sửa, xóa, lưu, xác nhận (check-circle), hủy (stop), từ chối (close-circle), thu tiền (dollar), nhận hàng (inbox), phát hành hóa đơn (file-done), nút xác nhận của mọi Popconfirm và vùng có `data-write-action`. Vùng có lớp `wms-read-only-allowed` hoặc `data-read-only-allowed` không bị chặn. Nút ghi không mang các dấu hiệu này (ví dụ "Nhập Excel", "Lấy hàng") vẫn bị gateway trả 403 và mở hộp thoại hết hạn.
+- Trang `/subscription`: gói, trạng thái, ngày hết hạn, số ngày còn lại; bốn thanh mức dùng (`-1` là không giới hạn, `null` là chưa có số liệu); bảng so sánh lấy từ `GET /api/auth/plans`; ADMIN chọn chu kỳ, xem số tiền, chuyển về gói Khởi Đầu khi đang dùng thử hoặc đã hết hạn (`POST /api/auth/subscription/downgrade`); vai trò khác thấy "Liên hệ quản trị viên của doanh nghiệp".
+
 ### WMS-23.5a [Backend] Thanh toán PayOS
 
 Người làm: Toàn. Ngày: 10/11. Jira: TASK-147. Phụ thuộc: WMS-23.1.

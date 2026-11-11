@@ -82,6 +82,8 @@ export const router = createBrowserRouter([
           { path: 'settings/api-keys', Component: lazy(() => import('../features/apiKeys/ApiKeysPage')) },
           // Hồ sơ cá nhân & Đổi mật khẩu
           { path: 'profile', Component: lazy(() => import('../features/profile/ProfilePage')) },
+          // Gói dịch vụ, mức dùng và đổi gói của doanh nghiệp
+          { path: 'subscription', Component: lazy(() => import('../features/subscription/SubscriptionPage')) },
           ...placeholderRoutes,
           { path: '*', element: <NotFoundPage /> },
         ],

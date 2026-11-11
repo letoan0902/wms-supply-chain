@@ -14,6 +14,8 @@ import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Mono;
 import vn.wms.gateway.ratelimit.UserOrIpKeyResolver;
 import vn.wms.gateway.security.GatewayJwtProperties;
+import vn.wms.gateway.subscription.SubscriptionGlobalFilter;
+import vn.wms.gateway.subscription.SubscriptionProperties;
 
 import java.util.List;
 
@@ -41,6 +43,12 @@ class ApiGatewayApplicationTest {
 
     @Autowired
     private GatewayJwtProperties jwtProperties;
+
+    @Autowired
+    private SubscriptionProperties subscriptionProperties;
+
+    @Autowired
+    private SubscriptionGlobalFilter subscriptionFilter;
 
     @Test
     void healthEndpointIsUp() {
@@ -88,5 +96,14 @@ class ApiGatewayApplicationTest {
     void registersRateLimiterBeansFromConfiguration() {
         assertThat(keyResolver).isInstanceOf(UserOrIpKeyResolver.class);
         assertThat(rateLimiter).isNotNull();
+    }
+
+    @Test
+    void registersSubscriptionFilterWithWriteExceptionsFromConfiguration() {
+        assertThat(subscriptionFilter.getOrder()).isEqualTo(SubscriptionGlobalFilter.ORDER);
+        assertThat(subscriptionProperties.enabled()).isTrue();
+        assertThat(subscriptionProperties.writeAllowedPaths()).contains(
+                "/api/auth/login", "/api/auth/refresh", "/api/auth/logout", "/api/users/change-password",
+                "/api/auth/subscription/**", "/api/auth/payments/**");
     }
 }

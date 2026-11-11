@@ -13,6 +13,9 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import vn.wms.common.api.ErrorCode;
+import vn.wms.common.plan.PlanLimit;
+import vn.wms.common.plan.PlanLimitViolation;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -41,7 +44,20 @@ class GlobalExceptionHandlerTest {
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.code").value("NOT_FOUND"))
-                .andExpect(jsonPath("$.message").value("Không tìm thấy sản phẩm 42"));
+                .andExpect(jsonPath("$.message").value("Không tìm thấy sản phẩm 42"))
+                .andExpect(jsonPath("$.data").doesNotExist());
+    }
+
+    @Test
+    void apiExceptionWithDataReturnsItInDataField() throws Exception {
+        mockMvc.perform(get("/demo/limit"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("PLAN_LIMIT_EXCEEDED"))
+                .andExpect(jsonPath("$.message").value("Gói Khởi Đầu chỉ cho phép tối đa 1 kho."))
+                .andExpect(jsonPath("$.data.limit").value("WAREHOUSES"))
+                .andExpect(jsonPath("$.data.current").value(1))
+                .andExpect(jsonPath("$.data.max").value(1))
+                .andExpect(jsonPath("$.data.plan").value("FREE"));
     }
 
     @Test
@@ -98,6 +114,12 @@ class GlobalExceptionHandlerTest {
         @GetMapping("/not-found")
         String notFound() {
             throw ApiException.notFound("Không tìm thấy sản phẩm 42");
+        }
+
+        @GetMapping("/limit")
+        String limit() {
+            throw ApiException.withData(ErrorCode.PLAN_LIMIT_EXCEEDED, "Gói Khởi Đầu chỉ cho phép tối đa 1 kho.",
+                    new PlanLimitViolation(PlanLimit.WAREHOUSES, 1, 1, "FREE"));
         }
 
         @GetMapping("/need-param")

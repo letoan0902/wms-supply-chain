@@ -149,7 +149,16 @@ auth-service là nơi duy nhất ghi trạng thái thuê bao. Mỗi khi thuê ba
 | `maxUsers`, `maxWarehouses`, `maxSkus`, `maxAiRequests` | `50`, `20`, `-1`, `500` | `-1` là không giới hạn |
 | `apiAccess` | `true` | |
 
-Gateway và `PlanLimitChecker` (WMS-23.2) chỉ đọc khóa này. Lượt AI trong tháng đếm ở khóa `wms:usage:ai:{companyId}:{yyyyMM}`.
+Gateway và `PlanLimitChecker` (WMS-23.2) chỉ đọc khóa này. Tên khóa và tên trường nằm ở `vn.wms.common.plan.SubscriptionCacheKeys`, auth-service dùng lại các hằng số đó khi ghi.
+
+Các khóa mức sử dụng do service nghiệp vụ ghi (qua `PlanLimitChecker`), auth-service đọc để trả `usage`:
+
+| Khóa | Kiểu | Nội dung |
+| --- | --- | --- |
+| `wms:usage:{companyId}` | hash | `users`, `warehouses`, `skus`: số bản ghi đang hoạt động, ghi lại mỗi lần kiểm tra giới hạn và sau mỗi lần tạo, bật lại, ngưng, xóa |
+| `wms:usage:ai:{companyId}:{yyyyMM}` | chuỗi số | Lượt AI trong tháng (giờ Việt Nam), tự hết hạn sau 40 ngày |
+
+Thiếu hash `wms:subscription:{companyId}` hoặc không kết nối được Redis thì cả gateway lẫn `PlanLimitChecker` đều cho qua (fail open): gateway không gắn `X-Plan`, không chặn; `PlanLimitChecker` cho tạo và ghi một dòng cảnh báo. auth-service ghi lại hash ở mỗi lần đăng nhập và định kỳ 5 phút nên khoảng thiếu dữ liệu ngắn.
 
 ### 2.8. Màn hình mới
 
@@ -160,6 +169,7 @@ Gateway và `PlanLimitChecker` (WMS-23.2) chỉ đọc khóa này. Lượt AI tr
 | `/activate`, `/reset-password` | Kích hoạt doanh nghiệp, đặt lại mật khẩu | WMS-23.6 | Khách truy cập |
 | `/subscription` | Gói dịch vụ, mức dùng, lịch sử thanh toán | WMS-23.4, WMS-23.5b | Mọi tài khoản xem; chỉ `ADMIN` thanh toán |
 | `/payment/result` | Kết quả thanh toán | WMS-23.5b | `ADMIN` |
+| `/payment/mock` | Thanh toán giả lập khi `PAYOS_MOCK=true` (nút xác nhận gọi `mock-confirm`) | WMS-23.5b | `ADMIN` |
 | `/ai-import` | Nhập dữ liệu bằng AI | WMS-24.3 | `ADMIN`, `WAREHOUSE_MANAGER`, `PURCHASING`, `SALES` |
 | Cửa sổ trợ lý AI | Hỏi đáp | WMS-18.4 | Mọi tài khoản |
 | `/settings/api-keys` | Quản lý API key | WMS-25.1 | `ADMIN` |
@@ -428,7 +438,7 @@ Một doanh nghiệp mới tự đăng ký được mà không cần ai tạo h�
 | --- | --- | --- |
 | `POST /api/auth/companies/register` | Công khai | Body: `companyName` (2 đến 150 ký tự), `taxCode`, `phone` (không bắt buộc), `fullName`, `username`, `email`, `password` (quy tắc như tạo tài khoản hiện nay). Trong một giao dịch: tạo doanh nghiệp, tài khoản `ADMIN` đầu tiên, thuê bao `TRIAL` với `trial_ends_at` bằng thời điểm đăng ký cộng 30 ngày. Trả `201` với `company`, `admin`, `subscription`. Không trả token; giao diện chuyển sang trang đăng nhập |
 | `GET /api/auth/plans` | Công khai | Danh sách gói, giá và giới hạn |
-| `GET /api/auth/subscription` | Mọi tài khoản | `plan`, `planName`, `status`, `trialEndsAt`, `expiresAt`, `daysRemaining`, `readOnly`, `limits`, `usage` (`users`, `warehouses`, `skus`, `aiRequests`; ở task này trả `users`, ba số còn lại do WMS-23.2 bổ sung) |
+| `GET /api/auth/subscription` | Mọi tài khoản | `plan`, `planName`, `status`, `trialEndsAt`, `expiresAt`, `daysRemaining`, `readOnly`, `limits`, `usage` (`users`, `warehouses`, `skus`, `aiRequests`; ở task này trả `users`, WMS-23.2 bổ sung ba số còn lại: `users` đếm tài khoản đang bật trong cơ sở dữ liệu, `warehouses` và `skus` đọc hash `wms:usage:{companyId}` (chưa có thì `null`), `aiRequests` đọc bộ đếm tháng hiện tại (chưa có thì `0`)) |
 | `POST /api/auth/subscription/renew-mock` | `ADMIN`, chỉ khi `PAYOS_MOCK=true` | Body: `plan` (`PRO`), `cycle` (`MONTHLY`, `YEARLY`). Kích hoạt ngay không qua thanh toán, dùng để phát triển và test |
 | `POST /api/auth/subscription/downgrade` | `ADMIN` | Chuyển về `FREE` theo quy tắc mục 2.6; không hợp lệ trả `409 CONFLICT` |
 | `POST /api/auth/subscription/demo/expire` | `ADMIN`, chỉ khi `APP_DEMO_TOOLS=true` | Đặt thuê bao của doanh nghiệp mình thành hết hạn để trình diễn |
@@ -469,7 +479,7 @@ Phần `data` của `GET /api/auth/subscription` ngay sau khi đăng ký:
   "daysRemaining": 30,
   "readOnly": false,
   "limits": { "maxUsers": 50, "maxWarehouses": 20, "maxSkus": -1, "maxAiRequests": 500, "apiAccess": true },
-  "usage": { "users": 1, "warehouses": null, "skus": null, "aiRequests": null }
+  "usage": { "users": 1, "warehouses": null, "skus": null, "aiRequests": 0 }
 }
 ```
 
@@ -521,6 +531,21 @@ Người làm: Toàn. Ngày: 10/11. Jira: TASK-143. Phụ thuộc: WMS-23.1.
 2. Thuê bao hết hạn: `GET` vẫn chạy, `POST`, `PUT`, `PATCH`, `DELETE` nghiệp vụ nhận `403 SUBSCRIPTION_EXPIRED`; đăng nhập và các API thuê bao, thanh toán vẫn dùng được.
 3. Gia hạn xong, request ghi kế tiếp chạy được ngay, không cần đăng nhập lại.
 
+**Cách làm (phần 1, nhánh `wms-23-2`)**
+
+- `common`, gói `vn.wms.common.plan`: `PlanLimitChecker` tự đăng ký khi service có bean `StringRedisTemplate`; tắt bằng `app.plan-limit.enabled=false` (test không có Redis đặt sẵn giá trị này). Service tiêm dạng tùy chọn (`ObjectProvider<PlanLimitChecker>`).
+  - `assertCanCreate(limit, currentCount)`: `currentCount` là số bản ghi đang hoạt động trước khi tạo; `currentCount >= max` (và `max != -1`) thì ném `PLAN_LIMIT_EXCEEDED`, `data` là `{limit, current, max, plan}`.
+  - `assertCanCreateIfTenant(limit, supplier)`: bỏ qua khi chưa có doanh nghiệp trong ngữ cảnh, dùng cho service chưa tách dữ liệu (product-service).
+  - `reportUsage(limit, count)`, `incrementMonthlyAiUsage()`, `assertAiQuota()` cho ai-service.
+- `ApiException.withData(code, message, data)`: `GlobalExceptionHandler` trả `data` kèm lỗi.
+- Gateway: `SubscriptionGlobalFilter` (order -99, ngay sau bộ lọc JWT) gắn `X-Plan` và chặn ghi khi `EXPIRED`. Danh sách ngoại lệ ở `gateway.subscription.write-allowed-paths`; tắt cả bộ lọc bằng `GATEWAY_SUBSCRIPTION_ENABLED=false`. Bộ lọc chỉ có tác dụng khi bật kiểm tra JWT (mới có `X-Company-Id`).
+- inventory-service kiểm tra số kho khi tạo kho đang hoạt động và khi bật lại kho đã ngưng (PATCH trạng thái hoặc PUT có `active: true`); product-service kiểm tra số SKU khi tạo và khi bật lại SKU đã xóa mềm. product-service hiện đếm SKU trên toàn bảng cho tới khi xong WMS-22.4b.
+- Phần 2 (auth-service, nhánh `wms-23-2b`):
+  - `UserPlanLimitGuard` kiểm tra `USERS` (số tài khoản `enabled = true` của doanh nghiệp) trước khi tạo tài khoản (`POST /api/auth/users`, `POST /api/auth/register`) và trước khi mở khóa (`PATCH .../status` hoặc `PUT` có `enabled: true`); sau mỗi lần tạo, mở khóa, khóa thì ghi lại `users` vào `wms:usage:{companyId}` sau khi commit. auth-service không dùng `TenantContext` nên gọi bản nhận doanh nghiệp trực tiếp `assertCanCreate(companyId, limit, currentCount)`, `reportUsage(companyId, limit, count)` (thêm vào `PlanLimitChecker`, bản cũ giữ nguyên). Đăng ký doanh nghiệp mới không bị chặn.
+  - `GET /api/auth/subscription` trả đủ bốn số `usage` (cách đọc ở mục API của WMS-23.1); Redis lỗi thì ba số đọc từ Redis là `null`.
+  - `SubscriptionCacheWriter` dùng tên khóa, tên trường của `SubscriptionCacheKeys`; test hợp đồng kiểm tra hash ghi ra được `SubscriptionSnapshot.fromHash` đọc lại đúng.
+  - Tác vụ định kỳ 5 phút, sau khi chuyển `EXPIRED`, ghi lại hash của mọi thuê bao để Redis mất dữ liệu thì tự lành trong 5 phút; Redis không chạy chỉ ghi cảnh báo.
+
 ### WMS-23.3a [Frontend] Trang giới thiệu và bảng giá
 
 Người làm: Linh. Đã xong ngày 05/11. Jira: TASK-144.
@@ -566,22 +591,64 @@ Người làm: Toàn. Ngày: 10/11. Jira: TASK-147. Phụ thuộc: WMS-23.1.
 
 **Dữ liệu**
 
-Bảng `payments` ở auth-service: `company_id`, `order_code` (số, duy nhất toàn hệ thống), `plan_code`, `cycle`, `amount`, `status` (`PENDING`, `PAID`, `CANCELLED`, `EXPIRED`), `checkout_url`, `reference` (mã giao dịch ngân hàng), `paid_at`, người tạo, bốn cột audit.
+Bảng `payments` ở auth-service (migration `V6__create_payments.sql`): `company_id`, `order_code` (số, duy nhất toàn hệ thống), `plan_code`, `cycle`, `amount` (VND, số nguyên), `status` (`PENDING`, `PAID`, `CANCELLED`, `EXPIRED`), `checkout_url`, `qr_code`, `payment_link_id`, `reference` (mã giao dịch ngân hàng), `paid_at`, `expires_at`, `created_by_user` (ID tài khoản tạo), bốn cột audit.
+
+- Mã đơn `order_code`: mili giây epoch nhân 1000 cộng ba chữ số ngẫu nhiên, ví dụ `1762761600123457` (16 chữ số, dưới giới hạn `9007199254740991` của PayOS). Trùng thì sinh lại.
+- Nội dung chuyển khoản gửi PayOS: `WMS PRO <orderCode>` (24 ký tự, PayOS giới hạn 25).
+- Không tạo được liên kết ở PayOS: giao dịch chuyển `CANCELLED`, API trả `503 SERVICE_UNAVAILABLE`.
+
+**Cấu hình** (`app.payos.*` trong application.yml của auth-service)
+
+| Biến | Mặc định | Ghi chú |
+| --- | --- | --- |
+| `PAYOS_MOCK` | `true` | `true`: không gọi PayOS, `checkoutUrl` là `<gốc của PAYOS_RETURN_URL>/payment/mock?orderCode=...` |
+| `PAYOS_CLIENT_ID`, `PAYOS_API_KEY`, `PAYOS_CHECKSUM_KEY` | rỗng | Chỉ nằm trong `.env` trên máy chủ |
+| `PAYOS_RETURN_URL`, `PAYOS_CANCEL_URL` | `http://localhost:5173/payment/result` | docker-compose đặt `http://localhost/payment/result`, production đặt `https://<DOMAIN>/payment/result` |
+| `PAYOS_BASE_URL` | `https://api-merchant.payos.vn` | |
+
+**Chữ ký** (HMAC-SHA256 bằng checksum key, hex chữ thường, lớp `PayOsSignature`)
+
+- Tạo liên kết: ký chuỗi `amount=<amount>&cancelUrl=<cancelUrl>&description=<description>&orderCode=<orderCode>&returnUrl=<returnUrl>`, giá trị giữ nguyên, không mã hóa URL.
+- Webhook: lấy đối tượng `data`, sắp xếp khóa theo chữ cái, nối `key=value` bằng `&` (null thành chuỗi rỗng, mảng và đối tượng lồng nhau thành JSON), so sánh thời gian hằng với `signature`. Đã đối chiếu với ví dụ trong tài liệu PayOS "Kiểm tra dữ liệu với signature" (test `PayOsSignatureTest`).
 
 **API**
 
 | API | Ai gọi | Mô tả |
 | --- | --- | --- |
-| `POST /api/auth/payments` | `ADMIN` | Body: `plan` (`PRO`), `cycle` (`MONTHLY`, `YEARLY`). Số tiền lấy từ bảng `plans`, không nhận từ client. Tạo bản ghi `PENDING`, gọi PayOS tạo liên kết thanh toán, trả `orderCode`, `amount`, `checkoutUrl`, `qrCode`, `expiresAt`. Liên kết hết hạn sau 15 phút |
+| `POST /api/auth/payments` | `ADMIN` | Body: `plan` (`PRO`), `cycle` (`MONTHLY`, `YEARLY`). Số tiền lấy từ bảng `plans`, không nhận từ client. Tạo bản ghi `PENDING`, gọi PayOS tạo liên kết thanh toán, trả `201` với `orderCode`, `amount`, `checkoutUrl`, `qrCode`, `expiresAt` (đủ các trường ở ví dụ bên dưới). Liên kết hết hạn sau 15 phút |
 | `POST /api/auth/payments/payos/webhook` | PayOS (công khai) | Kiểm tra chữ ký bằng checksum key, đối chiếu `orderCode` và số tiền với bản ghi `PENDING`. Hợp lệ: chuyển `PAID`, kích hoạt gói theo mục 2.6, ghi bộ nhớ đệm. Sai chữ ký hoặc sai số tiền: `400 PAYMENT_INVALID`, ghi log cảnh báo, gói không đổi. Gửi lặp cho đơn đã `PAID`: trả `200`, không cộng thêm ngày |
-| `GET /api/auth/payments/{orderCode}` | `ADMIN` của doanh nghiệp đó | Trạng thái một giao dịch, để trang kết quả hỏi lại |
-| `POST /api/auth/payments/{orderCode}/cancel` | `ADMIN` | Người dùng hủy ở trang PayOS: chuyển `CANCELLED` nếu đang `PENDING` |
-| `GET /api/auth/payments` | `ADMIN` | Lịch sử giao dịch của doanh nghiệp, có phân trang |
+| `POST /api/auth/payments/{orderCode}/mock-confirm` | `ADMIN` của doanh nghiệp đó, chỉ khi `PAYOS_MOCK=true` | Trang giả lập gọi khi bấm xác nhận: chạy đúng đường xử lý của webhook hợp lệ (chuyển `PAID`, kích hoạt gói). Tắt giả lập hoặc đơn của doanh nghiệp khác: `404` |
+| `GET /api/auth/payments/{orderCode}` | `ADMIN` của doanh nghiệp đó | Trạng thái một giao dịch, để trang kết quả hỏi lại. Đơn `PENDING` đã quá `expires_at` được chuyển `EXPIRED` ngay khi đọc. Đơn của doanh nghiệp khác: `404` |
+| `POST /api/auth/payments/{orderCode}/cancel` | `ADMIN` của doanh nghiệp đó | Người dùng hủy ở trang PayOS: chuyển `CANCELLED` nếu đang `PENDING`; trạng thái khác (kể cả đã hết hạn) trả `409 CONFLICT` |
+| `GET /api/auth/payments` | `ADMIN` | Lịch sử giao dịch của doanh nghiệp, mới nhất trước; tham số `page` (từ 0), `size` (mặc định 10, tối đa 100) |
+
+Phần `data` của một giao dịch (tạo, xem, hủy, mock-confirm và mỗi phần tử của lịch sử):
+
+```json
+{
+  "orderCode": 1762761600123457,
+  "plan": "PRO",
+  "cycle": "MONTHLY",
+  "amount": 499000,
+  "status": "PENDING",
+  "checkoutUrl": "https://pay.payos.vn/web/...",
+  "qrCode": "000201010212...",
+  "reference": null,
+  "expiresAt": "2026-11-10T03:15:00Z",
+  "paidAt": null,
+  "createdAt": "2026-11-10T03:00:00.123Z"
+}
+```
 
 **Quy tắc nghiệp vụ**
 
 - Gói chỉ được kích hoạt bởi webhook hợp lệ. Tham số trả về trên trình duyệt chỉ dùng để hiển thị.
-- Chế độ giả lập `PAYOS_MOCK=true` (mặc định khi chưa có khóa): `checkoutUrl` trỏ tới trang giả lập của hệ thống, bấm xác nhận thì backend xử lý như một webhook hợp lệ. Trên máy chủ thật đặt `PAYOS_MOCK=false`.
+- Webhook hợp lệ: trong một giao dịch, khóa dòng `payments` (`PESSIMISTIC_WRITE`), chuyển `PAID`, ghi `reference`, `paid_at`, gọi `SubscriptionService#activate` (công thức mục 2.6, ghi bộ nhớ đệm sau khi commit). Sai chữ ký, mã đơn không tồn tại hoặc sai số tiền: `400 PAYMENT_INVALID`, không đổi gì. Chưa cấu hình `PAYOS_CHECKSUM_KEY` thì mọi webhook bị từ chối, kể cả khi giả lập.
+- Webhook mẫu PayOS gửi khi đăng ký địa chỉ webhook (confirm-webhook) có mã đơn `123`: chữ ký đúng thì trả `200`, không đổi gì. Mã đơn lạ khác: `400`.
+- Webhook có chữ ký đúng nhưng `data.code` khác `"00"`: trả `200`, không đổi gì.
+- Đơn đã `CANCELLED` hoặc `EXPIRED` mà nhận webhook đã trả tiền hợp lệ: vẫn coi là đã thanh toán (tiền đã vào tài khoản), chuyển `PAID` và kích hoạt gói.
+- Chế độ giả lập `PAYOS_MOCK=true` (mặc định khi chưa có khóa): `checkoutUrl` trỏ tới trang giả lập `/payment/mock?orderCode=...` của frontend (WMS-23.5b làm trang này), bấm xác nhận thì gọi `mock-confirm`, backend xử lý như một webhook hợp lệ. Trên máy chủ thật đặt `PAYOS_MOCK=false` (các bước ở `deploy/README.md` mục 8.3).
+- API `renew-mock` của WMS-23.1 giữ nguyên.
 - Khóa `PAYOS_CLIENT_ID`, `PAYOS_API_KEY`, `PAYOS_CHECKSUM_KEY` chỉ nằm trong `.env` trên máy chủ, không vào repo, không gửi qua chat.
 
 **Tiêu chí nghiệm thu**

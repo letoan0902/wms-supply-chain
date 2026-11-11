@@ -344,6 +344,44 @@ ssh -L 8761:127.0.0.1:8761 -L 15672:127.0.0.1:15672 root@wms.toanmarket.me
 
 Sau đó mở `http://localhost:8761` (Eureka) và `http://localhost:15672` (RabbitMQ, tài khoản `guest`/`guest`) trên máy cá nhân.
 
+### 8.3. Thanh toán PayOS
+
+Mặc định máy chủ chạy thanh toán giả lập (`PAYOS_MOCK=true`): nút thanh toán dẫn tới trang `/payment/mock` của hệ thống,
+không có tiền thật. Chuyển sang PayOS thật:
+
+1. Lấy ba khóa của kênh thanh toán ở my.payos.vn: Client ID, API Key, Checksum Key.
+2. Điền vào `.env` trên máy chủ (quyền `600`, không commit, không gửi qua chat), giữ `PAYOS_MOCK=true` ở bước này:
+
+   ```bash
+   PAYOS_CLIENT_ID=<client-id>
+   PAYOS_API_KEY=<api-key>
+   PAYOS_CHECKSUM_KEY=<checksum-key>
+   # Không bắt buộc, để trống thì dùng https://<DOMAIN>/payment/result
+   PAYOS_RETURN_URL=
+   PAYOS_CANCEL_URL=
+   ```
+
+3. Chạy `deploy/deploy.sh` (hoặc `docker compose up -d auth-service`) để auth-service nhận checksum key. Webhook kiểm tra
+   chữ ký bằng khóa này ngay cả khi còn giả lập, nên phải có khóa trước khi đăng ký webhook ở bước 4.
+4. Đăng ký địa chỉ webhook với PayOS. PayOS gửi thử một webhook mẫu (mã đơn `123`), auth-service trả `200` nếu chữ ký đúng:
+
+   ```bash
+   curl -sS -X POST https://api-merchant.payos.vn/confirm-webhook \
+     -H "x-client-id: <client-id>" \
+     -H "x-api-key: <api-key>" \
+     -H "Content-Type: application/json" \
+     -d '{"webhookUrl":"https://<DOMAIN>/api/auth/payments/payos/webhook"}'
+   ```
+
+   Gõ khóa trực tiếp vào lệnh sẽ lưu khóa trong lịch sử shell; có thể đọc từ `.env` thay vì gõ:
+   `set -a; . ./.env; set +a` rồi dùng `-H "x-client-id: $PAYOS_CLIENT_ID" -H "x-api-key: $PAYOS_API_KEY"`.
+   Phản hồi có `"code":"00"` là đăng ký thành công. Cũng có thể nhập địa chỉ webhook trong trang quản lý kênh ở my.payos.vn.
+5. Đặt `PAYOS_MOCK=false` trong `.env`, chạy lại `deploy/deploy.sh`. Log auth-service không còn dòng "PayOS chạy ở chế độ giả lập".
+6. Thử một giao dịch nhỏ: trang gói dịch vụ, chọn gói Chuyên Nghiệp, thanh toán, quay về thấy gói đã kích hoạt.
+
+Khi `PAYOS_MOCK=false` mà thiếu khóa, tạo thanh toán trả `503 SERVICE_UNAVAILABLE`. Webhook sai chữ ký trả `400 PAYMENT_INVALID`
+và được ghi log cảnh báo (không chứa khóa hay chữ ký): `docker compose logs auth-service | grep "webhook PayOS"`.
+
 ## 9. Sao lưu và khôi phục MySQL
 
 Mỗi service dùng một schema riêng: `auth_db`, `product_db`, `inventory_db`, `order_db`, `notification_db`. Redis và RabbitMQ chỉ giữ dữ liệu tạm nên không cần sao lưu thường xuyên.

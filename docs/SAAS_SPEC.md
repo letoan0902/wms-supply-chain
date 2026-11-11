@@ -372,6 +372,26 @@ Người làm: Việt. Ngày: 10/11 đến 12/11. Jira: TASK-137. Phụ thuộc:
 3. File có 3 dòng lỗi (thiếu tên, trùng SKU đã có, trùng SKU trong file): 47 dòng còn lại vẫn vào, 3 dòng lỗi có `row` và `message` đúng.
 4. Nhập lại đúng file đó: tất cả `SKIPPED`, không sinh bản ghi trùng.
 
+**Đã làm ở product-service (11/11, nhánh `t-22-4b-product`)**
+
+Phần order-service (đối tác, đơn hàng và hai API nhập hàng loạt của đối tác) vẫn giữ nguyên như mô tả ở trên, làm sau.
+
+- Migration `V4__multi_tenant_company_id.sql`: thêm `company_id BIGINT NOT NULL` cho `categories`, `uoms`, `products`, `unit_conversions` (dữ liệu cũ thuộc doanh nghiệp 1, quy đổi lấy doanh nghiệp từ sản phẩm); ràng buộc duy nhất `uk_categories_company_code`, `uk_uoms_company_code`, `uk_products_company_sku`, `uk_products_company_barcode`; index `idx_products_company_active`, `idx_unit_conversions_company`. MySQL cho phép nhiều dòng `barcode` NULL trong chỉ mục duy nhất nên hàng hóa chưa có mã vạch vẫn tạo được không giới hạn như trước.
+- Bốn entity kế thừa `TenantEntity`; `app.tenant.required: true`. Không có câu SQL gốc nào, mọi kiểm tra trùng (SKU, mã vạch, mã danh mục, mã đơn vị tính, cặp quy đổi) tự xét trong doanh nghiệp. Xem, sửa, xóa theo ID của doanh nghiệp khác, kể cả dùng ID danh mục hoặc đơn vị tính của doanh nghiệp khác khi tạo hàng hóa, quy đổi, đều trả `404`.
+- Đơn vị tính mẫu do `V3` thêm (`PCS`, `BOTTLE`, `CAN`, `PACK`, `BOX`, `CTN`, `PLT`, `KG`, `BAG`) thuộc doanh nghiệp 1. Doanh nghiệp mới đăng ký bắt đầu với danh mục và đơn vị tính rỗng; API nhập hàng loạt tự tạo khi cần.
+- Giới hạn SKU (WMS-23.2) đếm SKU đang hoạt động của chính doanh nghiệp (`assertCanCreate` thay cho `assertCanCreateIfTenant`), `wms:usage:{companyId}` trường `skus` ghi số của doanh nghiệp đó.
+- product-service không phát, không nhận sự kiện RabbitMQ. Hiện không service nào gọi product-service: `ProductClient` của order-service và inventory-service đã khai báo nhưng chưa được dùng; khi dùng, `TenantFeignRequestInterceptor` của `common` (tự đăng ký cho mọi Feign client) chuyển tiếp `X-Company-Id`. Lời gọi từ listener hoặc tác vụ định kỳ phải bọc trong `TenantContext.runAs`.
+
+`POST /api/products/bulk`
+
+- Quyền: như `POST /api/products` (product-service chưa phân quyền theo vai trò, mọi tài khoản đã đăng nhập đều gọi được; cần doanh nghiệp, thiếu thì `403 COMPANY_REQUIRED`).
+- Body: `{ "items": [ { "sku", "name", "barcode", "description", "categoryName", "uomName", "purchasePrice", "sellingPrice", "vatRate", "safetyStock", "reorderPoint", "maxStock" } ] }`, từ 1 đến 500 dòng. Body trống, thiếu `items`, danh sách rỗng hoặc quá 500 dòng trả `400 VALIDATION_ERROR`.
+- Kết quả `200`, `data` là `{ "total", "created", "skipped", "failed", "results": [ { "row", "status", "id", "code", "message" } ] }`; `code` là SKU sau khi chuẩn hóa (cắt khoảng trắng, viết hoa), `id` là ID hàng vừa tạo hoặc hàng đã có.
+- Thứ tự xét một dòng: SKU đã xuất hiện ở dòng trước trong file thì `FAILED` ("Mã SKU 'X' bị lặp lại trong file (đã có ở dòng N)"); kiểm tra dữ liệu bằng đúng ràng buộc của API tạo một hàng hóa cộng `uomName` bắt buộc (tối đa 100 ký tự), `categoryName` tối đa 150 ký tự, nhiều lỗi nối bằng dấu chấm phẩy; SKU đã có trong doanh nghiệp thì `SKIPPED`, không ghi đè; còn lại tạo qua đúng nghiệp vụ của `POST /api/products`, nên trùng mã vạch và vượt giới hạn SKU của gói thành `FAILED` kèm thông báo của lỗi đó (ví dụ "Gói Khởi Đầu chỉ cho phép tối đa 200 SKU. Nâng cấp gói để thêm SKU mới.").
+- `categoryName`, `uomName` tìm theo tên (không phân biệt hoa thường và khoảng trắng hai đầu), không thấy thì tìm theo mã; vẫn không có thì tạo mới cho doanh nghiệp với mã sinh từ tên (bỏ dấu, viết hoa, ví dụ "Thùng" thành `THUNG`, trùng thì thêm `-2`). Danh mục, đơn vị tính tạo ở một dòng được các dòng sau trong cùng file dùng lại.
+- Mỗi dòng là một transaction riêng (`REQUIRES_NEW` trong bean `ProductBulkRowImporter`): dòng lỗi rollback cả danh mục, đơn vị tính vừa tạo cho nó, không ảnh hưởng dòng khác.
+- Lớp kết quả dùng chung ở `vn.wms.common.bulk` (`BulkRequest`, `BulkResult`, `BulkRowResult`, `BulkRowStatus`) để order-service dùng lại cho nhà cung cấp, khách hàng.
+
 ### WMS-22.4c [Backend] notification-service: thông báo, KPI và báo cáo theo doanh nghiệp
 
 Người làm: Toàn. Ngày: 16/11. Jira: TASK-138. Phụ thuộc: WMS-22.1.
@@ -535,11 +555,11 @@ Người làm: Toàn. Ngày: 10/11. Jira: TASK-143. Phụ thuộc: WMS-23.1.
 
 - `common`, gói `vn.wms.common.plan`: `PlanLimitChecker` tự đăng ký khi service có bean `StringRedisTemplate`; tắt bằng `app.plan-limit.enabled=false` (test không có Redis đặt sẵn giá trị này). Service tiêm dạng tùy chọn (`ObjectProvider<PlanLimitChecker>`).
   - `assertCanCreate(limit, currentCount)`: `currentCount` là số bản ghi đang hoạt động trước khi tạo; `currentCount >= max` (và `max != -1`) thì ném `PLAN_LIMIT_EXCEEDED`, `data` là `{limit, current, max, plan}`.
-  - `assertCanCreateIfTenant(limit, supplier)`: bỏ qua khi chưa có doanh nghiệp trong ngữ cảnh, dùng cho service chưa tách dữ liệu (product-service).
+  - `assertCanCreateIfTenant(limit, supplier)`: bỏ qua khi chưa có doanh nghiệp trong ngữ cảnh, dùng cho service chưa tách dữ liệu (product-service dùng tới trước WMS-22.4b, nay không còn service nào dùng).
   - `reportUsage(limit, count)`, `incrementMonthlyAiUsage()`, `assertAiQuota()` cho ai-service.
 - `ApiException.withData(code, message, data)`: `GlobalExceptionHandler` trả `data` kèm lỗi.
 - Gateway: `SubscriptionGlobalFilter` (order -99, ngay sau bộ lọc JWT) gắn `X-Plan` và chặn ghi khi `EXPIRED`. Danh sách ngoại lệ ở `gateway.subscription.write-allowed-paths`; tắt cả bộ lọc bằng `GATEWAY_SUBSCRIPTION_ENABLED=false`. Bộ lọc chỉ có tác dụng khi bật kiểm tra JWT (mới có `X-Company-Id`).
-- inventory-service kiểm tra số kho khi tạo kho đang hoạt động và khi bật lại kho đã ngưng (PATCH trạng thái hoặc PUT có `active: true`); product-service kiểm tra số SKU khi tạo và khi bật lại SKU đã xóa mềm. product-service hiện đếm SKU trên toàn bảng cho tới khi xong WMS-22.4b.
+- inventory-service kiểm tra số kho khi tạo kho đang hoạt động và khi bật lại kho đã ngưng (PATCH trạng thái hoặc PUT có `active: true`); product-service kiểm tra số SKU khi tạo, khi nhập hàng loạt và khi bật lại SKU đã xóa mềm. Từ WMS-22.4b product-service đếm SKU của chính doanh nghiệp.
 - Phần 2 (auth-service, nhánh `wms-23-2b`):
   - `UserPlanLimitGuard` kiểm tra `USERS` (số tài khoản `enabled = true` của doanh nghiệp) trước khi tạo tài khoản (`POST /api/auth/users`, `POST /api/auth/register`) và trước khi mở khóa (`PATCH .../status` hoặc `PUT` có `enabled: true`); sau mỗi lần tạo, mở khóa, khóa thì ghi lại `users` vào `wms:usage:{companyId}` sau khi commit. auth-service không dùng `TenantContext` nên gọi bản nhận doanh nghiệp trực tiếp `assertCanCreate(companyId, limit, currentCount)`, `reportUsage(companyId, limit, count)` (thêm vào `PlanLimitChecker`, bản cũ giữ nguyên). Đăng ký doanh nghiệp mới không bị chặn.
   - `GET /api/auth/subscription` trả đủ bốn số `usage` (cách đọc ở mục API của WMS-23.1); Redis lỗi thì ba số đọc từ Redis là `null`.

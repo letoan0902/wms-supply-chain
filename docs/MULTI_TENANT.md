@@ -66,6 +66,14 @@ Thứ tự triển khai lên máy chủ: auth-service cấp `companyId` trong to
 
 Làm lần lượt, mỗi service một Pull Request. inventory-service là mẫu (WMS-22.3, WMS-22.4a).
 
+Tình trạng chuyển đổi:
+
+| Service | Trạng thái | Migration | Bảng |
+| --- | --- | --- | --- |
+| inventory-service | Đã chuyển (WMS-22.4a) | `V6` | `warehouses`, `bin_locations`, `stock_items`, `stock_reservations`, `incoming_stocks`, `inventory_lots`; các bảng tạo sau có `company_id` ngay từ đầu |
+| product-service | Đã chuyển (WMS-22.4b) | `V4` | `categories`, `uoms`, `products`, `unit_conversions`. Đơn vị tính mẫu do `V3` thêm thuộc doanh nghiệp 1; doanh nghiệp mới bắt đầu với danh mục rỗng |
+| order-service, notification-service | Chưa chuyển | | |
+
 ### Bước 1: migration
 
 Xem số phiên bản Flyway mới nhất của service trên nhánh `develop` và báo trong nhóm số định dùng. Với mỗi bảng nghiệp vụ:
@@ -123,7 +131,7 @@ app:
 
 Trong `docker-compose.yml` (môi trường phát triển) thêm `TENANT_DEFAULT_COMPANY_ID: ${TENANT_DEFAULT_COMPANY_ID:-1}` cho service đó, để khi gateway tắt kiểm tra JWT hoặc gọi thẳng vào service vẫn có doanh nghiệp 1. `deploy/docker-compose.prod.yml` là lớp phủ lên file gốc nên phải đặt lại `TENANT_DEFAULT_COMPANY_ID: ""` cho chính service đó: trên máy chủ, request không có doanh nghiệp phải bị từ chối chứ không được rơi vào doanh nghiệp 1.
 
-Các service chưa chuyển đổi (order-service, product-service, notification-service) cũng nhận doanh nghiệp mặc định ở máy phát triển nhưng chưa bật `required`. Nhờ vậy sự kiện chúng phát ra và lời gọi OpenFeign sang service đã chuyển đổi vẫn mang doanh nghiệp, kể cả khi chạy không qua gateway. Chạy service bằng IDE thì đặt biến môi trường `TENANT_DEFAULT_COMPANY_ID=1`.
+Các service chưa chuyển đổi (order-service, notification-service) cũng nhận doanh nghiệp mặc định ở máy phát triển nhưng chưa bật `required`. Nhờ vậy sự kiện chúng phát ra và lời gọi OpenFeign sang service đã chuyển đổi vẫn mang doanh nghiệp, kể cả khi chạy không qua gateway. Chạy service bằng IDE thì đặt biến môi trường `TENANT_DEFAULT_COMPANY_ID=1`.
 
 Service có API không cần doanh nghiệp (ví dụ webhook) khai báo thêm `app.tenant.public-paths`.
 
@@ -179,6 +187,8 @@ class WarehouseIsolationTest {
 ```
 
 Test đang có của service sau khi chuyển đổi cần đặt doanh nghiệp: thêm header `X-Company-Id` vào request của MockMvc, hoặc đặt `app.tenant.default-company-id=1` trong `application-test.yml`, hoặc gọi `TenantContext.setCompanyId(1L)` trong `@BeforeEach` và `TenantContext.clear()` trong `@AfterEach` với test gọi thẳng service.
+
+Lớp test đặt `@Transactional` mở transaction (và phiên Hibernate) trước `@BeforeEach`, nên đặt doanh nghiệp trong `@BeforeEach` là quá muộn: phiên đã mở dưới "không doanh nghiệp". product-service dùng một `TestExecutionListener` có thứ tự nhỏ hơn `TransactionalTestExecutionListener` để đặt doanh nghiệp trước khi transaction mở (`DefaultCompanyTestExecutionListener`, khai báo bằng `@TestExecutionListeners(listeners = ..., mergeMode = MERGE_WITH_DEFAULTS)`).
 
 ## 6. Cấu hình
 

@@ -45,6 +45,9 @@ Thêm tiền tố mới thì phải khai báo route tương ứng ở api-gatewa
 | Cập nhật toàn bộ | PUT | 200 | 400, 404, 409 |
 | Cập nhật một phần | PATCH | 200 | 400, 404, 409 |
 | Xóa | DELETE | 204 | 404, 409 khi đang được tham chiếu |
+| Nhập hàng loạt (`.../bulk`) | POST | 200 kèm kết quả từng dòng | 400 `VALIDATION_ERROR` khi body trống, danh sách rỗng hoặc quá 500 dòng |
+
+API nhập hàng loạt dùng chung các lớp trong gói `vn.wms.common.bulk` của module `common`: body `BulkRequest<T>` (`{ "items": [...] }`, kiểm tra bằng `BulkRequest.requireItems`), kết quả `BulkResult` (`total`, `created`, `skipped`, `failed`, `results`) và `BulkRowResult` (`row` từ 1, `status` là `CREATED`, `SKIPPED` hoặc `FAILED`, `id`, `code`, `message`). Mỗi dòng lưu trong một transaction riêng (`Propagation.REQUIRES_NEW` ở một bean khác, không gọi nội bộ trong cùng lớp), dòng lỗi không làm hỏng dòng khác; mã đã có trong doanh nghiệp thì `SKIPPED`, không ghi đè. Mẫu: `ProductBulkService` và `ProductBulkRowImporter` của product-service.
 
 Mã chung: 401 chưa đăng nhập hoặc token hết hạn, 403 không đủ quyền, 500 lỗi hệ thống, 503 service phụ thuộc không khả dụng.
 

@@ -2,29 +2,25 @@ import {
   ArrowLeftOutlined,
   MailOutlined,
   SendOutlined,
-  UserOutlined,
 } from '@ant-design/icons'
 import {
   Alert,
   App,
   Button,
   Carousel,
-  Col,
   Form,
   Input,
   Result,
-  Row,
   Typography,
 } from 'antd'
 import { useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
+import { getApiErrorMessage } from '../../services/api'
 import { getToken } from '../../utils/storage'
+import { forgotPassword } from './authApi'
 
 interface ForgotPasswordFormValues {
-  username: string
   email: string
-  fullName?: string
-  reason?: string
 }
 
 const forgotSlides = [
@@ -33,7 +29,7 @@ const forgotSlides = [
     tag: 'Bảo Mật & Phân Quyền',
     title: 'Xác Thực Nghiêm Ngặt & An Toàn Dữ Liệu',
     description:
-      'Mọi yêu cầu cấp lại mật khẩu đều được xác minh chặt chẽ bởi Quản trị viên (Admin) nhằm bảo vệ an toàn kho vận và tài sản doanh nghiệp.',
+      'Liên kết đặt lại mật khẩu chỉ gửi tới email của tài khoản, dùng được một lần và hết hiệu lực sau 30 phút, bảo vệ an toàn kho vận và tài sản doanh nghiệp.',
   },
   {
     image: 'https://mecaluxuk.cdnwm.com/blog/img/warehouse-manager.1.10.jpg',
@@ -56,7 +52,7 @@ export default function ForgotPasswordPage() {
   const [form] = Form.useForm<ForgotPasswordFormValues>()
   const [submitting, setSubmitting] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
-  const [submittedData, setSubmittedData] = useState<ForgotPasswordFormValues | null>(null)
+  const [notice, setNotice] = useState('')
 
   // Đã đăng nhập thì quay về trang chủ
   if (getToken()) {
@@ -66,13 +62,11 @@ export default function ForgotPasswordPage() {
   const handleFinish = async (values: ForgotPasswordFormValues) => {
     setSubmitting(true)
     try {
-      // Giả lập gửi yêu cầu đến Admin (Frontend - chưa tích hợp API Backend)
-      await new Promise((resolve) => setTimeout(resolve, 800))
-      setSubmittedData(values)
+      // Máy chủ luôn trả cùng một thông báo, không cho biết email có tồn tại hay không
+      setNotice(await forgotPassword(values.email.trim()))
       setIsSuccess(true)
-      message.success('Đã gửi yêu cầu cấp lại mật khẩu tới Quản trị viên!')
-    } catch {
-      message.error('Không thể gửi yêu cầu. Vui lòng thử lại sau.')
+    } catch (error) {
+      message.error(getApiErrorMessage(error, 'Không thể gửi yêu cầu. Vui lòng thử lại sau.'))
     } finally {
       setSubmitting(false)
     }
@@ -103,14 +97,12 @@ export default function ForgotPasswordPage() {
             <div className="rounded-xl border border-white/60 bg-white/80 p-6 shadow-sm backdrop-blur-sm">
               <Result
                 status="success"
-                title={<span className="text-xl font-bold text-slate-800">Đã gửi yêu cầu</span>}
+                title={<span className="text-xl font-bold text-slate-800">Đã ghi nhận yêu cầu</span>}
                 subTitle={
                   <div className="space-y-2 text-xs text-slate-600">
-                    <p>
-                      Yêu cầu của tài khoản <strong>{submittedData?.username}</strong> ({submittedData?.email}) đã được gửi tới <strong>Admin</strong>.
-                    </p>
+                    <p>{notice}</p>
                     <p className="text-slate-400">
-                      Quản trị viên sẽ xác minh và gửi hướng dẫn kích hoạt qua email của bạn.
+                      Không thấy email sau vài phút? Hãy kiểm tra mục thư rác hoặc gửi lại sau một phút.
                     </p>
                   </div>
                 }
@@ -128,11 +120,11 @@ export default function ForgotPasswordPage() {
                     className="mt-2 text-xs"
                     onClick={() => {
                       setIsSuccess(false)
-                      setSubmittedData(null)
+                      setNotice('')
                       form.resetFields()
                     }}
                   >
-                    Gửi một yêu cầu khác
+                    Gửi lại yêu cầu
                   </Button>,
                 ]}
               />
@@ -144,7 +136,7 @@ export default function ForgotPasswordPage() {
                   Quên mật khẩu
                 </Typography.Title>
                 <Typography.Text type="secondary" className="text-xs">
-                  Gửi yêu cầu tới Quản trị viên (Admin) để cấp lại mật khẩu tài khoản.
+                  Nhập email của tài khoản, hệ thống sẽ gửi liên kết để bạn tự đặt mật khẩu mới.
                 </Typography.Text>
               </div>
 
@@ -156,22 +148,7 @@ export default function ForgotPasswordPage() {
                 autoComplete="off"
               >
                 <Form.Item
-                  label={<span className="text-xs font-semibold text-slate-700">Tên đăng nhập</span>}
-                  name="username"
-                  className="mb-3"
-                  rules={[{ required: true, message: 'Vui lòng nhập tên đăng nhập' }]}
-                >
-                  <Input
-                    size="large"
-                    prefix={<UserOutlined className="text-slate-400" />}
-                    placeholder="Ví dụ: admin, manager..."
-                    autoComplete="username"
-                    className="rounded-lg"
-                  />
-                </Form.Item>
-
-                <Form.Item
-                  label={<span className="text-xs font-semibold text-slate-700">Email nhận xác nhận</span>}
+                  label={<span className="text-xs font-semibold text-slate-700">Email của tài khoản</span>}
                   name="email"
                   className="mb-3"
                   rules={[
@@ -188,42 +165,13 @@ export default function ForgotPasswordPage() {
                   />
                 </Form.Item>
 
-                <Row gutter={10}>
-                  <Col span={12}>
-                    <Form.Item
-                      label={<span className="text-xs font-semibold text-slate-700">Họ và tên</span>}
-                      name="fullName"
-                      className="mb-3"
-                    >
-                      <Input
-                        size="large"
-                        placeholder="Họ tên đối chiếu"
-                        className="rounded-lg"
-                      />
-                    </Form.Item>
-                  </Col>
-                  <Col span={12}>
-                    <Form.Item
-                      label={<span className="text-xs font-semibold text-slate-700">Lý do yêu cầu</span>}
-                      name="reason"
-                      className="mb-3"
-                    >
-                      <Input
-                        size="large"
-                        placeholder="Quên MK, đổi máy..."
-                        className="rounded-lg"
-                      />
-                    </Form.Item>
-                  </Col>
-                </Row>
-
                 {/* Chính sách bảo mật đặt ở cuối form trước nút gửi */}
                 <Alert
                   type="info"
                   showIcon
                   message={
                     <span className="text-[11px] leading-tight text-slate-600">
-                      <strong>Chính sách:</strong> Yêu cầu cần được Admin phê duyệt để đảm bảo an toàn truy cập dữ liệu kho.
+                      <strong>Bảo mật:</strong> Liên kết chỉ dùng được một lần và có hiệu lực 30 phút. Tài khoản bị khóa vui lòng liên hệ quản trị viên của doanh nghiệp.
                     </span>
                   }
                   className="mb-4 rounded-lg border-blue-100 bg-blue-50/70 py-1.5"
@@ -238,7 +186,7 @@ export default function ForgotPasswordPage() {
                   loading={submitting}
                   className="h-11 rounded-lg font-medium shadow-sm transition-all hover:shadow"
                 >
-                  Gửi yêu cầu tới Admin
+                  Gửi liên kết đặt lại mật khẩu
                 </Button>
 
                 <div className="mt-4 text-center">

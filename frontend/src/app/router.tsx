@@ -9,6 +9,8 @@ import { navigationItems } from './navigation'
 
 const LoginPage = lazy(() => import('../features/auth/LoginPage'))
 const ForgotPasswordPage = lazy(() => import('../features/auth/ForgotPasswordPage'))
+const ActivatePage = lazy(() => import('../features/auth/ActivatePage'))
+const ResetPasswordPage = lazy(() => import('../features/auth/ResetPasswordPage'))
 const LandingPage = lazy(() => import('../features/landing/LandingPage'))
 const MockCheckoutPage = lazy(() => import('../features/subscription/MockCheckoutPage'))
 
@@ -50,6 +52,22 @@ export const router = createBrowserRouter([
     element: (
       <Suspense fallback={<PageLoading fullScreen tip="Đang tải trang..." />}>
         <ForgotPasswordPage />
+      </Suspense>
+    ),
+  },
+  {
+    path: '/activate',
+    element: (
+      <Suspense fallback={<PageLoading fullScreen tip="Đang tải trang..." />}>
+        <ActivatePage />
+      </Suspense>
+    ),
+  },
+  {
+    path: '/reset-password',
+    element: (
+      <Suspense fallback={<PageLoading fullScreen tip="Đang tải trang..." />}>
+        <ResetPasswordPage />
       </Suspense>
     ),
   },

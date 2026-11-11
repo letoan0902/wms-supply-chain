@@ -154,6 +154,9 @@ services:
       PAYOS_MOCK: ${PAYOS_MOCK:-true}
       PAYOS_RETURN_URL: ${PAYOS_RETURN_URL:-https://${DOMAIN:-wms.toanmarket.me}/payment/result}
       PAYOS_CANCEL_URL: ${PAYOS_CANCEL_URL:-https://${DOMAIN:-wms.toanmarket.me}/payment/result}
+      # Liên kết trong email kích hoạt và đặt lại mật khẩu (WMS-23.6) trỏ về tên miền production; luôn bắt buộc kích hoạt.
+      APP_FRONTEND_URL: ${APP_FRONTEND_URL:-https://${DOMAIN:-wms.toanmarket.me}}
+      REGISTRATION_REQUIRE_ACTIVATION: ${REGISTRATION_REQUIRE_ACTIVATION:-true}
 
   # --------------------------------------------------------------------------
   # inventory-service: file gốc đặt TENANT_DEFAULT_COMPANY_ID mặc định 1 cho môi trường phát triển.

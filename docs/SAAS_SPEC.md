@@ -534,7 +534,7 @@ Phần `data` của `GET /api/auth/subscription` ngay sau khi đăng ký:
 
 - Tên đăng nhập hoặc email đã tồn tại trả `409 CONFLICT`, nêu rõ trường nào trùng. Mỗi email chỉ đăng ký được một doanh nghiệp.
 - Mã doanh nghiệp do hệ thống sinh, người dùng không nhập.
-- Trạng thái doanh nghiệp sau đăng ký là `ACTIVE` cho tới khi WMS-23.6 thêm bước kích hoạt qua email.
+- Trạng thái doanh nghiệp sau đăng ký: từ WMS-23.6 là `PENDING` cho tới khi bấm liên kết kích hoạt trong email (tắt được bằng `REGISTRATION_REQUIRE_ACTIVATION=false` trên máy phát triển, xem WMS-23.6).
 - Việc chuyển sang `EXPIRED` do một tác vụ định kỳ 5 phút một lần thực hiện, đồng thời kiểm tra lại khi đăng nhập và khi gọi `GET /api/auth/subscription`.
 - Mỗi thay đổi thuê bao ghi lại bộ nhớ đệm theo mục 2.7.
 - Viết phần kích hoạt gói thành một hàm dùng chung của `SubscriptionService` (nhận doanh nghiệp, gói, chu kỳ) để WMS-23.5a gọi lại khi thanh toán thành công.
@@ -735,26 +735,47 @@ Chạy trọn bước 5 của kịch bản demo trong SAAS_PLAN.md: hết hạn,
 
 ### WMS-23.6 [Backend] Kích hoạt doanh nghiệp qua email và đặt lại mật khẩu
 
-Người làm: Phương Anh. Ngày: 18/11. Jira: TASK-149. Phụ thuộc: WMS-23.1.
+Người làm: Toàn. Ngày: 11/11. Jira: TASK-149. Phụ thuộc: WMS-23.1.
 
-**API**
+**API (đã làm)**
 
-| API | Mô tả |
-| --- | --- |
-| `POST /api/auth/companies/register` (sửa) | Doanh nghiệp tạo ra ở trạng thái `PENDING`; gửi email chứa liên kết `{địa chỉ frontend}/activate?token=...` tới email đăng ký |
-| `POST /api/auth/companies/activate` | Body: `token`. Hợp lệ: doanh nghiệp thành `ACTIVE`, ghi `activated_at`. Sai, đã dùng hoặc quá 24 giờ: `400 TOKEN_INVALID` |
-| `POST /api/auth/companies/resend-activation` | Body: `email`. Luôn trả `200` dù email có tồn tại hay không. Mỗi email tối đa một lần mỗi phút |
-| `POST /api/auth/password/forgot` | Body: `email`. Luôn trả `200`. Nếu email thuộc một tài khoản đang bật thì gửi liên kết `{địa chỉ frontend}/reset-password?token=...`, hiệu lực 30 phút |
-| `POST /api/auth/password/reset` | Body: `token`, `newPassword`. Hợp lệ: đổi mật khẩu, vô hiệu mọi refresh token của tài khoản. Không hợp lệ: `400 TOKEN_INVALID` |
+| API | Ai gọi | Mô tả |
+| --- | --- | --- |
+| `POST /api/auth/companies/register` (sửa) | Công khai | Doanh nghiệp tạo ra ở trạng thái `PENDING`, `activated_at` rỗng; phát sự kiện `auth.activation-requested` để notification-service gửi liên kết `{APP_FRONTEND_URL}/activate?token=...` (hiệu lực 24 giờ) tới email đăng ký. `data` thêm `activationRequired` (`true`); `company.status` là `PENDING`. Không trả token |
+| `POST /api/auth/companies/activate` | Công khai | Body: `token`. Hợp lệ: `200`, doanh nghiệp thành `ACTIVE`, ghi `activated_at`, ghi lại bộ nhớ đệm thuê bao; `data`: `companyCode`, `companyName`, `status`, `activatedAt`, `username` (ADMIN nhận liên kết, để điền sẵn ở trang đăng nhập). Sai, đã dùng, quá 24 giờ, hoặc doanh nghiệp đã bị tạm khóa: `400 TOKEN_INVALID`. Thiếu `token`: `400 VALIDATION_ERROR` |
+| `POST /api/auth/companies/resend-activation` | Công khai | Body: `email`. Luôn `200` với cùng thông báo, không có `data`. Chỉ gửi khi email thuộc tài khoản đang bật của doanh nghiệp còn `PENDING`; liên kết mới làm liên kết cũ hết dùng được. Mỗi email tối đa một lần mỗi phút. Email sai định dạng: `400 VALIDATION_ERROR` |
+| `POST /api/auth/password/forgot` | Công khai | Body: `email`. Luôn `200` với cùng thông báo. Chỉ tài khoản đang bật của doanh nghiệp `ACTIVE` nhận liên kết `{APP_FRONTEND_URL}/reset-password?token=...`, hiệu lực 30 phút; liên kết đặt lại cũ hết dùng được. Mỗi email tối đa một lần mỗi phút |
+| `POST /api/auth/password/reset` | Công khai | Body: `token`, `newPassword` (6 đến 72 ký tự như đổi mật khẩu). Hợp lệ: `200`, đổi mật khẩu, vô hiệu mọi liên kết đặt lại khác và refresh token của tài khoản (xóa `refresh:{username}` trên Redis). Mã sai, đã dùng, quá 30 phút, tài khoản bị khóa hoặc doanh nghiệp không còn hoạt động: `400 TOKEN_INVALID`. Mật khẩu không hợp lệ: `400 VALIDATION_ERROR` |
 
-**Quy tắc nghiệp vụ**
+Đăng nhập (và làm mới token) khi doanh nghiệp còn `PENDING`: `403 COMPANY_INACTIVE`, thông báo hướng dẫn mở email kích hoạt, `data` là `{"companyStatus": "PENDING"}` để giao diện phân biệt với doanh nghiệp bị tạm khóa (`SUSPENDED` giữ thông báo cũ, không có `data`). Mật khẩu sai vẫn trả `401` như trước, nên chỉ người biết mật khẩu mới thấy trạng thái `PENDING`.
 
-- Mã trong liên kết sinh ngẫu nhiên, chỉ lưu bản băm, dùng một lần.
-- 30 ngày dùng thử vẫn tính từ lúc đăng ký.
-- Đăng nhập khi doanh nghiệp còn `PENDING` nhận `403 COMPANY_INACTIVE`.
-- auth-service không gửi mail trực tiếp: phát sự kiện qua RabbitMQ để notification-service gửi bằng `EmailService` đã có. Tên sự kiện và cấu trúc bổ sung vào `docs/MESSAGING.md` trong cùng Pull Request.
-- Môi trường không cấu hình SMTP: notification-service ghi liên kết ra log để nhóm test.
-- Kèm hai trang frontend nhỏ `/activate` (gọi API rồi báo kết quả) và `/reset-password` (form mật khẩu mới), và nối trang `/forgot-password` đã có với API.
+**Dữ liệu**
+
+Bảng `account_tokens` (migration `V8__create_account_tokens.sql`): `company_id`, `user_id` (có thể rỗng), `type` (`COMPANY_ACTIVATION`, `PASSWORD_RESET`), `token_hash` (hex SHA-256, 64 ký tự, duy nhất), `expires_at`, `used_at` (đã dùng hoặc đã bị thay bằng mã mới hơn), bốn cột audit. Migration không đổi `companies`: hai công ty mẫu và các doanh nghiệp đã đăng ký trước đó giữ nguyên `ACTIVE`.
+
+**Quy tắc nghiệp vụ (đã làm)**
+
+- Mã gồm 32 byte ngẫu nhiên từ `SecureRandom`, mã hóa Base64 URL-safe không đệm (43 ký tự). Chỉ lưu SHA-256; mã gốc chỉ nằm trong liên kết. Dùng mã khóa dòng (`PESSIMISTIC_WRITE`) nên hai lần bấm cùng lúc chỉ một lần thành công. Mã kích hoạt không dùng được để đặt lại mật khẩu và ngược lại.
+- 30 ngày dùng thử vẫn tính từ lúc đăng ký; kích hoạt không đổi thuê bao.
+- auth-service không gửi mail: phát `auth.activation-requested` hoặc `auth.password-reset-requested` (payload `AccountEmailRequestedEvent`, header `x-wms-company-id` là doanh nghiệp của người nhận) sau khi transaction commit, xem `docs/MESSAGING.md` mục 3 và 8.7. notification-service gửi email HTML tiếng Việt và ghi `notification_logs` dưới doanh nghiệp đó.
+- Không để lộ email có tồn tại: hai API nhận email trả cùng nội dung, việc tra cứu, phát mã và phát sự kiện chạy ở luồng nền (`app.account-email.async`, mặc định `true`) nên thời gian trả lời như nhau. Giới hạn một lần mỗi phút đếm bằng khóa Redis `wms:auth:mail-throttle:{activation|password-reset}:{sha256(email)}` (không lưu email gốc); Redis lỗi thì cho qua.
+- Không ghi mã hay liên kết ra log ở auth-service. Môi trường chưa cấu hình SMTP (không có `MAIL_HOST`, hoặc có host nhưng không có `MAIL_USERNAME` và host không phải máy cục bộ): notification-service không gửi, ghi đúng một dòng INFO gồm người nhận và liên kết đầy đủ để nhóm bấm thử (`docker compose logs notification-service | grep "liên kết"`), nhật ký ghi `FAILED`.
+- Access token đã cấp trước khi đặt lại mật khẩu vẫn dùng được tới khi hết hạn (tối đa 15 phút), sau đó không làm mới được.
+
+**Cấu hình**
+
+| Biến | Mặc định | Ghi chú |
+| --- | --- | --- |
+| `APP_FRONTEND_URL` | rỗng: dùng gốc của `PAYOS_RETURN_URL`, cuối cùng là `http://localhost:5173` | docker-compose đặt `http://localhost`, production `https://<DOMAIN>` |
+| `REGISTRATION_REQUIRE_ACTIVATION` | `true` (kể cả khi để trống) | Chỉ đặt `false` trên máy phát triển không có mail: đăng ký xong là `ACTIVE`, không phát liên kết. Production luôn để mặc định |
+
+**Giao diện (đã làm)**
+
+- `/activate`: đọc `token`, gọi API đúng một lần; thành công thì có nút Đăng nhập (điền sẵn tên đăng nhập); `TOKEN_INVALID` thì báo liên kết không dùng được kèm form gửi lại email kích hoạt.
+- `/reset-password`: mật khẩu mới và nhập lại, gọi API rồi chuyển sang `/login`; `TOKEN_INVALID` thì dẫn tới `/forgot-password`.
+- `/forgot-password`: chỉ còn ô email, gọi API và luôn hiện nguyên thông báo trung lập của máy chủ.
+- `/login`: lỗi `COMPANY_INACTIVE` với `data.companyStatus = PENDING` hiện thông báo kèm form gửi lại email kích hoạt.
+- Trang `/register` thuộc WMS-23.3b: khi `data.activationRequired` là `true`, hiện hướng dẫn mở email để kích hoạt thay vì chuyển sang đăng nhập.
 
 **Tiêu chí nghiệm thu**
 
@@ -762,6 +783,8 @@ Người làm: Phương Anh. Ngày: 18/11. Jira: TASK-149. Phụ thuộc: WMS-23
 2. Liên kết kích hoạt dùng lần hai nhận `TOKEN_INVALID`.
 3. Quên mật khẩu: nhận email, đặt mật khẩu mới, đăng nhập bằng mật khẩu mới được, mật khẩu cũ không còn dùng được.
 4. Nhập email không tồn tại ở form quên mật khẩu: vẫn hiện thông báo như bình thường.
+
+Bốn tiêu chí có test tích hợp trong `AccountEmailIntegrationTest` (auth-service); phần gửi email có `AccountEmailServiceTest`, `AccountEmailListenerTest`, `AccountEmailFlowIntegrationTest` (notification-service).
 
 ### WMS-24.1 [Backend] ai-service: khung dịch vụ AI
 

@@ -134,7 +134,7 @@ một HTTP status và thông báo mặc định bằng tiếng Việt. Frontend 
 | `SERVICE_UNAVAILABLE` | 503 | Dịch vụ phụ thuộc chưa sẵn sàng |
 | `TOO_MANY_REQUESTS` | 429 | Gọi quá giới hạn tốc độ (api-gateway trả cho API key vượt số request mỗi giây, kèm header `Retry-After`) |
 | `COMPANY_REQUIRED` | 403 | Request tới service nghiệp vụ không xác định được doanh nghiệp |
-| `COMPANY_INACTIVE` | 403 | Doanh nghiệp chưa kích hoạt qua email hoặc đang bị tạm khóa |
+| `COMPANY_INACTIVE` | 403 | Doanh nghiệp chưa kích hoạt qua email hoặc đang bị tạm khóa; chưa kích hoạt thì `data` là `{"companyStatus": "PENDING"}` |
 | `SUBSCRIPTION_EXPIRED` | 403 | Gọi API ghi khi gói dịch vụ đã hết hạn |
 | `PLAN_LIMIT_EXCEEDED` | 403 | Tạo mới vượt giới hạn của gói; `data` gồm `limit`, `current`, `max`, `plan` |
 | `PAYMENT_INVALID` | 400 | Webhook thanh toán sai chữ ký, sai số tiền hoặc mã đơn không tồn tại |

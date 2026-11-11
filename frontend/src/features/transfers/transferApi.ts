@@ -2,6 +2,7 @@ import { api } from '../../services/api'
 import type { ApiResponse, PageResponse } from '../../types/api'
 import type {
   CreateStockTransferPayload,
+  ReceiveStockTransferPayload,
   StockAtpInfo,
   StockTransfer,
   StockTransferFilterParams,
@@ -51,6 +52,17 @@ export async function dispatchTransfer(id: number): Promise<StockTransfer> {
   return res.data.data
 }
 
+export async function receiveTransfer(
+  id: number,
+  payload: ReceiveStockTransferPayload
+): Promise<StockTransfer> {
+  const res = await api.post<ApiResponse<StockTransfer>>(
+    `/inventory/transfers/${id}/receive`,
+    payload
+  )
+  return res.data.data
+}
+
 export async function checkStockAtp(
   productId: number,
   warehouseId?: number
@@ -60,4 +72,3 @@ export async function checkStockAtp(
   })
   return res.data.data
 }
-

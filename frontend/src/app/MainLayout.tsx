@@ -27,6 +27,7 @@ import { ROLE_CONFIG } from '../features/users/types'
 import SubscriptionLayer from '../features/subscription/components/SubscriptionLayer'
 import { READ_ONLY_ALLOWED_CLASS } from '../features/subscription/readOnlyGuard'
 import { useSubscriptionStore } from '../features/subscription/subscriptionStore'
+import AiChatWidget from '../features/ai/components/AiChatWidget'
 
 const { Header, Sider, Content } = Layout
 
@@ -237,6 +238,9 @@ export default function MainLayout() {
           </Suspense>
         </Content>
       </Layout>
+
+      {/* Nút và khung chat trợ lý AI nổi ở góc phải dưới của mọi trang */}
+      <AiChatWidget />
 
       {/* Modal Xác nhận Đăng xuất */}
       <Modal

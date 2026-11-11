@@ -125,14 +125,26 @@ class RealtimeWebSocketIntegrationTest {
 
     @AfterEach
     void tearDown() {
-        if (session != null && session.isConnected()) {
-            session.disconnect();
-        }
-        if (otherSession != null && otherSession.isConnected()) {
-            otherSession.disconnect();
-        }
+        disconnectQuietly(session);
+        disconnectQuietly(otherSession);
         if (stompClient != null) {
             stompClient.stop();
+        }
+    }
+
+    /**
+     * Ngắt phiên khi dọn dẹp. Máy chủ tự đóng kết nối sau khi trả khung ERROR (ví dụ đăng ký kênh của doanh nghiệp
+     * khác), nên {@code isConnected()} có thể còn đúng trong tích tắc rồi lệnh DISCONNECT ném lỗi vì socket đã đóng;
+     * lỗi đó không phải lỗi của ca kiểm thử.
+     */
+    private static void disconnectQuietly(StompSession stompSession) {
+        if (stompSession == null || !stompSession.isConnected()) {
+            return;
+        }
+        try {
+            stompSession.disconnect();
+        } catch (RuntimeException ex) {
+            // Phiên đã bị máy chủ đóng trước: bỏ qua
         }
     }
 

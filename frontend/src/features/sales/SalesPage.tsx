@@ -871,9 +871,6 @@ export default function SalesPage() {
           setIsPickingModalOpen(false)
           setOrderForPicking(null)
         }}
-        onSuccess={() => {
-          setRefreshKey((k) => k + 1)
-        }}
       />
 
       {/* Modal Lập Hóa đơn bán hàng (FR18) */}

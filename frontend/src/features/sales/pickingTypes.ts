@@ -2,21 +2,21 @@
  * Kiểu dữ liệu cho phân hệ Bảng xuất kho thời gian thực & Lộ trình lấy hàng thông minh (WMS-12.3 - FR17).
  */
 
-import type { OrderStatus, SalesOrder } from './types'
-
-export type PickingItemStatus = 'PENDING' | 'IN_CART' | 'COMPLETED'
-
 export interface PickingItem {
-  id: string // Khóa duy nhất (ví dụ: `${soItemId}-${binLocationId}-${lotNo}`)
+  id: string // Khóa duy nhất: `pick-${soItemId}-${stockItemId}` hoặc `pick-${soItemId}-thieu` cho phần thiếu hàng
   soItemId: number
   productId: number
   skuCode: string
   productName: string
   uom: string
+  /** Số lượng cần lấy tại điểm dừng này (một dòng SO có thể chia ra nhiều ô kệ / lô) */
   orderedQuantity: number
   pickedQuantity: number
   isPicked: boolean
-  // Vị trí ô lưu cất tối ưu (Zone -> Rack -> Bin)
+  /** Phần số lượng không còn tồn khả dụng trong kho: không có vị trí để lấy */
+  shortage?: boolean
+  // Vị trí ô lưu cất lấy từ tồn kho thực tế (Zone -> Rack -> Bin)
+  stockItemId?: number
   locationId?: number
   locationCode: string
   zone: string
@@ -30,54 +30,4 @@ export interface PickingItem {
   // Thứ tự chặng trong lộ trình lấy hàng tối ưu (1, 2, 3...)
   step: number
   note?: string
-}
-
-export type OutboundPickingStatus = 'WAITING' | 'PICKING' | 'PICKED' | 'DISPATCHED'
-
-export interface OutboundOrderRow {
-  soId: number
-  soNumber: string
-  customerId: number
-  customerName: string
-  customerPhone?: string
-  deliveryAddress?: string
-  warehouseId?: number
-  warehouseName?: string
-  orderDate: string
-  expectedDate?: string
-  soStatus: OrderStatus
-  totalAmount: number
-  // Tiến độ nhặt hàng
-  itemCount: number
-  totalQuantity: number
-  pickedQuantity: number
-  pickingStatus: OutboundPickingStatus
-  progressPercent: number
-  items: PickingItem[]
-  originalOrder: SalesOrder
-}
-
-export interface OutboundBoardSummary {
-  waitingOrders: number
-  pickingOrders: number
-  dispatchedOrdersToday: number
-  totalOutboundItems: number
-  completionRate: number
-}
-
-export interface DeductStockItemPayload {
-  productId: number
-  skuCode: string
-  quantity: number
-  binLocationId?: number
-  lotNo?: string
-}
-
-export interface DeductStockPayload {
-  orderId: number
-  orderNumber: string
-  warehouseId: number
-  reason: string
-  note?: string
-  items: DeductStockItemPayload[]
 }

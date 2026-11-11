@@ -1,7 +1,6 @@
 import {
   BarcodeOutlined,
   CheckCircleOutlined,
-  CheckOutlined,
   FastForwardOutlined,
   PrinterOutlined,
   RocketOutlined,
@@ -33,11 +32,8 @@ import { useEffect, useRef, useState } from 'react'
 import { getApiErrorMessage } from '../../../services/api'
 import { formatNumber } from '../../../utils/format'
 import { playErrorBeep, playSuccessBeep, playWarningBeep } from '../../../utils/sound'
-import * as warehouseApi from '../../warehouses/warehouseApi'
-import type { BinLocation } from '../../warehouses/types'
 import * as pickingApi from '../pickingApi'
-import { buildOptimizedPickingList } from '../pickingOptimizer'
-import type { DeductStockPayload, PickingItem } from '../pickingTypes'
+import type { PickingItem } from '../pickingTypes'
 import type { SalesOrder } from '../types'
 import PrintPickingListModal from './PrintPickingListModal'
 
@@ -47,20 +43,18 @@ interface SmartPickingModalProps {
   open: boolean
   order: SalesOrder | null
   onClose: () => void
-  onSuccess?: (order: SalesOrder) => void
 }
 
 export default function SmartPickingModal({
   open,
   order,
   onClose,
-  onSuccess,
 }: SmartPickingModalProps) {
   const { message } = App.useApp()
 
   const [items, setItems] = useState<PickingItem[]>([])
   const [loadingRoute, setLoadingRoute] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
+  const [routeError, setRouteError] = useState<string | null>(null)
 
   // Quét mã vạch tự động
   const [barcodeInput, setBarcodeInput] = useState('')
@@ -80,7 +74,7 @@ export default function SmartPickingModal({
     }
   }, [open])
 
-  // Tải danh sách ô kệ và lô hàng để tối ưu lộ trình
+  // Tải tồn theo lô / ô kệ của kho xuất để tối ưu lộ trình
   useEffect(() => {
     if (!open || !order) {
       return
@@ -88,31 +82,20 @@ export default function SmartPickingModal({
 
     let ignore = false
     const loadRouteData = async () => {
+      setItems([])
+      setRouteError(null)
+      if (!order.warehouseId) {
+        setRouteError('Đơn bán chưa gán kho xuất hàng nên chưa lập được lộ trình lấy hàng.')
+        return
+      }
       setLoadingRoute(true)
       try {
-        let bins: BinLocation[] = []
-        if (order.warehouseId) {
-          const rawBins = await warehouseApi.fetchLocations({
-            warehouseId: order.warehouseId,
-            active: true,
-          })
-          bins = (rawBins || []).filter((b) => b.active)
-        }
-
-        const lots = order.warehouseId
-          ? await pickingApi.fetchLotsForWarehouse(order.warehouseId)
-          : []
-
-        if (!ignore) {
-          const optimized = buildOptimizedPickingList(order, bins, lots)
-          setItems(optimized)
-        }
+        const optimized = await pickingApi.loadPickingRoute(order)
+        if (!ignore) setItems(optimized)
       } catch (err) {
         if (!ignore) {
-          console.error('Không thể tối ưu lộ trình lấy hàng:', err)
-          // Fallback lộ trình cơ bản từ items của SO
-          const fallback = buildOptimizedPickingList(order, [], [])
-          setItems(fallback)
+          // Không dựng lộ trình giả khi không đọc được tồn kho
+          setRouteError(getApiErrorMessage(err, 'Không thể tải tồn kho theo lô để lập lộ trình lấy hàng.'))
         }
       } finally {
         if (!ignore) setLoadingRoute(false)
@@ -129,7 +112,7 @@ export default function SmartPickingModal({
   const handleTogglePicked = (id: string, checked: boolean) => {
     setItems((prev) =>
       prev.map((it) => {
-        if (it.id === id) {
+        if (it.id === id && !it.shortage) {
           return {
             ...it,
             isPicked: checked,
@@ -149,10 +132,10 @@ export default function SmartPickingModal({
     const val = Math.max(0, qty || 0)
     setItems((prev) =>
       prev.map((it) => {
-        if (it.id === id) {
+        if (it.id === id && !it.shortage) {
           return {
             ...it,
-            pickedQuantity: val,
+            pickedQuantity: Math.min(val, it.orderedQuantity),
             isPicked: val >= it.orderedQuantity,
           }
         }
@@ -164,14 +147,18 @@ export default function SmartPickingModal({
   // Lấy nhanh toàn bộ vào xe đẩy
   const handlePickAll = () => {
     setItems((prev) =>
-      prev.map((it) => ({
-        ...it,
-        isPicked: true,
-        pickedQuantity: it.orderedQuantity,
-      }))
+      prev.map((it) =>
+        it.shortage
+          ? it
+          : {
+              ...it,
+              isPicked: true,
+              pickedQuantity: it.orderedQuantity,
+            }
+      )
     )
     playSuccessBeep()
-    message.success('Đã đánh dấu lấy toàn bộ hàng hóa vào xe đẩy!')
+    message.success('Đã đánh dấu lấy toàn bộ hàng hóa có vị trí vào xe đẩy!')
     barcodeInputRef.current?.focus()
   }
 
@@ -180,14 +167,16 @@ export default function SmartPickingModal({
     const code = rawCode.trim().toLowerCase()
     if (!code) return
 
-    const targetIndex = items.findIndex(
+    // Một SKU có thể chia ra nhiều ô kệ / lô: lấy điểm dừng đầu tiên của SKU còn thiếu số lượng
+    const matches = items.filter(
       (it) =>
-        it.skuCode.toLowerCase() === code ||
-        (it.barcode && it.barcode.toLowerCase() === code) ||
-        String(it.productId) === code
+        !it.shortage &&
+        (it.skuCode.toLowerCase() === code ||
+          (it.barcode && it.barcode.toLowerCase() === code) ||
+          String(it.productId) === code)
     )
 
-    if (targetIndex === -1) {
+    if (matches.length === 0) {
       playErrorBeep()
       message.error(`Mã vạch "${rawCode}" không có trong lộ trình lấy hàng của đơn ${order?.soNumber}!`)
       setBarcodeInput('')
@@ -195,19 +184,20 @@ export default function SmartPickingModal({
       return
     }
 
-    const target = items[targetIndex]
-    const nextQty = target.pickedQuantity + 1
+    const target = matches.find((it) => it.pickedQuantity < it.orderedQuantity)
 
-    if (nextQty > target.orderedQuantity) {
+    if (!target) {
       playWarningBeep()
-      message.warning(`Mặt hàng ${target.skuCode} đã lấy đủ số lượng yêu cầu (${target.orderedQuantity} ${target.uom})!`)
-    } else {
-      playSuccessBeep()
+      message.warning(`Mặt hàng ${matches[0].skuCode} đã lấy đủ số lượng yêu cầu!`)
+      setBarcodeInput('')
+      barcodeInputRef.current?.focus()
+      return
     }
 
+    playSuccessBeep()
     setItems((prev) =>
-      prev.map((it, idx) => {
-        if (idx === targetIndex) {
+      prev.map((it) => {
+        if (it.id === target.id) {
           const newQty = Math.min(it.orderedQuantity, it.pickedQuantity + 1)
           return {
             ...it,
@@ -236,6 +226,7 @@ export default function SmartPickingModal({
   }
 
   // Thống kê tiến độ lấy hàng
+  const shortageItems = items.filter((it) => it.shortage)
   const totalItemsCount = items.length
   const pickedItemsCount = items.filter((it) => it.isPicked).length
   const totalOrderedQuantity = items.reduce((sum, it) => sum + (it.orderedQuantity || 0), 0)
@@ -244,51 +235,6 @@ export default function SmartPickingModal({
   const progressPercent =
     totalItemsCount > 0 ? Math.round((pickedItemsCount / totalItemsCount) * 100) : 0
   const isFullyPicked = totalItemsCount > 0 && pickedItemsCount === totalItemsCount
-
-  // Xác nhận hoàn tất nhặt hàng & Xuất xưởng trừ tồn kho
-  const handleCompleteDispatch = async () => {
-    if (!order) return
-
-    if (!isFullyPicked) {
-      playErrorBeep()
-      message.warning('Vui lòng hoàn tất lấy đủ 100% các mặt hàng vào xe đẩy trước khi xuất kho!')
-      return
-    }
-
-    const deductPayload: DeductStockPayload = {
-      orderId: order.id,
-      orderNumber: order.soNumber,
-      warehouseId: order.warehouseId || 1,
-      reason: 'SALES_DISPATCH',
-      note: `Xuất kho hoàn tất lộ trình lấy hàng theo đơn ${order.soNumber}`,
-      items: items.map((it) => ({
-        productId: it.productId,
-        skuCode: it.skuCode,
-        quantity: it.pickedQuantity,
-        binLocationId: it.locationId,
-        lotNo: it.lotNo,
-      })),
-    }
-
-    setSubmitting(true)
-    try {
-      await pickingApi.dispatchOrderStock(deductPayload)
-      playSuccessBeep()
-      message.success(`Đã hoàn tất lấy hàng và xuất kho thành công cho đơn ${order.soNumber}!`)
-      if (onSuccess) {
-        onSuccess({
-          ...order,
-          status: 'COMPLETED',
-        })
-      }
-      onClose()
-    } catch (err) {
-      playErrorBeep()
-      message.error(getApiErrorMessage(err, 'Không thể xác nhận xuất kho'))
-    } finally {
-      setSubmitting(false)
-    }
-  }
 
   const columns: ColumnsType<PickingItem> = [
     {
@@ -307,21 +253,26 @@ export default function SmartPickingModal({
       title: 'Vị trí lấy hàng (Zone → Rack → Bin)',
       key: 'location',
       width: 220,
-      render: (_, r) => (
-        <div className="space-y-0.5">
-          <div className="flex items-center gap-1.5">
-            <Tag color="cyan" className="font-mono font-bold text-xs m-0">
-              {r.locationCode}
-            </Tag>
-            <span className="text-[11px] font-semibold text-slate-700">
-              Khu {r.zone || '-'}
-            </span>
+      render: (_, r) =>
+        r.shortage ? (
+          <Tag color="red" className="m-0">
+            Thiếu hàng, không còn tồn khả dụng
+          </Tag>
+        ) : (
+          <div className="space-y-0.5">
+            <div className="flex items-center gap-1.5">
+              <Tag color="cyan" className="font-mono font-bold text-xs m-0">
+                {r.locationCode}
+              </Tag>
+              <span className="text-[11px] font-semibold text-slate-700">
+                Khu {r.zone || '-'}
+              </span>
+            </div>
+            <div className="text-[11px] text-slate-500">
+              Dãy {r.rack || '-'} &bull; Ô {r.bin || '-'}
+            </div>
           </div>
-          <div className="text-[11px] text-slate-500">
-            Dãy {r.rack || '-'} &bull; Ô {r.bin || '-'}
-          </div>
-        </div>
-      ),
+        ),
     },
     {
       title: 'Mặt hàng & SKU',
@@ -391,7 +342,7 @@ export default function SmartPickingModal({
             value={r.pickedQuantity}
             onChange={(val) => handleQuantityChange(r.id, val)}
             className="w-20 text-center font-bold text-emerald-700"
-            disabled={order?.status === 'COMPLETED'}
+            disabled={order?.status === 'COMPLETED' || r.shortage}
           />
           <span className="text-xs text-slate-500">/ {r.orderedQuantity}</span>
         </div>
@@ -403,6 +354,9 @@ export default function SmartPickingModal({
       width: 130,
       align: 'center',
       render: (_, r) => {
+        if (r.shortage) {
+          return <Tag color="error">Thiếu hàng</Tag>
+        }
         if (r.isPicked) {
           return (
             <Tag color="success" className="flex items-center gap-1 justify-center m-0">
@@ -425,7 +379,7 @@ export default function SmartPickingModal({
         <Checkbox
           checked={r.isPicked}
           onChange={(e) => handleTogglePicked(r.id, e.target.checked)}
-          disabled={order?.status === 'COMPLETED'}
+          disabled={order?.status === 'COMPLETED' || r.shortage}
         >
           <span className="text-xs">{r.isPicked ? 'Đã lấy' : 'Xong'}</span>
         </Checkbox>
@@ -456,21 +410,6 @@ export default function SmartPickingModal({
           onClick={() => setIsPrintModalOpen(true)}
         >
           In Phiếu Lấy Hàng
-        </Button>,
-        <Button
-          key="dispatch"
-          type="primary"
-          icon={<CheckOutlined />}
-          loading={submitting}
-          disabled={!isFullyPicked || order.status === 'COMPLETED'}
-          onClick={handleCompleteDispatch}
-          className="bg-emerald-600 hover:bg-emerald-700 font-semibold"
-        >
-          {order.status === 'COMPLETED'
-            ? 'Đơn đã xuất kho'
-            : isFullyPicked
-            ? 'Hoàn tất lấy hàng & Xuất kho'
-            : `Đang lấy hàng (${progressPercent}%)`}
         </Button>,
       ]}
       destroyOnClose
@@ -583,6 +522,29 @@ export default function SmartPickingModal({
               </div>
             )}
           </Card>
+        )}
+
+        {/* Màn hình chưa ghi nhận xuất kho: luồng phiếu xuất kho phía máy chủ chưa có */}
+        <Alert
+          type="warning"
+          showIcon
+          message="Màn hình này chỉ lập lộ trình và đánh dấu hàng đã lấy, chưa ghi nhận xuất kho"
+          description="Tồn kho chưa bị trừ và trạng thái đơn bán chưa đổi khi lấy đủ hàng. Việc xuất kho, trừ tồn sẽ thực hiện qua phiếu xuất kho khi chức năng phía máy chủ hoàn thiện."
+          className="text-xs"
+        />
+
+        {routeError && <Alert type="error" showIcon message={routeError} className="text-xs" />}
+
+        {shortageItems.length > 0 && (
+          <Alert
+            type="error"
+            showIcon
+            message={`Kho không đủ tồn khả dụng cho ${shortageItems.length} dòng hàng`}
+            description={`Thiếu: ${shortageItems
+              .map((it) => `${it.skuCode} (${formatNumber(it.orderedQuantity)} ${it.uom})`)
+              .join(', ')}. Lô bị khóa hoặc đã hết hạn không được tính.`}
+            className="text-xs"
+          />
         )}
 
         {/* Thông báo hướng dẫn lộ trình */}

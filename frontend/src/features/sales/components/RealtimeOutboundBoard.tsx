@@ -40,7 +40,7 @@ import * as salesApi from '../salesApi'
 import type { SalesOrder } from '../types'
 import PrintPickingListModal from './PrintPickingListModal'
 import SmartPickingModal from './SmartPickingModal'
-import { buildOptimizedPickingList } from '../pickingOptimizer'
+import * as pickingApi from '../pickingApi'
 import type { PickingItem } from '../pickingTypes'
 
 const { RangePicker } = DatePicker
@@ -76,6 +76,7 @@ export default function RealtimeOutboundBoard({ onOpenOrderDetail }: RealtimeOut
   const [selectedOrderForPrint, setSelectedOrderForPrint] = useState<SalesOrder | null>(null)
   const [printItems, setPrintItems] = useState<PickingItem[]>([])
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false)
+  const [printLoadingId, setPrintLoadingId] = useState<number | null>(null)
 
   // 1. Tải danh mục kho cho bộ lọc
   useEffect(() => {
@@ -178,12 +179,24 @@ export default function RealtimeOutboundBoard({ onOpenOrderDetail }: RealtimeOut
     setIsPickingModalOpen(true)
   }
 
-  // Mở modal In phiếu lấy hàng
-  const handleOpenPrint = (order: SalesOrder) => {
-    setSelectedOrderForPrint(order)
-    const items = buildOptimizedPickingList(order, [], [])
-    setPrintItems(items)
-    setIsPrintModalOpen(true)
+  // Mở modal In phiếu lấy hàng: lập lộ trình từ tồn thực tế của kho xuất, không dựng vị trí giả
+  const handleOpenPrint = async (order: SalesOrder) => {
+    if (!order.warehouseId) {
+      message.warning(`Đơn ${order.soNumber} chưa gán kho xuất hàng nên chưa in được phiếu lấy hàng`)
+      return
+    }
+    if (printLoadingId !== null) return
+    setPrintLoadingId(order.id)
+    try {
+      const items = await pickingApi.loadPickingRoute(order)
+      setSelectedOrderForPrint(order)
+      setPrintItems(items)
+      setIsPrintModalOpen(true)
+    } catch (err) {
+      message.error(getApiErrorMessage(err, 'Không thể tải tồn kho theo lô để lập phiếu lấy hàng'))
+    } finally {
+      setPrintLoadingId(null)
+    }
   }
 
   // Xuất file Excel báo cáo xuất kho
@@ -335,7 +348,8 @@ export default function RealtimeOutboundBoard({ onOpenOrderDetail }: RealtimeOut
             <Button
               size="small"
               icon={<PrinterOutlined />}
-              onClick={() => handleOpenPrint(r)}
+              loading={printLoadingId === r.id}
+              onClick={() => void handleOpenPrint(r)}
             />
           </Tooltip>
 
@@ -526,9 +540,6 @@ export default function RealtimeOutboundBoard({ onOpenOrderDetail }: RealtimeOut
         onClose={() => {
           setIsPickingModalOpen(false)
           setSelectedOrderForPicking(null)
-        }}
-        onSuccess={() => {
-          reloadData()
         }}
       />
 

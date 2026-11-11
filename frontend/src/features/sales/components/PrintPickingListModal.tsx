@@ -42,16 +42,19 @@ export default function PrintPickingListModal({
       title: 'Vị trí (Zone → Rack → Bin)',
       key: 'location',
       width: 170,
-      render: (_, r) => (
-        <div>
-          <span className="font-mono font-bold text-blue-700 text-sm">
-            {r.locationCode}
-          </span>
-          <div className="text-[11px] text-slate-500">
-            Khu {r.zone || '-'} / Dãy {r.rack || '-'} / Ô {r.bin || '-'}
+      render: (_, r) =>
+        r.shortage ? (
+          <span className="font-semibold text-red-600 text-xs">Thiếu hàng, không còn tồn khả dụng</span>
+        ) : (
+          <div>
+            <span className="font-mono font-bold text-blue-700 text-sm">
+              {r.locationCode}
+            </span>
+            <div className="text-[11px] text-slate-500">
+              Khu {r.zone || '-'} / Dãy {r.rack || '-'} / Ô {r.bin || '-'}
+            </div>
           </div>
-        </div>
-      ),
+        ),
     },
     {
       title: 'Mặt hàng & SKU',
@@ -138,7 +141,24 @@ export default function PrintPickingListModal({
       ]}
       destroyOnClose
     >
-      <div className="p-4 bg-white text-slate-900 space-y-4">
+      {/* Khi in chỉ hiện nội dung phiếu, ẩn phần còn lại của trang */}
+      <style>{`
+        @media print {
+          body * {
+            visibility: hidden;
+          }
+          #printable-picking-list, #printable-picking-list * {
+            visibility: visible;
+          }
+          #printable-picking-list {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+          }
+        }
+      `}</style>
+      <div id="printable-picking-list" className="p-4 bg-white text-slate-900 space-y-4">
         {/* Header Phiếu Lấy Hàng */}
         <div className="flex justify-between items-start border-b-2 border-slate-800 pb-3">
           <div>

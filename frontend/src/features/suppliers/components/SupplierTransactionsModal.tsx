@@ -21,6 +21,7 @@ import { getApiErrorMessage } from '../../../services/api'
 import { formatCurrency, formatNumber } from '../../../utils/format'
 import * as supplierApi from '../supplierApi'
 import type { Supplier, SupplierTransaction, SupplierTransactionType } from '../types'
+import { useCan } from '../../auth/useCan'
 
 const { Text } = Typography
 
@@ -68,6 +69,7 @@ export default function SupplierTransactionsModal({
   onOpenRecordModal,
 }: Props) {
   const { message } = App.useApp()
+  const canRecord = useCan()('supplier.transaction')
   const [transactions, setTransactions] = useState<SupplierTransaction[]>([])
   const [loading, setLoading] = useState(false)
   const [page, setPage] = useState(0)
@@ -213,14 +215,18 @@ export default function SupplierTransactionsModal({
         <Button key="close" onClick={onClose}>
           Đóng
         </Button>,
-        <Button
-          key="record"
-          type="primary"
-          icon={<PlusOutlined />}
-          onClick={() => supplier && onOpenRecordModal(supplier)}
-        >
-          Ghi nhận giao dịch
-        </Button>,
+        ...(canRecord
+          ? [
+              <Button
+                key="record"
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={() => supplier && onOpenRecordModal(supplier)}
+              >
+                Ghi nhận giao dịch
+              </Button>,
+            ]
+          : []),
       ]}
       width={950}
       destroyOnClose

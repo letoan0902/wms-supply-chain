@@ -18,7 +18,7 @@ import {
 import type { ColumnsType } from 'antd/es/table'
 import dayjs from 'dayjs'
 import { formatCurrency, formatNumber } from '../../../utils/format'
-import { getStoredUser } from '../../../utils/storage'
+import { useCan } from '../../auth/useCan'
 import {
   BILL_STATUS_CONFIG,
   type PurchaseBill,
@@ -40,9 +40,8 @@ export default function PurchaseBillDetailModal({
   onClose,
   onOpenPayment,
 }: PurchaseBillDetailModalProps) {
-  const currentUser = getStoredUser()
-  const canRecordPayment =
-    currentUser?.roles?.some((r) => ['ADMIN', 'ACCOUNTANT'].includes(r)) ?? false
+  // Ghi thanh toán hóa đơn mua: ADMIN, Kế toán (features/auth/permissions.ts)
+  const canRecordPayment = useCan()('purchaseBill.pay')
 
   if (!bill) return null
 

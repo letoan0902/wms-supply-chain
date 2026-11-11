@@ -28,6 +28,7 @@ import {
 import type { ColumnsType } from 'antd/es/table'
 import dayjs from 'dayjs'
 import { useEffect, useState } from 'react'
+import { useCan } from '../../auth/useCan'
 import * as XLSX from 'xlsx'
 import { getApiErrorMessage } from '../../../services/api'
 import { formatNumber } from '../../../utils/format'
@@ -50,6 +51,8 @@ const GDN_STATUS_LABEL: Record<GoodsDeliveryStatus, string> = {
 
 export default function GoodsDeliveryTable() {
   const { message } = App.useApp()
+  // Lập phiếu xuất kho: ADMIN, Quản lý kho, Nhân viên kho
+  const canCreateGdn = useCan()('gdn.create')
 
   const [gdns, setGdns] = useState<GdnResponse[]>([])
   const [total, setTotal] = useState(0)
@@ -309,14 +312,16 @@ export default function GoodsDeliveryTable() {
         </div>
 
         <Space wrap>
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => setIsCreateModalOpen(true)}
-            className="bg-emerald-600 hover:bg-emerald-700 font-semibold"
-          >
-            Lập Phiếu Xuất GDN
-          </Button>
+          {canCreateGdn && (
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => setIsCreateModalOpen(true)}
+              className="bg-emerald-600 hover:bg-emerald-700 font-semibold"
+            >
+              Lập Phiếu Xuất GDN
+            </Button>
+          )}
 
           <Button
             icon={<FileExcelOutlined />}

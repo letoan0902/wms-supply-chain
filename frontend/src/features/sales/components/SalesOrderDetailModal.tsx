@@ -26,6 +26,7 @@ import {
 import type { ColumnsType } from 'antd/es/table'
 import dayjs from 'dayjs'
 import { useEffect, useState } from 'react'
+import { useCan } from '../../auth/useCan'
 import { getApiErrorMessage } from '../../../services/api'
 import { formatCurrency, formatNumber } from '../../../utils/format'
 import * as customerApi from '../../customers/customerApi'
@@ -60,12 +61,14 @@ export default function SalesOrderDetailModal({
   canManageInvoice = false,
 }: Props) {
   const { message } = App.useApp()
+  // Nhân viên kho xem được đơn bán nhưng không đọc được công nợ khách hàng (403)
+  const canReadCustomers = useCan()('customer.read')
   const [actionLoading, setActionLoading] = useState(false)
   const [creditInfo, setCreditInfo] = useState<CustomerCreditCheckResponse | null>(null)
 
   // Tra cứu công nợ khách hàng tức thời (FR14, FR18)
   useEffect(() => {
-    if (!open || !order?.customerId) return
+    if (!open || !order?.customerId || !canReadCustomers) return
 
     let ignore = false
     void customerApi
@@ -80,7 +83,7 @@ export default function SalesOrderDetailModal({
     return () => {
       ignore = true
     }
-  }, [open, order?.customerId])
+  }, [open, order?.customerId, canReadCustomers])
 
   if (!order) return null
 
@@ -289,9 +292,10 @@ export default function SalesOrderDetailModal({
               </Popconfirm>
             )}
 
-            {/* Nút Lấy hàng */}
-            {order.status === 'CONFIRMED' && (
+            {/* Nút Lấy hàng: chỉ hiện khi màn hình cha cho phép (vai trò được xem danh sách lấy hàng) */}
+            {order.status === 'CONFIRMED' && onOpenPicking && (
               <Button
+                data-write-action
                 type="primary"
                 icon={<RocketOutlined />}
                 onClick={() => {
@@ -305,8 +309,8 @@ export default function SalesOrderDetailModal({
               </Button>
             )}
 
-            {/* Nút Xuất kho (GDN) */}
-            {order.status === 'CONFIRMED' && (
+            {/* Nút Xuất kho (GDN): chỉ hiện khi vai trò được lập phiếu xuất */}
+            {order.status === 'CONFIRMED' && onOpenDelivery && (
               <Button
                 type="primary"
                 icon={<CheckCircleOutlined />}

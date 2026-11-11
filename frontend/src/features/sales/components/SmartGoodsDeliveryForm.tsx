@@ -692,6 +692,7 @@ export default function SmartGoodsDeliveryForm({
 
               <Space wrap>
                 <Button
+                  data-write-action
                   icon={<CameraOutlined />}
                   onClick={() => setIsCameraOpen(true)}
                   className="text-slate-700"

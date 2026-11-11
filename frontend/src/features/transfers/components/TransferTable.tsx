@@ -11,6 +11,7 @@ import type { ColumnsType } from 'antd/es/table'
 import { formatDateTime, formatNumber } from '../../../utils/format'
 import { TRANSFER_STATUS_CONFIG } from '../statusConfig'
 import type { StockTransfer } from '../types'
+import { useCan } from '../../auth/useCan'
 
 interface Props {
   transfers: StockTransfer[]
@@ -39,6 +40,7 @@ export default function TransferTable({
   onReceive,
   onCancel,
 }: Props) {
+  const can = useCan()
   const columns: ColumnsType<StockTransfer> = [
     {
       title: 'Mã lệnh',
@@ -149,8 +151,10 @@ export default function TransferTable({
       width: 170,
       align: 'center',
       render: (_, record: StockTransfer) => {
-        const isDraft = record.status === 'DRAFT'
-        const isInTransit = record.status === 'IN_TRANSIT'
+        // Sửa, duyệt xuất, hủy: ADMIN hoặc Quản lý của kho nguồn; nhận hàng: ADMIN hoặc Quản lý của kho đích
+        const isDraft = record.status === 'DRAFT' && can('transfer.manage', record.sourceWarehouseId)
+        const isInTransit =
+          record.status === 'IN_TRANSIT' && can('transfer.receive', record.destinationWarehouseId)
 
         return (
           <Space size="small">

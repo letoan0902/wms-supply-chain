@@ -349,6 +349,7 @@ export default function ProfilePage() {
 
                     <Form.Item className="mt-6">
                       <Button
+                        data-write-action
                         type="primary"
                         htmlType="submit"
                         icon={<SaveOutlined />}

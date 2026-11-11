@@ -27,6 +27,7 @@ import {
 import type { ColumnsType } from 'antd/es/table'
 import { useMemo, useState } from 'react'
 import type { BinLocation, Warehouse } from '../types'
+import { useCan } from '../../auth/useCan'
 
 interface Props {
   warehouses: Warehouse[]
@@ -53,6 +54,8 @@ export default function BinManagementView({
   onPrintBarcode,
   onDeleteLocation,
 }: Props) {
+  // Tạo, xóa vị trí: ADMIN hoặc Quản lý kho được gán kho đang xem
+  const canWriteLocations = useCan()('location.write', selectedWarehouseId)
   const [selectedZone, setSelectedZone] = useState<string>('ALL')
   const [statusFilter, setStatusFilter] = useState<string>('ALL')
   const [viewMode, setViewMode] = useState<'grid' | 'table'>('grid')
@@ -146,6 +149,7 @@ export default function BinManagementView({
               onClick={() => onPrintBarcode(record)}
             />
           </Tooltip>
+          {canWriteLocations && (
           <Tooltip title="Xóa vị trí">
             <Popconfirm
               title="Xác nhận xóa vị trí ô/kệ này?"
@@ -158,6 +162,7 @@ export default function BinManagementView({
               <Button type="text" size="small" danger icon={<DeleteOutlined />} />
             </Popconfirm>
           </Tooltip>
+          )}
         </Space>
       ),
     },
@@ -225,24 +230,28 @@ export default function BinManagementView({
             </Radio.Button>
           </Radio.Group>
 
-          <Button
-            type="dashed"
-            icon={<PlusOutlined />}
-            onClick={onAddSingleLocation}
-            size="small"
-          >
-            Thêm 1 ô
-          </Button>
+          {canWriteLocations && (
+            <Button
+              type="dashed"
+              icon={<PlusOutlined />}
+              onClick={onAddSingleLocation}
+              size="small"
+            >
+              Thêm 1 ô
+            </Button>
+          )}
 
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={onBulkCreateLocations}
-            className="bg-blue-600"
-            size="small"
-          >
-            Sinh hàng loạt (Bulk)
-          </Button>
+          {canWriteLocations && (
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={onBulkCreateLocations}
+              className="bg-blue-600"
+              size="small"
+            >
+              Sinh hàng loạt (Bulk)
+            </Button>
+          )}
         </div>
       </div>
 
@@ -275,9 +284,11 @@ export default function BinManagementView({
           description={
             <span>
               Chưa có vị trí ô/kệ nào trong kho này.{' '}
-              <a onClick={onBulkCreateLocations} className="text-blue-600 font-medium">
-                Sinh tự động ngay
-              </a>
+              {canWriteLocations && (
+                <a onClick={onBulkCreateLocations} className="text-blue-600 font-medium" data-write-action>
+                  Sinh tự động ngay
+                </a>
+              )}
             </span>
           }
           className="my-12"

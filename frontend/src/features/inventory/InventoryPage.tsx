@@ -23,6 +23,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { getApiErrorMessage } from '../../services/api'
 import { getStoredUser } from '../../utils/storage'
+import { useCan } from '../auth/useCan'
 import { fetchCategories } from '../products/productApi'
 import type { Category } from '../products/types'
 import { useRealtimeStore } from '../realtime/realtimeStore'
@@ -100,6 +101,8 @@ export default function InventoryPage() {
   const [currentUser] = useState(() => getStoredUser())
   const roles = currentUser?.roles ?? []
   const isAdmin = roles.includes('ADMIN')
+  // Chạy quét cảnh báo ngay (POST /api/inventory/alerts/scan): chỉ ADMIN
+  const canScan = useCan()('alert.scan')
   /** ADMIN, ACCOUNTANT xem mọi kho của doanh nghiệp; vai trò khác chỉ xem kho được phân công */
   const isGlobalScope = isAdmin || roles.includes('ACCOUNTANT')
 
@@ -347,8 +350,14 @@ export default function InventoryPage() {
             <Button icon={<ReloadOutlined />} onClick={handleManualRefresh}>
               Làm mới
             </Button>
-            {isAdmin ? (
-              <Button icon={<RadarChartOutlined />} loading={scanning} disabled={scanning} onClick={handleScan}>
+            {canScan ? (
+              <Button
+                data-write-action
+                icon={<RadarChartOutlined />}
+                loading={scanning}
+                disabled={scanning}
+                onClick={handleScan}
+              >
                 Quét cảnh báo ngay
               </Button>
             ) : null}

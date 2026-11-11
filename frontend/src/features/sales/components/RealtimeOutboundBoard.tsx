@@ -33,7 +33,7 @@ import { useEffect, useState } from 'react'
 import * as XLSX from 'xlsx'
 import { getApiErrorMessage } from '../../../services/api'
 import { formatNumber } from '../../../utils/format'
-import { getStoredUser } from '../../../utils/storage'
+import { useCan } from '../../auth/useCan'
 import { addNotificationListener } from '../../realtime/realtimeConnection'
 import { useRealtimeStore } from '../../realtime/realtimeStore'
 import type { OrderCreatedPayload } from '../../realtime/types'
@@ -56,12 +56,12 @@ interface RealtimeOutboundBoardProps {
 export default function RealtimeOutboundBoard({ onOpenOrderDetail }: RealtimeOutboundBoardProps) {
   const { message } = App.useApp()
 
-  // Phân quyền theo RBAC
-  const currentUser = getStoredUser()
-  const canPickOrDispatch =
-    currentUser?.roles?.some((r) =>
-      ['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF'].includes(r)
-    ) ?? false
+  // Phân quyền theo bảng quyền dùng chung (features/auth/permissions.ts, khớp backend):
+  // xem lộ trình lấy hàng gồm cả Bán hàng; lập phiếu xuất chỉ ADMIN, Quản lý kho, Nhân viên kho
+  const can = useCan()
+  const canPick = can('picking.view')
+  const canDispatch = can('gdn.create')
+  const canReadWarehouses = can('warehouse.read')
 
   // Trạng thái kết nối STOMP thực tế từ store
   const realtimeStatus = useRealtimeStore((state) => state.status)
@@ -107,6 +107,7 @@ export default function RealtimeOutboundBoard({ onOpenOrderDetail }: RealtimeOut
 
   // 1. Tải danh mục kho cho bộ lọc
   useEffect(() => {
+    if (!canReadWarehouses) return
     let ignore = false
     void warehouseApi
       .fetchWarehouses({ active: true })
@@ -119,7 +120,7 @@ export default function RealtimeOutboundBoard({ onOpenOrderDetail }: RealtimeOut
     return () => {
       ignore = true
     }
-  }, [])
+  }, [canReadWarehouses])
 
   // 2. Tải danh sách đơn xuất kho (CONFIRMED và COMPLETED)
   useEffect(() => {
@@ -268,14 +269,17 @@ export default function RealtimeOutboundBoard({ onOpenOrderDetail }: RealtimeOut
       dataIndex: 'soNumber',
       key: 'soNumber',
       width: 140,
-      render: (soNumber, r) => (
-        <a
-          onClick={() => handleOpenPicking(r)}
-          className="font-mono font-bold text-blue-600 hover:text-blue-800"
-        >
-          {soNumber}
-        </a>
-      ),
+      render: (soNumber, r) =>
+        canPick ? (
+          <a
+            onClick={() => handleOpenPicking(r)}
+            className="font-mono font-bold text-blue-600 hover:text-blue-800"
+          >
+            {soNumber}
+          </a>
+        ) : (
+          <span className="font-mono font-bold text-slate-700">{soNumber}</span>
+        ),
     },
     {
       title: 'Khách hàng & Nơi giao',
@@ -364,12 +368,15 @@ export default function RealtimeOutboundBoard({ onOpenOrderDetail }: RealtimeOut
       fixed: 'right',
       render: (_, r) => (
         <Space size="small">
-          <Tooltip title={canPickOrDispatch ? 'Lấy hàng thông minh' : 'Chỉ dành cho Quản lý kho / Thủ kho'}>
+          <Tooltip
+            title={canPick ? 'Lấy hàng thông minh' : 'Chỉ dành cho Quản trị viên, Quản lý kho, Nhân viên kho và Bán hàng'}
+          >
             <Button
+              data-write-action
               size="small"
               type="primary"
               icon={<RocketOutlined />}
-              disabled={!canPickOrDispatch}
+              disabled={!canPick}
               onClick={() => handleOpenPicking(r)}
               className={
                 r.status === 'COMPLETED'
@@ -382,12 +389,18 @@ export default function RealtimeOutboundBoard({ onOpenOrderDetail }: RealtimeOut
           </Tooltip>
 
           {r.status === 'CONFIRMED' && (
-            <Tooltip title={canPickOrDispatch ? 'Quét mã kiểm tra xuất xưởng & lập phiếu GDN' : 'Chỉ dành cho Quản lý kho / Thủ kho'}>
+            <Tooltip
+              title={
+                canDispatch
+                  ? 'Quét mã kiểm tra xuất xưởng & lập phiếu GDN'
+                  : 'Chỉ dành cho Quản trị viên, Quản lý kho và Nhân viên kho'
+              }
+            >
               <Button
                 size="small"
                 type="primary"
                 icon={<CheckCircleOutlined />}
-                disabled={!canPickOrDispatch}
+                disabled={!canDispatch}
                 onClick={() => handleOpenDelivery(r)}
                 className="bg-emerald-600 hover:bg-emerald-700"
               >

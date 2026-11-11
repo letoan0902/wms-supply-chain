@@ -26,6 +26,7 @@ import type { ColumnsType } from 'antd/es/table'
 import { useState } from 'react'
 import { formatCurrency } from '../../../utils/format'
 import type { Supplier } from '../types'
+import { useCan } from '../../auth/useCan'
 
 interface Props {
   suppliers: Supplier[]
@@ -54,6 +55,7 @@ export default function SupplierTable({
   onViewTransactions,
   onRecordTransaction,
 }: Props) {
+  const can = useCan()
   const [keywordInput, setKeywordInput] = useState('')
   const [activeFilter, setActiveFilter] = useState<boolean | undefined>(undefined)
 
@@ -197,34 +199,40 @@ export default function SupplierTable({
       fixed: 'right',
       render: (_, record) => (
         <Space size="small">
-          <Tooltip title="Xem sổ chi tiết công nợ & giao dịch">
-            <Button
-              type="text"
-              size="small"
-              icon={<FileTextOutlined className="text-blue-600" />}
-              onClick={() => onViewTransactions(record)}
-            />
-          </Tooltip>
+          {can('supplier.debt') && (
+            <Tooltip title="Xem sổ chi tiết công nợ & giao dịch">
+              <Button
+                type="text"
+                size="small"
+                icon={<FileTextOutlined className="text-blue-600" />}
+                onClick={() => onViewTransactions(record)}
+              />
+            </Tooltip>
+          )}
 
-          <Tooltip title="Ghi nhận giao dịch công nợ mới (Thanh toán / Hóa đơn)">
-            <Button
-              type="text"
-              size="small"
-              icon={<DollarOutlined className="text-amber-600" />}
-              onClick={() => onRecordTransaction(record)}
-            />
-          </Tooltip>
+          {can('supplier.transaction') && (
+            <Tooltip title="Ghi nhận giao dịch công nợ mới (Thanh toán / Hóa đơn)">
+              <Button
+                type="text"
+                size="small"
+                icon={<DollarOutlined className="text-amber-600" />}
+                onClick={() => onRecordTransaction(record)}
+              />
+            </Tooltip>
+          )}
 
-          <Tooltip title="Chỉnh sửa thông tin NCC">
-            <Button
-              type="text"
-              size="small"
-              icon={<EditOutlined className="text-slate-600" />}
-              onClick={() => onEdit(record)}
-            />
-          </Tooltip>
+          {can('supplier.write') && (
+            <Tooltip title="Chỉnh sửa thông tin NCC">
+              <Button
+                type="text"
+                size="small"
+                icon={<EditOutlined className="text-slate-600" />}
+                onClick={() => onEdit(record)}
+              />
+            </Tooltip>
+          )}
 
-          {record.active && (
+          {record.active && can('supplier.delete') && (
             <Tooltip title="Ngưng hoạt động nhà cung cấp này">
               <Popconfirm
                 title="Xác nhận ngưng hoạt động?"

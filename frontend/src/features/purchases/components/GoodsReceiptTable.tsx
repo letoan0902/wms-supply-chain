@@ -19,6 +19,7 @@ import {
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { useEffect, useState } from 'react'
+import { useCan } from '../../auth/useCan'
 import * as XLSX from 'xlsx'
 import { getApiErrorMessage } from '../../../services/api'
 import { formatNumber } from '../../../utils/format'
@@ -43,6 +44,10 @@ interface GoodsReceiptTableProps {
 }
 
 export default function GoodsReceiptTable({ onOpenCreateGrn }: GoodsReceiptTableProps) {
+  const can = useCan()
+  const canCreateGrn = can('goodsReceipt.create')
+  // Vai trò không phải ADMIN, ACCOUNTANT chưa được gán kho thì không đọc được danh sách kho (403)
+  const canReadWarehouses = can('warehouse.read')
   const { message } = App.useApp()
 
   const [grnList, setGrnList] = useState<GrnResponse[]>([])
@@ -84,7 +89,7 @@ export default function GoodsReceiptTable({ onOpenCreateGrn }: GoodsReceiptTable
       try {
         const [supRes, whRes] = await Promise.all([
           supplierApi.fetchSuppliers({ active: true, size: 100 }),
-          warehouseApi.fetchWarehouses({ active: true }),
+          canReadWarehouses ? warehouseApi.fetchWarehouses({ active: true }) : Promise.resolve([]),
         ])
         if (!ignore) {
           setSuppliers(supRes.content || [])
@@ -98,7 +103,7 @@ export default function GoodsReceiptTable({ onOpenCreateGrn }: GoodsReceiptTable
     return () => {
       ignore = true
     }
-  }, [])
+  }, [canReadWarehouses])
 
   // Tải danh sách GRN
   useEffect(() => {
@@ -493,14 +498,16 @@ export default function GoodsReceiptTable({ onOpenCreateGrn }: GoodsReceiptTable
             Làm mới
           </Button>
 
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => onOpenCreateGrn()}
-            className="bg-emerald-600 hover:bg-emerald-700 font-semibold"
-          >
-            Lập phiếu nhập kho
-          </Button>
+          {canCreateGrn && (
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => onOpenCreateGrn()}
+              className="bg-emerald-600 hover:bg-emerald-700 font-semibold"
+            >
+              Lập phiếu nhập kho
+            </Button>
+          )}
         </Space>
       </div>
 

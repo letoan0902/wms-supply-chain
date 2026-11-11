@@ -22,6 +22,7 @@ import { fetchProducts } from '../../products/productApi'
 import type { Product } from '../../products/types'
 import { fetchLocations } from '../../warehouses/warehouseApi'
 import type { BinLocation, Warehouse } from '../../warehouses/types'
+import { useCan } from '../../auth/useCan'
 import { checkStockAtp } from '../transferApi'
 import type {
   CreateStockTransferPayload,
@@ -61,6 +62,9 @@ export default function CreateTransferModal({
   onSubmitCreate,
   onSubmitUpdate,
 }: Props) {
+  // Kho nguồn: kho người dùng được lập lệnh điều chuyển (ADMIN mọi kho, Quản lý và Nhân viên kho được gán)
+  const can = useCan()
+  const sourceWarehouses = warehouses.filter((w) => can('transfer.create', w.id))
   const [form] = Form.useForm()
   const sourceWarehouseId = Form.useWatch('sourceWarehouseId', form)
 
@@ -515,7 +519,7 @@ export default function CreateTransferModal({
               placeholder="Chọn kho xuất"
               disabled={!!editingTransfer}
               onChange={handleSourceWarehouseChange}
-              options={warehouses.map((w) => ({
+              options={sourceWarehouses.map((w) => ({
                 value: w.id,
                 label: `${w.name} (${w.code})`,
               }))}

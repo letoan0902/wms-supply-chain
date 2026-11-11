@@ -17,7 +17,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { getApiErrorMessage } from '../../services/api'
 import { formatDateTime } from '../../utils/format'
-import { getStoredUser } from '../../utils/storage'
+import { useCan } from '../auth/useCan'
 import * as apiKeyApi from './apiKeyApi'
 import type { ApiKeyItem, CreatedApiKey } from './types'
 
@@ -35,8 +35,8 @@ interface PlanProblem {
 export default function ApiKeysPage() {
   const { message, modal } = App.useApp()
   const navigate = useNavigate()
-  const currentUser = getStoredUser()
-  const isAdmin = Boolean(currentUser?.roles?.includes('ADMIN'))
+  // Quản lý API key: chỉ ADMIN (features/auth/permissions.ts, khớp @PreAuthorize của auth-service)
+  const isAdmin = useCan()('apiKey.manage')
 
   const [keys, setKeys] = useState<ApiKeyItem[]>([])
   const [loading, setLoading] = useState(false)

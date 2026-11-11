@@ -21,6 +21,7 @@ import type { ColumnsType } from 'antd/es/table'
 import { formatDateTime, formatNumber } from '../../../utils/format'
 import { TRANSFER_STATUS_CONFIG } from '../statusConfig'
 import type { StockTransfer, StockTransferItem } from '../types'
+import { useCan } from '../../auth/useCan'
 
 interface Props {
   transfer: StockTransfer | null
@@ -30,6 +31,7 @@ interface Props {
 }
 
 export default function TransferDetailModal({ transfer, open, onClose, onReceive }: Props) {
+  const can = useCan()
   if (!transfer) return null
 
   const statusConfig = TRANSFER_STATUS_CONFIG[transfer.status] || {
@@ -187,7 +189,8 @@ export default function TransferDetailModal({ transfer, open, onClose, onReceive
   ]
 
   const footer =
-    transfer.status === 'IN_TRANSIT' && onReceive
+    // Nhận hàng: ADMIN hoặc Quản lý của kho đích
+    transfer.status === 'IN_TRANSIT' && onReceive && can('transfer.receive', transfer.destinationWarehouseId)
       ? [
           <Button key="close" onClick={onClose}>
             Đóng

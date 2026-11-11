@@ -1,14 +1,16 @@
 import axios from 'axios'
 import { getApiErrorMessage, getErrorStatus } from '../../services/api'
 import type { AuthUser } from '../../types/auth'
+import { getToken } from '../../utils/storage'
+import { hasGlobalScope, isAllowed } from '../auth/permissions'
+import { buildPermissionSubject } from '../auth/useCan'
 
 /**
- * Phân quyền xem báo cáo kho, khớp với ReportAccess của inventory-service:
- * ADMIN, ACCOUNTANT xem mọi kho của doanh nghiệp; WAREHOUSE_MANAGER, WAREHOUSE_STAFF chỉ xem kho được gán.
- * Vai trò khác bị backend trả 403 nên màn hình hiển thị trang 403 thay vì gọi API.
+ * Phân quyền xem báo cáo kho, khớp với ReportAccess của inventory-service (quyền `report.view` trong
+ * features/auth/permissions.ts): ADMIN, ACCOUNTANT xem mọi kho của doanh nghiệp; WAREHOUSE_MANAGER, WAREHOUSE_STAFF
+ * chỉ xem kho được gán (chưa được gán kho nào thì backend trả 403). Vai trò khác bị backend trả 403 nên màn hình hiển
+ * thị trang 403 thay vì gọi API.
  */
-export const REPORT_ROLES = ['ADMIN', 'ACCOUNTANT', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF'] as const
-
 export interface ReportAccessInfo {
   canView: boolean
   /** true: xem mọi kho của doanh nghiệp; false: chỉ các kho được gán */
@@ -16,10 +18,8 @@ export interface ReportAccessInfo {
 }
 
 export function getReportAccess(user: AuthUser | null): ReportAccessInfo {
-  const roles = user?.roles ?? []
-  const canView = REPORT_ROLES.some((r) => roles.includes(r))
-  const allWarehouses = roles.includes('ADMIN') || roles.includes('ACCOUNTANT')
-  return { canView, allWarehouses }
+  const subject = buildPermissionSubject(getToken(), user)
+  return { canView: isAllowed(subject, 'report.view'), allWarehouses: hasGlobalScope(subject, 'report.view') }
 }
 
 export interface ReportErrorInfo {

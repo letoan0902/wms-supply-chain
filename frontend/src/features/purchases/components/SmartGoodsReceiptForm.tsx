@@ -952,6 +952,7 @@ export default function SmartGoodsReceiptForm({
               />
 
               <Button
+                data-write-action
                 size="large"
                 icon={<CameraOutlined />}
                 onClick={() => setIsCameraModalOpen(true)}

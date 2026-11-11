@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import PageLoading from '../../components/PageLoading'
 import { getApiErrorMessage } from '../../services/api'
 import { getStoredUser } from '../../utils/storage'
+import PaymentHistoryTable from './components/PaymentHistoryTable'
 import PlanActions from './components/PlanActions'
 import PlanComparisonTable from './components/PlanComparisonTable'
 import UsageCard from './components/UsageCard'
@@ -12,7 +13,10 @@ import { effectiveExpiry, formatDate, PLAN_LABELS, STATUS_LABELS } from './subsc
 import { useSubscription } from './subscriptionStore'
 import type { PlanInfo } from './types'
 
-/** Trang Gói dịch vụ: gói hiện tại, mức dùng, bảng so sánh gói và thao tác đổi gói (ADMIN). */
+/**
+ * Trang Gói dịch vụ: gói hiện tại, mức dùng, bảng so sánh gói; ADMIN thanh toán nâng cấp, gia hạn, chuyển gói và
+ * xem lịch sử giao dịch.
+ */
 export default function SubscriptionPage() {
   const { subscription, readOnly, loading, error, refresh } = useSubscription()
   const [plans, setPlans] = useState<PlanInfo[]>([])
@@ -130,6 +134,9 @@ export default function SubscriptionPage() {
       ) : (
         <PlanComparisonTable plans={plans} currentPlan={subscription?.plan ?? null} loading={plansLoading} />
       )}
+
+      {/* Lịch sử giao dịch chỉ ADMIN xem được (GET /api/auth/payments yêu cầu vai trò ADMIN) */}
+      {isAdmin && <PaymentHistoryTable />}
     </div>
   )
 }

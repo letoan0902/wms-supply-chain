@@ -726,6 +726,13 @@ Người làm: Linh. Ngày: 16/11. Jira: TASK-148. Phụ thuộc: WMS-23.5a, WMS
 
 Chạy trọn bước 5 của kịch bản demo trong SAAS_PLAN.md: hết hạn, chọn gói Pro, thanh toán, quay về thấy gói mở lại và ghi được dữ liệu.
 
+**Cách làm (đã làm, thư mục `frontend/src/features/subscription`)**
+
+- Nút thanh toán trên `/subscription` gửi `POST /api/auth/payments` với `plan: "PRO"` và `cycle` (không gửi số tiền), khóa nút trong lúc chờ, rồi chuyển trình duyệt sang `checkoutUrl` (chỉ nhận liên kết http, https).
+- `/payment/result`: đọc `orderCode`; nếu PayOS trả về kèm `cancel=true` hoặc `status=CANCELLED` thì gọi `POST /api/auth/payments/{orderCode}/cancel` trước (409 thì hỏi lại trạng thái thật). Sau đó hỏi `GET /api/auth/payments/{orderCode}` mỗi 2 giây, tối đa 60 giây: `PAID` báo thành công và tải lại thuê bao (tắt chế độ chỉ đọc), `CANCELLED` báo đã hủy, `EXPIRED` báo liên kết hết hạn, quá 60 giây vẫn `PENDING` báo đang chờ ngân hàng kèm nút "Kiểm tra lại", 404 báo không tìm thấy giao dịch.
+- `/payment/mock` (trang riêng, không có menu): mã đơn, số tiền, ô QR giả lập; "Xác nhận đã thanh toán" gọi `mock-confirm`, "Hủy" gọi API hủy, xong chuyển sang `/payment/result`.
+- Bảng lịch sử giao dịch (chỉ `ADMIN`): `GET /api/auth/payments?page=&size=10`, phân trang phía máy chủ; giao dịch đang chờ có liên kết tiếp tục thanh toán và kiểm tra trạng thái.
+
 ### WMS-23.6 [Backend] Kích hoạt doanh nghiệp qua email và đặt lại mật khẩu
 
 Người làm: Phương Anh. Ngày: 18/11. Jira: TASK-149. Phụ thuộc: WMS-23.1.

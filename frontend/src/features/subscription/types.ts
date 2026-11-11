@@ -56,6 +56,31 @@ export interface PlanInfo {
   trialDays: number | null
 }
 
+export type PaymentStatus = 'PENDING' | 'PAID' | 'CANCELLED' | 'EXPIRED'
+
+/** Một giao dịch thanh toán (vn.wms.auth.payment.dto.PaymentResponse). */
+export interface PaymentInfo {
+  /** Mã đơn PayOS, tối đa 16 chữ số nên vẫn nằm trong phạm vi số nguyên an toàn của JavaScript */
+  orderCode: number
+  plan: string
+  cycle: BillingCycle | string
+  /** Số tiền VND do máy chủ tính từ bảng gói */
+  amount: number
+  status: PaymentStatus | string
+  checkoutUrl: string | null
+  qrCode: string | null
+  reference: string | null
+  expiresAt: string | null
+  paidAt: string | null
+  createdAt: string | null
+}
+
+/** Body của POST /api/auth/payments: không có số tiền, máy chủ tự lấy giá từ bảng gói. */
+export interface CreatePaymentRequest {
+  plan: 'PRO'
+  cycle: BillingCycle
+}
+
 /** Loại giới hạn trong `data` của lỗi PLAN_LIMIT_EXCEEDED (vn.wms.common.plan.PlanLimit). */
 export type PlanLimitKind = 'USERS' | 'WAREHOUSES' | 'SKUS' | 'AI_REQUESTS' | 'API_ACCESS'
 

@@ -10,6 +10,7 @@ import { navigationItems } from './navigation'
 const LoginPage = lazy(() => import('../features/auth/LoginPage'))
 const ForgotPasswordPage = lazy(() => import('../features/auth/ForgotPasswordPage'))
 const LandingPage = lazy(() => import('../features/landing/LandingPage'))
+const MockCheckoutPage = lazy(() => import('../features/subscription/MockCheckoutPage'))
 
 // Các chức năng chưa phát triển dùng trang giữ chỗ, thay bằng trang thật khi hoàn thành
 const placeholderRoutes = navigationItems
@@ -57,6 +58,15 @@ export const router = createBrowserRouter([
     element: <ProtectedRoute />,
     children: [
       {
+        // Trang thanh toán giả lập (PAYOS_MOCK=true) đứng riêng, không có menu, giống một cổng thanh toán
+        path: 'payment/mock',
+        element: (
+          <Suspense fallback={<PageLoading fullScreen tip="Đang tải trang thanh toán..." />}>
+            <MockCheckoutPage />
+          </Suspense>
+        ),
+      },
+      {
         element: <MainLayout />,
         children: [
           // Dashboard chứa Recharts (nặng) nên tải theo yêu cầu để giảm kích thước bundle ban đầu
@@ -84,6 +94,8 @@ export const router = createBrowserRouter([
           { path: 'profile', Component: lazy(() => import('../features/profile/ProfilePage')) },
           // Gói dịch vụ, mức dùng và đổi gói của doanh nghiệp
           { path: 'subscription', Component: lazy(() => import('../features/subscription/SubscriptionPage')) },
+          // Kết quả thanh toán: PAYOS_RETURN_URL và PAYOS_CANCEL_URL trỏ về đây
+          { path: 'payment/result', Component: lazy(() => import('../features/subscription/PaymentResultPage')) },
           ...placeholderRoutes,
           { path: '*', element: <NotFoundPage /> },
         ],

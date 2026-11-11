@@ -2,6 +2,8 @@ import { Alert, App, Button, Card, Divider, Radio, Typography } from 'antd'
 import { useState } from 'react'
 import { getApiErrorMessage } from '../../../services/api'
 import { formatCurrency } from '../../../utils/format'
+import { createPayment } from '../paymentApi'
+import { isSafeCheckoutUrl } from '../paymentLogic'
 import { downgradeToFree } from '../subscriptionApi'
 import { canDowngradeToFree, CYCLE_LABELS, formatLimit } from '../subscriptionFormat'
 import type { BillingCycle, PlanInfo, SubscriptionInfo } from '../types'
@@ -19,6 +21,7 @@ export default function PlanActions({ subscription, plans, isAdmin, onChanged }:
   const { message, modal } = App.useApp()
   const [cycle, setCycle] = useState<BillingCycle>('MONTHLY')
   const [downgrading, setDowngrading] = useState(false)
+  const [paying, setPaying] = useState(false)
 
   if (!isAdmin) {
     return (
@@ -33,6 +36,23 @@ export default function PlanActions({ subscription, plans, isAdmin, onChanged }:
   const isRenewal = subscription.plan === 'PRO'
   const amount = proPlan ? (cycle === 'YEARLY' ? proPlan.priceYearly : proPlan.priceMonthly) : null
   const days = cycle === 'YEARLY' ? 365 : 30
+
+  // Tạo giao dịch rồi chuyển trình duyệt sang trang thanh toán; giữ trạng thái đang xử lý cho tới khi rời trang
+  const pay = async () => {
+    setPaying(true)
+    try {
+      const payment = await createPayment({ plan: 'PRO', cycle })
+      if (!isSafeCheckoutUrl(payment.checkoutUrl)) {
+        message.error('Máy chủ không trả về liên kết thanh toán hợp lệ')
+        setPaying(false)
+        return
+      }
+      window.location.assign(payment.checkoutUrl)
+    } catch (err) {
+      message.error(getApiErrorMessage(err, 'Không tạo được giao dịch thanh toán, vui lòng thử lại sau'))
+      setPaying(false)
+    }
+  }
 
   const confirmDowngrade = () => {
     modal.confirm({
@@ -91,8 +111,13 @@ export default function PlanActions({ subscription, plans, isAdmin, onChanged }:
           </div>
           <Typography.Paragraph type="secondary" className="mt-1 text-xs">
             Mỗi lần thanh toán cộng thêm {days} ngày, tính từ hôm nay hoặc từ ngày hết hạn hiện tại nếu gói còn hiệu
-            lực, nên thanh toán sớm không mất ngày còn lại.
+            lực, nên thanh toán sớm không mất ngày còn lại. Số tiền cuối cùng do máy chủ tính khi tạo giao dịch; liên
+            kết thanh toán có hiệu lực 15 phút.
           </Typography.Paragraph>
+          <Button type="primary" size="large" onClick={pay} loading={paying} disabled={paying}>
+            {isRenewal ? 'Thanh toán gia hạn' : 'Thanh toán nâng cấp'}
+            {amount !== null ? ` ${formatCurrency(amount)}` : ''}
+          </Button>
         </>
       ) : (
         <Alert type="warning" showIcon message="Chưa tải được giá gói Chuyên Nghiệp" />

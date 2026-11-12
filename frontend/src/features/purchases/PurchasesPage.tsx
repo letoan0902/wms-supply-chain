@@ -33,6 +33,7 @@ import {
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { useEffect, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import * as XLSX from 'xlsx'
 import { getApiErrorMessage } from '../../services/api'
 import { formatCurrency, formatNumber } from '../../utils/format'
@@ -48,6 +49,7 @@ import RejectPurchaseOrderModal from './components/RejectPurchaseOrderModal'
 import GoodsReceiptTable from './components/GoodsReceiptTable'
 import SmartGoodsReceiptForm from './components/SmartGoodsReceiptForm'
 import PurchaseBillsTable from './components/PurchaseBillsTable'
+import { readPurchasePrefill, type PurchaseOrderPrefill } from './purchaseDraft'
 import * as purchasesApi from './purchasesApi'
 import { STATUS_CONFIG } from './statusConfig'
 import type {
@@ -119,6 +121,26 @@ export default function PurchasesPage() {
   // Key làm mới danh sách
   const [refreshKey, setRefreshKey] = useState(0)
   const reloadData = () => setRefreshKey((k) => k + 1)
+
+  // Mở form lập đơn đã điền sẵn khi được điều hướng tới kèm `state` (ví dụ "Tạo đơn mua nháp" từ cảnh báo tồn thấp).
+  // Mỗi lần điều hướng (location.key) chỉ áp một lần; sau đó xóa `state` khỏi lịch sử để tải lại trang không mở lại form.
+  const location = useLocation()
+  const navigate = useNavigate()
+  const incomingPrefill = readPurchasePrefill(location.state)
+  const [prefill, setPrefill] = useState<PurchaseOrderPrefill | null>(null)
+  const [appliedPrefillKey, setAppliedPrefillKey] = useState<string | null>(null)
+  if (incomingPrefill && canCreatePo && appliedPrefillKey !== location.key) {
+    setAppliedPrefillKey(location.key)
+    setPrefill(incomingPrefill)
+    setFormKey((k) => k + 1)
+    setActiveTab('create')
+  }
+  const hasIncomingPrefill = incomingPrefill !== null
+  useEffect(() => {
+    if (hasIncomingPrefill) {
+      navigate(`${location.pathname}${location.search}`, { replace: true, state: null })
+    }
+  }, [hasIncomingPrefill, navigate, location.pathname, location.search])
 
   // Tải danh mục NCC và Kho cho bộ lọc
   useEffect(() => {
@@ -225,6 +247,7 @@ export default function PurchasesPage() {
   // Khi lập đơn mua hàng thành công từ Tab tạo mới
   const handleCreateSuccess = (created: PurchaseOrder) => {
     reloadData()
+    setPrefill(null)
     setFormKey((k) => k + 1)
     setActiveTab('list')
     setSelectedOrder(created)
@@ -232,8 +255,15 @@ export default function PurchasesPage() {
   }
 
   const handleOpenCreateTab = () => {
+    setPrefill(null)
     setFormKey((k) => k + 1)
     setActiveTab('create')
+  }
+
+  // Rời tab lập đơn thì bỏ giá trị điền sẵn: lần sau mở tab là một đơn trống
+  const handleTabChange = (key: string) => {
+    if (key !== 'create') setPrefill(null)
+    setActiveTab(key as typeof activeTab)
   }
 
   const handleOpenCreateGrnTab = (poId?: number) => {
@@ -654,7 +684,7 @@ export default function PurchasesPage() {
       <Tabs
         activeKey={activeTab}
         destroyInactiveTabPane
-        onChange={(k) => setActiveTab(k as typeof activeTab)}
+        onChange={handleTabChange}
         items={[
           {
             key: 'list',
@@ -833,8 +863,9 @@ export default function PurchasesPage() {
               <Card variant="borderless" className="shadow-2xs">
                 <PurchaseOrderForm
                   key={formKey}
+                  prefill={prefill}
                   onSuccess={handleCreateSuccess}
-                  onCancel={() => setActiveTab('list')}
+                  onCancel={() => handleTabChange('list')}
                 />
               </Card>
             ),

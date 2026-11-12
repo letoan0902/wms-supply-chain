@@ -36,6 +36,7 @@ import type { Supplier } from '../../suppliers/types'
 import * as warehouseApi from '../../warehouses/warehouseApi'
 import type { Warehouse } from '../../warehouses/types'
 import { calculateOrderTotals } from '../poCalculations'
+import type { PurchaseOrderPrefill } from '../purchaseDraft'
 import * as purchasesApi from '../purchasesApi'
 import type {
   CreatePurchaseOrderPayload,
@@ -60,6 +61,8 @@ interface FormValues {
 interface Props {
   initialOrder?: PurchaseOrder | null
   isEdit?: boolean
+  /** Điền sẵn sản phẩm và kho cho đơn mới (ví dụ từ cảnh báo tồn thấp); bị bỏ qua khi có `initialOrder` */
+  prefill?: PurchaseOrderPrefill | null
   onSuccess?: (order: PurchaseOrder) => void
   onCancel?: () => void
 }
@@ -67,9 +70,11 @@ interface Props {
 export default function PurchaseOrderForm({
   initialOrder,
   isEdit = false,
+  prefill: prefillProp,
   onSuccess,
   onCancel,
 }: Props) {
+  const prefill = initialOrder ? null : prefillProp ?? null
   const { message } = App.useApp()
   const [form] = Form.useForm<FormValues>()
 
@@ -99,6 +104,23 @@ export default function PurchaseOrderForm({
         note: it.note ?? '',
       }))
     }
+    if (prefill) {
+      // Số lượng để trống (0) cho người dùng tự nhập: cảnh báo và danh mục không có số lượng đặt hàng đề xuất
+      return [
+        {
+          _key: `row-1-${Date.now()}`,
+          productId: prefill.productId,
+          skuCode: prefill.skuCode ?? '',
+          productName: prefill.productName ?? '',
+          uom: 'Cái',
+          quantity: 0,
+          unitPrice: 0,
+          discountPercent: 0,
+          taxRate: 8,
+          note: '',
+        },
+      ]
+    }
     return [
       {
         _key: `row-1-${Date.now()}`,
@@ -119,8 +141,12 @@ export default function PurchaseOrderForm({
     initialOrder?.supplierId
   )
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<number | undefined>(
-    initialOrder?.warehouseId ?? undefined
+    initialOrder?.warehouseId ?? prefill?.warehouseId ?? undefined
   )
+  // Sản phẩm điền sẵn, giữ riêng để luôn có trong danh sách chọn (100 sản phẩm đầu hoặc kết quả tìm có thể không chứa nó)
+  const [prefillProduct, setPrefillProduct] = useState<Product | null>(null)
+  const prefillProductId = prefill?.productId
+  const prefillWarehouseId = prefill?.warehouseId
 
   // Tải danh mục ban đầu (tuân thủ giới hạn max-page-size: 100)
   useEffect(() => {
@@ -137,6 +163,11 @@ export default function PurchaseOrderForm({
           setSuppliers(supRes.content || [])
           setWarehouses(whRes || [])
           setProducts(prodRes.content || [])
+          // Kho điền sẵn không còn hoạt động hoặc ngoài phạm vi: bỏ chọn để người dùng chọn lại
+          if (prefillWarehouseId !== undefined && !(whRes || []).some((w) => w.id === prefillWarehouseId)) {
+            form.setFieldValue('warehouseId', undefined)
+            setSelectedWarehouseId(undefined)
+          }
         }
       } catch (err) {
         if (!ignore) {
@@ -153,7 +184,52 @@ export default function PurchaseOrderForm({
     return () => {
       ignore = true
     }
-  }, [message])
+  }, [message, form, prefillWarehouseId])
+
+  // Đọc sản phẩm điền sẵn từ danh mục và áp như khi người dùng tự chọn SKU: mã, tên, đơn vị tính, thuế suất, giá mua
+  useEffect(() => {
+    if (prefillProductId === undefined) return
+    let ignore = false
+    productApi
+      .fetchProductById(prefillProductId)
+      .then((product) => {
+        if (ignore) return
+        setPrefillProduct(product)
+        setItems((rows) =>
+          rows.map((row) =>
+            row.productId === product.id
+              ? {
+                  ...row,
+                  skuCode: product.sku,
+                  productName: product.name,
+                  uom: product.uomName || product.uomCode || row.uom,
+                  taxRate: product.vatRate ?? row.taxRate,
+                  unitPrice:
+                    row.unitPrice > 0
+                      ? row.unitPrice
+                      : product.purchasePrice && product.purchasePrice > 0
+                        ? product.purchasePrice
+                        : 0,
+                }
+              : row,
+          ),
+        )
+      })
+      .catch((err: unknown) => {
+        if (!ignore) {
+          message.error(getApiErrorMessage(err, 'Không tải được thông tin sản phẩm cần mua, vui lòng chọn lại SKU'))
+        }
+      })
+    return () => {
+      ignore = true
+    }
+  }, [prefillProductId, message])
+
+  const productOptions = useMemo(
+    () =>
+      prefillProduct && !products.some((p) => p.id === prefillProduct.id) ? [prefillProduct, ...products] : products,
+    [products, prefillProduct],
+  )
 
   // Tìm kiếm Nhà cung cấp theo từ khóa từ server (debounce 300ms)
   const supplierSearchTimeout = useRef<number | null>(null)
@@ -339,13 +415,30 @@ export default function PurchaseOrderForm({
           </Space>
         </div>
 
+        {prefill && (
+          <Alert
+            type="info"
+            showIcon
+            message="Đơn mua được điền sẵn từ cảnh báo tồn kho"
+            description={
+              <>
+                {prefill.sourceDescription && <div>{prefill.sourceDescription}</div>}
+                <div>
+                  Chọn nhà cung cấp, nhập số lượng cần mua và kiểm tra đơn giá. Đơn chỉ được tạo khi bấm Lưu nháp hoặc Gửi
+                  phê duyệt.
+                </div>
+              </>
+            }
+          />
+        )}
+
         <Form
           form={form}
           layout="vertical"
           initialValues={{
             poNumber: initialOrder?.poNumber,
             supplierId: initialOrder?.supplierId,
-            warehouseId: initialOrder?.warehouseId ?? undefined,
+            warehouseId: initialOrder?.warehouseId ?? prefill?.warehouseId ?? undefined,
             orderDate: initialOrder?.orderDate ? dayjs(initialOrder.orderDate) : dayjs(),
             expectedDate: initialOrder?.expectedDate ? dayjs(initialOrder.expectedDate) : undefined,
             note: initialOrder?.note ?? '',
@@ -534,7 +627,7 @@ export default function PurchaseOrderForm({
           <PurchaseOrderItemsTable
             items={items}
             onChange={setItems}
-            products={products}
+            products={productOptions}
             disabled={submitting}
             onSearchProducts={handleSearchProducts}
             loadingProducts={loadingProducts}

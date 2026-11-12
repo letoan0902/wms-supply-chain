@@ -110,6 +110,14 @@ Kênh đang có: `/topic/company/{companyId}/alerts` (`companyId` lấy từ JWT
 
 `title` theo `payload.kind`: `Hàng cận hạn sử dụng`, `Hàng đã hết hạn sử dụng`, `Hàng tồn lâu không luân chuyển`, `Cảnh báo tồn kho thấp`. `severity` của phong bì: `error` (CRITICAL), `warning`, `info`. `items` tối đa 10 dòng nghiêm trọng nhất, `totalItems` là tổng. Tin không lọc theo kho được phân công: popover nên ẩn tin có `payload.warehouseId` ngoài danh sách kho của người dùng (trừ ADMIN, ACCOUNTANT). Khi mở trang (chưa có tin WebSocket), lấy số đếm và danh sách ban đầu từ mục 3 (`/summary`) rồi mục 2; bấm một thông báo thì mở bảng tồn kho lọc `kind` và `warehouseId` tương ứng.
 
+Giao diện đã làm (`frontend/src/features/realtime/components/NotificationBell.tsx`, `useStockAlertFeed.ts`):
+
+- Huy hiệu chuông = `countsByKind.LOW_STOCK + NEAR_EXPIRY + EXPIRED` của `GET /summary` (không truyền `warehouseId`, tức mọi kho trong phạm vi người dùng; không tính `DEAD_STOCK`), màu đỏ khi `countsBySeverity.CRITICAL > 0`, hiện tối đa 99+. Chỉ vai trò có quyền `alert.read` (mọi vai trò, trừ vai trò bị giới hạn kho mà chưa được gán kho) mới gọi API; vai trò khác thấy chuông tin thời gian thực như trước.
+- Gọi `/summary` khi vào ứng dụng, mỗi lần mở popover, khi nối lại WebSocket và khi có tin `STOCK_ALERT`, `LOW_STOCK` (gom trong 1,5 giây) hoặc `INVENTORY_UPDATED` của kho trong phạm vi (gom trong 10 giây). Danh sách `GET /alerts?page=0&size=20` (thêm `kind` khi lọc) chỉ gọi khi popover đang mở ở mục cảnh báo.
+- Tin `STOCK_ALERT`, `LOW_STOCK` của kho ngoài phạm vi bị `realtimeConnection.ts` bỏ qua (không vào chuông, không toast) với vai trò ngoài ADMIN, ACCOUNTANT.
+- Backend chưa có API đánh dấu đã đọc hoặc đã xử lý cảnh báo: cảnh báo tự hết khi tồn được bổ sung hoặc lô được xử lý, giao diện không giả lập thao tác này.
+- Nút "Tạo đơn mua nháp" trên cảnh báo `LOW_STOCK` (chỉ ADMIN, PURCHASING) mở `/purchases` với form lập đơn điền sẵn sản phẩm và kho; số lượng để trống vì cảnh báo và danh mục không có số lượng đặt hàng đề xuất. Chưa lưu gì cho tới khi người dùng bấm Lưu nháp hoặc Gửi phê duyệt.
+
 ## 6. Email (chỉ để biết, giao diện không gọi)
 
 Sau mỗi lần quét, quản lý của kho có cảnh báo và admin của doanh nghiệp nhận MỘT email cho mỗi loại `LOW_STOCK`, `NEAR_EXPIRY`, `EXPIRED` trong ngày (admin gộp mọi kho trong một email). Máy chủ chưa cấu hình SMTP (`MAIL_HOST` rỗng) thì email không gửi mà nội dung được ghi vào log của notification-service.

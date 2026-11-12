@@ -57,8 +57,13 @@ export const CAPABILITIES = {
   'location.read': { roles: ['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF'], scope: 'read' },
   /** Tạo, tạo hàng loạt, sửa, xóa vị trí ô kệ */
   'location.write': { roles: ['ADMIN', 'WAREHOUSE_MANAGER'], scope: 'write' },
-  /** Đọc tồn, lô, hàng đang về, ATP, cảnh báo tồn kho */
+  /** Đọc tồn, lô, hàng đang về, ATP */
   'stock.read': { roles: ALL },
+  /**
+   * Danh sách và số đếm cảnh báo tồn kho (GET /api/inventory/alerts, /alerts/summary): mọi vai trò, nhưng vai trò
+   * ngoài ADMIN, ACCOUNTANT chưa được gán kho nhận 403 (`resolveAllowedWarehouses`)
+   */
+  'alert.read': { roles: ALL, scope: 'read' },
   /** Khóa, mở khóa lô, khóa lô hết hạn */
   'lot.lock': { roles: ['ADMIN', 'WAREHOUSE_MANAGER'], scope: 'write' },
   /** Chạy quét cảnh báo tồn kho ngay (POST /api/inventory/alerts/scan) */

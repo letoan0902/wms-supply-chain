@@ -14,6 +14,7 @@ import vn.wms.order.entity.SalesOrder;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 
 public interface SalesOrderRepository extends JpaRepository<SalesOrder, Long> {
@@ -105,5 +106,49 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Long> {
             @Param("statuses") Collection<OrderStatus> statuses,
             @Param("maxExpectedDate") LocalDate maxExpectedDate,
             @Param("warehouseId") Long warehouseId
+    );
+
+    /*
+     * Ba truy vấn dưới đây phục vụ biểu đồ mua bán theo thời gian trên dashboard (WMS-16.4). Đều là JPQL nên Hibernate
+     * tự thêm điều kiện doanh nghiệp (@TenantId); không đổi sang native SQL. {@code allWarehouses = true} thì bỏ qua
+     * {@code warehouseIds} (vẫn phải truyền danh sách không rỗng vì mệnh đề IN không nhận danh sách rỗng).
+     */
+
+    /** Theo từng ngày đặt hàng: [0] LocalDate orderDate, [1] Long số đơn, [2] BigDecimal tổng thành tiền. */
+    @Query("SELECT so.orderDate, COUNT(so), COALESCE(SUM(so.totalAmount), 0) FROM SalesOrder so " +
+           "WHERE so.status IN :statuses " +
+           "  AND so.orderDate >= :fromOrderDate AND so.orderDate <= :toOrderDate " +
+           "  AND (:allWarehouses = true OR so.warehouseId IN :warehouseIds) " +
+           "GROUP BY so.orderDate")
+    List<Object[]> sumByOrderDate(
+            @Param("fromOrderDate") LocalDate fromOrderDate,
+            @Param("toOrderDate") LocalDate toOrderDate,
+            @Param("statuses") Collection<OrderStatus> statuses,
+            @Param("allWarehouses") boolean allWarehouses,
+            @Param("warehouseIds") Collection<Long> warehouseIds
+    );
+
+    /** Tổng số lượng trên dòng đơn theo từng ngày đặt hàng: [0] LocalDate orderDate, [1] BigDecimal số lượng. */
+    @Query("SELECT i.salesOrder.orderDate, COALESCE(SUM(i.quantity), 0) FROM SalesOrderItem i " +
+           "WHERE i.salesOrder.status IN :statuses " +
+           "  AND i.salesOrder.orderDate >= :fromOrderDate AND i.salesOrder.orderDate <= :toOrderDate " +
+           "  AND (:allWarehouses = true OR i.salesOrder.warehouseId IN :warehouseIds) " +
+           "GROUP BY i.salesOrder.orderDate")
+    List<Object[]> sumItemQuantityByOrderDate(
+            @Param("fromOrderDate") LocalDate fromOrderDate,
+            @Param("toOrderDate") LocalDate toOrderDate,
+            @Param("statuses") Collection<OrderStatus> statuses,
+            @Param("allWarehouses") boolean allWarehouses,
+            @Param("warehouseIds") Collection<Long> warehouseIds
+    );
+
+    /** Ngày đặt hàng sớm nhất (null nếu không có đơn), dùng làm ngày đầu của khoảng ALL_TIME. */
+    @Query("SELECT MIN(so.orderDate) FROM SalesOrder so " +
+           "WHERE so.status IN :statuses " +
+           "  AND (:allWarehouses = true OR so.warehouseId IN :warehouseIds)")
+    LocalDate findEarliestOrderDate(
+            @Param("statuses") Collection<OrderStatus> statuses,
+            @Param("allWarehouses") boolean allWarehouses,
+            @Param("warehouseIds") Collection<Long> warehouseIds
     );
 }

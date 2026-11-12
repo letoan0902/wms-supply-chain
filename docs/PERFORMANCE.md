@@ -3,7 +3,8 @@
 Tài liệu của WMS-19: bộ nhớ đệm Redis cho tổng tồn và tồn khả dụng (WMS-19.1), chỉ mục theo doanh nghiệp và sửa truy
 vấn lặp cho các API danh sách (WMS-19.3). Yêu cầu gốc nằm ở SRS (API nghiệp vụ phản hồi trong 500 ms, trừ tồn chịu 30
 đến 50 request đồng thời, Dashboard tải trong 2 giây có phân trang) và ở `docs/project-management/KE_HOACH_JIRA.md`
-(WMS-19, WMS-19.1 đến WMS-19.3). Kiểm thử tải đồng thời (WMS-19.2) là task riêng.
+(WMS-19, WMS-19.1 đến WMS-19.3). Kiểm thử tải đồng thời (WMS-19.2) là task riêng; lỗi cạn nhóm kết nối nó phát hiện
+và cách định cỡ nhóm kết nối nằm ở mục 5 (WMS-20.4).
 
 ## 1. Bộ nhớ đệm tổng tồn và tồn khả dụng (WMS-19.1)
 
@@ -193,3 +194,101 @@ trong phạm vi người dùng và danh sách kho (giới hạn theo gói dịch
 - **Đệm danh sách và báo cáo.** Kết quả lọc nhiều chiều và phân trang, tỷ lệ trúng thấp; tối ưu bằng chỉ mục.
 - **Tìm kiếm theo từ khóa** (`LIKE '%từ khóa%'`) không dùng được chỉ mục B-tree; trong phạm vi một doanh nghiệp số dòng
   nhỏ nên chấp nhận. Cần thì dùng FULLTEXT ở một task riêng.
+
+## 5. Nhóm kết nối cơ sở dữ liệu (WMS-20.4)
+
+### 5.1. Sự cố khi chạy tải
+
+Chạy `qa/load/concurrency.mjs` trên bộ Docker thật (40 thao tác mỗi giây, trộn tạo đơn bán, xác nhận, lập phiếu xuất và
+đọc của một doanh nghiệp): order-service ngừng trả lời. 604 trên 637 lần `POST /api/orders/sales` hết thời gian chờ 30
+giây, các API đọc của order-service cũng treo, inventory-service vẫn nhanh. Log order-service có 562 dòng
+`SQLTransientConnectionException: HikariPool-1 - Connection is not available, request timed out after 30000ms` và
+khoảng chục dòng `Lock wait timeout exceeded`.
+
+### 5.2. Nguyên nhân và cách sửa
+
+`DocumentNumberService` cấp số chứng từ trong một transaction `REQUIRES_NEW` trên nhóm kết nối chính, trong khi phương
+thức tạo chứng từ gọi nó (`@Transactional` của đơn bán, đơn mua, phiếu nhập, phiếu xuất, hóa đơn mua) đang giữ một kết
+nối của cùng nhóm. Mỗi request tạo chứng từ vì vậy cần HAI kết nối. Khi số request tạo chứng từ cùng lúc bằng kích thước
+nhóm (mặc định 10), mỗi luồng giữ một kết nối và chờ kết nối thứ hai: không luồng nào đi tiếp được cho tới khi hết 30
+giây chờ, và mọi request khác của service (kể cả API đọc) chờ chung nhóm đó.
+
+Quy tắc: **không bao giờ mở transaction mới trên cùng một nhóm kết nối khi đang giữ một kết nối của nhóm đó**
+(`@Transactional(propagation = REQUIRES_NEW)`, `TransactionTemplate` với `PROPAGATION_REQUIRES_NEW`, hay lấy thêm kết
+nối từ cùng `DataSource`). Cần một transaction độc lập bên trong transaction đang mở thì dùng nhóm kết nối riêng mà luồng
+giữ nó không chờ gì khác. `REQUIRES_NEW` chỉ an toàn khi người gọi chắc chắn không giữ kết nối (không có transaction bao
+ngoài; `spring.jpa.open-in-view: false` ở mọi service nên controller không giữ kết nối).
+
+Cách sửa: cấp số qua nhóm kết nối riêng `document-sequence` (lớp `DocumentSequencePool`, cùng URL, tài khoản, driver với
+nhóm chính, mặc định 3 kết nối, biến `DOCUMENT_SEQUENCE_POOL_SIZE`), bằng JDBC thuần trong một transaction ngắn:
+`SELECT ... FOR UPDATE` dòng (company_id, tiền tố), `UPDATE` hoặc `INSERT` khi chưa có dòng, commit. Đồ thị chờ không
+còn vòng: luồng giữ kết nối chính có thể chờ kết nối cấp số; luồng giữ kết nối cấp số chỉ chờ khóa dòng bộ đếm, được trả
+sau vài mili giây. Truy vấn số lớn nhất đã có (khởi tạo bộ đếm) và kiểm tra số đã dùng vẫn chạy qua JPA trên kết nối của
+người gọi, lúc không giữ kết nối cấp số. Bảo đảm cũ giữ nguyên: số duy nhất theo doanh nghiệp và tiền tố kể cả khi chạy
+nhiều phiên bản service, khóa chỉ giữ vài mili giây, chứng từ lập thất bại chỉ bỏ qua một số. Nhóm này cố ý không đăng ký
+thành bean `DataSource` để Spring Boot vẫn tự cấu hình nhóm chính cho JPA và Flyway.
+
+Kiểm chứng: `DocumentNumberPoolStarvationTest` thu nhóm chính còn 4 kết nối (chờ tối đa 3 giây) và cấp số từ 16 luồng
+cùng lúc trong transaction đã giữ kết nối, cho hai doanh nghiệp. Trên mã cũ test hỏng vì
+`HikariPool-1 - Connection is not available, request timed out after 3017ms (total=4, active=4, idle=0, waiting=10)`;
+với bản sửa mọi lần cấp thành công, mỗi doanh nghiệp nhận đúng `...-0001` đến `...-0008`. Cùng kịch bản, thêm 64 luồng
+chia cho hai phiên bản service (mỗi phiên bản một nhóm cấp số riêng), đã chạy trên MySQL 8.0.43 thử nghiệm sau khi Flyway
+áp V1 đến V11 và Hibernate kiểm tra schema: số liên tiếp, không trùng, không deadlock, không `Lock wait timeout`.
+
+### 5.3. Rà soát cả backend và định cỡ nhóm kết nối
+
+| Chỗ | Có giữ kết nối khi lấy kết nối thứ hai? | Kết luận |
+| --- | --- | --- |
+| `DocumentNumberService` (order-service) | Có: gọi từ năm phương thức tạo chứng từ `@Transactional` | Lỗi thật, đã sửa ở mục 5.2 |
+| `PartnerBulkImportService` (order-service, `REQUIRES_NEW` mỗi dòng) | Không: controller gọi thẳng, lớp không có transaction bao ngoài | Không phải lỗi |
+| `ProductBulkRowImporter` (product-service, `REQUIRES_NEW` mỗi dòng) | Không: `ProductBulkService` cố ý không có transaction | Không phải lỗi |
+| `StockAlertRunGuard` (inventory-service, `REQUIRES_NEW`) | Không: `StockAlertScanService` không có transaction, phần đọc của `StockAlertDetector` là transaction chỉ đọc đã đóng trước khi giữ chỗ | Không phải lỗi |
+| `TransactionTemplate` của `PaymentService` (auth-service) | Không: propagation mặc định, gọi PayOS ngoài transaction | Không phải lỗi |
+| Open-session-in-view | `spring.jpa.open-in-view: false` ở mọi service có JPA và ở `config-repo/application.yml` | Controller không giữ kết nối, không cần đổi |
+| Callback sau commit (`afterCommit`, `@TransactionalEventListener`) | Chỉ gửi RabbitMQ, xóa Redis hoặc gọi inventory-service giải phóng giữ chỗ, không mở transaction | Không phải lỗi |
+
+Giữ một kết nối trong lúc gọi đồng bộ sang service khác là thiết kế có chủ đích (lỗi bên kia thì rollback cả thao tác):
+order-service xác nhận đơn bán và tạo đơn ở trạng thái đã xác nhận (kiểm tra tồn khả dụng từng dòng rồi giữ chỗ), lập và
+xuất phiếu xuất kho (trừ tồn), lập và xác nhận phiếu nhập (kiểm tra ô kệ đang kiểm kê); inventory-service lập báo cáo tồn
+trong transaction chỉ đọc có gọi product-service. Thời gian giữ bị chặn bởi thời gian chờ của Feign:
+
+| Service | Feign kết nối / đọc | Một lần gọi tối đa | Lần gọi GET, nếu Spring Cloud LoadBalancer thử lại một lần (mặc định khi có spring-retry) |
+| --- | --- | --- | --- |
+| order-service (đã đặt từ trước) | 3 s / 5 s | 8 s | 16 s |
+| inventory-service (trước: mặc định 10 s / 60 s) | 2 s / 5 s | 7 s | 14 s |
+
+Trường hợp xấu nhất của order-service khi inventory-service treo: xác nhận đơn N dòng giữ kết nối tối đa khoảng
+16 x N + 8 giây (mỗi dòng một lần đọc tồn khả dụng, cộng một lần giữ chỗ); lập phiếu xuất, xuất kho, lập phiếu nhập
+khoảng 8 giây cho lần gọi POST. Trên thực tế lần gọi đầu tiên lỗi là cả thao tác dừng và rollback, nên một request thường
+giữ kết nối tối đa 16 giây, thấp hơn 30 giây chờ kết nối của Hikari.
+
+Định cỡ (biến `DB_POOL_SIZE` của từng container):
+
+| Service | Nhóm chính | Lý do |
+| --- | --- | --- |
+| order-service | 20 (mặc định của Hikari là 10) + 3 kết nối cấp số | Giữ kết nối trong lúc gọi inventory-service |
+| inventory-service | 20 | Nhận các lần gọi trên dưới khóa bi quan, báo cáo gọi product-service |
+| auth-service, product-service, notification-service | 10 (mặc định) | Transaction ngắn, không giữ kết nối qua lời gọi mạng |
+
+Tổng một bộ service: 10 + 10 + 10 + 20 + 23 = 73 kết nối, nhỏ hơn `max_connections` mặc định 151 của MySQL 8 (compose
+không đổi giá trị này); chạy thêm một bản order-service và inventory-service vẫn còn dưới (116). Tomcat giữ mặc định
+(tối đa 200 luồng, hàng đợi 100): luồng vượt số kết nối xếp hàng chờ Hikari tối đa 30 giây (`connection-timeout` mặc
+định), nên kết nối phải được trả nhanh như trên chứ không tăng nhóm vô hạn.
+
+### 5.4. Đo lại trên hệ thống thật sau khi sửa (12/11/2026)
+
+Build lại order-service và inventory-service với bản sửa, chạy lại `qa/load/concurrency.mjs` trên cùng bộ Docker (13
+container và công cụ bắn tải chung một máy phát triển, mọi thao tác dồn vào một mặt hàng ở một kho):
+
+| Tải | Kết quả | `POST /api/orders/sales` p95 | `POST .../sales/{id}/confirm` p95 | `POST /api/orders/goods-delivery-notes` p95 |
+| --- | --- | --- | --- | --- |
+| 40 thao tác/giây, trước khi sửa | order-service treo, 604 trên 637 lần tạo đơn bán hết 30 giây chờ | 30.015 ms | 30.020 ms | 30.017 ms |
+| 40 thao tác/giây, sau khi sửa | 1.200 thao tác trong 30,3 giây, không lỗi 5xx, mọi bất biến tồn kho đạt | 2.480 ms | 2.563 ms | 2.540 ms |
+| 20 thao tác/giây, sau khi sửa | 600 thao tác, không lỗi, mọi bất biến đạt | 122 ms | 132 ms | 150 ms |
+| 10 thao tác/giây, sau khi sửa | 300 thao tác, không lỗi, mọi bất biến đạt | 99 ms | 107 ms | 159 ms |
+
+Bản sửa xử lý đúng sự cố treo: không còn request hết thời gian chờ, log không còn dòng `Connection is not available`.
+Yêu cầu trả lời trong 500 ms đạt tới khoảng 20 thao tác mỗi giây; ở 40 thao tác mỗi giây request xếp hàng nên p95 khoảng
+2,5 giây dù kết quả vẫn đúng. Điểm bão hòa nằm giữa hai mức này và chưa được phân tích: chưa biết phần chờ thuộc về khóa
+dòng tồn kho của một mặt hàng (kịch bản cố ý dồn vào một dòng), nhóm kết nối hay CPU của máy thử. Muốn kết luận cho máy
+chủ triển khai cần đo lại ở đó và với tải rải trên nhiều mặt hàng.

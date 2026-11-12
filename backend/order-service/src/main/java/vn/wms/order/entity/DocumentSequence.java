@@ -14,6 +14,8 @@ import vn.wms.common.tenant.TenantEntity;
 /**
  * Bộ đếm số chứng từ của một doanh nghiệp theo tiền tố, ví dụ {@code PO-20261110-} (WMS-22.4b).
  * Mỗi doanh nghiệp có bộ đếm riêng nên hai doanh nghiệp cùng có thể có {@code PO-20261110-0001}.
+ * Entity chỉ dùng để Hibernate kiểm tra schema và để đọc; việc cấp số do DocumentNumberService ghi bằng JDBC trên
+ * nhóm kết nối riêng (WMS-20.4).
  */
 @Entity
 @Table(name = "document_sequences", uniqueConstraints = @UniqueConstraint(
@@ -36,11 +38,5 @@ public class DocumentSequence extends TenantEntity {
     public DocumentSequence(String prefix, long lastNumber) {
         this.prefix = prefix;
         this.lastNumber = lastNumber;
-    }
-
-    /** Cấp số tiếp theo và trả về số vừa cấp. */
-    public long increment() {
-        lastNumber++;
-        return lastNumber;
     }
 }

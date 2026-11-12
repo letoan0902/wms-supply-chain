@@ -114,13 +114,7 @@ public class OrderReportService {
 
         // 4. Xác định mốc thời gian lọc (ngày đặt hàng, tính cả hai đầu)
         LocalDate today = LocalDate.now();
-        LocalDate startDate = switch (range) {
-            case "TODAY" -> today;
-            case "THIS_MONTH" -> today.withDayOfMonth(1);
-            case "THIS_QUARTER" -> LocalDate.of(today.getYear(), ((today.getMonthValue() - 1) / 3) * 3 + 1, 1);
-            case "ALL_TIME" -> LocalDate.of(2000, 1, 1);
-            default -> today.minusDays(6); // 7 ngày gần nhất, tính cả hôm nay
-        };
+        LocalDate startDate = rangeStart(range, today);
 
         // 5. Tổng hợp trong cơ sở dữ liệu (JPQL nên được lọc theo doanh nghiệp tự động qua @TenantId)
         List<Object[]> rawRows = salesOrderItemRepository.findTopSoldProducts(
@@ -199,7 +193,22 @@ public class OrderReportService {
         return limit;
     }
 
-    private static String resolveRange(String dateRange) {
+    /**
+     * Ngày đầu của khoảng thời gian (tính cả ngày đó); ngày cuối luôn là {@code today}. Dùng chung cho mọi báo cáo
+     * của dashboard để các biểu đồ cùng một mốc.
+     */
+    public static LocalDate rangeStart(String range, LocalDate today) {
+        return switch (range) {
+            case "TODAY" -> today;
+            case "THIS_MONTH" -> today.withDayOfMonth(1);
+            case "THIS_QUARTER" -> LocalDate.of(today.getYear(), ((today.getMonthValue() - 1) / 3) * 3 + 1, 1);
+            case "ALL_TIME" -> LocalDate.of(2000, 1, 1);
+            default -> today.minusDays(6); // 7 ngày gần nhất, tính cả hôm nay
+        };
+    }
+
+    /** Chuẩn hóa tham số {@code dateRange}: bỏ trống là 7_DAYS, giá trị ngoài {@link #DATE_RANGES} trả 400. */
+    public static String resolveRange(String dateRange) {
         if (dateRange == null || dateRange.isBlank()) {
             return "7_DAYS";
         }

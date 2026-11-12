@@ -16,6 +16,11 @@ spring:
     url: "${DB_URL:jdbc:mysql://localhost:3306/inventory_db?createDatabaseIfNotExist=true}"
     username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD:change_me}
+    hikari:
+      # Nhận giữ chỗ, trừ tồn và kiểm tra ô kệ từ order-service dưới khóa bi quan, báo cáo tồn gọi product-service trong
+      # transaction chỉ đọc: cần nhiều kết nối hơn mặc định 10 (docs/PERFORMANCE.md mục 5.3). Cộng mọi nhóm của mọi
+      # service phải nhỏ hơn max_connections của MySQL (151).
+      maximum-pool-size: ${DB_POOL_SIZE:20}
   jpa:
     open-in-view: false
     hibernate:
@@ -62,6 +67,16 @@ spring:
         enabled: true
         max-attempts: 3
         initial-interval: 500ms
+  cloud:
+    openfeign:
+      client:
+        config:
+          # Gọi product-service, auth-service. Báo cáo tồn gọi product-service trong transaction chỉ đọc (giữ một kết
+          # nối): thời gian chờ mặc định của Feign (kết nối 10 giây, đọc 60 giây) dài hơn cả 30 giây chờ kết nối của
+          # Hikari, nên đặt ngắn để service chậm không giữ kết nối lâu (docs/PERFORMANCE.md mục 5.3).
+          default:
+            connect-timeout: 2000
+            read-timeout: 5000
 
 eureka:
   client:

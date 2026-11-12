@@ -28,6 +28,16 @@ public interface ProductClient {
                                                           @RequestParam("page") int page,
                                                           @RequestParam("size") int size);
 
+    /**
+     * Danh mục hàng hóa của doanh nghiệp (kèm nhóm hàng) qua đường dẫn nội bộ của product-service, cùng route với
+     * {@code AlertProductClient}; dùng cho biểu đồ tỷ trọng tồn kho theo nhóm hàng trên dashboard (WMS-16.4).
+     * Đường dẫn nội bộ không phụ thuộc vai trò của người xem nên mọi vai trò được xem dashboard đều dùng được.
+     */
+    @GetMapping("/internal/products")
+    ApiResponse<PageResponse<ProductInfo>> listCatalog(@RequestParam("page") int page,
+                                                       @RequestParam("size") int size,
+                                                       @RequestParam("sort") String sort);
+
     /** Chi tiết một sản phẩm, dùng để bổ sung mã và tên cho dòng báo cáo chưa có ảnh chụp trong sổ kho (WMS-17.1). */
     @GetMapping("/api/products/{id}")
     ApiResponse<ProductInfo> getProduct(@PathVariable("id") Long id);

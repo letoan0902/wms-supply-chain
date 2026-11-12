@@ -22,13 +22,33 @@ Chỉ sửa chữ hiển thị, không đổi hành vi, bố cục, lời gọi 
 
 Giá trị gửi lên hoặc so sánh với backend (enum trạng thái, tên trường API, tên biến, mã trong chú thích) được giữ nguyên.
 
-## Còn lại và thuộc về ai
+## Lượt bấm thử sau đó trong ngày 12/11/2026
 
-- Dashboard: tám thẻ KPI, trung tâm cảnh báo và biểu đồ còn là dữ liệu mẫu cứng, mâu thuẫn với khối "Tóm tắt bằng AI" ngay phía trên (đang dùng số thật). Việc này nằm trong PR #75 (WMS-16.2, WMS-16.3) và WMS-16.4, thuộc người phụ trách các task đó.
+Sau khi các màn hình mới được gộp, bấm thử trên cùng stack bằng tài khoản ADMIN của một doanh nghiệp thử có dữ liệu
+(ba mặt hàng, một phiếu nhập, hai cảnh báo tồn thấp, một lô cận hạn):
+
+| Màn hình | Thao tác | Kết quả |
+| --- | --- | --- |
+| Đăng nhập | Đăng nhập bằng tài khoản thử | Đạt |
+| Dashboard | Tám thẻ KPI, tóm tắt bằng AI (Claude thật), danh sách cảnh báo, ba khối mới của WMS-16.4 | Đạt, số khớp dữ liệu thử |
+| Chuông cảnh báo (WMS-15.4) | Mở chuông, lọc, bấm "Tạo đơn mua nháp" | Đạt: form đơn mua điền sẵn hàng và kho, số lượng để trống. Chưa bấm lưu đơn |
+| Kiểm kê | Tạo đợt, bắt đầu, màn hình đếm: quét mã vị trí, mã vạch, SKU | Tìm thấy lỗi: hàng không quản lý theo lô bị ghi thành hàng phát sinh. Đã sửa, thử lại đạt |
+| Nhập dữ liệu bằng AI | Tải file CSV, trích xuất bằng Claude thật, xem trước, nhập | Đạt: hai dòng tạo mới, một dòng bỏ qua vì mã đã có |
+
+Lượt này cũng bỏ nốt các nhãn lẫn tiếng Anh nhìn thấy khi bấm: chữ trong ngoặc ở tiêu đề đơn mua, đơn bán và dòng tổng
+tiền, "CẬN DATE" thành "CẬN HẠN".
+
+## Còn lại
+
 - Nhãn viết tắt kỹ thuật "RBAC" ở màn hình Người dùng và trang giới thiệu gói được giữ lại, chờ thống nhất cách gọi với nhóm.
+- Dashboard đã dùng số liệu thật ở mọi khối (PR #75, #78, #79). Thẻ Giá trị tồn kho và tỷ trọng theo giá trị để trống hoặc
+  tính theo số lượng vì tồn kho chưa có giá vốn.
 
 ## Chưa kiểm tra được
 
-- Thao tác trên form (tạo, sửa, quét mã) bằng tay trên giao diện: luồng nghiệp vụ đã được kiểm thử qua API bằng bộ Postman (1.258 kiểm tra đạt), còn thao tác trên form chưa bấm thử từng cái.
-- Hiển thị trên điện thoại (375 px): chưa chụp được màn hình vì khung trình duyệt chạy nền.
-- Các vai trò khác ADMIN: bảng quyền đã kiểm bằng script và test backend, chưa đăng nhập từng vai trò để nhìn giao diện.
+- Các form chưa bấm thử từng bước: đăng ký doanh nghiệp, đối soát và duyệt kiểm kê, thanh toán gói, lưu đơn mua tạo từ
+  cảnh báo, khung trợ lý AI với Claude thật (đã thử ở chế độ giả lập). Luồng nghiệp vụ tương ứng đã qua bộ Postman
+  (1.258 kiểm tra đạt).
+- Hiển thị trên điện thoại (375 px): chưa xem được vì khung trình duyệt dùng để rà chạy nền, không dựng hình đúng kích thước.
+- Các vai trò khác ADMIN: bảng quyền đã kiểm bằng test backend và bộ Postman, chưa đăng nhập từng vai trò để nhìn giao diện.
+- Trình duyệt khác nhân Chromium (Firefox, Safari).

@@ -16,6 +16,11 @@ spring:
     url: "${DB_URL:jdbc:mysql://localhost:3306/order_db?createDatabaseIfNotExist=true}"
     username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD:change_me}
+    hikari:
+      # Xác nhận đơn bán, lập và xuất phiếu xuất kho, lập phiếu nhập giữ một kết nối trong lúc gọi đồng bộ sang
+      # inventory-service (tối đa connect-timeout + read-timeout của Feign bên dưới), nên cần nhiều kết nối hơn mặc định
+      # 10 (docs/PERFORMANCE.md mục 5.3). Cộng mọi nhóm của mọi service phải nhỏ hơn max_connections của MySQL (151).
+      maximum-pool-size: ${DB_POOL_SIZE:20}
   jpa:
     open-in-view: false
     hibernate:
@@ -105,6 +110,10 @@ app:
   # (deploy/docker-compose.prod.yml): request thiếu danh tính nhận 401 ngay tại service.
   security:
     allow-anonymous-without-gateway: ${SECURITY_ALLOW_ANONYMOUS:true}
+  # Nhóm kết nối riêng để cấp số chứng từ (WMS-20.4, docs/PERFORMANCE.md mục 5): mỗi kết nối chỉ bị giữ vài mili giây,
+  # tách khỏi nhóm chính để request lập chứng từ không chờ kết nối thứ hai của nhóm mà nó đang giữ một kết nối.
+  document-sequence:
+    pool-size: ${DOCUMENT_SEQUENCE_POOL_SIZE:3}
 
 ---
 # Nạp cấu hình tập trung từ Config Server. Tiền tố optional nghĩa là Config Server chưa chạy thì service vẫn

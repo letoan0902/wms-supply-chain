@@ -96,6 +96,8 @@ ADMIN là quản trị của một doanh nghiệp nên có mọi quyền nghiệ
 | `GET /api/inventory/reports/**` (nhập-xuất-tồn, thẻ kho, truy vết lô, kèm `/export` tải file Excel của nhập-xuất-tồn và thẻ kho: cùng quyền và phạm vi kho) | R | R (kho được gán) | R (kho được gán) | - | - | R | - |
 | `GET /api/inventory/alerts`, `/alerts/summary` (cảnh báo tồn kho, theo phạm vi kho của người gọi) | R | R | R | R | R | R | R |
 | `POST /api/inventory/alerts/scan` (chạy quét cảnh báo ngay) | W | - | - | - | - | - | - |
+| `GET /api/inventory/dashboard/stock-by-category` (tỷ trọng tồn kho theo nhóm hàng trên dashboard, chỉ số lượng, kho lọc theo phạm vi) | R | R | R | R | R | R | - |
+| `GET /api/inventory/dashboard/recent-transactions` (giao dịch kho gần nhất trên dashboard, cùng quyền và phạm vi với báo cáo kho) | R | R (kho được gán) | R (kho được gán) | - | - | R | - |
 | `GET /api/inventory/stocktakes/**` (danh sách, chi tiết, dòng đếm) | R | R | R | - | - | R | - |
 | `GET /api/inventory/stocktakes/{id}/variances` | R | R | - | - | - | R | - |
 | Lập, bắt đầu, kết thúc, đếm lại, hủy, ghi lý do, duyệt cấp quản lý | W | W (kho được gán) | - | - | - | - | - |
@@ -134,6 +136,7 @@ ADMIN là quản trị của một doanh nghiệp nên có mọi quyền nghiệ
 | `GET /api/orders/purchase-bills/**` | R | R | - | R | - | R | R |
 | Ghi thanh toán hóa đơn mua | W | - | - | - | - | W | - |
 | `GET /api/orders/reports/trending-items` (mặt hàng bán chạy trên dashboard, chỉ số lượng, kho lọc theo phạm vi) | R | R | R | R | R | R | - |
+| `GET /api/orders/reports/purchase-sales-trend` (mua bán theo thời gian trên dashboard; số tiền chỉ trả cho ADMIN, ACCOUNTANT, kho lọc theo phạm vi) | R | R | R | R | R | R | - |
 
 ### notification-service và ai-service
 
@@ -162,6 +165,11 @@ vai trò ở chế độ máy chủ; dùng `vn.wms.common.test.GatewayHeaders` (
 - KPI dashboard mở cho cả sáu vai trò (SRS UC-10: mọi tác nhân); service đã che số tiền và lọc theo kho. Biểu đồ
   mặt hàng bán chạy (`/api/orders/reports/trending-items`) cùng sáu vai trò: chỉ có số lượng, không có số tiền, vai trò
   không phải ADMIN, ACCOUNTANT chỉ thấy các kho được gán.
+- Các biểu đồ dưới thẻ KPI (WMS-16.4, [api/DASHBOARD.md](api/DASHBOARD.md)): mua bán theo thời gian và tỷ trọng tồn
+  kho theo nhóm hàng cùng sáu vai trò và phạm vi kho như biểu đồ mặt hàng bán chạy; số tiền mua bán chỉ trả cho ADMIN,
+  ACCOUNTANT (vai trò khác nhận `null`, như thẻ KPI tài chính); tỷ trọng tồn chỉ có số lượng vì tồn kho chưa có giá
+  vốn. Bảng giao dịch kho gần nhất lộ số chứng từ và người thực hiện nên dùng quyền của báo cáo kho (không mở cho
+  PURCHASING, SALES); giao diện ẩn bảng theo quyền `dashboard.recentTransactions`.
 - Nhập hàng loạt nhà cung cấp gồm WAREHOUSE_MANAGER và PURCHASING để khớp màn hình nhập bằng AI (WMS-24.2 cho
   ADMIN, WAREHOUSE_MANAGER, PURCHASING nhập nhà cung cấp và hàng hóa).
 - Hàng hóa: WAREHOUSE_STAFF thêm, sửa (SRS: "Xem, Thêm/Sửa"); PURCHASING thêm, sửa vì nhập hàng hóa bằng AI dành cho
@@ -174,7 +182,8 @@ vai trò ở chế độ máy chủ; dùng `vn.wms.common.test.GatewayHeaders` (
 
 `/internal/inventory/kpi-metrics` và `/internal/orders/kpi-metrics` chỉ được notification-service gọi qua mạng nội bộ;
 `/internal/products` (product-service) cho tác vụ quét cảnh báo tồn kho hằng đêm của inventory-service đọc mức tồn an
-toàn và điểm đặt hàng lại; `/internal/auth/users/alert-recipients` (auth-service) trả người nhận email cảnh báo.
+toàn và điểm đặt hàng lại, và cho biểu đồ tỷ trọng tồn kho theo nhóm hàng của dashboard đọc nhóm hàng (vai trò đã được
+kiểm tra ở API dashboard); `/internal/auth/users/alert-recipients` (auth-service) trả người nhận email cảnh báo.
 order-service gọi đồng bộ các endpoint tồn kho nội bộ của inventory-service khi lập chứng từ (WMS-20.4,
 [MESSAGING.md](MESSAGING.md) mục 7.4), chuyển tiếp nguyên danh tính của người đang thao tác; vai trò và phạm vi kho đã
 được order-service kiểm tra trước khi gọi:
@@ -245,8 +254,8 @@ WebSocket của notification-service dùng cùng danh sách origin.
 - Refresh token và access token đã đăng xuất lưu nguyên dạng trên Redis (nên lưu SHA-256 như API key).
 - auth-service đọc IP đăng nhập từ `X-Forwarded-For` do client gửi, nên đổi header này né được khóa theo IP (khóa theo
   tài khoản vẫn còn). Khóa theo IP cũng có thể khóa chung nhiều người sau cùng một NAT.
-- Ẩn trường tài chính với nhân viên kho (SRS 2.5.2: chiết khấu, công nợ) chỉ có ở KPI dashboard; đơn mua, đơn bán vẫn
-  trả giá và thành tiền cho WAREHOUSE_STAFF.
+- Ẩn trường tài chính với nhân viên kho (SRS 2.5.2: chiết khấu, công nợ) chỉ có ở KPI dashboard và biểu đồ mua bán
+  theo thời gian của dashboard; đơn mua, đơn bán vẫn trả giá và thành tiền cho WAREHOUSE_STAFF.
 - `GET /api/inventory/warehouses/{id}` kiểm tra phạm vi kho: tài khoản SALES hoặc PURCHASING chưa được gán kho nhận
   403, nên order-service không kiểm tra được kho khi họ lập đơn. Cần gán kho cho các tài khoản này hoặc nới quy tắc đọc
   kho ở WarehouseService.

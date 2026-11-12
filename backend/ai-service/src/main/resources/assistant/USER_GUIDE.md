@@ -1,6 +1,6 @@
 # Hướng dẫn sử dụng WMS Supply Chain
 
-WMS Supply Chain là phần mềm quản lý kho trên web: kho và vị trí ô/kệ, hàng hóa (SKU), nhà cung cấp, khách hàng, mua và nhập kho, bán và xuất kho, điều chuyển, tồn kho và cảnh báo, công nợ, báo cáo, truy vết theo lô, gói dịch vụ, trợ lý AI. Mọi mục menu hiện với mọi người; vai trò không có quyền sẽ thấy thông báo không có quyền. Các vai trò:
+WMS Supply Chain là phần mềm quản lý kho trên web: kho và vị trí ô/kệ, hàng hóa (SKU), nhà cung cấp, khách hàng, mua và nhập kho, bán và xuất kho, điều chuyển, tồn kho và cảnh báo, công nợ, báo cáo, truy vết theo lô, gói dịch vụ, trợ lý AI. Mọi mục menu (trừ "Nhập dữ liệu bằng AI") hiện với mọi người; vai trò không có quyền sẽ thấy thông báo không có quyền. Các vai trò:
 - Quản trị hệ thống: toàn quyền, quản lý người dùng và API key.
 - Quản lý kho: quản lý kho, vị trí kệ, duyệt đơn mua và điều chuyển.
 - Nhân viên kho: nhập, xuất kho, quét mã vạch, kiểm đếm.
@@ -66,7 +66,7 @@ Quản trị hệ thống và Kế toán chưa gán kho được xem toàn bộ 
 
 ## Tạo kho và vị trí lưu trữ
 
-Vào menu "Kho và vị trí". Trang có tab danh mục kho và tab "Sơ đồ Vị trí Ô/Kệ & In Tem Mã Vạch".
+Vào menu "Kho và vị trí". Trang có tab "Danh mục kho" và tab "Sơ đồ vị trí ô/kệ" (tab sơ đồ chỉ hiện với Quản trị hệ thống, Quản lý kho, Nhân viên kho). Chỉ Quản trị hệ thống tạo và xóa kho; Quản lý kho sửa, khóa kho và tạo, xóa vị trí ở kho được gán.
 
 Tạo kho:
 1. Bấm "Thêm kho mới".
@@ -78,16 +78,16 @@ Mỗi dòng kho có nút xem sơ đồ vị trí, chỉnh sửa, khóa hoặc m�
 Tạo vị trí ô/kệ (Khu - Kệ - Ô):
 1. Mở tab sơ đồ vị trí, chọn kho.
 2. Thêm một ô: bấm "Thêm 1 ô", nhập Khu (Zone), Kệ (Rack), Ô (Bin), bấm "Thêm vị trí".
-3. Tạo hàng loạt: bấm "Sinh hàng loạt (Bulk)", nhập Khu vực, tiền tố và dải số kệ, tiền tố và dải số ô, tải trọng mỗi ô, bấm "Tạo ... vị trí".
+3. Tạo hàng loạt: bấm "Sinh hàng loạt", nhập Khu vực, tiền tố và dải số kệ, tiền tố và dải số ô, tải trọng mỗi ô, bấm "Tạo ... vị trí".
 
-Sơ đồ lọc theo khu và trạng thái (Trống, Đang có hàng, Bảo trì); mỗi ô có nút in tem mã vạch và nút xóa.
+Sơ đồ lọc theo khu và trạng thái ("Ô trống", "Đang có hàng", "Đang bảo trì"), xem dạng "Sơ đồ lưới" hoặc "Danh sách"; mỗi ô có nút in tem mã vạch và nút xóa.
 
 ## Thêm hàng hóa (SKU)
 
-Vào menu "Danh mục hàng hóa".
+Vào menu "Danh mục hàng hóa". Thêm, sửa, nhập Excel: Quản trị hệ thống, Quản lý kho, Nhân viên kho, Nhân viên mua hàng; ngưng hoạt động: Quản trị hệ thống, Quản lý kho. Nút "Xuất Excel" dưới bộ lọc tải các dòng của trang đang xem trong bảng.
 
 Thêm một mặt hàng:
-1. Bấm "Thêm sản phẩm mới".
+1. Bấm "Thêm sản phẩm".
 2. Nhập bắt buộc Mã SKU (duy nhất), Tên sản phẩm, Đơn vị tính cơ sở; các trường khác (mã vạch, nhóm hàng, giá, VAT, định mức tồn) là tùy chọn.
 3. Bật "Quản lý theo Lô hàng" hoặc "Quản lý Hạn sử dụng" nếu cần; khi nhập kho sẽ bắt buộc nhập lô và hạn dùng.
 4. Bấm "Tạo mới".
@@ -115,7 +115,7 @@ Tem vị trí ô/kệ in ở menu "Kho và vị trí".
 
 ## Nhà cung cấp
 
-Vào menu "Nhà cung cấp".
+Vào menu "Nhà cung cấp". Thêm, sửa: Quản trị hệ thống, Quản lý kho, Nhân viên mua hàng, Kế toán; ngưng hoạt động: Quản trị hệ thống, Nhân viên mua hàng, Kế toán; ghi nhận giao dịch công nợ: Quản trị hệ thống, Kế toán.
 
 Thêm nhà cung cấp:
 1. Bấm "Thêm nhà cung cấp".
@@ -133,7 +133,7 @@ Nút "Xuất Excel" tải danh sách. Công nợ từ phiếu nhập kho xem ở
 
 Vào menu "Khách hàng".
 
-Thêm khách hàng (Quản trị hệ thống, Nhân viên bán hàng, Quản lý kho):
+Thêm khách hàng (Quản trị hệ thống, Nhân viên bán hàng, Kế toán):
 1. Bấm "Thêm khách hàng".
 2. Chọn phân loại: Khách sỉ / Đại lý (có hạn mức công nợ) hoặc Khách lẻ (hạn mức 0, thanh toán ngay).
 3. Nhập bắt buộc Mã khách hàng, Tên khách hàng, Hạn mức công nợ tối đa; tùy chọn mã số thuế, liên hệ, địa chỉ giao hàng, điều khoản thanh toán, công nợ ban đầu, ghi chú.
@@ -143,23 +143,24 @@ Nợ từ 90% hạn mức hiện "Cận hạn mức"; vượt hạn mức hoặc
 
 Trên mỗi dòng:
 - Xem chi tiết hồ sơ, hạn mức và lịch sử công nợ.
-- Chỉnh sửa (Quản trị hệ thống, Nhân viên bán hàng, Quản lý kho).
-- Khóa hoặc mở khóa nợ, ghi nhận phát sinh nợ / thu tiền (Quản trị hệ thống, Kế toán, Nhân viên bán hàng).
-- Ngưng hợp tác (chỉ Quản trị hệ thống).
+- Chỉnh sửa, khóa hoặc mở khóa nợ, ngưng hợp tác (Quản trị hệ thống, Nhân viên bán hàng, Kế toán).
+- Ghi nhận phát sinh nợ / thu tiền (Quản trị hệ thống, Kế toán).
 
-Nút "Xuất Excel" tải danh sách.
+Quản lý kho chỉ xem được danh sách. Nút "Xuất Excel" tải danh sách.
 
 ## Đơn mua hàng (PO) và phê duyệt
 
 Vào menu "Mua hàng và nhập kho".
 
-Lập đơn mua:
+Lập đơn mua (Quản trị hệ thống, Nhân viên mua hàng):
 1. Bấm "Lập đơn mua hàng mới".
 2. Chọn Nhà cung cấp và Ngày lập đơn (bắt buộc), Kho tiếp nhận hàng, Ngày nhận dự kiến, ghi chú. Mã PO để trống sẽ tự sinh.
 3. Bấm "Thêm dòng sản phẩm", chọn SKU, nhập số lượng, đơn giá, chiết khấu, VAT; tổng tiền tự tính.
-4. Bấm "Gửi phê duyệt (PENDING)" hoặc "Lưu nháp (DRAFT)". Màn hình chưa có nút sửa hay gửi duyệt cho đơn đã lưu, nên đơn cần duyệt hãy gửi phê duyệt ngay.
+4. Bấm "Gửi phê duyệt" (đơn chuyển Chờ duyệt) hoặc "Lưu nháp" (đơn ở Bản nháp). Màn hình chưa có nút sửa hay gửi duyệt cho đơn đã lưu, nên đơn cần duyệt hãy gửi phê duyệt ngay.
 
-Phê duyệt (Quản trị hệ thống, Quản lý kho, Nhân viên mua hàng): mở đơn "Chờ duyệt", bấm "Phê duyệt đơn hàng", hoặc bấm "Từ chối" và nhập lý do (bắt buộc).
+Đơn mua mở từ nút "Tạo đơn mua nháp" của chuông cảnh báo (xem mục "Xem tồn kho và cảnh báo tồn") có sẵn dòng sản phẩm và kho nhận; số lượng để trống, bạn chọn nhà cung cấp, nhập số lượng, kiểm tra đơn giá rồi bấm lưu như trên.
+
+Phê duyệt (Quản trị hệ thống, Quản lý kho, Nhân viên mua hàng): mở đơn "Chờ duyệt", bấm "Phê duyệt đơn hàng", hoặc bấm "Từ chối" và nhập lý do (bắt buộc). Trên dòng đơn cũng có nút duyệt nhanh và nút từ chối.
 
 Hủy (Quản trị hệ thống, Nhân viên mua hàng): đơn Bản nháp hoặc Chờ duyệt, bấm "Hủy đơn".
 
@@ -167,7 +168,7 @@ Trạng thái: Bản nháp, Chờ duyệt, Đã phê duyệt, Nhập một phầ
 
 ## Nhập kho theo đơn mua (phiếu nhập GRN)
 
-Chỉ nhập được cho đơn mua Đã phê duyệt hoặc Nhập một phần.
+Chỉ nhập được cho đơn mua Đã phê duyệt hoặc Nhập một phần. Người lập phiếu: Quản trị hệ thống, Quản lý kho, Nhân viên kho.
 
 1. Vào menu "Mua hàng và nhập kho", bấm "Nhập kho thông minh" (hoặc "Lập phiếu nhập kho" trong chi tiết đơn mua).
 2. Chọn đơn mua đã duyệt (bắt buộc), ngày nhập thực tế, ghi chú. Màn hình hiện số đã đặt, đã nhận, còn lại.
@@ -194,19 +195,19 @@ Trạng thái: Chưa thanh toán, Thanh toán 1 phần, Đã thanh toán, Đã h
 
 ## Đơn bán hàng (SO)
 
-Lập đơn bán:
+Lập đơn bán (Quản trị hệ thống, Nhân viên bán hàng):
 1. Vào menu "Bán hàng và xuất kho", bấm "Lập Đơn Bán Mới".
 2. Chọn Khách hàng và Ngày lập đơn (bắt buộc), Kho xuất hàng (để trống thì tính tồn toàn hệ thống), thông tin người nhận, địa chỉ giao, ghi chú.
 3. Khách bị khóa nợ hoặc vượt hạn mức không lập được đơn.
 4. Bấm "Thêm dòng mặt hàng", chọn SKU, nhập số lượng; mỗi dòng hiện tồn khả dụng.
-5. Công tắc "Cho phép chuyển Backorder": bật thì thiếu hàng đơn chuyển Thiếu hàng (Backorder), tắt thì chặn.
-6. Bấm "Tạo & Xác nhận đơn (CONFIRMED)" hoặc "Lưu bản nháp (DRAFT)".
+5. Công tắc "Cho phép chuyển sang thiếu hàng": để "Cho phép" (mặc định) thì khi thiếu hàng đơn chuyển trạng thái Thiếu hàng chờ nhập bù; chuyển sang "Chặn khi thiếu" thì bấm tạo và xác nhận mà thiếu hàng sẽ báo lỗi, đơn không được lưu.
+6. Bấm "Tạo & Xác nhận đơn" hoặc "Lưu bản nháp".
 
-Xác nhận đơn Bản nháp hoặc Backorder (Quản trị hệ thống, Nhân viên bán hàng, Quản lý kho): mở đơn, bấm "Xác nhận đơn hàng"; hàng được giữ chỗ.
+Xác nhận đơn Bản nháp hoặc Thiếu hàng (Quản trị hệ thống, Nhân viên bán hàng, Quản lý kho): mở đơn, bấm "Xác nhận đơn hàng" (hoặc nút xác nhận trên dòng đơn); hàng được giữ chỗ.
 
-Hủy (Quản trị hệ thống, Nhân viên bán hàng): đơn Bản nháp, Đã xác nhận, Backorder; hàng giữ chỗ được giải phóng. Đơn Bản nháp hoặc Đã hủy có thể xóa hẳn.
+Hủy (Quản trị hệ thống, Nhân viên bán hàng): đơn Bản nháp, Đã xác nhận, Thiếu hàng; hàng giữ chỗ được giải phóng. Đơn Bản nháp hoặc Đã hủy có thể xóa hẳn.
 
-Trạng thái: Bản nháp, Đã xác nhận, Thiếu hàng (Backorder), Đã hoàn thành, Đã hủy. Chưa có nút sửa đơn đã lưu.
+Trạng thái: Bản nháp, Đã xác nhận, Thiếu hàng, Đã hoàn thành, Đã hủy. Chưa có nút sửa đơn đã lưu.
 
 ## Lấy hàng và phiếu xuất kho (GDN)
 
@@ -228,18 +229,18 @@ Xác nhận xuất kho phiếu Bản nháp hoặc Đang lấy hàng (Quản tr�
 1. Vào tab "Phiếu xuất kho (GDN)", bấm nút biểu tượng xuất kho (chú thích "Xác nhận xuất kho") trên dòng phiếu, hoặc mở phiếu rồi bấm "Xác nhận xuất kho".
 2. Bấm "Xác nhận xuất kho" trong hộp xác nhận. Tồn kho bị trừ và phiếu chuyển Đã xuất kho. Gặp lỗi thì bấm lại được, tồn chỉ bị trừ một lần cho mỗi phiếu.
 
-Ở tab "Xuất kho & Lộ trình lấy hàng", nút lấy hàng và xuất kho chỉ bật cho Quản trị hệ thống, Quản lý kho, Nhân viên kho. Tab "Phiếu xuất kho (GDN)" cho xem và in lại các phiếu.
+Ở tab "Xuất kho & Lộ trình lấy hàng", nút "Lấy hàng" bật cho Quản trị hệ thống, Quản lý kho, Nhân viên kho, Nhân viên bán hàng; nút "Xuất kho" và việc lập, xác nhận phiếu xuất chỉ dành cho Quản trị hệ thống, Quản lý kho, Nhân viên kho. Tab "Phiếu xuất kho (GDN)" cho xem và in lại các phiếu.
 
 ## Hóa đơn bán và thu công nợ khách hàng
 
-Chỉ Quản trị hệ thống, Nhân viên bán hàng, Kế toán lập được hóa đơn bán.
+Chỉ Quản trị hệ thống và Kế toán lập được hóa đơn bán và thu tiền nợ.
 
 Lập hóa đơn:
-1. Vào menu "Bán hàng và xuất kho", trên đơn Đã xác nhận hoặc Đã hoàn thành bấm nút lập hóa đơn (hoặc "Tạo Hóa đơn bán" trong chi tiết đơn).
+1. Vào menu "Bán hàng và xuất kho", trên đơn Đã xác nhận hoặc Đã hoàn thành bấm nút lập hóa đơn (hoặc "Tạo Hóa đơn bán" trong chi tiết đơn); ở tab "Hóa đơn bán & Công nợ phải thu" cũng có nút lập hóa đơn trên dòng khách.
 2. Chọn khách hàng, nhập số hóa đơn, chọn "Bán nợ" (cộng vào công nợ phải thu) hoặc "Thu tiền ngay", nhập số tiền, ghi chú.
 3. Bấm "Phát hành Hóa đơn".
 
-Tab "Hóa đơn bán & Công nợ phải thu" hiện tổng công nợ phải thu và danh sách khách; chọn một khách để xem lịch sử hóa đơn.
+Tab "Hóa đơn bán & Công nợ phải thu" (Quản trị hệ thống, Quản lý kho, Nhân viên bán hàng, Kế toán) hiện tổng công nợ phải thu và danh sách khách; chọn một khách để xem lịch sử hóa đơn.
 
 Thu tiền nợ:
 1. Trên dòng khách bấm nút thu tiền.
@@ -252,6 +253,8 @@ Công nợ khách hàng cũng ghi nhận được ở menu "Khách hàng".
 
 Vào menu "Điều chuyển".
 
+Lập lệnh: Quản trị hệ thống, Quản lý kho, Nhân viên kho của kho nguồn. Duyệt xuất, sửa, hủy: Quản trị hệ thống, Quản lý kho của kho nguồn. Nhận hàng: Quản trị hệ thống, Quản lý kho của kho đích.
+
 Lập lệnh:
 1. Bấm "Lập lệnh điều chuyển".
 2. Chọn Kho xuất nguồn và Kho nhập đích (bắt buộc, khác nhau), ngày giao dự kiến, ghi chú.
@@ -261,7 +264,7 @@ Lập lệnh:
 Duyệt xuất: với lệnh Bản nháp, bấm nút duyệt xuất kho rồi "Duyệt xuất"; tồn kho nguồn bị trừ, lệnh chuyển Đang vận chuyển. Lệnh Bản nháp còn sửa hoặc hủy được.
 
 Nhận hàng tại kho đích:
-1. Với lệnh Đang vận chuyển, bấm "Nhận hàng".
+1. Với lệnh Đang vận chuyển, bấm nút nhận hàng trên dòng lệnh (chú thích "Xác nhận nhận hàng tại kho đích"), hoặc mở lệnh rồi bấm "Xác nhận nhận hàng tại kho đích".
 2. Quét mã vạch hoặc bấm "Nhận đủ 100%", hoặc nhập SL thực nhận, SL hư hỏng.
 3. Chọn vị trí cất hàng ở kho đích (bắt buộc); nếu thiếu hoặc hỏng phải ghi biên bản sự cố.
 4. Bấm "Xác nhận nhận hàng điều chuyển".
@@ -280,7 +283,7 @@ Cách xem:
 
 Thẻ cảnh báo (máy chủ tính, thanh "Cảnh báo ngày ..." đếm theo loại và mức; bấm một ô để lọc):
 - "HẾT HẠN": lô còn hàng đã tới hoặc quá hạn dùng.
-- "CẬN DATE": lô còn hàng sắp hết hạn (mặc định trong 30 ngày tới).
+- "CẬN HẠN": lô còn hàng sắp hết hạn (mặc định trong 30 ngày tới).
 - "CHÁY HÀNG": tồn dùng được nhỏ hơn hoặc bằng mức an toàn.
 - "SẮP HẾT": tồn dùng được nhỏ hơn hoặc bằng điểm đặt hàng lại.
 - "TỒN LÂU": còn tồn nhưng không nhập xuất từ 90 ngày trở lên (mặc định).
@@ -289,6 +292,13 @@ Màu thẻ: đỏ là khẩn cấp, vàng là cảnh báo, xanh là thông tin.
 Bảng tự cập nhật khi có nhập, xuất ở kho đang xem; nút "Làm mới" tải lại ngay. Quản trị hệ thống có thêm nút "Quét cảnh báo ngay" để quét lại cảnh báo trong ngày.
 
 Số tồn còn xem được ở màn hình lập đơn bán (tồn khả dụng theo kho xuất), lập lệnh điều chuyển (tồn khả dụng ở kho nguồn), hoặc hỏi trợ lý AI.
+
+Chuông cảnh báo trên thanh tiêu đề (góc phải trên, mọi trang):
+1. Với Quản trị hệ thống, Kế toán và vai trò khác đã được gán kho, số trên chuông là số cảnh báo cần xử lý (tồn thấp, cận hạn, hết hạn; không tính tồn lâu) trong các kho mình phụ trách. Số màu đỏ khi có cảnh báo khẩn cấp, màu vàng khi không có.
+2. Bấm chuông, mục "Cảnh báo tồn kho" liệt kê các cảnh báo; lọc bằng các nút "Tất cả", "Tồn thấp", "Cận hạn", "Hết hạn" (kèm số đếm). Mỗi dòng có thẻ màu, mã SKU, kho, tên hàng và lý do; bấm vào dòng để mở menu "Tồn kho" đã lọc đúng loại cảnh báo và kho. Nút làm mới tải lại danh sách, "Xem tất cả" mở menu "Tồn kho".
+3. Cảnh báo tồn thấp có nút "Tạo đơn mua nháp" (chỉ Quản trị hệ thống và Nhân viên mua hàng): mở form lập đơn mua ở menu "Mua hàng và nhập kho" với sẵn sản phẩm, kho nhận, đơn giá mua và VAT theo danh mục; số lượng để trống. Chưa có gì được lưu cho tới khi bấm "Lưu nháp" hoặc "Gửi phê duyệt".
+4. Mục "Hoạt động" là các tin thời gian thực gần đây (đơn hàng mới, đơn đã nhập kho hoặc xuất kho, cảnh báo), tối đa 50 tin, chỉ giữ trong phiên đang mở; nút "Đã đọc" đánh dấu đã đọc, "Xóa" xóa danh sách, "Kết nối lại" hiện khi mất kết nối. Chấm tròn cạnh chuông cho biết trạng thái kết nối.
+Tài khoản chưa được gán kho (trừ Quản trị hệ thống, Kế toán) chỉ thấy danh sách tin, số trên chuông là số tin chưa đọc.
 
 ## Kiểm kê
 
@@ -313,7 +323,7 @@ Chi tiết đợt: thông tin, tiến độ, người bắt đầu, kết thúc 
 Đếm mù bằng máy quét (dùng được trên điện thoại hoặc máy quét cầm tay):
 1. Mở đợt Đang đếm, bấm "Màn hình đếm" (hoặc nút "Đếm" ở danh sách).
 2. Chọn vị trí trong ô vị trí, hoặc quét mã vạch vị trí vào ô quét. Khi chưa chọn vị trí, màn hình liệt kê các dòng chưa đếm của cả đợt; bấm một dòng để tới vị trí đó.
-3. Quét mã vạch, SKU hoặc tem lô của hàng hóa vào ô quét (súng bắn mã gửi Enter sau mỗi mã), hoặc bấm "Quét bằng camera". Mỗi lần quét cộng số ở ô "Mỗi lần +" (mặc định 1, đổi thành số trên thùng nếu cần) và phát tiếng bíp; mã không có trong danh mục phát tiếng báo lỗi và hiện thông báo. Hàng quản lý theo lô: quét tem lô do hệ thống in, hoặc nhập "Số lô" trước khi quét.
+3. Quét mã vạch, SKU hoặc tem lô của hàng hóa vào ô quét (súng bắn mã gửi Enter sau mỗi mã), hoặc bấm "Quét bằng camera". Mỗi lần quét cộng số ở ô "Mỗi lần +" (mặc định 1, đổi thành số trên thùng nếu cần) và phát tiếng bíp; mã không có trong danh mục phát tiếng báo lỗi và hiện thông báo. Hàng quản lý theo lô: quét tem lô do hệ thống in, hoặc nhập "Số lô" trước khi quét. Hàng không quản lý theo lô: không cần số lô, lần quét được cộng vào dòng cần đếm của hàng đó tại vị trí; nếu vị trí có nhiều dòng của cùng hàng, màn hình báo và bạn bấm "+1" hoặc "Nhập số" trên đúng dòng.
 4. Trên từng dòng: "+1" cộng thêm, "Nhập số" ghi đè số đếm (tối đa 3 chữ số thập phân, dùng dấu phẩy hoặc dấu chấm, cho phép 0).
 5. Hàng có thực tế mà danh sách không có: quét mã như bình thường, hoặc bấm "Hàng ngoài danh sách", chọn hàng hóa, số lô (nếu theo lô), số lượng. Dòng mới có thẻ "Hàng phát sinh".
 6. Bật "Chưa đếm" để chỉ xem dòng còn thiếu của vị trí; thanh tiến độ đầu trang là tiến độ cả đợt.
@@ -338,15 +348,20 @@ Tab "Phiếu điều chỉnh": mã phiếu, trạng thái (Chờ Kế toán duy�
 
 Dashboard là trang đầu tiên sau khi đăng nhập.
 
-- Bộ lọc kho: Quản trị hệ thống và Kế toán có thêm "Tất cả các kho (Toàn cục)"; vai trò khác chỉ thấy kho được phân công. Bộ lọc thời gian: Hôm nay, 7 ngày qua, Tháng này, Quý này.
+Mọi số liệu trên Dashboard lấy từ dữ liệu thật của doanh nghiệp.
+
+- Bộ lọc kho: Quản trị hệ thống và Kế toán có thêm "Tất cả kho"; vai trò khác chỉ thấy kho được phân công (mặc định kho đầu tiên). Bộ lọc thời gian: Hôm nay, 7 ngày qua, Tháng này (mặc định), Quý này. Nút "Làm mới" tải lại mọi khối.
 - Khối "Tóm tắt bằng AI" ngay dưới thanh bộ lọc: 3 đến 5 ý về số liệu điều hành của kho đang chọn và phần "Gợi ý" 1 đến 2 việc nên làm, kèm thời điểm lập. Bản tóm tắt được lưu 30 phút ("từ bộ nhớ đệm", không tốn lượt AI); nút "Làm mới" tạo bản mới và dùng một lượt AI (có hỏi xác nhận). Chỉ Quản trị hệ thống và Kế toán có chỉ số tài chính trong bản tóm tắt. Nhãn "Chế độ giả lập" nghĩa là hệ thống chưa bật AI thật, các ý được soạn sẵn từ cùng số liệu. Tài khoản không được xem số liệu điều hành (ví dụ chưa được gán kho) không thấy khối này.
-- Thẻ KPI: Quản trị hệ thống và Kế toán thấy chỉ số tài chính; vai trò khác thấy chỉ số vận hành.
-- Biểu đồ mua vào và bán ra, mặt hàng bán chạy, bảng cảnh báo tồn kho.
-- Nút "Xuất Excel KPI" chỉ dùng được với Quản trị hệ thống và Kế toán.
+- Thẻ KPI (tối đa 8 thẻ): "Công nợ phải thu", "Công nợ phải trả", "Giá trị tồn kho", "Doanh số xuất bán tháng" chỉ hiện với Quản trị hệ thống và Kế toán; "Tồn kho khả dụng", "Đơn bán chờ xuất kho (SO)", "Đơn mua chờ tiếp nhận (PO)", "Tỷ lệ lấp đầy kho" hiện với mọi vai trò. Số nào chưa tính được hiện dấu gạch ngang kèm lý do; "Giá trị tồn kho" luôn là gạch ngang vì hệ thống chưa có giá vốn.
+- Bấm thẻ có dòng "Bấm để lọc cảnh báo ..." để lọc bảng cảnh báo bên dưới theo loại đó (Giá trị tồn kho: hết hạn; Tồn kho khả dụng và Đơn mua chờ tiếp nhận: tồn thấp; Đơn bán chờ xuất kho: cận hạn; Tỷ lệ lấp đầy kho: tồn lâu). Bấm lại thẻ hoặc đóng nhãn "Lọc: ..." để bỏ lọc.
+- "Cảnh báo Tồn kho & Hạn dùng": 8 cảnh báo nghiêm trọng nhất của kho đang chọn; danh sách đầy đủ ở menu "Tồn kho".
+- "Mặt hàng xuất bán chạy nhất": biểu đồ tròn theo số lượng trên các đơn bán đã xác nhận trong khoảng thời gian.
+- "Mua hàng và bán hàng theo thời gian": đơn mua đã duyệt và đơn bán đã xác nhận, gom theo ngày hoặc theo tháng, tính theo ngày đặt hàng, có ô "Mua hàng trong kỳ" và "Bán hàng trong kỳ". Chọn xem "Giá trị" (chỉ Quản trị hệ thống và Kế toán), "Số đơn" hoặc "Số lượng".
+- "Tỷ trọng tồn kho theo nhóm hàng": tồn tại thời điểm xem, không đổi theo khoảng thời gian; hiện tính theo số lượng tồn vì hệ thống chưa có giá vốn.
+- "Giao dịch kho gần nhất" (Quản trị hệ thống, Quản lý kho, Nhân viên kho, Kế toán; không hiện với Nhân viên mua hàng, Nhân viên bán hàng): mỗi dòng là một chứng từ tại một kho (thời gian, giao dịch, kho, số lượng, người thực hiện); bấm số chứng từ để mở màn hình tương ứng nếu có quyền.
+- Nút "Xuất Excel" (chỉ Quản trị hệ thống và Kế toán) tải file gồm các thẻ KPI và mặt hàng bán chạy đang hiển thị.
 
-Lưu ý: thẻ KPI, biểu đồ và bảng cảnh báo trên Dashboard hiện là dữ liệu mẫu minh họa, chưa lấy từ giao dịch thật; khối "Tóm tắt bằng AI" lấy số liệu thật. Cảnh báo tồn kho thật xem ở menu "Tồn kho".
-
-Biểu tượng chuông ở góc phải trên hiện thông báo thời gian thực, có nút "Xóa tất cả" và "Kết nối lại".
+Chuông thông báo ở góc phải trên: xem mục "Xem tồn kho và cảnh báo tồn".
 
 ## Báo cáo
 
@@ -358,7 +373,7 @@ Vào menu "Báo cáo" để mở trang "Báo cáo kho". Số liệu lấy từ s
 Tab "Xuất - Nhập - Tồn":
 1. Chọn "Kỳ báo cáo" (mặc định từ đầu tháng tới hôm nay, tối đa 366 ngày), "Kho", "Danh mục", "Sản phẩm", "Từ khóa" (mã SKU hoặc tên), "Gom dòng" ("Theo sản phẩm và kho" hoặc "Theo sản phẩm (gộp các kho)").
 2. Bảng hiện Tồn đầu kỳ, Nhập trong kỳ, Xuất trong kỳ, Tồn cuối kỳ và dòng "Tổng cộng".
-3. Bấm "Tải Excel" để tải báo cáo.
+3. Bấm "Tải Excel" để tải báo cáo theo bộ lọc đang chọn; trong lúc hộp "Đang chuẩn bị file Excel" hiện có thể bấm "Hủy".
 Hệ thống chưa có giá vốn nên báo cáo chưa có cột giá trị tiền.
 
 Tab "Thẻ kho" (lịch sử nhập xuất của một mặt hàng tại một kho):
@@ -366,7 +381,7 @@ Tab "Thẻ kho" (lịch sử nhập xuất của một mặt hàng tại một k
 2. Màn hình hiện Tồn đầu kỳ, Tổng nhập, Tổng xuất, Tồn cuối kỳ và từng dòng biến động: thời điểm, loại biến động, chứng từ, số lô, vị trí, nhập, xuất, tồn sau, người thực hiện.
 3. Bấm số lô để mở truy vết lô; bấm "Tải Excel" để tải thẻ kho.
 
-Các danh sách đơn mua, phiếu nhập, đơn bán, phiếu xuất, nhà cung cấp, khách hàng cũng có nút "Xuất Excel".
+Các danh sách hàng hóa, đơn mua, phiếu nhập, đơn bán, phiếu xuất, nhà cung cấp, khách hàng cũng có nút "Xuất Excel".
 
 ## Truy vết theo lô
 
@@ -428,7 +443,7 @@ Các bước:
 3. Bấm "Trích xuất dữ liệu" và chờ: bảng tính thường xong trong vài chục giây, PDF và ảnh có thể tới khoảng 3 phút. Bấm "Hủy" để thôi chờ. File không đọc được, không có cột phù hợp hoặc sai định dạng sẽ báo lỗi rõ ràng.
 4. Xem lại bảng: mỗi cột là một trường của danh mục (dấu * là bắt buộc); rê chuột lên tiêu đề cột để biết cột đó lấy từ cột nào trong file. Ô nền vàng là ô AI chưa chắc chắn, ô viền đỏ phải sửa trước khi nhập, biểu tượng cảnh báo ở đầu dòng cho biết lý do. Bấm vào ô để sửa (Enter để lưu, Esc để bỏ). Dòng còn lỗi không chọn được; bỏ chọn hoặc xóa những dòng không muốn nhập; bật "Chỉ hiện dòng cần xem lại" để lọc nhanh.
 5. Bấm "Nhập N dòng" và xác nhận. Màn hình hiện tổng số dòng đã tạo mới, bỏ qua (mã đã có trong danh mục, không ghi đè) và lỗi, cùng kết quả từng dòng kèm lý do.
-6. Dòng lỗi giữ nguyên dữ liệu: bấm "Sửa và nhập tiếp" để sửa rồi nhập lại chỉ những dòng đó, hoặc "Tải danh sách dòng lỗi" để lưu ra Excel. Bấm nút "Mở danh mục ..." để xem dữ liệu vừa nhập.
+6. Dòng lỗi giữ nguyên dữ liệu: bấm "Sửa và nhập tiếp" để sửa rồi nhập lại chỉ những dòng đó, hoặc "Tải danh sách dòng lỗi" để lưu ra Excel. Bấm "Mở danh mục hàng hóa" (hoặc "Mở danh sách nhà cung cấp", "Mở danh sách khách hàng") để xem dữ liệu vừa nhập.
 
 Lưu ý:
 - Mỗi lần trích xuất thành công dùng 1 lượt AI trong hạn mức hằng tháng của gói dịch vụ (màn hình hiện "Lượt AI tháng này"); file lỗi không bị tính, bấm nhập không tính lượt. Hết lượt sẽ hiện hộp thoại "Đã chạm giới hạn của gói dịch vụ".

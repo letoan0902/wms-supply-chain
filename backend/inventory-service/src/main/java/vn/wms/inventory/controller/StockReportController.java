@@ -3,6 +3,10 @@ package vn.wms.inventory.controller;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.CacheControl;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -14,6 +18,9 @@ import vn.wms.inventory.dto.report.InOutBalanceReportResponse;
 import vn.wms.inventory.dto.report.LotTraceResponse;
 import vn.wms.inventory.dto.report.StockCardResponse;
 import vn.wms.inventory.service.report.LotTraceService;
+import vn.wms.inventory.service.report.StockReportExcelWriter;
+import vn.wms.inventory.service.report.StockReportExportService;
+import vn.wms.inventory.service.report.StockReportExportService.ExportFile;
 import vn.wms.inventory.service.report.StockReportService;
 
 import java.time.LocalDate;
@@ -29,10 +36,13 @@ public class StockReportController {
 
     private final StockReportService stockReportService;
     private final LotTraceService lotTraceService;
+    private final StockReportExportService exportService;
 
-    public StockReportController(StockReportService stockReportService, LotTraceService lotTraceService) {
+    public StockReportController(StockReportService stockReportService, LotTraceService lotTraceService,
+                                 StockReportExportService exportService) {
         this.stockReportService = stockReportService;
         this.lotTraceService = lotTraceService;
+        this.exportService = exportService;
     }
 
     @GetMapping("/in-out-balance")
@@ -68,6 +78,49 @@ public class StockReportController {
             @RequestParam(required = false, defaultValue = "50") int size
     ) {
         return ApiResponse.ok(stockReportService.getStockCard(productId, warehouseId, fromDate, toDate, page, size));
+    }
+
+    @GetMapping("/in-out-balance/export")
+    @Operation(summary = "Tải file Excel báo cáo Xuất - Nhập - Tồn (WMS-17.3): cùng bộ lọc với API xem, không phân trang, tối đa 20000 dòng")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'ACCOUNTANT')")
+    public ResponseEntity<byte[]> exportInOutBalance(
+            @RequestParam(required = false) Long warehouseId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
+            @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) Long productId,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false, defaultValue = StockReportService.GROUP_BY_PRODUCT_WAREHOUSE) String groupBy,
+            @RequestParam(required = false, defaultValue = "productId") String sort,
+            @RequestParam(required = false, defaultValue = "asc") String direction
+    ) {
+        InOutBalanceQuery query = new InOutBalanceQuery(warehouseId, fromDate, toDate, categoryId, productId, keyword,
+                groupBy, sort, direction, 0, 1);
+        return excelResponse(exportService.exportInOutBalance(query));
+    }
+
+    @GetMapping("/stock-card/export")
+    @Operation(summary = "Tải file Excel thẻ kho (WMS-17.3): cùng bộ lọc với API xem, không phân trang, tối đa 20000 dòng")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'ACCOUNTANT')")
+    public ResponseEntity<byte[]> exportStockCard(
+            @RequestParam Long productId,
+            @RequestParam Long warehouseId,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate
+    ) {
+        return excelResponse(exportService.exportStockCard(productId, warehouseId, fromDate, toDate));
+    }
+
+    /** Tên file chỉ gồm ký tự ASCII nên filename và filename* giống nhau; trình duyệt ưu tiên filename*. */
+    private static ResponseEntity<byte[]> excelResponse(ExportFile file) {
+        String name = file.fileName();
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(StockReportExcelWriter.CONTENT_TYPE))
+                .header(HttpHeaders.CONTENT_DISPOSITION,
+                        "attachment; filename=\"" + name + "\"; filename*=UTF-8''" + name)
+                .cacheControl(CacheControl.noStore())
+                .contentLength(file.content().length)
+                .body(file.content());
     }
 
     @GetMapping("/lot-trace")

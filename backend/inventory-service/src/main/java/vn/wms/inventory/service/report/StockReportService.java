@@ -45,7 +45,8 @@ import java.util.Set;
  * Vì cùng một tập dòng sổ nên tồn đầu + nhập - xuất = tồn cuối luôn đúng tuyệt đối. Ngày được cắt theo giờ Việt Nam.
  *
  * <p>Các phương thức {@code ...ForExport} trả toàn bộ dòng (tối đa {@link #EXPORT_MAX_ROWS}) để bộ xuất Excel
- * (WMS-17.3) dùng lại đúng dữ liệu và quyền của màn hình, không phải tự truy vấn.
+ * (WMS-17.3) dùng lại đúng dữ liệu và quyền của màn hình, không phải tự truy vấn. Quá giới hạn thì trả {@link #EXPORT_MAX_ROWS}
+ * dòng đầu, {@code totalElements} của trang vẫn là tổng số dòng thật để bộ xuất ghi chú file bị cắt.
  */
 @Service
 public class StockReportService {
@@ -141,12 +142,9 @@ public class StockReportService {
                     BigDecimal.ZERO.setScale(3), BigDecimal.ZERO.setScale(3));
         } else {
             totalElements = reportQueryRepository.countRows(criteria);
-            if (exportAll && totalElements > EXPORT_MAX_ROWS) {
-                throw ApiException.badRequest("Báo cáo có " + totalElements + " dòng, vượt giới hạn xuất "
-                        + EXPORT_MAX_ROWS + " dòng; vui lòng thu hẹp kho, sản phẩm hoặc khoảng thời gian");
-            }
+            // Xuất Excel: quá giới hạn thì lấy EXPORT_MAX_ROWS dòng đầu; rows.totalElements giữ tổng thật để bộ xuất ghi chú
             aggregates = exportAll
-                    ? reportQueryRepository.findRows(criteria, 0, null)
+                    ? reportQueryRepository.findRows(criteria, 0, EXPORT_MAX_ROWS)
                     : reportQueryRepository.findRows(criteria, query.page() * query.size(), query.size());
             totals = reportQueryRepository.totals(criteria);
         }
@@ -236,10 +234,9 @@ public class StockReportService {
         BigDecimal closing = opening.add(totalIn).subtract(totalOut);
 
         Page<StockMovement> linePage = stockMovementRepository.findLines(warehouseId, productId, fromTs, toTs, pageable);
-        if (exportAll && linePage.getTotalElements() > EXPORT_MAX_ROWS) {
-            throw ApiException.badRequest("Thẻ kho có " + linePage.getTotalElements() + " dòng, vượt giới hạn xuất "
-                    + EXPORT_MAX_ROWS + " dòng; vui lòng thu hẹp khoảng thời gian");
-        }
+        // Xuất Excel: quá giới hạn thì chỉ giữ EXPORT_MAX_ROWS dòng đầu; lines.totalElements giữ tổng thật
+        List<StockMovement> pageContent = exportAll && linePage.getContent().size() > EXPORT_MAX_ROWS
+                ? linePage.getContent().subList(0, EXPORT_MAX_ROWS) : linePage.getContent();
 
         BigDecimal balance = opening;
         if (!linePage.isFirst() && linePage.hasContent()) {
@@ -247,8 +244,8 @@ public class StockReportService {
             balance = scale(stockMovementRepository.sumBalanceBeforeLine(
                     warehouseId, productId, first.getOccurredAt(), first.getId()));
         }
-        List<StockCardLine> lines = new ArrayList<>(linePage.getNumberOfElements());
-        for (StockMovement m : linePage.getContent()) {
+        List<StockCardLine> lines = new ArrayList<>(pageContent.size());
+        for (StockMovement m : pageContent) {
             balance = balance.add(m.getQuantityIn()).subtract(m.getQuantityOut());
             lines.add(new StockCardLine(
                     m.getId(), m.getOccurredAt(), m.getMovementType().name(), m.getMovementType().getLabel(),
@@ -265,7 +262,7 @@ public class StockReportService {
                 .orElseThrow(() -> ApiException.notFound("Không tìm thấy kho ID: " + warehouseId));
 
         PageResponse<StockCardLine> linesPage = exportAll
-                ? PageResponse.of(lines, 0, Math.max(lines.size(), 1), lines.size())
+                ? PageResponse.of(lines, 0, Math.max(lines.size(), 1), linePage.getTotalElements())
                 : PageResponse.of(lines, linePage.getNumber(), linePage.getSize(), linePage.getTotalElements());
 
         return new StockCardResponse(

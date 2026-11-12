@@ -181,6 +181,26 @@ export function lineKeyOf(binLocationId: number, productId: number, lotNo: strin
   return `${binLocationId}|${productId}|${lot}`
 }
 
+/**
+ * Dòng mà một lần quét KHÔNG kèm số lô nhắm tới, dùng cho hàng không quản lý theo lô. Tồn của loại hàng này vẫn mang số
+ * lô do hệ thống tự đặt lúc nhập (LOT-<số phiếu nhập>) mà tem hàng không in; gửi lần quét không có số lô thì máy chủ
+ * không khớp được dòng cần đếm và tạo dòng hàng phát sinh, dòng cần đếm thì vẫn "chưa đếm".
+ *  - đúng một dòng cần đếm của sản phẩm tại vị trí: trả dòng đó (ghi theo `lineId`);
+ *  - không có dòng cần đếm: `null`, gửi như cũ (máy chủ cộng vào dòng hàng phát sinh không lô hoặc tạo mới);
+ *  - nhiều dòng cần đếm (nhiều lô tự đặt cùng vị trí): `'ambiguous'`, người đếm phải chọn dòng.
+ */
+export function resolveLotlessScanLine<T extends { binLocationId: number; productId: number; unexpected: boolean }>(
+  lines: readonly T[],
+  binLocationId: number,
+  productId: number,
+): T | null | 'ambiguous' {
+  const expected = lines.filter(
+    (l) => l.binLocationId === binLocationId && l.productId === productId && !l.unexpected,
+  )
+  if (expected.length === 1) return expected[0]
+  return expected.length === 0 ? null : 'ambiguous'
+}
+
 /** Phần trăm tiến độ đếm (0 nếu chưa có dòng nào). */
 export function progressPercent(counted: number, total: number): number {
   if (!total || total <= 0) return 0

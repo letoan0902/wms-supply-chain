@@ -2,6 +2,8 @@ import { Client, ReconnectionTimeMode } from '@stomp/stompjs'
 import type { IMessage } from '@stomp/stompjs'
 import SockJS from 'sockjs-client'
 import { getStoredUser, getToken } from '../../utils/storage'
+import { hasGlobalScope } from '../auth/permissions'
+import { getPermissionSubject } from '../auth/useCan'
 import { fetchKpiSnapshot } from './realtimeApi'
 import { parseRealtimeMessage, realtimeTopics } from './realtimeMessage'
 import { useRealtimeStore } from './realtimeStore'
@@ -76,6 +78,20 @@ async function loadKpiSnapshot(): Promise<void> {
   }
 }
 
+/**
+ * Tin cảnh báo tồn kho của kho ngoài phạm vi được phân công. Kênh alerts phát cho cả doanh nghiệp, không lọc theo kho
+ * (docs/api/CANH_BAO.md mục 5), nên vai trò bị giới hạn theo kho bỏ qua tin của kho khác: không thêm vào chuông,
+ * không hiện toast. ADMIN, ACCOUNTANT nhận mọi kho.
+ */
+function isOutOfWarehouseScope(message: RealtimeMessage): boolean {
+  if (message.type !== 'STOCK_ALERT' && message.type !== 'LOW_STOCK') return false
+  const warehouseId = message.payload?.warehouseId
+  if (warehouseId === null || warehouseId === undefined) return false
+  const subject = getPermissionSubject()
+  if (hasGlobalScope(subject, 'alert.read')) return false
+  return !subject.warehouseIds.includes(Number(warehouseId))
+}
+
 function handleRealtimeMessage(message: RealtimeMessage): void {
   const store = useRealtimeStore.getState()
   switch (message.type) {
@@ -86,6 +102,7 @@ function handleRealtimeMessage(message: RealtimeMessage): void {
       store.setLastInventoryUpdate(message.payload)
       return
     default:
+      if (isOutOfWarehouseScope(message)) return
       // Tin trùng `id` (ví dụ backend gửi lại) không thêm vào danh sách và không hiện toast lần nữa
       if (!store.addNotification(message)) return
       listeners.forEach((listener) => {

@@ -115,3 +115,108 @@ export interface TrendingItemsReport {
     fromCache: boolean
   }
 }
+
+/** Số liệu mua, bán của một kỳ hoặc của cả khoảng (`TrendFigures`). Số tiền null khi vai trò không được xem. */
+export interface PurchaseSalesFigures {
+  purchaseOrderCount: number
+  purchaseQuantity: number
+  purchaseAmount: number | null
+  salesOrderCount: number
+  salesQuantity: number
+  salesAmount: number | null
+}
+
+/** `data` của GET /api/orders/reports/purchase-sales-trend (`PurchaseSalesTrendResponse`). */
+export interface PurchaseSalesTrend {
+  dateRange: string
+  fromDate: string
+  toDate: string
+  /** Cách gom kỳ: theo ngày hoặc theo tháng */
+  bucket: 'DAY' | 'MONTH'
+  amountVisible: boolean
+  currency: string
+  purchaseDefinition: string
+  salesDefinition: string
+  quantityNote: string
+  /** Lý do số tiền để trống; null khi được xem số tiền */
+  amountNote: string | null
+  points: {
+    periodStart: string
+    periodEnd: string
+    label: string
+    figures: PurchaseSalesFigures
+  }[]
+  totals: PurchaseSalesFigures
+  meta: {
+    companyId: number
+    warehouseId: number | null
+    warehouseIds: number[] | null
+    calculatedAt: string
+  }
+}
+
+/** Một lát cắt của biểu đồ tỷ trọng tồn kho theo nhóm hàng. */
+export interface StockCategorySlice {
+  key: string
+  kind: 'CATEGORY' | 'UNCATEGORIZED' | 'OTHERS'
+  categoryId: number | null
+  name: string
+  quantity: number
+  /** Luôn null khi tồn kho chưa có giá vốn */
+  value: number | null
+  percentage: number
+  productCount: number
+}
+
+/** `data` của GET /api/inventory/dashboard/stock-by-category (`StockByCategoryResponse`). */
+export interface StockByCategory {
+  dateRange: string
+  asOf: string
+  /** Cơ sở tính tỷ trọng; hiện luôn QUANTITY vì tồn kho chưa có giá vốn */
+  basis: 'QUANTITY' | 'VALUE'
+  valuationMethod: string
+  valueVisible: boolean
+  basisNote: string
+  unit: string
+  totalQuantity: number
+  totalValue: number | null
+  productCount: number
+  categoryCount: number
+  slices: StockCategorySlice[]
+  warehouseId: number | null
+  warehouseIds: number[] | null
+  dataNote: string | null
+}
+
+/** Một chứng từ kho trong bảng giao dịch gần nhất. */
+export interface RecentStockTransaction {
+  documentType: string
+  documentId: number | null
+  documentNumber: string | null
+  movementType: string
+  movementTypeLabel: string
+  direction: 'IN' | 'OUT'
+  warehouseId: number
+  warehouseCode: string | null
+  warehouseName: string | null
+  counterpartWarehouseId: number | null
+  counterpartWarehouseName: string | null
+  quantity: number
+  productCount: number
+  lineCount: number
+  occurredAt: string
+  performedBy: string | null
+  /** Phiên kiểm kê của phiếu điều chỉnh, để mở màn hình kiểm kê */
+  stocktakeId: number | null
+}
+
+/** `data` của GET /api/inventory/dashboard/recent-transactions (`RecentTransactionsResponse`). */
+export interface RecentStockTransactions {
+  dateRange: string
+  fromTime: string | null
+  limit: number
+  rows: RecentStockTransaction[]
+  warehouseId: number | null
+  warehouseIds: number[] | null
+  generatedAt: string
+}

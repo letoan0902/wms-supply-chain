@@ -40,6 +40,7 @@ import {
   parseQuantityInput,
   parseScannedCode,
   progressPercent,
+  resolveLotlessScanLine,
 } from './stocktakeLogic'
 import type { CountLinesQuery, StocktakeCountLine, StocktakeLocation } from './types'
 import { productLabel, useProductBriefs } from './useProductBriefs'
@@ -92,6 +93,7 @@ export default function BlindCountPage() {
   const scanInputRef = useRef<InputRef>(null)
   const queueRef = useRef<SerialCountQueue<CountOp, CountResult> | null>(null)
   const productCacheRef = useRef(new Map<string, Product>())
+  const lotlessLineRef = useRef(new Map<string, StocktakeCountLine | null | 'ambiguous'>())
   const logIdRef = useRef(0)
   const dirtyRef = useRef(false)
 
@@ -159,11 +161,40 @@ export default function BlindCountPage() {
     return found
   }, [])
 
+  /**
+   * Dòng cần đếm của một hàng không theo lô tại một vị trí, hỏi máy chủ (danh sách đang hiện có thể thuộc vị trí khác
+   * hoặc bị cắt bớt) và nhớ lại theo vị trí và sản phẩm: dòng cần đếm được chốt lúc bắt đầu đợt nên không đổi.
+   */
+  const findLotlessLine = useCallback(
+    async (
+      binLocationId: number,
+      binLocationCode: string,
+      productId: number,
+    ): Promise<StocktakeCountLine | null | 'ambiguous'> => {
+      if (sessionId === null) return null
+      const key = `${binLocationId}|${productId}`
+      const cached = lotlessLineRef.current.get(key)
+      if (cached !== undefined) return cached
+      let page
+      try {
+        page = await fetchCountLines(sessionId, { binCode: binLocationCode, productId, page: 0, size: 50 })
+      } catch (err) {
+        throw new LookupFailure(
+          getApiErrorMessage(err, 'Không tra được dòng cần đếm') || 'Không tra được dòng cần đếm',
+        )
+      }
+      const found = resolveLotlessScanLine(page.content ?? [], binLocationId, productId)
+      lotlessLineRef.current.set(key, found)
+      return found
+    },
+    [sessionId],
+  )
+
   const sessionRef = useRef(session)
-  const handlersRef = useRef({ applyLine, reloadLines, reloadSession, pushLog, resolveProduct })
+  const handlersRef = useRef({ applyLine, reloadLines, reloadSession, pushLog, resolveProduct, findLotlessLine })
   useEffect(() => {
     sessionRef.current = session
-    handlersRef.current = { applyLine, reloadLines, reloadSession, pushLog, resolveProduct }
+    handlersRef.current = { applyLine, reloadLines, reloadSession, pushLog, resolveProduct, findLotlessLine }
   })
 
   useEffect(() => {
@@ -189,6 +220,20 @@ export default function BlindCountPage() {
         op.resolvedProductId = product.id
         op.resolvedLotNo = lotNo
         op.resolvedLabel = label
+        if (!product.manageByLot) {
+          // Hàng không theo lô: cộng vào dòng cần đếm của vị trí (dòng mang số lô hệ thống tự đặt), không tạo hàng phát sinh
+          const target = await handlersRef.current.findLotlessLine(op.binLocationId, op.binLocationCode, product.id)
+          if (target === 'ambiguous') {
+            throw new ScanRejection(
+              `${label} có nhiều dòng cần đếm tại ${op.binLocationCode}: bấm +1 hoặc Nhập số trên đúng dòng`,
+            )
+          }
+          if (target) {
+            op.resolvedLotNo = target.lotNo
+            const line = await postCount(sessionId, { lineId: target.lineId, quantity: op.quantity, mode: 'ADD' })
+            return { line, label }
+          }
+        }
         const line = await postCount(sessionId, {
           binLocationId: op.binLocationId,
           productId: product.id,

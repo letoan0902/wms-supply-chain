@@ -14,7 +14,17 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Label, Legend, Pie, PieChart, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts'
 import * as XLSX from 'xlsx'
 import AiSummaryCard from '../features/ai/components/AiSummaryCard'
-import { fetchDashboardKpiSummary, fetchTrendingItems } from '../features/dashboard/dashboardApi'
+import { useCan } from '../features/auth/useCan'
+import PurchaseSalesTrendCard from '../features/dashboard/components/PurchaseSalesTrendCard'
+import RecentTransactionsCard from '../features/dashboard/components/RecentTransactionsCard'
+import StockByCategoryCard from '../features/dashboard/components/StockByCategoryCard'
+import {
+  fetchDashboardKpiSummary,
+  fetchPurchaseSalesTrend,
+  fetchRecentTransactions,
+  fetchStockByCategory,
+  fetchTrendingItems,
+} from '../features/dashboard/dashboardApi'
 import type { DashboardTimeRange, KpiCardKey, KpiSummaryResponse } from '../features/dashboard/types'
 import { useDashboardRequest } from '../features/dashboard/useDashboardRequest'
 import { fetchAlerts } from '../features/inventory/inventoryApi'
@@ -152,6 +162,9 @@ export default function DashboardPage() {
   const isGlobalScope = isAdmin || isAccountant
   const canExportExcel = isAdmin || isAccountant
   const roleLabel = roles.map((r) => ROLE_CONFIG[r]?.label ?? r).join(', ')
+  const can = useCan()
+  const canSeeAmounts = can('dashboard.amounts')
+  const canSeeRecentTransactions = can('dashboard.recentTransactions')
 
   // State bộ lọc Kho và Thời gian
   const [warehouses, setWarehouses] = useState<Warehouse[]>([])
@@ -206,6 +219,35 @@ export default function DashboardPage() {
     [selectedWarehouseId, timeRange],
   )
   const trending = useDashboardRequest(scopeKey, loadTrending, 'Không tải được thống kê mặt hàng bán chạy')
+
+  // 3b. Mua hàng và bán hàng theo thời gian (GET /api/orders/reports/purchase-sales-trend)
+  const loadPurchaseSales = useCallback(
+    () => fetchPurchaseSalesTrend(selectedWarehouseId, timeRange),
+    [selectedWarehouseId, timeRange],
+  )
+  const purchaseSales = useDashboardRequest(scopeKey, loadPurchaseSales, 'Không tải được biểu đồ mua hàng và bán hàng')
+
+  // 3c. Tỷ trọng tồn kho theo nhóm hàng (GET /api/inventory/dashboard/stock-by-category)
+  const loadStockByCategory = useCallback(
+    () => fetchStockByCategory(selectedWarehouseId, timeRange),
+    [selectedWarehouseId, timeRange],
+  )
+  const stockByCategory = useDashboardRequest(
+    scopeKey,
+    loadStockByCategory,
+    'Không tải được tỷ trọng tồn kho theo nhóm hàng',
+  )
+
+  // 3d. Giao dịch kho gần nhất (GET /api/inventory/dashboard/recent-transactions); vai trò không được xem thì không gọi
+  const loadRecentTransactions = useCallback(
+    () => fetchRecentTransactions(selectedWarehouseId, timeRange),
+    [selectedWarehouseId, timeRange],
+  )
+  const recentTransactions = useDashboardRequest(
+    canSeeRecentTransactions ? scopeKey : null,
+    loadRecentTransactions,
+    'Không tải được giao dịch kho gần nhất',
+  )
 
   // 4. Cảnh báo tồn kho thật (GET /api/inventory/alerts), lọc theo thẻ KPI đang chọn (Click to Filter)
   const activeCard = kpiCards.find((card) => card.key === activeKpiCard)
@@ -579,6 +621,25 @@ export default function DashboardPage() {
           </Card>
         </Col>
       </Row>
+
+      {/* 6. Mua bán theo thời gian và tỷ trọng tồn kho theo nhóm hàng */}
+      <Row gutter={[16, 16]}>
+        <Col xs={24} xl={14}>
+          <PurchaseSalesTrendCard request={purchaseSales} canSeeAmounts={canSeeAmounts} onRetry={reloadAll} />
+        </Col>
+        <Col xs={24} xl={10}>
+          <StockByCategoryCard request={stockByCategory} onRetry={reloadAll} />
+        </Col>
+      </Row>
+
+      {/* 7. Giao dịch kho gần nhất (cùng quyền với báo cáo kho) */}
+      {canSeeRecentTransactions && (
+        <Row gutter={[16, 16]}>
+          <Col xs={24}>
+            <RecentTransactionsCard request={recentTransactions} can={can} onRetry={reloadAll} />
+          </Col>
+        </Row>
+      )}
     </div>
   )
 }

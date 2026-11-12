@@ -1,6 +1,13 @@
 import { api } from '../../services/api'
 import type { ApiResponse } from '../../types/api'
-import type { DashboardTimeRange, KpiSummaryResponse, TrendingItemsReport } from './types'
+import type {
+  DashboardTimeRange,
+  KpiSummaryResponse,
+  PurchaseSalesTrend,
+  RecentStockTransactions,
+  StockByCategory,
+  TrendingItemsReport,
+} from './types'
 
 /** Mốc thời gian của giao diện sang giá trị `dateRange` mà backend chấp nhận. */
 const DATE_RANGE_PARAM: Record<DashboardTimeRange, string> = {
@@ -44,6 +51,43 @@ export async function fetchTrendingItems(
   limit = 5,
 ): Promise<TrendingItemsReport> {
   const response = await api.get<ApiResponse<TrendingItemsReport>>('/orders/reports/trending-items', {
+    params: { ...buildParams(warehouseId, dateRange), limit },
+  })
+  return response.data.data
+}
+
+/**
+ * Mua hàng và bán hàng theo thời gian: GET /api/orders/reports/purchase-sales-trend. Gom theo ngày (hôm nay, 7 ngày,
+ * tháng này) hoặc theo tháng (quý này); số tiền null khi vai trò không được xem.
+ */
+export async function fetchPurchaseSalesTrend(
+  warehouseId: number | 'all' | undefined,
+  dateRange: DashboardTimeRange,
+): Promise<PurchaseSalesTrend> {
+  const response = await api.get<ApiResponse<PurchaseSalesTrend>>('/orders/reports/purchase-sales-trend', {
+    params: buildParams(warehouseId, dateRange),
+  })
+  return response.data.data
+}
+
+/** Tỷ trọng tồn kho hiện tại theo nhóm hàng: GET /api/inventory/dashboard/stock-by-category. */
+export async function fetchStockByCategory(
+  warehouseId: number | 'all' | undefined,
+  dateRange: DashboardTimeRange,
+): Promise<StockByCategory> {
+  const response = await api.get<ApiResponse<StockByCategory>>('/inventory/dashboard/stock-by-category', {
+    params: buildParams(warehouseId, dateRange),
+  })
+  return response.data.data
+}
+
+/** Các chứng từ kho gần nhất trong khoảng thời gian: GET /api/inventory/dashboard/recent-transactions. */
+export async function fetchRecentTransactions(
+  warehouseId: number | 'all' | undefined,
+  dateRange: DashboardTimeRange,
+  limit = 10,
+): Promise<RecentStockTransactions> {
+  const response = await api.get<ApiResponse<RecentStockTransactions>>('/inventory/dashboard/recent-transactions', {
     params: { ...buildParams(warehouseId, dateRange), limit },
   })
   return response.data.data

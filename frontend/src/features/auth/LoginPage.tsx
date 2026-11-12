@@ -48,7 +48,7 @@ const slides = [
     tag: 'Dữ liệu Thời gian thực',
     title: 'Giám sát Tồn kho & Cảnh báo Kịp thời',
     description:
-      'Minh bạch tồn kho thực tế, cảnh báo tồn an toàn và phát hiện hàng cận date/hàng tồn chậm luân chuyển.',
+      'Minh bạch tồn kho thực tế, cảnh báo tồn an toàn và phát hiện hàng cận hạn, hàng tồn chậm luân chuyển.',
   },
 ]
 

@@ -8,10 +8,11 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import vn.wms.common.persistence.AuditableEntity;
+import vn.wms.common.tenant.TenantEntity;
 
 import java.math.BigDecimal;
 
@@ -19,17 +20,18 @@ import java.math.BigDecimal;
  * Khách hàng / Đại lý (Customers - FR14, WMS-08.2).
  */
 @Entity
-@Table(name = "customers")
+@Table(name = "customers", uniqueConstraints = @UniqueConstraint(
+        name = "uk_customers_company_code", columnNames = {"company_id", "code"}))
 @Getter
 @Setter
 @NoArgsConstructor
-public class Customer extends AuditableEntity {
+public class Customer extends TenantEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 30)
+    @Column(nullable = false, length = 30)
     private String code;
 
     @Column(nullable = false, length = 150)

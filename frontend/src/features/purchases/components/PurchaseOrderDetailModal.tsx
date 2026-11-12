@@ -207,6 +207,7 @@ export default function PurchaseOrderDetailModal({
 
               {onOpenCreateGrn && (order.status === 'APPROVED' || order.status === 'PARTIALLY_RECEIVED') && (
                 <Button
+                  data-write-action
                   type="primary"
                   icon={<BarcodeOutlined />}
                   onClick={() => {
@@ -356,7 +357,7 @@ export default function PurchaseOrderDetailModal({
           <div className="flex justify-end pt-2">
             <div className="w-full sm:w-80 bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-1.5 text-xs">
               <div className="flex justify-between">
-                <span className="text-slate-500">Tiền hàng (Subtotal):</span>
+                <span className="text-slate-500">Tiền hàng:</span>
                 <span className="font-medium">{formatCurrency(order.subtotalAmount)}</span>
               </div>
               <div className="flex justify-between">

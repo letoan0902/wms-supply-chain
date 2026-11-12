@@ -47,7 +47,6 @@ export default function LandingPage() {
         <HeroSection
           onExplorePricing={() => scrollToSection('pricing')}
           onExploreFeatures={() => scrollToSection('features')}
-          onRegisterTrial={() => scrollToSection('trial-register')}
         />
 
         {/* Platform Numbers & Stats */}
@@ -57,10 +56,7 @@ export default function LandingPage() {
         <FeaturesSection />
 
         {/* Pricing Tiers & Billing Switcher */}
-        <PricingSection
-          onScrollToComparison={() => scrollToSection('comparison')}
-          onScrollToTrial={() => scrollToSection('trial-register')}
-        />
+        <PricingSection onScrollToComparison={() => scrollToSection('comparison')} />
 
         {/* Deep Comparison Matrix */}
         <ComparisonSection />
@@ -68,15 +64,12 @@ export default function LandingPage() {
         {/* Customer Stories */}
         <TestimonialsSection />
 
-        {/* Frequently Asked Questions & Trial Registration Form */}
+        {/* Câu hỏi thường gặp và lời mời đăng ký dùng thử (dẫn sang trang /register) */}
         <FaqSection />
       </main>
 
       {/* Call to action & Footer */}
-      <CtaFooter
-        onScrollTo={scrollToSection}
-        onRegisterTrial={() => scrollToSection('trial-register')}
-      />
+      <CtaFooter onScrollTo={scrollToSection} />
     </div>
   )
 }

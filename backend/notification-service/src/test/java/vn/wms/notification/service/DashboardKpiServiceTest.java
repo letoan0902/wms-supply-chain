@@ -91,12 +91,15 @@ class DashboardKpiServiceTest {
             assertThat(response.payables().amount()).isEqualByComparingTo("132800000");
             assertThat(response.payables().dueSoonSuppliersCount()).isEqualTo(4);
 
-            // Thẻ 3: Giá trị tồn kho
+            // Thẻ 3: Giá trị tồn kho - chưa có giá vốn nên không có số tiền, không dùng đơn giá giả định
             assertThat(response.inventoryValuation().visible()).isTrue();
+            assertThat(response.inventoryValuation().amount()).isNull();
+            assertThat(response.inventoryValuation().valuationMethod()).isEqualTo("NOT_AVAILABLE");
+            assertThat(response.inventoryValuation().subText()).isEqualTo("Chưa tính được: tồn kho chưa có giá vốn");
 
-            // Thẻ 4: Doanh số tháng & tăng trưởng
+            // Thẻ 4: Doanh số tháng & tăng trưởng: (655 - 589) / 589 = 11.2%
             assertThat(response.monthlyRevenue().visible()).isTrue();
-            assertThat(response.monthlyRevenue().growthRatePercentage()).isGreaterThan(0.0);
+            assertThat(response.monthlyRevenue().growthRatePercentage()).isEqualTo(11.2);
             assertThat(response.monthlyRevenue().isPositiveGrowth()).isTrue();
 
             // Thẻ 5: Tồn kho khả dụng
@@ -121,11 +124,11 @@ class DashboardKpiServiceTest {
     }
 
     @Test
-    @DisplayName("Quản lý kho xem được chỉ số vận hành nhưng bị che (mask) 4 thẻ tài chính nhạy cảm")
-    void getKpiSummary_asWarehouseManager_shouldMaskFinancialCards() {
+    @DisplayName("Nhân viên kho bị che (mask) 4 thẻ tài chính nhạy cảm")
+    void getKpiSummary_asWarehouseStaff_shouldMaskFinancialCards() {
         MockHttpServletRequest request = new MockHttpServletRequest();
-        request.addHeader(UserContext.HEADER_USER_NAME, "manager_wh1");
-        request.addHeader(UserContext.HEADER_USER_ROLES, Roles.WAREHOUSE_MANAGER);
+        request.addHeader(UserContext.HEADER_USER_NAME, "staff_wh1");
+        request.addHeader(UserContext.HEADER_USER_ROLES, Roles.WAREHOUSE_STAFF);
         request.addHeader(UserContext.HEADER_USER_WAREHOUSE_IDS, "1");
         RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
         TenantContext.setCompanyId(1L);
@@ -179,6 +182,55 @@ class DashboardKpiServiceTest {
     }
 
     @Test
+    @DisplayName("Tháng trước không có doanh số thì tăng trưởng là null kèm lời giải thích, không gán cứng 100%")
+    void getKpiSummary_withoutPreviousMonthRevenue_shouldNotInventGrowthRate() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader(UserContext.HEADER_USER_NAME, "admin");
+        request.addHeader(UserContext.HEADER_USER_ROLES, Roles.ADMIN);
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
+        TenantContext.setCompanyId(1L);
+
+        try {
+            when(valueOperations.get(anyString())).thenReturn(null);
+            when(orderKpiClient.fetchMetrics(null)).thenReturn(new OrderKpiMetricsResponse(
+                    BigDecimal.ZERO, 0, BigDecimal.ZERO, 0,
+                    new BigDecimal("655000000"), BigDecimal.ZERO,
+                    0, 0, 0, 0
+            ));
+            when(inventoryKpiClient.fetchMetrics(null)).thenReturn(InventoryKpiMetricsResponse.empty());
+
+            KpiSummaryResponse response = dashboardKpiService.getKpiSummary(null, "7_DAYS");
+
+            assertThat(response.monthlyRevenue().amount()).isEqualByComparingTo("655000000");
+            assertThat(response.monthlyRevenue().growthRatePercentage()).isNull();
+            assertThat(response.monthlyRevenue().subText()).isEqualTo("Chưa tính được tăng trưởng: tháng trước không có doanh số");
+        } finally {
+            RequestContextHolder.resetRequestAttributes();
+            TenantContext.clear();
+        }
+    }
+
+    @Test
+    @DisplayName("Nhân viên kho chưa được gán kho bị từ chối 403, không lấy số liệu toàn doanh nghiệp")
+    void getKpiSummary_asWarehouseStaffWithoutWarehouses_shouldThrowForbidden() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader(UserContext.HEADER_USER_NAME, "staff_no_wh");
+        request.addHeader(UserContext.HEADER_USER_ROLES, Roles.WAREHOUSE_STAFF);
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
+        TenantContext.setCompanyId(1L);
+
+        try {
+            org.assertj.core.api.Assertions.assertThatThrownBy(() -> dashboardKpiService.getKpiSummary(null, "7_DAYS"))
+                    .isInstanceOf(vn.wms.common.exception.ApiException.class)
+                    .hasMessageContaining("chưa được phân quyền phụ trách bất kỳ kho nào");
+            org.mockito.Mockito.verifyNoInteractions(orderKpiClient, inventoryKpiClient);
+        } finally {
+            RequestContextHolder.resetRequestAttributes();
+            TenantContext.clear();
+        }
+    }
+
+    @Test
     @DisplayName("Nhân viên kho truy cập kho ngoài quyền bị từ chối 403 Forbidden")
     void getKpiSummary_asWarehouseStaff_accessingOtherWarehouse_shouldThrowForbidden() {
         MockHttpServletRequest request = new MockHttpServletRequest();
@@ -192,6 +244,34 @@ class DashboardKpiServiceTest {
             org.assertj.core.api.Assertions.assertThatThrownBy(() -> dashboardKpiService.getKpiSummary(2L, "7_DAYS"))
                     .isInstanceOf(vn.wms.common.exception.ApiException.class)
                     .hasMessageContaining("không có quyền truy cập dữ liệu của kho #2");
+        } finally {
+            RequestContextHolder.resetRequestAttributes();
+            TenantContext.clear();
+        }
+    }
+
+    @Test
+    @DisplayName("Khóa cache KPI mang companyId: doanh nghiệp 2 không đọc, không ghi vào cache của doanh nghiệp 1")
+    void getKpiSummary_cacheKeyIsPerCompany() {
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.addHeader(UserContext.HEADER_USER_NAME, "admin_b");
+        request.addHeader(UserContext.HEADER_USER_ROLES, Roles.ADMIN);
+        RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
+        TenantContext.setCompanyId(2L);
+
+        try {
+            when(valueOperations.get("wms:kpi:company:2:summary:all:7_DAYS")).thenReturn(null);
+            when(orderKpiClient.fetchMetrics(null)).thenReturn(OrderKpiMetricsResponse.empty());
+            when(inventoryKpiClient.fetchMetrics(null)).thenReturn(InventoryKpiMetricsResponse.empty());
+
+            KpiSummaryResponse response = dashboardKpiService.getKpiSummary(null, "7_DAYS");
+
+            assertThat(response.meta().companyId()).isEqualTo(2L);
+            org.mockito.Mockito.verify(valueOperations).set(
+                    org.mockito.ArgumentMatchers.eq("wms:kpi:company:2:summary:all:7_DAYS"), anyString(),
+                    org.mockito.ArgumentMatchers.any(java.time.Duration.class));
+            org.mockito.Mockito.verify(valueOperations, org.mockito.Mockito.never())
+                    .get(org.mockito.ArgumentMatchers.startsWith("wms:kpi:company:1:"));
         } finally {
             RequestContextHolder.resetRequestAttributes();
             TenantContext.clear();

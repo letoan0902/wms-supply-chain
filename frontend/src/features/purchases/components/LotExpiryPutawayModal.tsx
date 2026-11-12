@@ -138,8 +138,8 @@ export default function LotExpiryPutawayModal({
       })
 
       onClose()
-    } catch (err) {
-      console.debug('Validation error in LotExpiryPutawayModal:', err)
+    } catch {
+      // Bỏ qua lỗi validate form
     }
   }
 
@@ -207,7 +207,7 @@ export default function LotExpiryPutawayModal({
               type="info"
               showIcon
               icon={<InfoCircleOutlined />}
-              message="Yêu cầu quản lý Hạn sử dụng (FR12 - WMS-10.2 / WMS-10.5)"
+              message="Yêu cầu quản lý Hạn sử dụng"
               description="Mặt hàng này được cấu hình bắt buộc theo dõi Hạn sử dụng / Số lô. Vui lòng ghi nhận Số lô và Hạn dùng để hệ thống phục vụ thuật toán xuất kho FEFO và tự động khóa lô hết hạn."
               className="text-xs"
             />
@@ -286,6 +286,22 @@ export default function LotExpiryPutawayModal({
                     required: isDateManaged,
                     message: 'Mặt hàng quản lý date bắt buộc phải nhập Hạn sử dụng!',
                   },
+                  ({ getFieldValue }) => ({
+                    validator(_, value) {
+                      if (!value) return Promise.resolve()
+                      const exp = dayjs(value)
+                      const mfg = getFieldValue('mfgDate')
+                      if (mfg && !exp.isAfter(dayjs(mfg), 'day')) {
+                        return Promise.reject(new Error('Hạn sử dụng phải sau Ngày sản xuất!'))
+                      }
+                      if (effectiveReceiptDate && !exp.isAfter(effectiveReceiptDate, 'day')) {
+                        return Promise.reject(
+                          new Error(`Hạn sử dụng phải sau Ngày nhập kho (${effectiveReceiptDate.format('DD/MM/YYYY')})!`)
+                        )
+                      }
+                      return Promise.resolve()
+                    },
+                  }),
                 ]}
                 getValueProps={(val: string | undefined) => ({
                   value: val ? dayjs(val) : null,
@@ -350,13 +366,13 @@ export default function LotExpiryPutawayModal({
 
             <Divider className="my-3" />
 
-            {/* 3. Vị trí ô xếp hàng (Putaway Bin) */}
+            {/* 3. Vị trí ô xếp hàng */}
             <Form.Item
               name="locationId"
               label={
                 <div className="flex items-center gap-1">
                   <CompassOutlined className="text-blue-600" />
-                  <span>Vị trí ô xếp hàng lưu cất (Putaway Bin)</span>
+                  <span>Vị trí ô xếp hàng lưu cất</span>
                 </div>
               }
               className="mb-3"
@@ -368,10 +384,12 @@ export default function LotExpiryPutawayModal({
                 filterOption={(input, opt) =>
                   String(opt?.label ?? '').toLowerCase().includes(input.toLowerCase())
                 }
-                options={binLocations.map((b) => ({
-                  value: b.id,
-                  label: `[${b.code}] Khu ${b.zone || '-'} / Dãy ${b.rack || '-'} / Ô ${b.bin || '-'} (${b.status || 'AVAILABLE'})`,
-                }))}
+                options={binLocations
+                  .filter((b) => b.active)
+                  .map((b) => ({
+                    value: b.id,
+                    label: `[${b.code}] Khu ${b.zone || '-'} / Dãy ${b.rack || '-'} / Ô ${b.bin || '-'} (${b.status || 'AVAILABLE'})`,
+                  }))}
                 className="w-full"
               />
             </Form.Item>

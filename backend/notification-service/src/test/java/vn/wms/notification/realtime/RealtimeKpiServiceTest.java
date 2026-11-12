@@ -18,6 +18,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
@@ -26,12 +27,18 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-/** Bộ đếm KPI trên Redis (mock): chốt ngày theo giờ Việt Nam, TTL, chống đếm trùng và chịu lỗi Redis. */
+/**
+ * Bộ đếm KPI trên Redis (mock): chốt ngày theo giờ Việt Nam, TTL, chống đếm trùng, chịu lỗi Redis và tách riêng từng
+ * doanh nghiệp (WMS-22.4c).
+ */
 class RealtimeKpiServiceTest {
 
     /** 18:30 UTC ngày 05/11 là 01:30 ngày 06/11 giờ Việt Nam. */
     private static final Instant NOW = Instant.parse("2026-11-05T18:30:00Z");
-    private static final String TODAY_KEY = "wms:notification:kpi:2026-11-06";
+    private static final Long COMPANY_A = 1L;
+    private static final Long COMPANY_B = 2L;
+    private static final String TODAY_KEY = "wms:notification:kpi:1:2026-11-06";
+    private static final String TODAY_KEY_B = "wms:notification:kpi:2:2026-11-06";
 
     private final StringRedisTemplate redis = mock(StringRedisTemplate.class);
     @SuppressWarnings("unchecked")
@@ -53,9 +60,9 @@ class RealtimeKpiServiceTest {
                 "purchaseOrders", "3", "salesOrders", "5", "dispatchedOrders", "2", "lowStockAlerts", "1",
                 "inventoryMovements", "12", "updatedAt", NOW.toString()));
 
-        Optional<KpiSnapshot> snapshot = service.increment(KpiMetric.PURCHASE_ORDERS, "msg-1");
+        Optional<KpiSnapshot> snapshot = service.increment(COMPANY_A, KpiMetric.PURCHASE_ORDERS, "msg-1");
 
-        verify(valueOps).setIfAbsent("wms:notification:kpi:processed:msg-1", "1", Duration.ofDays(1));
+        verify(valueOps).setIfAbsent("wms:notification:kpi:1:processed:msg-1", "1", Duration.ofDays(1));
         verify(hashOps).increment(TODAY_KEY, "purchaseOrders", 1);
         verify(hashOps).put(TODAY_KEY, "updatedAt", NOW.toString());
         verify(redis).expire(TODAY_KEY, Duration.ofDays(2));
@@ -66,7 +73,7 @@ class RealtimeKpiServiceTest {
     void duplicateMessageIdIsNotCountedTwice() {
         when(valueOps.setIfAbsent(anyString(), anyString(), any(Duration.class))).thenReturn(false);
 
-        Optional<KpiSnapshot> snapshot = service.increment(KpiMetric.SALES_ORDERS, "msg-1");
+        Optional<KpiSnapshot> snapshot = service.increment(COMPANY_A, KpiMetric.SALES_ORDERS, "msg-1");
 
         assertThat(snapshot).isEmpty();
         verify(hashOps, never()).increment(anyString(), any(), eq(1L));
@@ -76,7 +83,7 @@ class RealtimeKpiServiceTest {
     void eventWithoutMessageIdIsAlwaysCounted() {
         when(hashOps.entries(TODAY_KEY)).thenReturn(Map.of("inventoryMovements", "1"));
 
-        Optional<KpiSnapshot> snapshot = service.increment(KpiMetric.INVENTORY_MOVEMENTS, null);
+        Optional<KpiSnapshot> snapshot = service.increment(COMPANY_A, KpiMetric.INVENTORY_MOVEMENTS, null);
 
         verifyNoInteractions(valueOps);
         verify(hashOps).increment(TODAY_KEY, "inventoryMovements", 1);
@@ -92,16 +99,52 @@ class RealtimeKpiServiceTest {
         when(valueOps.setIfAbsent(anyString(), anyString(), any(Duration.class)))
                 .thenThrow(new RedisConnectionFailureException("Redis không phản hồi"));
 
-        assertThat(service.increment(KpiMetric.LOW_STOCK_ALERTS, "msg-9")).isEmpty();
+        assertThat(service.increment(COMPANY_A, KpiMetric.LOW_STOCK_ALERTS, "msg-9")).isEmpty();
     }
 
     @Test
     void currentSnapshotIsEmptyWhenNoEventYetAndPropagatesRedisErrors() {
         when(hashOps.entries(TODAY_KEY)).thenReturn(Map.of());
 
-        assertThat(service.currentSnapshot()).isEqualTo(KpiSnapshot.empty(LocalDate.parse("2026-11-06")));
+        assertThat(service.currentSnapshot(COMPANY_A)).isEqualTo(KpiSnapshot.empty(LocalDate.parse("2026-11-06")));
 
         when(hashOps.entries(TODAY_KEY)).thenThrow(new RedisConnectionFailureException("Redis không phản hồi"));
-        assertThatThrownBy(service::currentSnapshot).isInstanceOf(RedisConnectionFailureException.class);
+        assertThatThrownBy(() -> service.currentSnapshot(COMPANY_A)).isInstanceOf(RedisConnectionFailureException.class);
+    }
+
+    @Test
+    void eventOfCompanyAChangesOnlyKpiOfCompanyA() {
+        when(valueOps.setIfAbsent(anyString(), anyString(), any(Duration.class))).thenReturn(true);
+        when(hashOps.entries(TODAY_KEY)).thenReturn(Map.of("salesOrders", "1"));
+        when(hashOps.entries(TODAY_KEY_B)).thenReturn(Map.of("salesOrders", "7"));
+
+        Optional<KpiSnapshot> snapshotA = service.increment(COMPANY_A, KpiMetric.SALES_ORDERS, "msg-a");
+
+        assertThat(snapshotA).hasValueSatisfying(value -> assertThat(value.salesOrders()).isEqualTo(1));
+        verify(hashOps).increment(TODAY_KEY, "salesOrders", 1);
+        verify(hashOps, never()).increment(eq(TODAY_KEY_B), any(), anyLong());
+        verify(hashOps, never()).put(eq(TODAY_KEY_B), any(), any());
+        // B đọc đúng bộ đếm của mình, không thấy lượt tăng của A
+        assertThat(service.currentSnapshot(COMPANY_B).salesOrders()).isEqualTo(7);
+    }
+
+    @Test
+    void sameMessageIdInTwoCompaniesIsDedupedPerCompany() {
+        when(valueOps.setIfAbsent(anyString(), anyString(), any(Duration.class))).thenReturn(true);
+        when(hashOps.entries(anyString())).thenReturn(Map.of());
+
+        service.increment(COMPANY_A, KpiMetric.SALES_ORDERS, "msg-x");
+        service.increment(COMPANY_B, KpiMetric.SALES_ORDERS, "msg-x");
+
+        verify(valueOps).setIfAbsent("wms:notification:kpi:1:processed:msg-x", "1", Duration.ofDays(1));
+        verify(valueOps).setIfAbsent("wms:notification:kpi:2:processed:msg-x", "1", Duration.ofDays(1));
+    }
+
+    @Test
+    void counterWithoutCompanyIsRefused() {
+        assertThatThrownBy(() -> service.increment(null, KpiMetric.SALES_ORDERS, "msg-1"))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> service.currentSnapshot(null)).isInstanceOf(IllegalArgumentException.class);
+        verifyNoInteractions(valueOps, hashOps);
     }
 }

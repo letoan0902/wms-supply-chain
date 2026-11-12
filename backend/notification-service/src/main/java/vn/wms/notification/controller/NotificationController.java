@@ -3,6 +3,7 @@ package vn.wms.notification.controller;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -29,6 +30,7 @@ public class NotificationController {
 
     @GetMapping("/health-info")
     @Operation(summary = "Thông tin cấu hình RabbitMQ và email đang chạy (kiểm tra nhanh khi tích hợp)")
+    @PreAuthorize("hasRole('ADMIN')")
     public ApiResponse<NotificationInfoResponse> healthInfo() {
         NotificationProperties.Rabbitmq rabbit = properties.rabbitmq();
         return ApiResponse.ok(new NotificationInfoResponse(applicationName, rabbit.exchange(), rabbit.queue(),

@@ -1,6 +1,6 @@
 # Kế hoạch mở rộng WMS Supply Chain thành nền tảng SaaS cho nhiều doanh nghiệp
 
-Phiên bản chốt ngày 03/11/2026 (Toàn duyệt), bổ sung vào Master Plan v2 thành v3. Nguyên tắc: hạn chót 23/11/2026 giữ nguyên, không làm thứ 7 và chủ nhật, mỗi ngày làm việc mỗi người có ít nhất một commit, chỉ giao việc mới từ ngày 04/11 trở đi (không sửa các việc đã qua), thanh toán qua PayOS, phần giao diện sẽ do Toàn rà soát và chỉnh lại ở tuần cuối theo góp ý của chính mình.
+Phiên bản chốt ngày 03/11/2026 (Toàn duyệt), bổ sung vào Master Plan v2 thành v3. Nguyên tắc: hạn chót lúc đó là 23/11/2026 (từ 11/11/2026 dồn về 13/11/2026, xem phần cập nhật ở mục 5), không làm thứ 7 và chủ nhật, mỗi ngày làm việc mỗi người có ít nhất một commit, chỉ giao việc mới từ ngày 04/11 trở đi (không sửa các việc đã qua), thanh toán qua PayOS, phần giao diện sẽ do Toàn rà soát và chỉnh lại ở tuần cuối theo góp ý của chính mình.
 
 Đặc tả chi tiết từng task (dữ liệu, API, quy tắc nghiệp vụ, tiêu chí nghiệm thu) nằm ở [SAAS_SPEC.md](SAAS_SPEC.md).
 
@@ -36,7 +36,7 @@ Kịch bản demo với thầy (10 phút):
 - **Danh tính**: auth-service thêm bảng `companies` (tên, mã, ngày tạo) và `users.company_id`; JWT thêm claim `companyId` và `plan`; gateway kiểm tra JWT rồi chuyển tiếp `X-Company-Id`, `X-Plan` cho service (giống `X-User-Name` hiện nay). Request không có công ty bị chặn ở gateway. Sự kiện RabbitMQ mang `companyId` trong message để consumer đặt lại ngữ cảnh.
 - **Gói dịch vụ**: bảng `subscriptions` (company_id, plan, trial_ends_at, expires_at, status). Giới hạn gói đặt trong một bảng cấu hình (Free: 3 user, 1 kho, 200 SKU, 20 lượt AI; Trial: như Pro trong 30 ngày; Pro: 50 user, 20 kho, không giới hạn SKU, 500 lượt AI). Module `common` có `PlanLimitChecker` đọc gói từ header và đếm hiện tại qua Redis, trả mã lỗi `PLAN_LIMIT_EXCEEDED` hoặc `SUBSCRIPTION_EXPIRED` (HTTP 403) để frontend hiện trang gia hạn.
 - **Thanh toán PayOS**: auth-service có bảng `payments` (company_id, gói, số tiền, orderCode, trạng thái, thời điểm). Luồng: người dùng chọn gói -> backend gọi API PayOS tạo link thanh toán (`POST /v2/payment-requests`, header `x-client-id`, `x-api-key`, chữ ký HMAC SHA256 trên amount, cancelUrl, description, orderCode, returnUrl bằng checksum key) -> frontend chuyển hướng sang trang thanh toán PayOS (quét QR chuyển khoản) -> PayOS gọi webhook `POST /api/auth/payments/payos/webhook` (nguồn tin cậy: kiểm tra chữ ký bằng checksum key, số tiền và orderCode chưa dùng rồi mới kích hoạt gói) và chuyển người dùng về `returnUrl` (trang kết quả). Biến môi trường `PAYOS_CLIENT_ID`, `PAYOS_API_KEY`, `PAYOS_CHECKSUM_KEY`, `PAYOS_RETURN_URL`, `PAYOS_CANCEL_URL` đặt trong `.env`; webhook được đăng ký với PayOS bằng API confirm-webhook khi triển khai. Khi chưa có key, code chạy với chế độ giả lập (bật `PAYOS_MOCK=true`) để nhóm phát triển và test không bị chặn. Webhook cần địa chỉ công khai, máy chủ wms.toanmarket.me đã có HTTPS nên đáp ứng.
-- **AI**: service mới `ai-service` (cổng 8086) dùng Spring AI với Anthropic Claude (model claude-sonnet-5-5 cho trích xuất và chatbot, rẻ và nhanh). Key đặt trong `.env` trên máy chủ, không vào repo, xóa sau khi kết thúc môn. ai-service nhận file, gọi AI trả JSON theo schema cố định, trả về cho frontend xem trước; khi người dùng bấm nhập, ai-service gọi API nhập hàng loạt của product-service và order-service qua OpenFeign. Mỗi lượt gọi AI trừ hạn mức của gói. Tóm tắt báo cáo (WMS-18.1) và chatbot (WMS-18.2) chuyển sang chạy trong ai-service.
+- **AI**: service mới `ai-service` (cổng 8086) dùng SDK Java chính thức của Anthropic gọi Claude (model claude-sonnet-5-5 cho trích xuất và chatbot, rẻ và nhanh; không dùng Spring AI vì bản 1.x cần Spring Boot 3.4+). Key đặt trong `.env` trên máy chủ, không vào repo, xóa sau khi kết thúc môn. ai-service nhận file, gọi AI trả JSON theo schema cố định, trả về cho frontend xem trước; khi người dùng bấm nhập, ai-service gọi API nhập hàng loạt của product-service và order-service qua OpenFeign. Mỗi lượt gọi AI trừ hạn mức của gói. Tóm tắt báo cáo (WMS-18.1) và chatbot (WMS-18.2) chuyển sang chạy trong ai-service.
 - **Tích hợp ngoài**: bảng `api_keys` (company_id, hash, tên, ngày thu hồi) ở auth-service; gateway chấp nhận header `X-Api-Key` thay cho JWT, quy đổi ra `X-Company-Id` và vai trò INTEGRATION chỉ đọc; rate limiter đã có sẽ tính theo key.
 
 ## 4. Task mới (mã WMS-22 đến WMS-25)
@@ -59,7 +59,7 @@ Kịch bản demo với thầy (10 phút):
 | WMS-23.6 | [Backend] Email xác nhận đăng ký (kích hoạt công ty qua liên kết), quên mật khẩu và đặt lại mật khẩu qua email, dùng notification-service gửi mail | Phương Anh | 18/11 | 23.1 | Đăng ký xong nhận email kích hoạt; đặt lại mật khẩu thành công |
 | WMS-26.1 | [Frontend] Rà soát giao diện toàn hệ thống theo góp ý của Toàn (bố cục, luồng thao tác, chữ, responsive), sửa trực tiếp hoặc giao lại cho người phụ trách màn hình | Toàn | 18/11 đến 19/11 | mọi màn hình đã có | Danh sách góp ý đã xử lý, ảnh trước và sau |
 | WMS-23.4 | [Frontend] Trang Gói dịch vụ và gia hạn, banner "còn N ngày dùng thử", màn hình hết hạn chỉ đọc, hiển thị mức dùng so với giới hạn | Linh | 16/11 | 23.1, 23.2 | Hết hạn thì mọi nút ghi bị khóa và dẫn tới trang gia hạn |
-| WMS-24.1 | [Backend] ai-service: khung Spring AI + Claude, key qua .env, đếm lượt theo gói, Dockerfile, compose, CI, route gateway /api/ai/** | Toàn | 11/11 | 23.2 | /api/ai/health chạy; gọi thử trả lời được |
+| WMS-24.1 | [Backend] ai-service: khung gọi Claude qua SDK Anthropic, key qua .env, đếm lượt theo gói, Dockerfile, compose, CI, route gateway /api/ai/** | Toàn | 11/11 | 23.2 | /api/ai/health chạy; gọi thử trả lời được |
 | WMS-24.2 | [Backend] API trích xuất tài liệu (Excel, CSV, PDF, ảnh) thành JSON hàng hóa, nhà cung cấp, khách hàng theo schema cố định, kèm độ tin cậy từng dòng; API nhập sau khi người dùng xác nhận (gọi bulk của 22.4b) | Toàn | 12/11 | 24.1, 22.4b | File Excel 50 dòng trích xuất đúng trên 90% ô; nhập xong thấy trong danh mục |
 | WMS-24.3 | [Frontend] Màn hình "Nhập dữ liệu bằng AI": tải file, bảng xem trước có đánh dấu ô độ tin cậy thấp, sửa tay, chọn loại dữ liệu, bấm nhập, xem kết quả theo dòng | Việt | 16/11 đến 17/11 | 24.2 | Chạy trọn kịch bản demo bước 2 |
 | WMS-24.4 | [Backend] Trợ lý AI: gộp chatbot tra cứu tồn kho, đơn hàng (18.2) với hướng dẫn sử dụng lấy từ docs của hệ thống; luôn giới hạn trong dữ liệu công ty đang đăng nhập | Toàn | 13/11 | 24.1 | Hỏi "tạo kho thế nào" nhận hướng dẫn đúng; hỏi tồn SKU nhận số đúng |
@@ -90,6 +90,19 @@ Việc chuẩn bị, không tính vào lịch của nhóm: Toàn cập nhật SR
 | 23/11 Thứ 2 | 21.2, 21.3 deploy v1.0.0, 21.4 | 21.4 | 21.4 | 21.4 |
 
 Khối lượng thêm: Toàn 11 ngày (có trợ lý AI nên nhận nhiều hơn), Phương Anh 5 ngày, Việt 5 ngày, Linh 3,5 ngày. Các ngày 10/11 đến 13/11 là nặng nhất với mọi người, cần commit đều và báo sớm nếu kẹt.
+
+### Cập nhật 11/11/2026: hạn cuối là thứ Sáu 13/11/2026
+
+Hạn cuối của dự án là 13/11/2026, không phải 23/11/2026 như bảng ở trên. Từ ngày 11/11 lịch được dồn lại, không còn việc nào xếp sau 13/11. Để các bạn kịp phần giao diện, Toàn (làm cùng trợ lý AI) nhận thêm các task backend, kiểm thử và một phần giao diện; hạn trên Jira đã đổi theo.
+
+| Người | Task giữ từ 11/11 đến 13/11 |
+| --- | --- |
+| Toàn | 24.1, 24.2, 24.4, 18.1 đến 18.4, 22.4b, 22.4c, 25.1, 25.2, 23.4, 23.5b, 23.6, 14.1, 14.2, 15.1, 15.2, 15.3, 17.1, 17.2, 17.4, 17.5, 19.1, 19.2, 19.3, 20.1 đến 20.4, 22.5, 21.1, 21.2, 21.3, 26.1 |
+| Phương Anh | 16.2, 16.3, 16.4, 23.3b, 15.4 |
+| Việt | 12.4, 24.3, 17.3 |
+| Linh | 14.3, 14.4, 21.4 |
+
+Thứ tự trong ba ngày: 11/11 và 12/11 làm xong chức năng (backend trước để giao diện có API), 12/11 và 13/11 chạy kiểm thử đầu cuối trên hệ thống thật và sửa lỗi, 13/11 rà giao diện, đóng gói và triển khai.
 
 ## 6. Thứ tự bắt buộc và rủi ro
 

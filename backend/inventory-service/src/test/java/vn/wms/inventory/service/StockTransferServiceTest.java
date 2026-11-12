@@ -7,6 +7,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.test.util.ReflectionTestUtils;
 import vn.wms.common.exception.ApiException;
 import vn.wms.common.messaging.WmsEventPublisher;
 import vn.wms.inventory.dto.CreateStockTransferItemRequest;
@@ -72,6 +73,9 @@ class StockTransferServiceTest {
     @Mock
     private WmsEventPublisher wmsEventPublisher;
 
+    @Mock
+    private StockMovementRecorder stockMovementRecorder;
+
     @InjectMocks
     private StockTransferService stockTransferService;
 
@@ -82,6 +86,8 @@ class StockTransferServiceTest {
 
     @BeforeEach
     void setUp() {
+        // Mockito tạo service qua constructor nên không tiêm trường @Autowired; gắn sổ kho giả lập bằng tay (WMS-17.1)
+        ReflectionTestUtils.setField(stockTransferService, "stockMovementRecorder", stockMovementRecorder);
         warehouseSource = new Warehouse("WH-HN", "Kho Hà Nội", "HN", "Manager A", "0901", 1000);
         warehouseSource.setId(1L);
 

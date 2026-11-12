@@ -3,11 +3,24 @@ import type { ApiErrorResponse, ApiResponse } from '../types/api'
 import type { RefreshTokenResponse } from '../types/auth'
 import {
   clearAuth,
+  getRefreshToken,
   getToken,
+  saveRefreshToken,
   saveToken,
 } from '../utils/storage'
+import { loginPathWithRedirect } from '../features/auth/loginRedirect'
 
 const LOGIN_PATH = '/login'
+
+declare module 'axios' {
+  interface AxiosRequestConfig {
+    /**
+     * Không mở hộp thoại vượt giới hạn gói dùng chung cho lỗi PLAN_LIMIT_EXCEEDED của request này: màn hình tự báo
+     * nhẹ trong khối của mình (ví dụ khối tóm tắt bằng AI tự tải khi mở dashboard).
+     */
+    skipPlanLimitDialog?: boolean
+  }
+}
 
 /**
  * Axios instance dùng chung cho toàn bộ ứng dụng.
@@ -55,6 +68,62 @@ function processQueue(error: unknown, token: string | null = null): void {
   failedQueue = []
 }
 
+/** Mã lỗi thuê bao do hộp thoại dùng chung hiển thị (docs/SAAS_SPEC.md mục 2.4). */
+export const SUBSCRIPTION_EXPIRED = 'SUBSCRIPTION_EXPIRED'
+export const PLAN_LIMIT_EXCEEDED = 'PLAN_LIMIT_EXCEEDED'
+
+/** Lỗi thuê bao gửi cho hộp thoại dùng chung. `data` của PLAN_LIMIT_EXCEEDED gồm `limit`, `current`, `max`, `plan`. */
+export interface SubscriptionApiError {
+  code: typeof SUBSCRIPTION_EXPIRED | typeof PLAN_LIMIT_EXCEEDED
+  message: string
+  data?: unknown
+}
+
+type SubscriptionErrorListener = (error: SubscriptionApiError) => void
+
+const subscriptionErrorListeners = new Set<SubscriptionErrorListener>()
+// Lỗi đã được hộp thoại dùng chung hiển thị: getApiErrorMessage trả chuỗi rỗng để màn hình không báo lần hai
+const handledErrors = new WeakSet<object>()
+
+/**
+ * Đăng ký nhận lỗi SUBSCRIPTION_EXPIRED và PLAN_LIMIT_EXCEEDED từ mọi request (hộp thoại dùng chung của
+ * phân hệ Gói dịch vụ đăng ký ở đây). Trả hàm hủy đăng ký.
+ */
+export function onSubscriptionApiError(listener: SubscriptionErrorListener): () => void {
+  subscriptionErrorListeners.add(listener)
+  return () => {
+    subscriptionErrorListeners.delete(listener)
+  }
+}
+
+/** Lỗi này đã được hộp thoại dùng chung hiển thị hay chưa. */
+export function isHandledByGlobalDialog(error: unknown): boolean {
+  return typeof error === 'object' && error !== null && handledErrors.has(error)
+}
+
+// Lỗi thuê bao (403 SUBSCRIPTION_EXPIRED, 403 PLAN_LIMIT_EXCEEDED): chuyển cho hộp thoại dùng chung rồi vẫn
+// từ chối promise để màn hình gọi API tắt trạng thái đang tải như mọi lỗi khác.
+api.interceptors.response.use(
+  (response) => response,
+  (error: unknown) => {
+    if (axios.isAxiosError<ApiErrorResponse>(error) && error.response?.status === 403) {
+      const body = error.response.data as { code?: string; message?: string; data?: unknown } | undefined
+      const code = body?.code
+      const skipDialog = code === PLAN_LIMIT_EXCEEDED && error.config?.skipPlanLimitDialog === true
+      if (
+        (code === SUBSCRIPTION_EXPIRED || code === PLAN_LIMIT_EXCEEDED) &&
+        !skipDialog &&
+        subscriptionErrorListeners.size > 0
+      ) {
+        handledErrors.add(error)
+        const payload: SubscriptionApiError = { code, message: body?.message ?? '', data: body?.data }
+        subscriptionErrorListeners.forEach((listener) => listener(payload))
+      }
+    }
+    return Promise.reject(error)
+  },
+)
+
 // Xử lý 401: Tự động dùng Refresh Token để gia hạn Access Token và thử lại request bị lỗi.
 api.interceptors.response.use(
   (response) => response,
@@ -68,12 +137,14 @@ api.interceptors.response.use(
         return Promise.reject(error)
       }
 
+      // Phiên hết hạn: chuyển về trang đăng nhập kèm trang hiện tại (đường dẫn và query, ví dụ orderCode khi quay
+      // lại từ PayOS) để đăng nhập xong quay lại đúng chỗ.
       // Bẫy lặp vô hạn: nếu chính API refresh bị 401 hoặc request này đã được retry một lần rồi mà vẫn 401
       if (!originalRequest || requestUrl.includes('/auth/refresh') || originalRequest._retry) {
         processQueue(error, null)
         clearAuth()
         if (window.location.pathname !== LOGIN_PATH) {
-          window.location.assign(LOGIN_PATH)
+          window.location.assign(loginPathWithRedirect())
         }
         return Promise.reject(error)
       }
@@ -95,26 +166,36 @@ api.interceptors.response.use(
       originalRequest._retry = true
       isRefreshing = true
 
+      const currentRefreshToken = getRefreshToken()
+      if (!currentRefreshToken) {
+        clearAuth()
+        if (window.location.pathname !== LOGIN_PATH) {
+          window.location.assign(loginPathWithRedirect())
+        }
+        return Promise.reject(error)
+      }
+
       try {
-        // Gọi API refresh qua axios độc lập kèm withCredentials: true để trình duyệt tự gửi Cookie HttpOnly (SRS UC-01)
+        // Gọi API refresh qua axios độc lập (không qua instance `api` để tránh đệ quy interceptor)
         const refreshResponse = await axios.post<ApiResponse<RefreshTokenResponse>>(
           `${api.defaults.baseURL || '/api'}/auth/refresh`,
-          {},
-          {
-            headers: { 'Content-Type': 'application/json' },
-            withCredentials: true,
-          },
+          { refreshToken: currentRefreshToken },
+          { headers: { 'Content-Type': 'application/json' } },
         )
 
         const data = refreshResponse.data?.data
         const newAccessToken = data?.accessToken
+        const newRefreshToken = data?.refreshToken
 
         if (!newAccessToken) {
           throw new Error('Không nhận được Access Token mới từ máy chủ')
         }
 
-        // Cập nhật Access Token mới (Refresh Token mới được backend tự xoay vòng lưu trong HttpOnly Cookie)
+        // Cập nhật Access Token mới (và Refresh Token mới nếu backend xoay vòng RTR)
         saveToken(newAccessToken)
+        if (newRefreshToken) {
+          saveRefreshToken(newRefreshToken)
+        }
 
         // Giải phóng hàng đợi và thông báo token mới cho các request đang chờ
         processQueue(null, newAccessToken)
@@ -128,7 +209,7 @@ api.interceptors.response.use(
         processQueue(refreshErr, null)
         clearAuth()
         if (window.location.pathname !== LOGIN_PATH) {
-          window.location.assign(LOGIN_PATH)
+          window.location.assign(loginPathWithRedirect())
         }
         return Promise.reject(refreshErr)
       } finally {
@@ -145,8 +226,15 @@ export function getErrorStatus(error: unknown): number | undefined {
   return axios.isAxiosError(error) ? error.response?.status : undefined
 }
 
-/** Lấy thông báo lỗi thân thiện để hiển thị cho người dùng. */
+/**
+ * Lấy thông báo lỗi thân thiện để hiển thị cho người dùng.
+ * Trả chuỗi rỗng khi lỗi đã được hộp thoại gói dịch vụ hiển thị (hết hạn, vượt giới hạn gói): thông báo nổi
+ * rỗng bị ẩn bằng CSS trong src/index.css, nhờ vậy màn hình đang gọi `message.error(...)` không báo lần hai.
+ */
 export function getApiErrorMessage(error: unknown, fallback: string): string {
+  if (isHandledByGlobalDialog(error)) {
+    return ''
+  }
   if (axios.isAxiosError<ApiErrorResponse>(error)) {
     if (!error.response) {
       return 'Không kết nối được máy chủ. Vui lòng kiểm tra mạng hoặc thử lại sau.'

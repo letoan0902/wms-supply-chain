@@ -24,6 +24,8 @@ spring:
             allowed-origins: "${CORS_ALLOWED_ORIGINS:http://localhost:5173}"
             allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
             allowed-headers: "*"
+            # Cho trình duyệt đọc tên file tải về (xuất Excel báo cáo kho, WMS-17.3)
+            exposed-headers: Content-Disposition
             allow-credentials: true
             max-age: 3600
       # Tránh trùng header CORS nếu service phía sau cũng trả CORS
@@ -62,6 +64,11 @@ spring:
           uri: lb://notification-service
           predicates:
             - Path=/api/notifications/**
+        # ai-service (WMS-24.1): hỏi đáp với Claude và hạn mức lượt AI. Cần đăng nhập (không nằm trong public-paths).
+        - id: ai-service
+          uri: lb://ai-service
+          predicates:
+            - Path=/api/ai/**
         # Hub WebSocket STOMP của notification-service (WMS-02.3): handshake SockJS (/ws-wms/info, /ws-wms/{server}/{session}/...)
         # và WebSocket thuần (/ws-wms). Request có header Upgrade: websocket được WebsocketRoutingFilter tự đổi http sang ws
         # sau khi load balancer chọn instance, nên dùng lb:// như các route khác.
@@ -85,7 +92,7 @@ gateway:
     # Mặc định TẮT ở máy phát triển để nhóm gọi API không bị chặn; production bật qua deploy/docker-compose.prod.yml.
     # Bật (GATEWAY_JWT_ENABLED=true trong .env) thì gateway mới chuyển tiếp X-User-Name, X-User-Roles, X-User-Warehouse-Ids,
     # nhờ đó các service lọc dữ liệu theo kho được phân quyền (WMS-04.2), và X-Company-Id để lọc theo doanh nghiệp (WMS-22.3).
-    enabled: ${GATEWAY_JWT_ENABLED:true}
+    enabled: ${GATEWAY_JWT_ENABLED:false}
     # PHẢI trùng JWT_SECRET của auth-service. Chỉ là giá trị dev, đổi ở môi trường thật.
     secret: ${JWT_SECRET:change_me_dev_only_jwt_secret_key_min_32_bytes}
     # Token hợp lệ nhưng không có claim companyId (cấp trước khi chuyển sang mô hình nhiều doanh nghiệp) thì trả 401
@@ -105,6 +112,12 @@ gateway:
       - /actuator/**
       # Handshake WebSocket từ trình duyệt không mang được header Bearer; notification-service kiểm tra JWT ở frame STOMP CONNECT.
       - /ws-wms/**
+      # Tài liệu OpenAPI tổng hợp (WMS-21.1, xem vn.wms.gateway.docs). Chỉ có route và giao diện khi SWAGGER_ENABLED=true;
+      # khi tắt thì các đường dẫn này không có route nên trả 404, không lộ mô tả API.
+      - /v3/api-docs/**
+      - /swagger-ui.html
+      - /swagger-ui/**
+      - /webjars/**
   # Thuê bao (WMS-23.2, xem SubscriptionGlobalFilter): gắn X-Plan từ hash Redis wms:subscription:{companyId} do auth-service
   # ghi, và khi thuê bao EXPIRED thì chặn POST, PUT, PATCH, DELETE (403 SUBSCRIPTION_EXPIRED) trừ các đường dẫn dưới đây.
   # Thiếu hash hoặc Redis lỗi thì cho qua. Chỉ có tác dụng khi gateway.jwt.enabled=true (mới có X-Company-Id).
@@ -118,9 +131,49 @@ gateway:
       - /api/auth/users/change-password
       - /api/auth/subscription/**
       - /api/auth/payments/**
+      # Thu hồi API key (DELETE /api/auth/api-keys/{id}) luôn được phép, kể cả khi thuê bao đã hết hạn (WMS-25.1)
+      - /api/auth/api-keys/*
+  # API key cho hệ thống ngoài (WMS-25.1, xem vn.wms.gateway.apikey.ApiKeyAuthenticationGlobalFilter): request có header
+  # X-Api-Key và không có Authorization được xác thực bằng key (tra hash Redis wms:apikey:{sha256} do auth-service ghi),
+  # mang vai trò INTEGRATION, chỉ được GET trên allowed-paths. Hoạt động độc lập với gateway.jwt.enabled.
+  api-key:
+    enabled: ${GATEWAY_API_KEY_ENABLED:true}
+    # Số request tối đa mỗi giây của một key, vượt thì 429 (bộ đếm Redis theo key và theo giây).
+    rate-limit-per-second: ${API_KEY_RATE_LIMIT_PER_SECOND:20}
+    allowed-paths:
+      - /api/products/**
+      - /api/inventory/**
+      - /api/orders/**
   rate-limit:
     # Tắt (RATE_LIMIT_ENABLED=false) khi chạy kiểm thử tải JMeter (WMS-19.2) để gateway không chặn kịch bản.
     enabled: ${RATE_LIMIT_ENABLED:true}
+  # Tài liệu OpenAPI tổng hợp (WMS-21.1): giao diện Swagger ở /swagger-ui.html có danh sách thả xuống các service, mỗi mục
+  # đọc /v3/api-docs/{auth,products,...} qua gateway (route công khai, không cần JWT). Mặc định BẬT ở máy phát triển;
+  # production tắt bằng SWAGGER_ENABLED=false (deploy/docker-compose.prod.yml) để không công bố mô tả API.
+  swagger:
+    enabled: ${SWAGGER_ENABLED:true}
+
+# Giao diện Swagger tổng hợp của gateway (springdoc-openapi-starter-webflux-ui). Cùng công tắc SWAGGER_ENABLED với gateway.swagger.
+springdoc:
+  api-docs:
+    enabled: ${SWAGGER_ENABLED:true}
+  swagger-ui:
+    enabled: ${SWAGGER_ENABLED:true}
+    path: /swagger-ui.html
+    urls-primary-name: Auth
+    urls:
+      - name: Auth
+        url: /v3/api-docs/auth
+      - name: Products
+        url: /v3/api-docs/products
+      - name: Inventory
+        url: /v3/api-docs/inventory
+      - name: Orders
+        url: /v3/api-docs/orders
+      - name: Notifications
+        url: /v3/api-docs/notifications
+      - name: AI
+        url: /v3/api-docs/ai
 
 management:
   endpoints:

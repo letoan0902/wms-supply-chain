@@ -1,10 +1,14 @@
 import {
   CarOutlined,
   CheckCircleOutlined,
+  ExclamationCircleOutlined,
   FileTextOutlined,
+  InboxOutlined,
   ShopOutlined,
 } from '@ant-design/icons'
 import {
+  Alert,
+  Button,
   Card,
   Descriptions,
   Divider,
@@ -17,14 +21,17 @@ import type { ColumnsType } from 'antd/es/table'
 import { formatDateTime, formatNumber } from '../../../utils/format'
 import { TRANSFER_STATUS_CONFIG } from '../statusConfig'
 import type { StockTransfer, StockTransferItem } from '../types'
+import { useCan } from '../../auth/useCan'
 
 interface Props {
   transfer: StockTransfer | null
   open: boolean
   onClose: () => void
+  onReceive?: (transfer: StockTransfer) => void
 }
 
-export default function TransferDetailModal({ transfer, open, onClose }: Props) {
+export default function TransferDetailModal({ transfer, open, onClose, onReceive }: Props) {
+  const can = useCan()
   if (!transfer) return null
 
   const statusConfig = TRANSFER_STATUS_CONFIG[transfer.status] || {
@@ -48,8 +55,22 @@ export default function TransferDetailModal({ transfer, open, onClose }: Props) 
     stepStatus = 'process'
   } else if (transfer.status === 'COMPLETED' || transfer.status === 'PARTIAL_RECEIVED') {
     currentStep = 2
-    stepStatus = 'finish'
+    stepStatus = transfer.status === 'PARTIAL_RECEIVED' ? 'error' : 'finish'
   }
+
+  const totalDamaged = (transfer.items || []).reduce(
+    (sum, it) => sum + (it.damagedQuantity || 0),
+    0
+  )
+  const totalMissing =
+    transfer.status === 'COMPLETED' || transfer.status === 'PARTIAL_RECEIVED'
+      ? Math.max(
+          0,
+          (transfer.totalTransferredQuantity || 0) -
+            (transfer.totalReceivedQuantity || 0) -
+            totalDamaged
+        )
+      : 0
 
   const columns: ColumnsType<StockTransferItem> = [
     {
@@ -93,7 +114,7 @@ export default function TransferDetailModal({ transfer, open, onClose }: Props) 
       dataIndex: 'quantity',
       key: 'quantity',
       align: 'right',
-      width: 110,
+      width: 100,
       render: (qty: number) => formatNumber(qty),
     },
     {
@@ -101,7 +122,7 @@ export default function TransferDetailModal({ transfer, open, onClose }: Props) 
       dataIndex: 'transferredQuantity',
       key: 'transferredQuantity',
       align: 'right',
-      width: 110,
+      width: 105,
       render: (qty: number) => (
         <span className={qty > 0 ? 'text-blue-600 font-semibold' : 'text-gray-400'}>
           {formatNumber(qty)}
@@ -113,7 +134,7 @@ export default function TransferDetailModal({ transfer, open, onClose }: Props) 
       dataIndex: 'receivedQuantity',
       key: 'receivedQuantity',
       align: 'right',
-      width: 110,
+      width: 105,
       render: (qty: number) => (
         <span className={qty > 0 ? 'text-green-600 font-semibold' : 'text-gray-400'}>
           {formatNumber(qty)}
@@ -122,21 +143,40 @@ export default function TransferDetailModal({ transfer, open, onClose }: Props) 
     },
     {
       title: 'Thiếu / Hỏng',
-      dataIndex: 'damagedQuantity',
-      key: 'damagedQuantity',
+      key: 'discrepancy',
       align: 'right',
-      width: 110,
-      render: (qty: number) => (
-        <span className={qty > 0 ? 'text-red-500 font-semibold' : 'text-gray-400'}>
-          {formatNumber(qty)}
-        </span>
-      ),
+      width: 120,
+      render: (_, record) => {
+        const damaged = record.damagedQuantity || 0
+        const missing =
+          transfer.status === 'COMPLETED' || transfer.status === 'PARTIAL_RECEIVED'
+            ? Math.max(0, (record.transferredQuantity || 0) - (record.receivedQuantity || 0) - damaged)
+            : 0
+
+        if (damaged === 0 && missing === 0) {
+          return <span className="text-gray-400">0</span>
+        }
+        return (
+          <div className="space-y-0.5 text-right">
+            {damaged > 0 && (
+              <div className="text-red-500 font-semibold text-xs">
+                Hỏng: {formatNumber(damaged)}
+              </div>
+            )}
+            {missing > 0 && (
+              <div className="text-amber-600 font-semibold text-xs">
+                Thiếu: {formatNumber(missing)}
+              </div>
+            )}
+          </div>
+        )
+      },
     },
     {
       title: 'Vị trí nhập đích',
       dataIndex: 'destinationBinLocationCode',
       key: 'destinationBinLocationCode',
-      width: 140,
+      width: 130,
       render: (code?: string) =>
         code ? <Tag color="green">{code}</Tag> : <span className="text-gray-400">—</span>,
     },
@@ -147,6 +187,24 @@ export default function TransferDetailModal({ transfer, open, onClose }: Props) 
       render: (notes?: string) => notes || '—',
     },
   ]
+
+  const footer =
+    // Nhận hàng: ADMIN hoặc Quản lý của kho đích
+    transfer.status === 'IN_TRANSIT' && onReceive && can('transfer.receive', transfer.destinationWarehouseId)
+      ? [
+          <Button key="close" onClick={onClose}>
+            Đóng
+          </Button>,
+          <Button
+            key="receive"
+            type="primary"
+            icon={<InboxOutlined />}
+            onClick={() => onReceive(transfer)}
+          >
+            Xác nhận nhận hàng tại kho đích
+          </Button>,
+        ]
+      : null
 
   return (
     <Modal
@@ -161,14 +219,14 @@ export default function TransferDetailModal({ transfer, open, onClose }: Props) 
         </div>
       }
       open={open}
-      width={1050}
+      width={1100}
       onCancel={onClose}
-      footer={null}
+      footer={footer}
       destroyOnClose
     >
       <div className="py-3">
         {/* Tiến trình điều chuyển */}
-        <div className="p-4 bg-gray-50 rounded-xl mb-6 border border-gray-200">
+        <div className="p-4 bg-gray-50 rounded-xl mb-5 border border-gray-200">
           <Steps
             current={currentStep}
             status={stepStatus}
@@ -200,7 +258,10 @@ export default function TransferDetailModal({ transfer, open, onClose }: Props) 
                 icon: <CarOutlined />,
               },
               {
-                title: 'Nhận hàng tại kho đích',
+                title:
+                  transfer.status === 'PARTIAL_RECEIVED'
+                    ? 'Nhận một phần (Có sự cố)'
+                    : 'Nhận hàng tại kho đích',
                 description: (
                   <div className="text-xs text-gray-500 mt-1">
                     {transfer.receivedBy ? (
@@ -213,11 +274,45 @@ export default function TransferDetailModal({ transfer, open, onClose }: Props) 
                     )}
                   </div>
                 ),
-                icon: <CheckCircleOutlined />,
+                icon:
+                  transfer.status === 'PARTIAL_RECEIVED' ? (
+                    <ExclamationCircleOutlined />
+                  ) : (
+                    <CheckCircleOutlined />
+                  ),
               },
             ]}
           />
         </div>
+
+        {/* Cảnh báo biên bản sự cố nếu nhận một phần */}
+        {transfer.status === 'PARTIAL_RECEIVED' && (
+          <Alert
+            type="warning"
+            showIcon
+            icon={<ExclamationCircleOutlined />}
+            className="mb-4"
+            message="Lệnh điều chuyển có phát sinh thiếu / hư hỏng khi nhận hàng"
+            description={
+              <div className="text-sm space-y-1">
+                <div>
+                  Tổng thực nhận:{' '}
+                  <strong className="text-green-700">
+                    {formatNumber(transfer.totalReceivedQuantity)}
+                  </strong>{' '}
+                  / {formatNumber(transfer.totalTransferredQuantity)} • Hư hỏng:{' '}
+                  <strong className="text-red-600">{formatNumber(totalDamaged)}</strong> • Thiếu
+                  hụt: <strong className="text-amber-700">{formatNumber(totalMissing)}</strong>
+                </div>
+                {transfer.notes && (
+                  <div className="text-gray-700 whitespace-pre-wrap pt-1 border-t border-amber-200/70">
+                    {transfer.notes}
+                  </div>
+                )}
+              </div>
+            }
+          />
+        )}
 
         {/* Thông tin kho bãi và tuyến đường */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -270,7 +365,7 @@ export default function TransferDetailModal({ transfer, open, onClose }: Props) 
               {formatNumber(transfer.totalReceivedQuantity)}
             </strong>
           </Descriptions.Item>
-          {transfer.notes && (
+          {transfer.notes && transfer.status !== 'PARTIAL_RECEIVED' && (
             <Descriptions.Item label="Ghi chú / Biên bản" span={3}>
               <div className="text-gray-700 whitespace-pre-wrap">{transfer.notes}</div>
             </Descriptions.Item>

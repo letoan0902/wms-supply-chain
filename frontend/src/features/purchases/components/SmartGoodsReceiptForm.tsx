@@ -14,6 +14,7 @@ import {
   WarningOutlined,
 } from '@ant-design/icons'
 import {
+  Alert,
   App,
   Badge,
   Button,
@@ -36,11 +37,19 @@ import type { ColumnsType } from 'antd/es/table'
 import dayjs from 'dayjs'
 import { useEffect, useRef, useState } from 'react'
 import { getApiErrorMessage } from '../../../services/api'
+import {
+  classifyReceiptSubmitError,
+  newIdempotencyKey,
+  shouldRenewKeyAfter,
+  type FrozenLocation,
+} from '../../../services/stockDocuments'
+import { FrozenLocationList } from '../../sales/components/StockErrorDetails'
 import { formatCurrency, formatNumber } from '../../../utils/format'
 import { playErrorBeep, playSuccessBeep, playWarningBeep } from '../../../utils/sound'
 import * as warehouseApi from '../../warehouses/warehouseApi'
 import type { BinLocation } from '../../warehouses/types'
 import * as productApi from '../../products/productApi'
+import type { Product } from '../../products/types'
 import * as grnApi from '../grnApi'
 import type {
   CreateGrnItemRequest,
@@ -95,7 +104,7 @@ export default function SmartGoodsReceiptForm({
   onSuccess,
   onCancel,
 }: SmartGoodsReceiptFormProps) {
-  const { message } = App.useApp()
+  const { message, modal } = App.useApp()
 
   // Danh sách các PO hợp lệ để nhập kho (APPROVED hoặc PARTIALLY_RECEIVED)
   const [candidatePos, setCandidatePos] = useState<PurchaseOrder[]>([])
@@ -115,6 +124,13 @@ export default function SmartGoodsReceiptForm({
   const [receiptDate, setReceiptDate] = useState<string>(dayjs().format('YYYY-MM-DD'))
   const [grnNote, setGrnNote] = useState<string>('')
   const [submitting, setSubmitting] = useState(false)
+  const submittingRef = useRef(false)
+  // Khóa chống lập trùng (header Idempotency-Key): sinh một lần khi mở form, chỉ đổi sau khi lập thành công
+  // hoặc khi máy chủ báo khóa đã dùng cho đơn mua khác (docs/api/CHUNG_TU_TON_KHO.md mục 1)
+  const [initialIdempotencyKey] = useState(() => newIdempotencyKey())
+  const idempotencyKeyRef = useRef(initialIdempotencyKey)
+  // Lỗi 409 vị trí đóng băng kiểm kê của lần lưu gần nhất
+  const [frozenNotice, setFrozenNotice] = useState<{ message: string; locations: FrozenLocation[] } | null>(null)
 
   // Quét mã vạch thông minh & súng bắn mã
   const [barcodeInput, setBarcodeInput] = useState<string>('')
@@ -182,15 +198,32 @@ export default function SmartGoodsReceiptForm({
     const loadPoData = async () => {
       setLoadingProgress(true)
       try {
-        const [progress, productsRes] = await Promise.all([
-          grnApi.fetchPoReceiptProgress(selectedPoId),
-          productApi.fetchProducts({ size: 200 }).catch(() => null),
-        ])
+        const progress = await grnApi.fetchPoReceiptProgress(selectedPoId)
         if (ignore) return
 
         setPoProgress(progress)
 
-        const productMap = new Map((productsRes?.content || []).map((p) => [p.id, p]))
+        // Tải chi tiết sản phẩm theo từng ID của đơn PO để luôn lấy đúng cờ manageByLot/manageByExpiration
+        const uniqueProductIds = Array.from(
+          new Set((progress.items || []).map((it) => it.productId).filter(Boolean))
+        )
+        const productMap = new Map<number, Product>()
+        const settledProducts = await Promise.allSettled(
+          uniqueProductIds.map((id) => productApi.fetchProductById(id))
+        )
+        let hasFailedProduct = false
+        settledProducts.forEach((res) => {
+          if (res.status === 'fulfilled' && res.value) {
+            productMap.set(res.value.id, res.value)
+          } else if (res.status === 'rejected') {
+            hasFailedProduct = true
+          }
+        })
+        if (hasFailedProduct && !ignore) {
+          message.warning(
+            'Một số sản phẩm không tải được thông tin quản lý lô/hạn dùng từ máy chủ. Vui lòng kiểm tra lại trước khi hoàn tất nhập kho.'
+          )
+        }
 
         // Khởi tạo các dòng hàng
         const initialRows: ReceiptItemRow[] = (progress.items || []).map((it) => {
@@ -225,13 +258,16 @@ export default function SmartGoodsReceiptForm({
 
         setItems(initialRows)
 
-        // Tải vị trí ô kệ của kho
+        // Tải vị trí ô kệ đang hoạt động của kho
         if (progress.warehouseId) {
           setLoadingBins(true)
           try {
-            const bins = await warehouseApi.fetchLocations({ warehouseId: progress.warehouseId })
+            const bins = await warehouseApi.fetchLocations({
+              warehouseId: progress.warehouseId,
+              active: true,
+            })
             if (!ignore) {
-              setBinLocations(bins || [])
+              setBinLocations((bins || []).filter((b) => b.active))
             }
           } catch (err) {
             console.error('Không thể tải vị trí kho', err)
@@ -488,10 +524,10 @@ export default function SmartGoodsReceiptForm({
           handleOpenLotModal(i)
           return
         }
-        if (it.expDate && dayjs(it.expDate).isBefore(dayjs(receiptDate || undefined), 'day')) {
+        if (it.expDate && !dayjs(it.expDate).isAfter(dayjs(receiptDate || undefined), 'day')) {
           playErrorBeep()
           message.error(
-            `Hạn sử dụng của lô "${it.batchNumber || it.skuCode}" đã quá hạn so với ngày nhập kho (${dayjs(receiptDate).format('DD/MM/YYYY')})!`
+            `Hạn sử dụng của lô "${it.batchNumber || it.skuCode}" phải sau ngày nhập kho (${dayjs(receiptDate).format('DD/MM/YYYY')})!`
           )
           handleOpenLotModal(i)
           return
@@ -522,18 +558,68 @@ export default function SmartGoodsReceiptForm({
       items: activeLines,
     }
 
+    // Chặn gửi hai lần (bấm đúp, phím Enter của súng quét) trước khi trạng thái đang lưu kịp cập nhật
+    if (submittingRef.current) return
+    submittingRef.current = true
     setSubmitting(true)
+    setFrozenNotice(null)
+    // Cùng một khóa cho mọi lần bấm của lần mở form này (kể cả bấm lại sau lỗi mạng): máy chủ không lập phiếu thứ hai
+    const key = idempotencyKeyRef.current
     try {
-      const created = await grnApi.createGoodsReceipt(payload)
+      const { grn: created, replayed } = await grnApi.createGoodsReceipt(payload, key)
+      idempotencyKeyRef.current = newIdempotencyKey()
       playSuccessBeep()
-      message.success(`Lập phiếu nhập kho "${created.grnNumber}" thành công!`)
+      if (replayed) {
+        message.info(
+          `Phiếu nhập kho "${created.grnNumber}" đã được lưu từ lần bấm trước, hệ thống không lập thêm phiếu mới. Vui lòng xem lại số lượng trong phiếu này.`,
+          8
+        )
+      } else {
+        message.success(`Lập phiếu nhập kho "${created.grnNumber}" thành công!`)
+      }
       onSuccess(created)
     } catch (err) {
       playErrorBeep()
-      message.error(getApiErrorMessage(err, 'Không thể lập phiếu nhập kho'))
+      const failure = classifyReceiptSubmitError(err)
+      if (shouldRenewKeyAfter(failure.kind)) {
+        idempotencyKeyRef.current = newIdempotencyKey()
+      }
+      switch (failure.kind) {
+        case 'frozen':
+          setFrozenNotice({ message: failure.message, locations: failure.locations })
+          message.error(failure.message || 'Vị trí cất hàng đang đóng băng để kiểm kê, vui lòng chọn vị trí khác.')
+          break
+        case 'keyConflict':
+          modal.warning({
+            title: 'Cần bấm lưu lại',
+            content: `${failure.message ? `${failure.message}. ` : ''}Form đã được cấp mã chống trùng mới, vui lòng kiểm tra lại số liệu rồi bấm "Xác nhận Nhập kho (GRN)" lần nữa.`,
+          })
+          break
+        case 'unknown':
+          modal.warning({
+            title: 'Chưa rõ phiếu nhập đã được lưu hay chưa',
+            content:
+              'Không nhận được phản hồi từ máy chủ (mất mạng hoặc hết thời gian chờ). Giữ nguyên form và bấm "Xác nhận Nhập kho (GRN)" lại: thao tác này an toàn, nếu phiếu đã được lưu thì hệ thống trả lại đúng phiếu đó, không lập phiếu thứ hai.',
+          })
+          break
+        case 'unavailable':
+          message.error(
+            `${failure.message || 'Dịch vụ kho tạm thời không phản hồi.'} Phiếu chưa được lưu, bấm "Xác nhận Nhập kho (GRN)" lại là an toàn.`
+          )
+          break
+        default:
+          message.error(getApiErrorMessage(err, 'Không thể lập phiếu nhập kho'))
+      }
     } finally {
+      submittingRef.current = false
       setSubmitting(false)
     }
+  }
+
+  // Tên mặt hàng theo id sản phẩm (máy chủ chỉ trả id trong danh sách vị trí đóng băng)
+  const productNameOf = (productId: number | null) => {
+    const row = productId == null ? undefined : items.find((it) => it.productId === productId)
+    return row ? `${row.skuCode} - ${row.productName}` : undefined
   }
 
   // Cấu hình bảng hiển thị chi tiết các dòng hàng
@@ -688,7 +774,7 @@ export default function SmartGoodsReceiptForm({
       ),
     },
     {
-      title: 'Quản lý Lô & HSD (WMS-10.5)',
+      title: 'Quản lý Lô & HSD',
       width: 250,
       render: (_, r, idx) => {
         const isDateManaged = Boolean(r.manageByExpiration || r.manageByLot)
@@ -709,10 +795,10 @@ export default function SmartGoodsReceiptForm({
               className="w-full text-xs font-semibold flex items-center justify-center gap-1 shadow-2xs"
             >
               {isMissingRequired
-                ? '⚠️ Nhập Lô & HSD ngay *'
+                ? 'Nhập Lô & HSD ngay *'
                 : r.batchNumber || r.expDate
                 ? 'Sửa Lô / HSD / Vị trí'
-                : 'Nhập Lô & HSD (Modal)'}
+                : 'Nhập Lô & HSD'}
             </Button>
 
             <div className="flex flex-wrap items-center gap-1">
@@ -752,7 +838,7 @@ export default function SmartGoodsReceiptForm({
       },
     },
     {
-      title: 'Vị trí cất hàng (Putaway Bin)',
+      title: 'Vị trí cất hàng',
       width: 200,
       render: (_, r, idx) => (
         <div className="space-y-1">
@@ -800,7 +886,7 @@ export default function SmartGoodsReceiptForm({
             <span>Form Lập Phiếu Nhập Kho Thông Minh (Quét mã vạch cộng dồn SL)</span>
           </Title>
           <Text type="secondary" className="text-xs">
-            Hỗ trợ súng bắn mã vạch quét liên tục (&lt; 100ms) tự động tích cộng dồn, phát âm thanh BEEP, quản lý Lô & HSD (FR07, FR11, FR12)
+            Hỗ trợ súng bắn mã vạch quét liên tục (&lt; 100ms) tự động tích cộng dồn, phát tiếng bíp, quản lý Lô & HSD
           </Text>
         </div>
 
@@ -909,10 +995,10 @@ export default function SmartGoodsReceiptForm({
                 Ô Quét Mã Vạch Thông Minh (Tự động nhận diện súng bắn mã &lt; 100ms)
               </span>
               <Tag color="green" className="text-[10px] m-0">
-                Auto-Focus
+                Tự động chọn ô quét
               </Tag>
               <Tag color="blue" className="text-[10px] m-0">
-                Sound Beep ON
+                Tiếng bíp: Bật
               </Tag>
             </div>
 
@@ -931,6 +1017,7 @@ export default function SmartGoodsReceiptForm({
               />
 
               <Button
+                data-write-action
                 size="large"
                 icon={<CameraOutlined />}
                 onClick={() => setIsCameraModalOpen(true)}
@@ -989,6 +1076,26 @@ export default function SmartGoodsReceiptForm({
           </div>
         )}
       </Card>
+
+      {/* Vị trí đang đóng băng kiểm kê do máy chủ báo ở lần lưu gần nhất: chọn ô khác rồi lưu lại */}
+      {frozenNotice && (
+        <Alert
+          type="error"
+          showIcon
+          closable
+          onClose={() => setFrozenNotice(null)}
+          message={frozenNotice.message || 'Vị trí cất hàng đang đóng băng để kiểm kê'}
+          description={
+            <div>
+              <FrozenLocationList locations={frozenNotice.locations} productName={productNameOf} />
+              <div className="mt-1 text-xs">
+                Chọn ô khác ở cột "Vị trí cất hàng" của dòng tương ứng (dòng để trống vị trí được cất vào ô đầu tiên
+                của kho, có thể chính là ô đang kiểm kê), rồi bấm "Xác nhận Nhập kho (GRN)" lại.
+              </div>
+            </div>
+          }
+        />
+      )}
 
       {/* Bảng Chi tiết các mặt hàng của PO */}
       <Card variant="borderless" className="shadow-2xs">

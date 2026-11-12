@@ -61,6 +61,21 @@ class RabbitMqConfigTest {
     }
 
     @Test
+    void declaresAuthEmailsQueueLikeDefinitionsFile() {
+        TopicExchange exchange = config.wmsEventsExchange(properties);
+        Queue queue = config.notificationAuthEmailsQueue();
+        Binding binding = config.notificationAuthEmailsBinding(queue, exchange);
+
+        assertThat(queue.getName()).isEqualTo(WmsEvents.Queues.NOTIFICATION_AUTH_EMAILS);
+        assertThat(queue.isDurable()).isTrue();
+        assertThat(queue.isAutoDelete()).isFalse();
+        assertThat(queue.getArguments()).isEmpty();
+        assertThat(binding.getExchange()).isEqualTo(WmsEvents.EXCHANGE);
+        assertThat(binding.getDestination()).isEqualTo(WmsEvents.Queues.NOTIFICATION_AUTH_EMAILS);
+        assertThat(binding.getRoutingKey()).isEqualTo("auth.#");
+    }
+
+    @Test
     void converterUsesListenerParameterTypeAndIgnoresForeignTypeIdHeader() throws Exception {
         ObjectMapper objectMapper = new ObjectMapper();
         MessageConverter converter = config.jsonMessageConverter(objectMapper);

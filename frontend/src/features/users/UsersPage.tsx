@@ -18,6 +18,7 @@ import { fetchWarehouses } from '../warehouses/warehouseApi'
 import type { Warehouse } from '../warehouses/types'
 import { getApiErrorMessage } from '../../services/api'
 import { getStoredUser } from '../../utils/storage'
+import { useCan } from '../auth/useCan'
 
 const { Title, Text } = Typography
 
@@ -25,7 +26,8 @@ export default function UsersPage() {
   const { message } = App.useApp()
   const navigate = useNavigate()
   const currentUser = getStoredUser()
-  const isAdmin = Boolean(currentUser?.roles?.includes('ADMIN'))
+  // Quản lý người dùng: chỉ ADMIN (features/auth/permissions.ts, khớp @PreAuthorize của auth-service)
+  const isAdmin = useCan()('user.manage')
 
   // Danh sách users & phân trang
   const [users, setUsers] = useState<UserDetail[]>([])

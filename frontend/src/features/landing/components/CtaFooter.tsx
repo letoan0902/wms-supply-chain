@@ -9,10 +9,9 @@ import { Link } from 'react-router-dom'
 
 interface CtaFooterProps {
   onScrollTo: (sectionId: string) => void
-  onRegisterTrial?: () => void
 }
 
-export default function CtaFooter({ onScrollTo, onRegisterTrial }: CtaFooterProps) {
+export default function CtaFooter({ onScrollTo }: CtaFooterProps) {
   return (
     <footer className="bg-slate-900 text-slate-300">
       {/* Pre-footer Call to Action Banner */}
@@ -30,15 +29,16 @@ export default function CtaFooter({ onScrollTo, onRegisterTrial }: CtaFooterProp
             dễ dàng gia hạn linh hoạt bằng quét mã VietQR PayOS.
           </p>
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Button
-              type="primary"
-              size="large"
-              onClick={onRegisterTrial}
-              className="h-12 w-full sm:w-auto px-8 rounded-xl font-bold bg-blue-600 hover:bg-blue-500 shadow-lg shadow-blue-600/30"
-            >
-              Đăng ký Dùng thử 30 ngày
-              <ArrowRightOutlined className="text-xs" />
-            </Button>
+            <Link to="/register" className="w-full sm:w-auto">
+              <Button
+                type="primary"
+                size="large"
+                className="h-12 w-full sm:w-auto px-8 rounded-xl font-bold bg-blue-600 hover:bg-blue-500 shadow-lg shadow-blue-600/30"
+              >
+                Đăng ký Dùng thử 30 ngày
+                <ArrowRightOutlined className="text-xs" />
+              </Button>
+            </Link>
             <Link to="/login" className="w-full sm:w-auto">
               <Button
                 size="large"
@@ -182,6 +182,11 @@ export default function CtaFooter({ onScrollTo, onRegisterTrial }: CtaFooterProp
               <li>
                 <Link to="/login" className="text-slate-400 hover:text-white transition-colors">
                   Đăng nhập tài khoản
+                </Link>
+              </li>
+              <li>
+                <Link to="/register" className="text-slate-400 hover:text-white transition-colors">
+                  Đăng ký doanh nghiệp
                 </Link>
               </li>
               <li>

@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -41,6 +42,7 @@ public class WarehouseController {
 
     @GetMapping
     @Operation(summary = "Danh sách kho hàng kèm thống kê sức chứa và vị trí")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'PURCHASING', 'SALES', 'ACCOUNTANT', 'INTEGRATION')")
     public ApiResponse<List<WarehouseResponse>> listWarehouses(
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) Boolean active
@@ -50,12 +52,14 @@ public class WarehouseController {
 
     @GetMapping("/summary")
     @Operation(summary = "Thẻ tóm tắt nhanh tình trạng toàn bộ hệ thống kho (WMS-05.2)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'PURCHASING', 'SALES', 'ACCOUNTANT', 'INTEGRATION')")
     public ApiResponse<WarehouseSummaryResponse> getSummaryMetrics() {
         return ApiResponse.ok(warehouseService.getSummaryMetrics());
     }
 
     @GetMapping("/{id}")
     @Operation(summary = "Xem thông tin chi tiết một kho hàng")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'PURCHASING', 'SALES', 'ACCOUNTANT', 'INTEGRATION')")
     public ApiResponse<WarehouseResponse> getWarehouseById(@PathVariable Long id) {
         return ApiResponse.ok(warehouseService.getWarehouseById(id));
     }
@@ -63,12 +67,14 @@ public class WarehouseController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Tạo mới một kho hàng (WMS-05.1)")
+    @PreAuthorize("hasRole('ADMIN')")
     public ApiResponse<WarehouseResponse> createWarehouse(@Valid @RequestBody CreateWarehouseRequest request) {
         return ApiResponse.ok(warehouseService.createWarehouse(request));
     }
 
     @PutMapping("/{id}")
     @Operation(summary = "Cập nhật thông tin kho hàng (WMS-05.1)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER')")
     public ApiResponse<WarehouseResponse> updateWarehouse(
             @PathVariable Long id,
             @Valid @RequestBody UpdateWarehouseRequest request
@@ -78,6 +84,7 @@ public class WarehouseController {
 
     @PatchMapping("/{id}/status")
     @Operation(summary = "Khóa hoặc kích hoạt lại kho hàng (WMS-05.1)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER')")
     public ApiResponse<WarehouseResponse> toggleWarehouseStatus(
             @PathVariable Long id,
             @RequestBody Map<String, Boolean> body
@@ -89,6 +96,7 @@ public class WarehouseController {
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(summary = "Xóa kho hàng nếu chưa có hàng hóa hoặc vị trí (WMS-05.1)")
+    @PreAuthorize("hasRole('ADMIN')")
     public void deleteWarehouse(@PathVariable Long id) {
         warehouseService.deleteWarehouse(id);
     }

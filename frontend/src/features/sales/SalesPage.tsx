@@ -1,7 +1,7 @@
 import {
   CheckCircleOutlined,
-  DeleteOutlined,
   ClockCircleOutlined,
+  DeleteOutlined,
   DollarOutlined,
   ExclamationCircleOutlined,
   EyeOutlined,
@@ -10,6 +10,7 @@ import {
   FileTextOutlined,
   PlusOutlined,
   ReloadOutlined,
+  RocketOutlined,
   SearchOutlined,
   ShoppingOutlined,
   StopOutlined,
@@ -39,16 +40,23 @@ import dayjs from 'dayjs'
 import { useEffect, useState } from 'react'
 import * as XLSX from 'xlsx'
 import { getApiErrorMessage } from '../../services/api'
+import { errorMessageOf, stockShortagesOf } from '../../services/stockDocuments'
 import { formatCurrency } from '../../utils/format'
-import { getStoredUser } from '../../utils/storage'
+import ForbiddenResult from '../../components/ForbiddenResult'
+import { useCan } from '../auth/useCan'
 import * as customerApi from '../customers/customerApi'
 import type { Customer } from '../customers/types'
 import * as warehouseApi from '../warehouses/warehouseApi'
 import type { Warehouse } from '../warehouses/types'
 import CreateSalesInvoiceModal from './components/CreateSalesInvoiceModal'
 import CustomerReceivablesTab from './components/CustomerReceivablesTab'
+import GoodsDeliveryTable from './components/GoodsDeliveryTable'
+import RealtimeOutboundBoard from './components/RealtimeOutboundBoard'
 import SalesOrderDetailModal from './components/SalesOrderDetailModal'
 import SalesOrderForm from './components/SalesOrderForm'
+import SmartGoodsDeliveryForm from './components/SmartGoodsDeliveryForm'
+import SmartPickingModal from './components/SmartPickingModal'
+import { StockShortageNotice } from './components/StockErrorDetails'
 import * as salesApi from './salesApi'
 import { SALES_STATUS_CONFIG } from './statusConfig'
 import type { OrderStatus, SalesOrder, SalesOrderSummary } from './types'
@@ -57,34 +65,31 @@ const { Title, Text } = Typography
 const { RangePicker } = DatePicker
 
 export default function SalesPage() {
-  const { message } = App.useApp()
+  const { message, modal } = App.useApp()
 
-  // Phân quyền theo RBAC với fallback an toàn ?? false
-  const currentUser = getStoredUser()
-  const canConfirm =
-    currentUser?.roles?.some((r) =>
-      ['ADMIN', 'SALES', 'WAREHOUSE_MANAGER'].includes(r)
-    ) ?? false
-
-  const canCancel =
-    currentUser?.roles?.some((r) =>
-      ['ADMIN', 'SALES'].includes(r)
-    ) ?? false
-
-  const canDelete =
-    currentUser?.roles?.some((r) =>
-      ['ADMIN', 'SALES'].includes(r)
-    ) ?? false
-
-  const canManageInvoice =
-    currentUser?.roles?.some((r) =>
-      ['ADMIN', 'SALES', 'ACCOUNTANT'].includes(r)
-    ) ?? false
+  // Phân quyền theo bảng quyền dùng chung (features/auth/permissions.ts, khớp backend)
+  const can = useCan()
+  const canRead = can('salesOrder.read')
+  const canConfirm = can('salesOrder.confirm')
+  // Lập, sửa, hủy, xóa đơn bán: ADMIN, Bán hàng
+  const canCreate = can('salesOrder.write')
+  const canCancel = can('salesOrder.write')
+  const canDelete = can('salesOrder.write')
+  // Lập hóa đơn bán ghi giao dịch công nợ khách hàng: ADMIN, Kế toán
+  const canManageInvoice = can('customer.transaction')
+  // Danh sách lấy hàng: ADMIN, Quản lý kho, Nhân viên kho, Bán hàng; lập phiếu xuất: ADMIN, Quản lý kho, Nhân viên kho
+  const canPick = can('picking.view')
+  const canCreateGdn = can('gdn.create')
+  // Nhân viên kho không đọc được khách hàng; vai trò chưa được gán kho không đọc được danh sách kho
+  const canReadCustomers = can('customer.read')
+  const canReadWarehouses = can('warehouse.read')
 
   // Tab chính: 'list' | 'create' | 'receivables'
   const [activeTab, setActiveTab] = useState<string>('list')
   const [formResetKey, setFormResetKey] = useState<number>(1)
   const [refreshKey, setRefreshKey] = useState<number>(0)
+  // Đơn đang được xác nhận nhanh trên bảng (khóa nút trong lúc chờ máy chủ)
+  const [confirmingId, setConfirmingId] = useState<number | null>(null)
 
   // Sub-filter tab theo trạng thái đơn hàng
   const [selectedStatusTab, setSelectedStatusTab] = useState<string>('ALL')
@@ -115,17 +120,24 @@ export default function SalesPage() {
   const [orderForInvoice, setOrderForInvoice] = useState<SalesOrder | null>(null)
   const [invoiceModalOpen, setInvoiceModalOpen] = useState<boolean>(false)
 
+  const [orderForPicking, setOrderForPicking] = useState<SalesOrder | null>(null)
+  const [isPickingModalOpen, setIsPickingModalOpen] = useState<boolean>(false)
+
+  const [orderForDelivery, setOrderForDelivery] = useState<SalesOrder | null>(null)
+  const [isDeliveryModalOpen, setIsDeliveryModalOpen] = useState<boolean>(false)
+
   // Tải danh mục khách hàng và kho cho bộ lọc
   useEffect(() => {
+    if (!canRead) return
     let ignore = false
     const loadFilters = async () => {
       try {
         const [cRes, wRes] = await Promise.all([
-          customerApi.fetchCustomers({ active: true, size: 100 }),
-          warehouseApi.fetchWarehouses({ active: true }),
+          canReadCustomers ? customerApi.fetchCustomers({ active: true, size: 100 }) : Promise.resolve(null),
+          canReadWarehouses ? warehouseApi.fetchWarehouses({ active: true }) : Promise.resolve([]),
         ])
         if (!ignore) {
-          setCustomers(cRes.content || [])
+          setCustomers(cRes?.content || [])
           setWarehouses(wRes || [])
         }
       } catch {
@@ -136,10 +148,11 @@ export default function SalesPage() {
     return () => {
       ignore = true
     }
-  }, [])
+  }, [canRead, canReadCustomers, canReadWarehouses])
 
   // Tải danh sách đơn bán và báo cáo summary
   useEffect(() => {
+    if (!canRead) return
     let ignore = false
     const fetchOrders = async () => {
       setLoading(true)
@@ -182,6 +195,7 @@ export default function SalesPage() {
       ignore = true
     }
   }, [
+    canRead,
     keyword,
     selectedStatusTab,
     customerFilter,
@@ -242,7 +256,7 @@ export default function SalesPage() {
           'Thuế VAT (VNĐ)': so.taxAmount || 0,
           'Tổng thanh toán (VNĐ)': so.totalAmount || 0,
           'Trạng thái': conf?.label || so.status,
-          'Lý do Backorder': so.backorderReason || '',
+          'Lý do thiếu hàng': so.backorderReason || '',
           'Người duyệt': so.confirmedBy || '',
           'Thời gian tạo': so.createdAt ? dayjs(so.createdAt).format('DD/MM/YYYY HH:mm') : '',
         }
@@ -263,14 +277,34 @@ export default function SalesPage() {
     }
   }
 
-  // Phê duyệt nhanh đơn bán
+  // Phê duyệt nhanh đơn bán: giữ chỗ là một phần của xác nhận, thiếu hàng thì máy chủ trả 400 kèm danh sách thiếu
   const handleQuickConfirm = async (order: SalesOrder) => {
+    if (confirmingId !== null) return
+    setConfirmingId(order.id)
     try {
       await salesApi.confirmSalesOrder(order.id)
-      message.success(`Đã xác nhận đơn bán "${order.soNumber}"! Tồn kho đã được giữ chỗ (Soft Reservation).`)
-      setRefreshKey((k) => k + 1)
+      message.success(`Đã xác nhận đơn bán "${order.soNumber}"! Tồn kho đã được giữ chỗ.`)
     } catch (err) {
-      message.error(getApiErrorMessage(err, 'Lỗi khi xác nhận đơn bán hàng'))
+      const shortages = stockShortagesOf(err)
+      if (shortages.length > 0) {
+        modal.error({
+          title: `Chưa xác nhận được đơn "${order.soNumber}": không đủ hàng để giữ chỗ`,
+          width: 640,
+          content: (
+            <StockShortageNotice
+              message={errorMessageOf(err)}
+              shortages={shortages}
+              productName={(productId) => order.items?.find((it) => it.productId === productId)?.productName}
+            />
+          ),
+        })
+      } else {
+        message.error(getApiErrorMessage(err, 'Lỗi khi xác nhận đơn bán hàng'))
+      }
+    } finally {
+      setConfirmingId(null)
+      // Tải lại sau cả hai kết quả: đơn có thể đã được người khác xác nhận hoặc tồn đã thay đổi
+      setRefreshKey((k) => k + 1)
     }
   }
 
@@ -431,7 +465,7 @@ export default function SalesPage() {
               <Tooltip title="Xác nhận đơn (Giữ hàng ảo)">
                 <Popconfirm
                   title="Xác nhận đơn bán?"
-                  description={`Xác nhận duyệt đơn "${r.soNumber}" và thực hiện Soft Reservation?`}
+                  description={`Xác nhận duyệt đơn "${r.soNumber}" và giữ hàng?`}
                   icon={<ExclamationCircleOutlined className="text-green-500" />}
                   onConfirm={() => handleQuickConfirm(r)}
                   okText="Xác nhận"
@@ -442,8 +476,26 @@ export default function SalesPage() {
                     size="small"
                     type="text"
                     icon={<CheckCircleOutlined className="text-green-600" />}
+                    loading={confirmingId === r.id}
+                    disabled={confirmingId !== null && confirmingId !== r.id}
                   />
                 </Popconfirm>
+              </Tooltip>
+            )}
+
+            {/* Lấy hàng thông minh (Smart Picking - WMS-12.3) */}
+            {r.status === 'CONFIRMED' && canPick && (
+              <Tooltip title="Lấy hàng thông minh (lộ trình lấy hàng)">
+                <Button
+                  data-write-action
+                  size="small"
+                  type="text"
+                  icon={<RocketOutlined className="text-orange-500 hover:text-orange-600" />}
+                  onClick={() => {
+                    setOrderForPicking(r)
+                    setIsPickingModalOpen(true)
+                  }}
+                />
               </Tooltip>
             )}
 
@@ -451,6 +503,7 @@ export default function SalesPage() {
             {canCreateInvoice && canManageInvoice && (
               <Tooltip title="Lập hóa đơn bán">
                 <Button
+                  data-write-action
                   size="small"
                   type="text"
                   icon={<FileTextOutlined className="text-purple-600" />}
@@ -530,7 +583,7 @@ export default function SalesPage() {
       key: 'BACKORDER',
       label: (
         <span className="flex items-center gap-1.5">
-          <span>Thiếu hàng (Backorder)</span>
+          <span>Thiếu hàng</span>
           {(summary?.backorders ?? 0) > 0 && (
             <Badge
               count={summary?.backorders}
@@ -545,6 +598,12 @@ export default function SalesPage() {
     { key: 'CANCELLED', label: `Đã hủy (${summary?.cancelledOrders ?? 0})` },
   ]
 
+  if (!canRead) {
+    return (
+      <ForbiddenResult description="Đơn bán hàng và phiếu xuất kho dành cho Quản trị viên, Quản lý kho, Nhân viên kho, Bán hàng và Kế toán." />
+    )
+  }
+
   return (
     <div className="p-4 space-y-4">
       {/* Header trang */}
@@ -555,7 +614,7 @@ export default function SalesPage() {
             <span>Quản lý Đơn Bán Hàng & Công Nợ Phải Thu (SO)</span>
           </Title>
           <Text type="secondary" className="text-sm">
-            Quy trình bán hàng, kiểm tra ATP, giữ hàng ảo (Soft Reservation), tạo hóa đơn và theo dõi công nợ phải thu (FR14, FR15, FR16, FR18)
+            Quy trình bán hàng, kiểm tra ATP, giữ hàng, tạo hóa đơn và theo dõi công nợ phải thu
           </Text>
         </div>
 
@@ -568,17 +627,19 @@ export default function SalesPage() {
           >
             Xuất Excel
           </Button>
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => {
-              setFormResetKey((k) => k + 1)
-              setActiveTab('create')
-            }}
-            className="bg-blue-600 hover:bg-blue-700"
-          >
-            Lập Đơn Bán Mới
-          </Button>
+          {canCreate && (
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => {
+                setFormResetKey((k) => k + 1)
+                setActiveTab('create')
+              }}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              Lập Đơn Bán Mới
+            </Button>
+          )}
         </Space>
       </div>
 
@@ -606,7 +667,7 @@ export default function SalesPage() {
         <Col xs={24} sm={12} md={6} lg={5}>
           <Card size="small" className="shadow-2xs border-slate-200">
             <Statistic
-              title="Thiếu hàng (Backorder)"
+              title="Thiếu hàng"
               value={summary?.backorders ?? 0}
               valueStyle={{ color: '#faad14' }}
               prefix={<WarningOutlined className="mr-1" />}
@@ -648,7 +709,7 @@ export default function SalesPage() {
               label: (
                 <Space>
                   <ShoppingOutlined />
-                  <span>Danh sách Đơn bán hàng (SO List)</span>
+                  <span>Danh sách Đơn bán hàng</span>
                   <Badge count={totalOrders} overflowCount={999} style={{ backgroundColor: '#1677ff' }} />
                 </Space>
               ),
@@ -762,7 +823,7 @@ export default function SalesPage() {
                 </div>
               ),
             },
-            {
+            ...(canCreate ? [{
               key: 'create',
               label: (
                 <Space>
@@ -785,8 +846,36 @@ export default function SalesPage() {
                   />
                 </div>
               ),
+            }] : []),
+            {
+              key: 'outbound',
+              label: (
+                <Space>
+                  <RocketOutlined className="text-orange-500" />
+                  <span>Xuất kho & Lộ trình lấy hàng</span>
+                </Space>
+              ),
+              children: (
+                <RealtimeOutboundBoard
+                  onOpenOrderDetail={(order) => {
+                    setSelectedOrder(order)
+                    setDetailModalOpen(true)
+                  }}
+                />
+              ),
             },
             {
+              key: 'gdn',
+              label: (
+                <Space>
+                  <RocketOutlined className="text-emerald-600" />
+                  <span>Phiếu xuất kho (GDN)</span>
+                </Space>
+              ),
+              children: <GoodsDeliveryTable />,
+            },
+            // Công nợ phải thu đọc khách hàng: nhân viên kho không được đọc
+            ...(canReadCustomers ? [{
               key: 'receivables',
               label: (
                 <Space>
@@ -795,7 +884,7 @@ export default function SalesPage() {
                 </Space>
               ),
               children: <CustomerReceivablesTab />,
-            },
+            }] : []),
           ]}
         />
       </Card>
@@ -816,12 +905,54 @@ export default function SalesPage() {
           setOrderForInvoice(order)
           setInvoiceModalOpen(true)
         }}
+        onOpenPicking={
+          canPick
+            ? (order) => {
+                setOrderForPicking(order)
+                setIsPickingModalOpen(true)
+              }
+            : undefined
+        }
+        onOpenDelivery={
+          canCreateGdn
+            ? (order) => {
+                setOrderForDelivery(order)
+                setIsDeliveryModalOpen(true)
+              }
+            : undefined
+        }
         canConfirm={canConfirm}
         canCancel={canCancel}
         canManageInvoice={canManageInvoice}
       />
 
-      {/* Modal Lập Hóa đơn bán hàng (FR18) */}
+      {/* Modal Lộ trình lấy hàng thông minh (Smart Picking View) */}
+      <SmartPickingModal
+        open={isPickingModalOpen}
+        order={orderForPicking}
+        onClose={() => {
+          setIsPickingModalOpen(false)
+          setOrderForPicking(null)
+        }}
+      />
+
+      {/* Modal Lập Phiếu Xuất Kho GDN (WMS-12.4) */}
+      <SmartGoodsDeliveryForm
+        open={isDeliveryModalOpen}
+        order={orderForDelivery}
+        onClose={() => {
+          setIsDeliveryModalOpen(false)
+          setOrderForDelivery(null)
+        }}
+        onSuccess={() => {
+          setRefreshKey((k) => k + 1)
+        }}
+        onSavedPendingDispatch={() => {
+          setRefreshKey((k) => k + 1)
+        }}
+      />
+
+      {/* Modal Lập Hóa đơn bán hàng */}
       <CreateSalesInvoiceModal
         open={invoiceModalOpen}
         order={orderForInvoice}

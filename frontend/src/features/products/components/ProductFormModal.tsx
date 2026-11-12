@@ -162,7 +162,7 @@ export default function ProductFormModal({
             type="info"
             showIcon
             className="mb-4"
-            message="Cấu hình Quy đổi Đơn vị tính (FR06)"
+            message="Cấu hình Quy đổi Đơn vị tính"
             description={
               <div className="flex items-center justify-between mt-1">
                 <span className="text-xs text-slate-600">

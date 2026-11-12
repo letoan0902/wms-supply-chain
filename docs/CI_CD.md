@@ -8,14 +8,14 @@ Tệp cấu hình: `.github/workflows/ci.yml`. Mỗi lần push lên bất kỳ 
 |---|---|---|
 | Backend | mọi push và PR | Cài JDK 17, `./gradlew build` cho toàn bộ multi-project (biên dịch và chạy unit test, integration test), tải báo cáo test lên artifact |
 | Frontend | mọi push và PR | Cài Node 20, `npm ci`, `npm run lint` (ESLint), `npm run build` (Vite) |
-| Docker (api-gateway, inventory-service, frontend) | mọi push, sau khi Backend và Frontend xanh | Build thử 3 image đại diện để bắt lỗi Dockerfile sớm, không đẩy lên registry |
-| Publish (9 service) | chỉ khi push vào `develop` hoặc `main` (tức là sau khi merge PR) | Build và đẩy image của 8 service backend và frontend lên GitHub Container Registry (GHCR) |
+| Docker (api-gateway, inventory-service, ai-service, frontend) | mọi push, sau khi Backend và Frontend xanh | Build thử 4 image đại diện để bắt lỗi Dockerfile sớm, không đẩy lên registry |
+| Publish (10 service) | chỉ khi push vào `develop` hoặc `main` (tức là sau khi merge PR) | Build và đẩy image của 9 service backend và frontend lên GitHub Container Registry (GHCR) |
 
 Hai job Backend và Frontend là kiểm tra bắt buộc của nhánh `develop` và `main`: PR phải xanh cả hai và có 1 người duyệt mới merge được.
 
 ## 2. Image trên GHCR
 
-Tên image: `ghcr.io/letoan0902/wms-supply-chain/<service>` với `<service>` là một trong: `config-server`, `discovery-server`, `api-gateway`, `auth-service`, `product-service`, `inventory-service`, `order-service`, `notification-service`, `frontend`.
+Tên image: `ghcr.io/letoan0902/wms-supply-chain/<service>` với `<service>` là một trong: `config-server`, `discovery-server`, `api-gateway`, `auth-service`, `product-service`, `inventory-service`, `order-service`, `notification-service`, `ai-service`, `frontend`.
 
 Thẻ (tag):
 
@@ -35,7 +35,7 @@ Máy chủ triển khai (WMS-21.3) sẽ dùng các image này thay cho bước b
 
 ## 3. Cache và thời gian chạy
 
-Build image dùng cache của GitHub Actions theo từng service (`type=gha,scope=<service>`), nên lần chạy sau chỉ build lại lớp thay đổi. Job Publish chạy song song 9 service, mỗi service giới hạn 40 phút.
+Build image dùng cache của GitHub Actions theo từng service (`type=gha,scope=<service>`), nên lần chạy sau chỉ build lại lớp thay đổi. Job Publish chạy song song 10 service, mỗi service giới hạn 40 phút.
 
 ## 4. Việc nối tiếp
 

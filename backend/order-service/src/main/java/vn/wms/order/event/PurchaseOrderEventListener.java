@@ -11,6 +11,7 @@ import vn.wms.common.messaging.WmsEvents;
 import vn.wms.common.messaging.event.OrderCreatedEvent;
 import vn.wms.common.messaging.event.OrderLine;
 import vn.wms.common.messaging.event.OrderType;
+import vn.wms.common.tenant.TenantContext;
 
 import java.util.List;
 
@@ -57,8 +58,10 @@ public class PurchaseOrderEventListener {
                     event.timestamp(),
                     lines
             );
-            // Listener đã chạy sau commit nên gọi publish trực tiếp, không cần publishAfterCommit
-            String messageId = wmsEventPublisher.publish(WmsEvents.RoutingKeys.ORDER_CREATED, orderCreatedEvent);
+            // Listener đã chạy sau commit nên gọi publish trực tiếp, không cần publishAfterCommit. Phát dưới danh nghĩa
+            // doanh nghiệp của đơn để header x-wms-company-id luôn đúng, không phụ thuộc ngữ cảnh của luồng lúc này.
+            String messageId = TenantContext.callAs(event.companyId(),
+                    () -> wmsEventPublisher.publish(WmsEvents.RoutingKeys.ORDER_CREATED, orderCreatedEvent));
             log.info("Đã gửi sự kiện '{}' sau commit cho đơn mua hàng: {} (messageId={})",
                     WmsEvents.RoutingKeys.ORDER_CREATED, event.poNumber(), messageId);
         } catch (Exception e) {

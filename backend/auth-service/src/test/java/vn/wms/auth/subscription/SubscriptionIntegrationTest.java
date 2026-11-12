@@ -282,6 +282,7 @@ public class SubscriptionIntegrationTest extends BaseIntegrationTest {
         long companyId = objectMapper.readTree(reg).path("data").path("company").path("id").asLong();
         approveCompany(companyId);
         Instant trialEndsAt = subscriptionRepository.findByCompanyId(companyId).orElseThrow().getTrialEndsAt();
+        activateCompanyByEmail("gamma@wms.vn");
 
         String loginResponseStr = mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)

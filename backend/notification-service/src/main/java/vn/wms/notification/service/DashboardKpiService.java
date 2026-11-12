@@ -29,7 +29,6 @@ public class DashboardKpiService {
 
     private static final Logger log = LoggerFactory.getLogger(DashboardKpiService.class);
     private static final Duration CACHE_TTL = Duration.ofSeconds(60);
-    private static final BigDecimal AVERAGE_UNIT_COST = new BigDecimal("57143");
 
     private final OrderKpiClient orderKpiClient;
     private final InventoryKpiClient inventoryKpiClient;
@@ -47,6 +46,10 @@ public class DashboardKpiService {
         Long effectiveWarehouseId = warehouseId;
         if (!UserContext.isGlobalScope(currentUser)) {
             Set<Long> allowedWhs = currentUser.warehouseIds();
+            // Chưa được gán kho nào thì không được rơi về số liệu toàn doanh nghiệp (BR-13)
+            if (allowedWhs == null || allowedWhs.isEmpty()) {
+                throw vn.wms.common.exception.ApiException.forbidden("Tài khoản chưa được phân quyền phụ trách bất kỳ kho nào");
+            }
             if (warehouseId != null && (allowedWhs == null || !allowedWhs.contains(warehouseId))) {
                 throw vn.wms.common.exception.ApiException.forbidden("Tài khoản không có quyền truy cập dữ liệu của kho #" + warehouseId);
             }
@@ -73,25 +76,23 @@ public class DashboardKpiService {
         InventoryKpiMetricsResponse invData = inventoryKpiClient.fetchMetrics(effectiveWarehouseId);
 
         // 3. Tính toán các chỉ số phái sinh
-        // Growth Rate Doanh số tháng (MoM)
-        double growthRate = 0.0;
-        BigDecimal currentRev = orderData.currentMonthRevenue();
-        BigDecimal prevRev = orderData.prevMonthRevenue();
-        if (prevRev != null && prevRev.compareTo(BigDecimal.ZERO) > 0 && currentRev != null) {
+        // Growth Rate Doanh số tháng (MoM). Tháng trước không có doanh số thì không có cơ sở so sánh:
+        // trả null kèm lời giải thích, không tự đặt một con số (trước đây gán cứng 100%).
+        Double growthRate = null;
+        BigDecimal currentRev = orderData.currentMonthRevenue() != null ? orderData.currentMonthRevenue() : BigDecimal.ZERO;
+        BigDecimal prevRev = orderData.prevMonthRevenue() != null ? orderData.prevMonthRevenue() : BigDecimal.ZERO;
+        if (prevRev.compareTo(BigDecimal.ZERO) > 0) {
             BigDecimal diff = currentRev.subtract(prevRev);
             growthRate = diff.divide(prevRev, 3, RoundingMode.HALF_UP)
                     .multiply(BigDecimal.valueOf(100))
                     .setScale(1, RoundingMode.HALF_UP)
                     .doubleValue();
-        } else if (currentRev != null && currentRev.compareTo(BigDecimal.ZERO) > 0) {
-            growthRate = 100.0;
         }
 
-        boolean isPositiveGrowth = growthRate >= 0;
-        String revSubText = (isPositiveGrowth ? "Tăng " : "Giảm ") + Math.abs(growthRate) + "% so với tháng trước";
-
-        // Giá trị tồn kho ước tính theo giá vốn bình quân
-        BigDecimal inventoryValuation = invData.totalStockQuantity().multiply(AVERAGE_UNIT_COST);
+        boolean isPositiveGrowth = currentRev.compareTo(prevRev) >= 0;
+        String revSubText = growthRate != null
+                ? (isPositiveGrowth ? "Tăng " : "Giảm ") + Math.abs(growthRate) + "% so với tháng trước"
+                : "Chưa tính được tăng trưởng: tháng trước không có doanh số";
 
         // Lắp ráp 8 thẻ KPI
         ReceivablesCardDto receivables = new ReceivablesCardDto(
@@ -112,12 +113,14 @@ public class DashboardKpiService {
                 canViewFinancials
         );
 
+        // Tồn kho chưa có giá vốn (cần đơn giá mua từ product-service, làm ở WMS-17) nên không có số tiền để hiển thị.
+        // Không nhân số lượng với một đơn giá giả định: người xem sẽ hiểu nhầm là giá trị thật của hàng trong kho.
         InventoryValuationCardDto valuationCard = new InventoryValuationCardDto(
                 "Giá trị tồn kho",
-                inventoryValuation,
+                null,
                 "VNĐ",
-                "WEIGHTED_AVERAGE",
-                "Tính theo giá vốn bình quân",
+                InventoryValuationCardDto.METHOD_NOT_AVAILABLE,
+                InventoryValuationCardDto.NOT_AVAILABLE_SUB_TEXT,
                 canViewFinancials
         );
 

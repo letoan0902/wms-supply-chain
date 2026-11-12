@@ -18,6 +18,7 @@ import {
 import type { ColumnsType } from 'antd/es/table'
 import dayjs from 'dayjs'
 import { formatCurrency, formatNumber } from '../../../utils/format'
+import { useCan } from '../../auth/useCan'
 import {
   BILL_STATUS_CONFIG,
   type PurchaseBill,
@@ -39,6 +40,9 @@ export default function PurchaseBillDetailModal({
   onClose,
   onOpenPayment,
 }: PurchaseBillDetailModalProps) {
+  // Ghi thanh toán hóa đơn mua: ADMIN, Kế toán (features/auth/permissions.ts)
+  const canRecordPayment = useCan()('purchaseBill.pay')
+
   if (!bill) return null
 
   const statusCfg = BILL_STATUS_CONFIG[bill.status] || {
@@ -51,7 +55,11 @@ export default function PurchaseBillDetailModal({
       ? Math.min(100, Math.round((bill.paidAmount / bill.totalAmount) * 100))
       : 0
 
-  const canPay = bill.status !== 'PAID' && bill.status !== 'CANCELLED' && bill.remainingAmount > 0
+  const canPay =
+    canRecordPayment &&
+    bill.status !== 'PAID' &&
+    bill.status !== 'CANCELLED' &&
+    bill.remainingAmount > 0
 
   const columns: ColumnsType<PurchaseBillItem> = [
     {

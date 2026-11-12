@@ -20,7 +20,7 @@ import lombok.Setter;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import vn.wms.common.exception.ApiException;
-import vn.wms.common.persistence.AuditableEntity;
+import vn.wms.common.tenant.TenantEntity;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -32,19 +32,20 @@ import java.util.List;
  */
 @Entity
 @Table(name = "purchase_bills", uniqueConstraints = {
-        @UniqueConstraint(name = "uk_purchase_bills_grn", columnNames = {"grn_id"})
+        @UniqueConstraint(name = "uk_purchase_bills_grn", columnNames = {"grn_id"}),
+        @UniqueConstraint(name = "uk_purchase_bills_company_number", columnNames = {"company_id", "bill_number"})
 })
 @Getter
 @Setter
 @NoArgsConstructor
-public class PurchaseBill extends AuditableEntity {
+public class PurchaseBill extends TenantEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     /** Mã hóa đơn duy nhất: PB-YYYYMMDD-XXXX. */
-    @Column(name = "bill_number", nullable = false, unique = true, length = 30)
+    @Column(name = "bill_number", nullable = false, length = 30)
     private String billNumber;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)

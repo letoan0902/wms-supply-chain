@@ -11,8 +11,17 @@ import vn.wms.common.api.ApiResponse;
 import vn.wms.order.dto.internal.OrderKpiMetricsResponse;
 import vn.wms.order.service.OrderKpiInternalService;
 
+/**
+ * Endpoint nội bộ chỉ cho notification-service gọi qua Eureka. Đường dẫn cố ý nằm ngoài /api/orders/** để
+ * api-gateway không có route tới nó: endpoint không tự kiểm tra phạm vi kho của người gọi.
+ *
+ * <p>Số liệu chỉ của doanh nghiệp gọi (WMS-22.4b): notification-service gọi qua OpenFeign nên header
+ * {@code X-Company-Id} được chuyển tiếp, và mọi truy vấn của {@link OrderKpiInternalService} là JPQL trên entity
+ * kế thừa {@code TenantEntity} nên Hibernate tự thêm điều kiện {@code company_id}. Thiếu doanh nghiệp thì
+ * {@code TenantFilter} trả 403 {@code COMPANY_REQUIRED}.
+ */
 @RestController
-@RequestMapping("/api/orders/internal")
+@RequestMapping("/internal/orders")
 @RequiredArgsConstructor
 @Tag(name = "Order Internal KPI", description = "Endpoint nội bộ tổng hợp dữ liệu đơn hàng và tài chính cho Dashboard KPI")
 public class OrderKpiInternalController {

@@ -63,6 +63,7 @@ class UserPlanLimitIntegrationTest extends BaseIntegrationTest {
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         long companyId = objectMapper.readTree(reg).path("data").path("company").path("id").asLong();
+        activateCompanyByEmail(admin + "@wms.vn");
 
         String login = mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)

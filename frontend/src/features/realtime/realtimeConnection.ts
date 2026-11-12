@@ -1,9 +1,11 @@
 import { Client, ReconnectionTimeMode } from '@stomp/stompjs'
 import type { IMessage } from '@stomp/stompjs'
 import SockJS from 'sockjs-client'
-import { getToken } from '../../utils/storage'
+import { getStoredUser, getToken } from '../../utils/storage'
+import { hasGlobalScope } from '../auth/permissions'
+import { getPermissionSubject } from '../auth/useCan'
 import { fetchKpiSnapshot } from './realtimeApi'
-import { parseRealtimeMessage, REALTIME_TOPICS } from './realtimeMessage'
+import { parseRealtimeMessage, realtimeTopics } from './realtimeMessage'
 import { useRealtimeStore } from './realtimeStore'
 import type { ConnectionStatus, NotifiableMessage, RealtimeMessage } from './types'
 
@@ -39,6 +41,33 @@ function setStatus(status: ConnectionStatus): void {
   useRealtimeStore.getState().setStatus(status)
 }
 
+/** Đọc claim `companyId` trong phần payload của JWT (không kiểm tra chữ ký, máy chủ kiểm tra ở frame CONNECT). */
+function companyIdFromToken(token: string | null): number | null {
+  const payload = token?.split('.')[1]
+  if (!payload) return null
+  try {
+    const base64 = payload.replace(/-/g, '+').replace(/_/g, '/')
+    const json = decodeURIComponent(
+      Array.from(atob(base64.padEnd(Math.ceil(base64.length / 4) * 4, '=')))
+        .map((char) => `%${char.charCodeAt(0).toString(16).padStart(2, '0')}`)
+        .join(''),
+    )
+    const value: unknown = (JSON.parse(json) as Record<string, unknown>).companyId
+    const id = typeof value === 'string' ? Number(value) : value
+    return typeof id === 'number' && Number.isInteger(id) && id > 0 ? id : null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * Doanh nghiệp của người đang đăng nhập: ưu tiên claim `companyId` của chính token gửi ở frame CONNECT (máy chủ chỉ
+ * cho đăng ký kênh của doanh nghiệp này), không có thì lấy `company.id` đã lưu lúc đăng nhập.
+ */
+function currentCompanyId(token: string | null): number | null {
+  return companyIdFromToken(token) ?? getStoredUser()?.company?.id ?? null
+}
+
 /** Lấy số KPI hiện tại qua REST; lỗi (backend chưa triển khai, mất mạng...) thì bỏ qua yên lặng. */
 async function loadKpiSnapshot(): Promise<void> {
   try {
@@ -47,6 +76,20 @@ async function loadKpiSnapshot(): Promise<void> {
   } catch {
     // Bỏ qua: KPI sẽ được cập nhật khi có tin KPI_UPDATED
   }
+}
+
+/**
+ * Tin cảnh báo tồn kho của kho ngoài phạm vi được phân công. Kênh alerts phát cho cả doanh nghiệp, không lọc theo kho
+ * (docs/api/CANH_BAO.md mục 5), nên vai trò bị giới hạn theo kho bỏ qua tin của kho khác: không thêm vào chuông,
+ * không hiện toast. ADMIN, ACCOUNTANT nhận mọi kho.
+ */
+function isOutOfWarehouseScope(message: RealtimeMessage): boolean {
+  if (message.type !== 'STOCK_ALERT' && message.type !== 'LOW_STOCK') return false
+  const warehouseId = message.payload?.warehouseId
+  if (warehouseId === null || warehouseId === undefined) return false
+  const subject = getPermissionSubject()
+  if (hasGlobalScope(subject, 'alert.read')) return false
+  return !subject.warehouseIds.includes(Number(warehouseId))
 }
 
 function handleRealtimeMessage(message: RealtimeMessage): void {
@@ -59,6 +102,7 @@ function handleRealtimeMessage(message: RealtimeMessage): void {
       store.setLastInventoryUpdate(message.payload)
       return
     default:
+      if (isOutOfWarehouseScope(message)) return
       // Tin trùng `id` (ví dụ backend gửi lại) không thêm vào danh sách và không hiện toast lần nữa
       if (!store.addNotification(message)) return
       listeners.forEach((listener) => {
@@ -106,9 +150,20 @@ function createClient(): Client {
 
     onConnect: () => {
       if (client !== stompClient) return
+      const companyId = currentCompanyId(tokenInUse)
+      if (companyId === null) {
+        // Token cấp trước khi có doanh nghiệp: không có kênh nào để đăng ký; gateway cũng buộc đăng nhập lại
+        if (import.meta.env.DEV) {
+          console.warn('[realtime] Không xác định được doanh nghiệp của phiên đăng nhập, bỏ qua đăng ký kênh')
+        }
+        rejectedToken = tokenInUse
+        setStatus('disconnected')
+        void stompClient.deactivate()
+        return
+      }
       rejectedToken = null
       setStatus('connected')
-      REALTIME_TOPICS.forEach((topic) => {
+      realtimeTopics(companyId).forEach((topic) => {
         stompClient.subscribe(topic, handleFrame)
       })
       void loadKpiSnapshot()

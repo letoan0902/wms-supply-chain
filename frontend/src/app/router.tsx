@@ -8,6 +8,7 @@ import MainLayout from './MainLayout'
 import { navigationItems } from './navigation'
 
 const LoginPage = lazy(() => import('../features/auth/LoginPage'))
+const RegisterPage = lazy(() => import('../features/auth/RegisterPage'))
 const ForgotPasswordPage = lazy(() => import('../features/auth/ForgotPasswordPage'))
 const ActivatePage = lazy(() => import('../features/auth/ActivatePage'))
 const ResetPasswordPage = lazy(() => import('../features/auth/ResetPasswordPage'))
@@ -44,6 +45,14 @@ export const router = createBrowserRouter([
     element: (
       <Suspense fallback={<PageLoading fullScreen tip="Đang tải trang đăng nhập..." />}>
         <LoginPage />
+      </Suspense>
+    ),
+  },
+  {
+    path: '/register',
+    element: (
+      <Suspense fallback={<PageLoading fullScreen tip="Đang tải trang đăng ký..." />}>
+        <RegisterPage />
       </Suspense>
     ),
   },

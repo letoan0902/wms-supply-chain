@@ -8,17 +8,27 @@ WMS Supply Chain là phần mềm quản lý kho trên web: kho và vị trí ô
 - Nhân viên bán hàng: lập đơn bán, theo dõi khách hàng.
 - Kế toán: công nợ, hóa đơn, thanh toán.
 
-Hướng dẫn phản ánh giao diện tại ngày 11/11/2026.
+Hướng dẫn phản ánh giao diện tại ngày 12/11/2026.
 
 ## Đăng nhập, quên mật khẩu, đăng ký và kích hoạt doanh nghiệp
 
 Đăng ký doanh nghiệp (dùng thử 30 ngày):
-1. Mở trang giới thiệu `/landing` hoặc bấm "Dùng thử 30 ngày" ở trang đăng nhập.
-2. Ở khung "Đăng ký Dùng thử cho Doanh nghiệp", nhập tên công ty, người đại diện, Tên đăng nhập quản trị (3 đến 50 ký tự: chữ, số, dấu chấm, gạch dưới, gạch ngang), Mật khẩu (6 đến 72 ký tự), Email công việc, số điện thoại; tích đồng ý Điều khoản dịch vụ.
-3. Bấm "Kích hoạt Dùng thử Miễn phí 30 ngày". Tài khoản này là quản trị của doanh nghiệp.
-4. Mở email, bấm liên kết kích hoạt (hiệu lực 24 giờ). Trang `/activate` báo "Kích hoạt thành công", bấm "Đăng nhập". Liên kết hỏng hoặc hết hạn thì trang báo "Liên kết kích hoạt không dùng được": nhập email đã dùng để đăng ký và bấm "Gửi lại email kích hoạt".
+1. Mở trang "Đăng ký doanh nghiệp" `/register`: bấm "Đăng ký doanh nghiệp" ở trang đăng nhập, hoặc bất kỳ nút "Dùng thử 30 ngày", "Đăng ký" nào trên trang giới thiệu `/landing` (nút ở thẻ gói Khởi Đầu hoặc Chuyên Nghiệp của bảng giá cũng dẫn tới đây; mọi doanh nghiệp mới đều bắt đầu bằng 30 ngày dùng thử, sau đó chọn gói ở trang "Gói dịch vụ").
+2. Nhập:
+   - Tên doanh nghiệp: bắt buộc, 2 đến 150 ký tự.
+   - Mã số thuế, Số điện thoại: không bắt buộc, mỗi ô tối đa 30 ký tự. Mã số thuế đã có doanh nghiệp khác dùng thì không đăng ký được.
+   - Họ và tên người quản trị: bắt buộc, tối đa 100 ký tự.
+   - Tên đăng nhập: bắt buộc, 3 đến 50 ký tự, chỉ gồm chữ không dấu, chữ số, dấu chấm, gạch dưới, gạch ngang; không trùng tài khoản nào trên hệ thống.
+   - Email: bắt buộc, đúng định dạng, tối đa 100 ký tự, chưa dùng cho tài khoản nào. Liên kết kích hoạt được gửi tới email này.
+   - Mật khẩu (6 đến 72 ký tự) và Nhập lại mật khẩu.
+   - Tích ô đồng ý Điều khoản dịch vụ.
+3. Bấm "Đăng ký và nhận 30 ngày dùng thử". Ô nào sai hoặc bị trùng (tên đăng nhập, email, mã số thuế) sẽ báo đỏ ngay dưới ô đó. Tài khoản vừa tạo là quản trị của doanh nghiệp.
+4. Trang báo "Đăng ký thành công" kèm ngày hết hạn dùng thử và hướng dẫn: mở email vừa nhập, bấm liên kết kích hoạt (hiệu lực 24 giờ). Không thấy email thì kiểm tra thư mục thư rác hoặc bấm "Gửi lại email kích hoạt" ngay trên trang (mỗi email gửi lại tối đa một lần mỗi phút). Chưa kích hoạt thì chưa đăng nhập được.
+5. Bấm liên kết trong email: trang `/activate` báo "Kích hoạt thành công", bấm "Đăng nhập" (tên đăng nhập được điền sẵn). Liên kết hỏng hoặc hết hạn thì trang báo "Liên kết kích hoạt không dùng được": nhập email đã dùng để đăng ký và bấm "Gửi lại email kích hoạt".
 
-Đăng nhập: vào `/login`, nhập Tên đăng nhập, Mật khẩu, bấm "Đăng nhập". Doanh nghiệp chưa kích hoạt sẽ thấy cảnh báo "Doanh nghiệp chưa được kích hoạt" kèm ô gửi lại email kích hoạt.
+Máy chủ thử nghiệm tắt yêu cầu kích hoạt qua email thì sau bước 3 trang chuyển thẳng sang `/login` với tên đăng nhập điền sẵn.
+
+Đăng nhập: vào `/login`, nhập Tên đăng nhập, Mật khẩu, bấm "Đăng nhập". Tên doanh nghiệp hiện ở thanh tiêu đề phía trên, cạnh chuông thông báo. Doanh nghiệp chưa kích hoạt sẽ thấy cảnh báo "Doanh nghiệp chưa được kích hoạt" kèm ô gửi lại email kích hoạt. Đang đăng nhập mà mở `/login` hoặc `/register` thì được đưa thẳng vào trang tổng quan.
 
 Quên mật khẩu:
 1. Ở trang đăng nhập bấm "Quên mật khẩu?" (trang `/forgot-password`), nhập email, bấm "Gửi liên kết đặt lại mật khẩu".
@@ -31,7 +41,7 @@ Quên mật khẩu:
 
 Bấm tên tài khoản ở góc phải trên, chọn "Thông tin tài khoản", "Cập nhật thông tin" hoặc "Đổi mật khẩu" để mở trang "Hồ sơ & Tài khoản cá nhân" ở tab tương ứng.
 
-- Tab "Thông tin tài khoản": xem tên đăng nhập, họ tên, email, trạng thái, vai trò, kho được phân công.
+- Tab "Thông tin tài khoản": xem doanh nghiệp (tên và mã), tên đăng nhập, họ tên, email, trạng thái, vai trò, kho được phân công.
 - Tab "Cập nhật thông tin": sửa Họ và tên, Địa chỉ Email (bắt buộc), bấm "Lưu thay đổi". Tên đăng nhập không đổi được.
 - Tab "Đổi mật khẩu": nhập Mật khẩu hiện tại, Mật khẩu mới (6 đến 72 ký tự), Xác nhận mật khẩu mới, bấm "Cập nhật mật khẩu mới".
 

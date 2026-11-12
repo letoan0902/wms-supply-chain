@@ -200,6 +200,11 @@ export default function MainLayout() {
             {currentTitle ?? 'WMS Supply Chain'}
           </Typography.Title>
           <div className="flex shrink-0 items-center gap-2 sm:gap-4">
+            {user?.company?.name && (
+              <span className="hidden max-w-64 truncate text-sm font-medium text-slate-600 md:inline" title={user.company.name}>
+                {user.company.name}
+              </span>
+            )}
             <NotificationBell />
             {/* User profile trigger */}
             <Dropdown

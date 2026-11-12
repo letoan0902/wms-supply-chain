@@ -597,7 +597,7 @@ Người làm: Toàn. Ngày: 10/11. Jira: TASK-143. Phụ thuộc: WMS-23.1.
 
 Người làm: Linh. Đã xong ngày 05/11. Jira: TASK-144.
 
-Trang `/landing` và `/pricing` đã có, dữ liệu gói lấy từ `pricingConfig.ts`. Việc còn lại: khi WMS-23.3b có trang `/register`, các nút "Bắt đầu" trỏ sang trang đó; số liệu trong `pricingConfig.ts` giữ khớp mục 2.5.
+Trang `/landing` và `/pricing` đã có, dữ liệu gói lấy từ `pricingConfig.ts`. Từ WMS-23.3b mọi nút đăng ký, dùng thử của trang giới thiệu trỏ sang `/register` (thẻ gói Khởi Đầu, Chuyên Nghiệp kèm `?plan=free|pro`); số liệu trong `pricingConfig.ts` giữ khớp mục 2.5.
 
 ### WMS-23.3b [Frontend] Đăng ký doanh nghiệp và đăng nhập theo doanh nghiệp
 
@@ -613,6 +613,14 @@ Người làm: Phương Anh. Ngày: 17/11. Jira: TASK-145. Phụ thuộc: WMS-23
 **Tiêu chí nghiệm thu**
 
 Từ trang giới thiệu bấm đăng ký, điền form, đăng nhập và vào được trang tổng quan của doanh nghiệp mới với dữ liệu rỗng, thanh tiêu đề hiện đúng tên doanh nghiệp.
+
+**Đã làm (12/11)**
+
+- `/register` (`features/auth/RegisterPage.tsx`, khung `AuthCardLayout`): quy tắc kiểm tra trên form chép đúng `RegisterCompanyRequest` (`registerForm.ts`): tên doanh nghiệp bắt buộc 2 đến 150 ký tự; mã số thuế, số điện thoại không bắt buộc, tối đa 30; họ tên bắt buộc, tối đa 100; tên đăng nhập 3 đến 50 ký tự theo `^[a-zA-Z0-9._-]+$`; email bắt buộc, đúng `@Email` của Hibernate Validator, tối đa 100; mật khẩu 6 đến 72. Các trường chữ được cắt khoảng trắng trước khi gửi; trường không bắt buộc để trống thì không gửi.
+- Lỗi: `400 VALIDATION_ERROR` gắn `data` theo tên trường; `409 CONFLICT` không có `data`, giao diện nhận ra trường trùng (tên đăng nhập, email, mã số thuế) từ đầu thông báo của `CompanyRegistrationService` ("Tên đăng nhập đã tồn tại", "Email đã tồn tại", "Mã số thuế đã tồn tại"). Đổi các thông báo này thì phải sửa `CONFLICT_PREFIXES` trong `registerForm.ts`.
+- `activationRequired = true`: ở lại trang, hiện "Đăng ký thành công", ngày hết dùng thử (`subscription.trialEndsAt`), hướng dẫn mở email kích hoạt (24 giờ), form gửi lại email kích hoạt và liên kết sang đăng nhập; không tự đăng nhập. `false`: báo thành công, chuyển `/login` điền sẵn tên đăng nhập.
+- Trang giới thiệu không còn form đăng ký riêng: khung dùng thử ở mục Hỏi đáp và mọi nút "Dùng thử", "Đăng ký" dẫn sang `/register`.
+- Đăng nhập lưu `company` và `subscription` cùng người dùng; tên doanh nghiệp hiện ở thanh tiêu đề và trang hồ sơ (trang hồ sơ đọc lại `GET /api/auth/me`). Đã đăng nhập mà mở `/register` hoặc `/login` thì vào trang tổng quan.
 
 ### WMS-23.4 [Frontend] Trang gói dịch vụ, nhắc hạn dùng thử và chế độ chỉ đọc
 

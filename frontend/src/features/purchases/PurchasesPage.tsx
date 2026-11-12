@@ -621,7 +621,7 @@ export default function PurchasesPage() {
 
         <Col xs={12} sm={6}>
           <Card size="small" className="border-l-4 border-l-amber-500 shadow-2xs">
-            <div className="text-xs text-slate-500">Đơn chờ duyệt (PENDING)</div>
+            <div className="text-xs text-slate-500">Đơn chờ duyệt</div>
             <div className="text-xl font-semibold text-amber-600 mt-1 flex items-center gap-2 tabular-nums">
               <span>{formatNumber(summary?.pendingOrders ?? 0)}</span>
               {(summary?.pendingOrders ?? 0) > 0 && (
@@ -633,7 +633,7 @@ export default function PurchasesPage() {
 
         <Col xs={12} sm={6}>
           <Card size="small" className="border-l-4 border-l-green-500 shadow-2xs">
-            <div className="text-xs text-slate-500">Đã phê duyệt (APPROVED)</div>
+            <div className="text-xs text-slate-500">Đã phê duyệt</div>
             <div className="text-xl font-semibold text-green-600 mt-1 tabular-nums">
               {formatNumber(summary?.approvedOrders ?? 0)}
             </div>

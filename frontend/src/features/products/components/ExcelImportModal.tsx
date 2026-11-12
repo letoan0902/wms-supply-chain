@@ -318,7 +318,7 @@ export default function ExcelImportModal({
       title={
         <div className="flex items-center gap-2">
           <FileExcelOutlined className="text-emerald-600 text-lg" />
-          <span className="text-lg font-semibold">Nhập danh mục SKU từ file Excel (FR05)</span>
+          <span className="text-lg font-semibold">Nhập danh mục SKU từ file Excel</span>
         </div>
       }
       open={open}

@@ -254,7 +254,7 @@ export default function BarcodeModal({ open, product, onClose }: BarcodeModalPro
           },
           {
             key: 'batchBarcode',
-            label: '2. Tem nhãn Lô & Hạn dùng (FR07)',
+            label: '2. Tem nhãn Lô & Hạn dùng',
             children: (
               <div className="py-2">
                 <Form

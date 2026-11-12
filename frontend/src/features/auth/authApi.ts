@@ -1,11 +1,36 @@
 import axios from 'axios'
 import { api } from '../../services/api'
 import type { ApiResponse } from '../../types/api'
-import type { LoginRequest, LoginResult, RefreshTokenResponse } from '../../types/auth'
+import type { CurrentUserInfo, LoginRequest, LoginResult, RefreshTokenResponse } from '../../types/auth'
+import type { RegisterCompanyRequest } from './registerForm'
 
 /** Gọi POST /api/auth/login, trả về token và thông tin người dùng. */
 export async function login(payload: LoginRequest): Promise<LoginResult> {
   const response = await api.post<ApiResponse<LoginResult>>('/auth/login', payload)
+  return response.data.data
+}
+
+/** Gọi GET /api/auth/me: người dùng hiện tại kèm doanh nghiệp và thuê bao đọc lại từ cơ sở dữ liệu. */
+export async function fetchCurrentUser(): Promise<CurrentUserInfo> {
+  const response = await api.get<ApiResponse<CurrentUserInfo>>('/auth/me')
+  return response.data.data
+}
+
+/** Phần `data` của POST /api/auth/companies/register (vn.wms.auth.subscription.dto.CompanyRegistrationResponse). */
+export interface CompanyRegistrationResult {
+  /** `true`: doanh nghiệp ở trạng thái PENDING, phải bấm liên kết kích hoạt trong email trước khi đăng nhập */
+  activationRequired: boolean
+  company: { id: number; code: string; name: string; status: string }
+  admin: { username: string; email: string }
+  subscription: { plan: string; status: string; trialEndsAt: string | null }
+}
+
+/**
+ * Đăng ký doanh nghiệp mới: tạo doanh nghiệp, tài khoản ADMIN đầu tiên và 30 ngày dùng thử. Không trả token.
+ * Trùng tên đăng nhập, email hoặc mã số thuế: 409 CONFLICT; dữ liệu sai: 400 VALIDATION_ERROR với lỗi theo trường.
+ */
+export async function registerCompany(payload: RegisterCompanyRequest): Promise<CompanyRegistrationResult> {
+  const response = await api.post<ApiResponse<CompanyRegistrationResult>>('/auth/companies/register', payload)
   return response.data.data
 }
 

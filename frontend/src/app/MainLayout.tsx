@@ -29,6 +29,7 @@ import SubscriptionLayer from '../features/subscription/components/SubscriptionL
 import { READ_ONLY_ALLOWED_CLASS } from '../features/subscription/readOnlyGuard'
 import { useSubscriptionStore } from '../features/subscription/subscriptionStore'
 import AiChatWidget from '../features/ai/components/AiChatWidget'
+import { useCan } from '../features/auth/useCan'
 
 const { Header, Sider, Content } = Layout
 
@@ -42,13 +43,18 @@ export default function MainLayout() {
   const [logoutModalOpen, setLogoutModalOpen] = useState(false)
   const [logoutLoading, setLogoutLoading] = useState(false)
 
+  const can = useCan()
+
   // Theo đặc tả phân quyền SRS 2.5: Giữ nguyên tất cả các mục trên thanh Sidebar
   // để người dùng nắm rõ cấu trúc tính năng. Nếu không có quyền, màn hình đích sẽ hiển thị thông báo 403.
-  const menuItems: MenuProps['items'] = navigationItems.map((item) => ({
-    key: item.path,
-    icon: item.icon,
-    label: item.label,
-  }))
+  // Riêng mục có `anyOf` (Nhập dữ liệu bằng AI) chỉ hiện với vai trò được phép theo đặc tả của chức năng đó.
+  const menuItems: MenuProps['items'] = navigationItems
+    .filter((item) => !item.anyOf || item.anyOf.some((capability) => can(capability)))
+    .map((item) => ({
+      key: item.path,
+      icon: item.icon,
+      label: item.label,
+    }))
 
   // Lắng nghe sự kiện khi người dùng cập nhật hồ sơ cá nhân để sync ngay lập tức lên Header
   useEffect(() => {
@@ -221,6 +227,11 @@ export default function MainLayout() {
             </h1>
           </div>
           <div className="flex shrink-0 items-center gap-3">
+            {user?.company?.name && (
+              <span className="hidden max-w-64 truncate text-sm font-medium text-slate-600 md:inline" title={user.company.name}>
+                {user.company.name}
+              </span>
+            )}
             <NotificationBell />
             {/* User profile trigger */}
             <Dropdown

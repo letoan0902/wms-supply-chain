@@ -38,7 +38,7 @@ interface CustomerFormModalProps {
 
 const PAYMENT_TERM_OPTIONS = [
   { label: 'Thanh toán ngay khi giao hàng (COD)', value: 'COD' },
-  { label: 'Thanh toán trước 100% (PREPAID)', value: 'PREPAID' },
+  { label: 'Thanh toán trước 100%', value: 'PREPAID' },
   { label: 'Công nợ 15 ngày (NET_15)', value: 'NET_15' },
   { label: 'Công nợ 30 ngày (NET_30)', value: 'NET_30' },
   { label: 'Công nợ 45 ngày (NET_45)', value: 'NET_45' },
@@ -175,7 +175,7 @@ export default function CustomerFormModal({
               <Radio value="WHOLESALE">
                 <span className="font-semibold text-gray-800">Khách sỉ / Đại lý / B2B</span>
                 <span className="text-xs text-gray-500 block">
-                  Áp dụng hợp đồng hạn mức công nợ trả chậm (Credit Limit)
+                  Áp dụng hợp đồng hạn mức công nợ trả chậm
                 </span>
               </Radio>
               <Radio value="RETAIL" className="mt-2 sm:mt-0">
@@ -311,7 +311,7 @@ export default function CustomerFormModal({
               name="creditLimit"
               label={
                 <Space size={4}>
-                  <span>Hạn mức công nợ tối đa (Credit Limit)</span>
+                  <span>Hạn mức công nợ tối đa</span>
                   <Tooltip title="Số tiền nợ tối đa cho phép khách hàng được nợ tại bất kỳ thời điểm nào. Khi nợ đạt 90% sẽ cảnh báo, vượt 100% hệ thống sẽ tự động chặn đơn bán hàng theo quy định quản lý công nợ.">
                     <InfoCircleOutlined className="text-blue-500" />
                   </Tooltip>

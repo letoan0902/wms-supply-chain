@@ -207,7 +207,7 @@ export default function LotExpiryPutawayModal({
               type="info"
               showIcon
               icon={<InfoCircleOutlined />}
-              message="Yêu cầu quản lý Hạn sử dụng (FR12 - WMS-10.2 / WMS-10.5)"
+              message="Yêu cầu quản lý Hạn sử dụng"
               description="Mặt hàng này được cấu hình bắt buộc theo dõi Hạn sử dụng / Số lô. Vui lòng ghi nhận Số lô và Hạn dùng để hệ thống phục vụ thuật toán xuất kho FEFO và tự động khóa lô hết hạn."
               className="text-xs"
             />

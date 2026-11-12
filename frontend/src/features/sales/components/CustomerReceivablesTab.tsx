@@ -313,7 +313,7 @@ export default function CustomerReceivablesTab() {
       ),
     },
     {
-      title: 'Loại phát sinh (FR18)',
+      title: 'Loại phát sinh',
       dataIndex: 'transactionType',
       key: 'transactionType',
       width: 160,
@@ -349,7 +349,7 @@ export default function CustomerReceivablesTab() {
       },
     },
     {
-      title: 'Dư nợ sau GD (Balance - FR18)',
+      title: 'Dư nợ sau giao dịch',
       dataIndex: 'balanceAfter',
       key: 'balanceAfter',
       width: 160,
@@ -357,7 +357,7 @@ export default function CustomerReceivablesTab() {
       render: (val: number) => <span className="font-bold text-slate-800">{formatCurrency(val)}</span>,
     },
     {
-      title: 'Trạng thái (FR18)',
+      title: 'Trạng thái',
       key: 'paymentStatus',
       width: 150,
       align: 'center',
@@ -392,7 +392,7 @@ export default function CustomerReceivablesTab() {
         <Col xs={24} sm={12} md={8}>
           <Card size="small" className="shadow-2xs border-slate-200">
             <Statistic
-              title="Tổng công nợ phải thu (Payment Receivables - FR18)"
+              title="Tổng công nợ phải thu"
               value={totalReceivables}
               formatter={(v) => formatCurrency(Number(v))}
               valueStyle={{ color: '#cf1322', fontWeight: 'bold' }}
@@ -467,7 +467,7 @@ export default function CustomerReceivablesTab() {
           </Card>
         </Col>
 
-        {/* Cột phải: Hóa đơn bán & Biến động công nợ gần đây (Recent Invoices - FR18) */}
+        {/* Cột phải: Hóa đơn bán & Biến động công nợ gần đây */}
         <Col xs={24} lg={13}>
           <Card
             title={
@@ -475,7 +475,7 @@ export default function CustomerReceivablesTab() {
                 <div className="flex items-center gap-1.5 font-semibold text-slate-800 text-sm">
                   <FileDoneOutlined className="text-blue-600" />
                   <span>
-                    Hóa đơn bán & Công nợ gần đây (Recent Invoices - FR18)
+                    Hóa đơn bán & Công nợ gần đây
                     {activeCustomer && (
                       <span className="text-blue-600 font-bold ml-1.5">
                         [{activeCustomer.code} - {activeCustomer.name}]
@@ -581,7 +581,7 @@ export default function CustomerReceivablesTab() {
         title={
           <div className="flex items-center gap-2 text-slate-800 text-base font-semibold">
             <DollarOutlined className="text-green-600" />
-            <span>Thu Tiền Khách Hàng (Giảm Công Nợ Phải Thu - FR18)</span>
+            <span>Thu Tiền Khách Hàng (Giảm Công Nợ Phải Thu)</span>
           </div>
         }
         onCancel={() => {

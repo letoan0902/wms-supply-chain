@@ -477,7 +477,7 @@ export default function CustomerDetailModal({
             label: (
               <span className="flex items-center gap-1.5">
                 <SafetyCertificateOutlined />
-                Kiểm tra hạn mức đơn mới (Simulator)
+                Kiểm tra hạn mức đơn mới
               </span>
             ),
             children: (
@@ -533,7 +533,7 @@ export default function CustomerDetailModal({
                         showIcon
                         message={
                           <span className="font-bold text-emerald-800">
-                            CHO PHÉP DUYỆT ĐƠN HÀNG (ALLOWED)
+                            CHO PHÉP DUYỆT ĐƠN HÀNG
                           </span>
                         }
                         description={
@@ -554,7 +554,7 @@ export default function CustomerDetailModal({
                         showIcon
                         message={
                           <span className="font-bold text-amber-800">
-                            CẢNH BÁO: ĐẠT HẠN MỨC CẬN TRÊN (WARNING)
+                            CẢNH BÁO: ĐẠT HẠN MỨC CẬN TRÊN
                           </span>
                         }
                         description={
@@ -575,7 +575,7 @@ export default function CustomerDetailModal({
                         showIcon
                         message={
                           <span className="font-bold text-red-800">
-                            CHẶN ĐƠN HÀNG: VƯỢT HẠN MỨC CÔNG NỢ (BLOCKED)
+                            CHẶN ĐƠN HÀNG: VƯỢT HẠN MỨC CÔNG NỢ
                           </span>
                         }
                         description={

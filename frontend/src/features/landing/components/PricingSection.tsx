@@ -11,10 +11,16 @@ import { type BillingCycle, PRICING_PLANS, type PricingPlan } from '../pricingCo
 
 interface PricingSectionProps {
   onScrollToComparison?: () => void
-  onScrollToTrial?: () => void
 }
 
-export default function PricingSection({ onScrollToComparison, onScrollToTrial }: PricingSectionProps) {
+/** Trang đăng ký kèm gói khách chọn trên bảng giá (trang đăng ký giải thích gói đó bắt đầu thế nào). */
+function registerPathFor(plan: PricingPlan): string {
+  if (plan.tier === 'free') return '/register?plan=free'
+  if (plan.tier === 'pro') return '/register?plan=pro'
+  return '/register'
+}
+
+export default function PricingSection({ onScrollToComparison }: PricingSectionProps) {
   const [billingCycle, setBillingCycle] = useState<BillingCycle>('monthly')
   const [enterpriseModalOpen, setEnterpriseModalOpen] = useState(false)
 
@@ -223,12 +229,11 @@ export default function PricingSection({ onScrollToComparison, onScrollToTrial }
                       {plan.ctaText}
                     </Button>
                   ) : (
-                    <div className="w-full">
+                    <Link to={registerPathFor(plan)} className="block w-full">
                       <Button
                         type={isPro ? 'primary' : 'default'}
                         size="large"
                         block
-                        onClick={onScrollToTrial}
                         className={`h-12 rounded-xl font-bold ${
                           isPro
                             ? 'bg-blue-600 hover:bg-blue-700 shadow-md shadow-blue-500/25'
@@ -237,7 +242,7 @@ export default function PricingSection({ onScrollToComparison, onScrollToTrial }
                       >
                         {plan.ctaText}
                       </Button>
-                    </div>
+                    </Link>
                   )}
                   {plan.ctaSubtext && (
                     <div className="mt-2 text-center text-[11px] text-slate-400">
@@ -292,7 +297,7 @@ export default function PricingSection({ onScrollToComparison, onScrollToTrial }
           <Button key="close" onClick={() => setEnterpriseModalOpen(false)}>
             Đóng
           </Button>,
-          <Link key="login" to="/login">
+          <Link key="register" to="/register">
             <Button type="primary" className="bg-blue-600">
               Đăng ký tài khoản trước
             </Button>

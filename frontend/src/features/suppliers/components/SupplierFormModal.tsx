@@ -280,7 +280,7 @@ export default function SupplierFormModal({
           <Col xs={24} sm={12}>
             <Form.Item
               name="creditLimit"
-              label="Hạn mức nợ tối đa (Credit Limit - VNĐ)"
+              label="Hạn mức nợ tối đa (VNĐ)"
               rules={[{ required: true, message: 'Vui lòng nhập hạn mức nợ' }]}
               extra="Hạn mức tín dụng NCC cấp cho kho (0 nếu thanh toán ngay)"
             >

@@ -20,6 +20,32 @@ export function isTimeoutError(error: unknown): boolean {
   return axios.isAxiosError(error) && !error.response && (error.code === 'ECONNABORTED' || error.code === 'ETIMEDOUT')
 }
 
+/** Người dùng tự hủy request (AbortController). */
+export function isCanceledError(error: unknown): boolean {
+  return axios.isCancel(error)
+}
+
+/** `data` của phản hồi lỗi (ví dụ danh sách ô lỗi của VALIDATION_ERROR), `undefined` khi không có. */
+export function getAiErrorData(error: unknown): Record<string, string> | undefined {
+  if (axios.isAxiosError<ApiErrorResponse>(error)) {
+    const data = error.response?.data?.data
+    return data && typeof data === 'object' ? data : undefined
+  }
+  return undefined
+}
+
+/**
+ * Thông báo lỗi khi tải file để trích xuất: hiện nguyên thông báo tiếng Việt của máy chủ (file không đọc được, không có
+ * cột phù hợp, chế độ giả lập không đọc PDF, ảnh...); `null` khi lỗi đã có hộp thoại gói dịch vụ dùng chung.
+ */
+export function describeExtractionError(error: unknown): string | null {
+  if (isHandledByGlobalDialog(error)) return null
+  if (isTimeoutError(error)) {
+    return 'Quá thời gian chờ kết quả trích xuất. Hãy thử lại, hoặc tách file thành nhiều file nhỏ hơn.'
+  }
+  return getApiErrorMessage(error, 'Không trích xuất được dữ liệu từ file.') || 'Không trích xuất được dữ liệu từ file.'
+}
+
 /** Cách khối tóm tắt bằng AI xử lý một lỗi: ẩn khối, hoặc báo nhẹ trong khối. */
 export type SummaryErrorView =
   | { kind: 'hidden' }

@@ -378,7 +378,23 @@ Nhắc hạn và hết hạn:
 
 ## Nhập dữ liệu bằng AI
 
-Chức năng dùng AI đọc danh mục hàng hóa từ tệp Excel, PDF hoặc ảnh chưa có màn hình trên hệ thống (máy chủ đã hỗ trợ, màn hình đang được xây dựng). Hiện có thể nhập nhiều mặt hàng bằng nút "Nhập Excel" ở menu "Danh mục hàng hóa".
+AI đọc file Excel (xlsx, xls), CSV, PDF hoặc ảnh (png, jpg) thành bảng dữ liệu hàng hóa, nhà cung cấp hoặc khách hàng để bạn xem lại, sửa rồi mới nhập vào danh mục. Không có gì được ghi vào danh mục trước khi bạn bấm nhập.
+
+Ai dùng được: hàng hóa và nhà cung cấp cho Quản trị hệ thống, Quản lý kho, Mua hàng; khách hàng cho Quản trị hệ thống, Bán hàng. Menu "Nhập dữ liệu bằng AI" chỉ hiện với các vai trò này; trang "Danh mục hàng hóa", "Nhà cung cấp", "Khách hàng" có nút "Nhập bằng AI" mở sẵn đúng loại dữ liệu.
+
+Các bước:
+1. Vào menu "Nhập dữ liệu bằng AI" (hoặc bấm "Nhập bằng AI" trên trang danh mục), chọn loại dữ liệu.
+2. Kéo thả hoặc bấm chọn một file: tối đa 10 MB, 200 dòng (file dài hơn chỉ lấy 200 dòng đầu). Bảng tính nên có một dòng tiêu đề cột, ví dụ "Mã hàng", "Tên hàng", "ĐVT", "Giá nhập".
+3. Bấm "Trích xuất dữ liệu" và chờ: bảng tính thường xong trong vài chục giây, PDF và ảnh có thể tới khoảng 3 phút. Bấm "Hủy" để thôi chờ. File không đọc được, không có cột phù hợp hoặc sai định dạng sẽ báo lỗi rõ ràng.
+4. Xem lại bảng: mỗi cột là một trường của danh mục (dấu * là bắt buộc); rê chuột lên tiêu đề cột để biết cột đó lấy từ cột nào trong file. Ô nền vàng là ô AI chưa chắc chắn, ô viền đỏ phải sửa trước khi nhập, biểu tượng cảnh báo ở đầu dòng cho biết lý do. Bấm vào ô để sửa (Enter để lưu, Esc để bỏ). Dòng còn lỗi không chọn được; bỏ chọn hoặc xóa những dòng không muốn nhập; bật "Chỉ hiện dòng cần xem lại" để lọc nhanh.
+5. Bấm "Nhập N dòng" và xác nhận. Màn hình hiện tổng số dòng đã tạo mới, bỏ qua (mã đã có trong danh mục, không ghi đè) và lỗi, cùng kết quả từng dòng kèm lý do.
+6. Dòng lỗi giữ nguyên dữ liệu: bấm "Sửa và nhập tiếp" để sửa rồi nhập lại chỉ những dòng đó, hoặc "Tải danh sách dòng lỗi" để lưu ra Excel. Bấm nút "Mở danh mục ..." để xem dữ liệu vừa nhập.
+
+Lưu ý:
+- Mỗi lần trích xuất thành công dùng 1 lượt AI trong hạn mức hằng tháng của gói dịch vụ (màn hình hiện "Lượt AI tháng này"); file lỗi không bị tính, bấm nhập không tính lượt. Hết lượt sẽ hiện hộp thoại "Đã chạm giới hạn của gói dịch vụ".
+- Kết quả trích xuất giữ 1 giờ. Quá thời hạn phải tải file lên lại. Tải lại trang trong thời hạn sẽ lấy lại bảng ban đầu, các chỉnh sửa trước đó bị mất; rời trang khi còn chỉnh sửa chưa nhập sẽ được hỏi lại.
+- Nhãn "Chế độ giả lập" nghĩa là hệ thống chưa bật AI thật: Excel, CSV vẫn đọc được bằng cách ghép tên tiêu đề cột, còn PDF và ảnh không đọc được.
+- Khi gói đã hết hạn, nút trích xuất và nút nhập bị khóa.
 
 ## Trợ lý AI
 

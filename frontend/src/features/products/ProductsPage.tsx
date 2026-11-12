@@ -18,6 +18,7 @@ import * as productApi from './productApi'
 import type { Category, CreateProductPayload, Product, Uom, UpdateProductPayload } from './types'
 import { getApiErrorMessage } from '../../services/api'
 import { useCan } from '../auth/useCan'
+import AiImportButton from '../ai/components/AiImportButton'
 
 const { Title, Text } = Typography
 
@@ -200,6 +201,8 @@ export default function ProductsPage() {
               Nhập Excel
             </Button>
           )}
+
+          <AiImportButton dataType="PRODUCT" />
 
           {can('product.write') && (
             <Button

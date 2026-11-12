@@ -10,6 +10,7 @@ import * as XLSX from 'xlsx'
 import { getApiErrorMessage } from '../../services/api'
 import ForbiddenResult from '../../components/ForbiddenResult'
 import { useCan } from '../auth/useCan'
+import AiImportButton from '../ai/components/AiImportButton'
 import RecordTransactionModal from './components/RecordTransactionModal'
 import SupplierFormModal from './components/SupplierFormModal'
 import SupplierMetricsCards from './components/SupplierMetricsCards'
@@ -298,6 +299,8 @@ export default function SuppliersPage() {
           >
             Làm mới
           </Button>
+
+          <AiImportButton dataType="SUPPLIER" />
 
           {can('supplier.write') && (
             <Button

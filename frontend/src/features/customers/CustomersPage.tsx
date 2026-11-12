@@ -35,6 +35,7 @@ import * as XLSX from 'xlsx'
 import { getApiErrorMessage } from '../../services/api'
 import ForbiddenResult from '../../components/ForbiddenResult'
 import { useCan } from '../auth/useCan'
+import AiImportButton from '../ai/components/AiImportButton'
 import CustomerDetailModal from './components/CustomerDetailModal'
 import CustomerFormModal from './components/CustomerFormModal'
 import CustomerMetricsCards from './components/CustomerMetricsCards'
@@ -684,6 +685,8 @@ export default function CustomersPage() {
           >
             Xuất Excel
           </Button>
+
+          <AiImportButton dataType="CUSTOMER" />
 
           {canCreate && (
             <Button

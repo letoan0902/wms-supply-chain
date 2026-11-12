@@ -1,9 +1,19 @@
 import { api } from '../../services/api'
 import type { ApiResponse } from '../../types/api'
-import type { AiSummary, AiUsageInfo, ChatReply, ChatRequestBody } from './types'
+import type {
+  AiSummary,
+  AiUsageInfo,
+  ChatReply,
+  ChatRequestBody,
+  Extraction,
+  ExtractionDataType,
+  ImportResult,
+  ImportRowBody,
+} from './types'
 
 /**
- * REST API của ai-service qua API Gateway (/api/ai/**). Mọi vai trò đã đăng nhập đều gọi được.
+ * REST API của ai-service qua API Gateway (/api/ai/**). Trợ lý, tóm tắt, mức dùng: mọi vai trò đã đăng nhập; trích
+ * xuất và nhập dữ liệu: vai trò theo loại dữ liệu (aiImport.* trong features/auth/permissions.ts).
  */
 
 /**
@@ -42,5 +52,54 @@ export async function fetchAiSummary(warehouseId: number | null, refresh = false
 /** Số lượt AI doanh nghiệp đã dùng trong tháng và giới hạn của gói. */
 export async function fetchAiUsage(): Promise<AiUsageInfo> {
   const res = await api.get<ApiResponse<AiUsageInfo>>('/ai/usage')
+  return res.data.data
+}
+
+/**
+ * Trích xuất PDF, ảnh: máy chủ chờ Claude tối đa 180 giây (gọi kiểu stream), nginx chờ /api/ai/ 200 giây; trình
+ * duyệt chờ lâu hơn một chút để thấy lỗi của máy chủ trước khi tự dừng.
+ */
+export const EXTRACTION_TIMEOUT_MS = 210_000
+
+/** Nhập tối đa 200 dòng, mỗi dòng một transaction ở service phía sau. */
+export const IMPORT_TIMEOUT_MS = 120_000
+
+/**
+ * Tải một file lên để AI trích xuất thành bảng xem trước (POST /api/ai/extractions, multipart `file`, `dataType`).
+ * Chưa ghi gì vào danh mục; tính một lượt AI khi thành công. `signal` để người dùng hủy chờ.
+ */
+export async function extractDocument(
+  file: File,
+  dataType: ExtractionDataType,
+  signal?: AbortSignal,
+): Promise<Extraction> {
+  const form = new FormData()
+  form.append('file', file)
+  form.append('dataType', dataType)
+  // Bỏ Content-Type mặc định (application/json) để trình duyệt tự đặt multipart/form-data kèm boundary
+  const res = await api.post<ApiResponse<Extraction>>('/ai/extractions', form, {
+    timeout: EXTRACTION_TIMEOUT_MS,
+    signal,
+    headers: { 'Content-Type': undefined },
+  })
+  return res.data.data
+}
+
+/** Xem lại kết quả trích xuất trong vòng 1 giờ (GET /api/ai/extractions/{id}); `usage` là `null`. */
+export async function fetchExtraction(extractionId: string): Promise<Extraction> {
+  const res = await api.get<ApiResponse<Extraction>>(`/ai/extractions/${encodeURIComponent(extractionId)}`)
+  return res.data.data
+}
+
+/**
+ * Nhập các dòng đã sửa và chọn (POST /api/ai/extractions/{id}/import, 1 đến 200 dòng). Không tính lượt AI.
+ * `results[k].row` là thứ tự trong `rows` đã gửi (từ 1).
+ */
+export async function importExtraction(extractionId: string, rows: ImportRowBody[]): Promise<ImportResult> {
+  const res = await api.post<ApiResponse<ImportResult>>(
+    `/ai/extractions/${encodeURIComponent(extractionId)}/import`,
+    { rows },
+    { timeout: IMPORT_TIMEOUT_MS },
+  )
   return res.data.data
 }

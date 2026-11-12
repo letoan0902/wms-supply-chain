@@ -8,6 +8,7 @@ import {
   CreditCardOutlined,
   DashboardOutlined,
   DatabaseOutlined,
+  RobotOutlined,
   ShopOutlined,
   ShoppingCartOutlined,
   ShoppingOutlined,
@@ -16,6 +17,7 @@ import {
   UsergroupAddOutlined,
 } from '@ant-design/icons'
 import type { ReactNode } from 'react'
+import type { Capability } from '../features/auth/permissions'
 
 export interface NavigationItem {
   /** Đường dẫn route, đồng thời là key của mục menu */
@@ -24,6 +26,8 @@ export interface NavigationItem {
   icon: ReactNode
   /** Sprint dự kiến hoàn thành trang này. Bỏ trống nếu trang đã có nội dung thật. */
   sprint?: number
+  /** Chỉ hiện mục menu khi người dùng có ít nhất một quyền trong danh sách. Bỏ trống: luôn hiện. */
+  anyOf?: Capability[]
 }
 
 /**
@@ -37,6 +41,12 @@ export const navigationItems: NavigationItem[] = [
   { path: '/warehouses', label: 'Kho và vị trí', icon: <ContainerOutlined /> },
   { path: '/suppliers', label: 'Nhà cung cấp', icon: <ShopOutlined /> },
   { path: '/customers', label: 'Khách hàng', icon: <UsergroupAddOutlined /> },
+  {
+    path: '/ai-import',
+    label: 'Nhập dữ liệu bằng AI',
+    icon: <RobotOutlined />,
+    anyOf: ['aiImport.productSupplier', 'aiImport.customer'],
+  },
   { path: '/inventory', label: 'Tồn kho', icon: <DatabaseOutlined /> },
   { path: '/transfers', label: 'Điều chuyển', icon: <SwapOutlined /> },
   { path: '/purchases', label: 'Mua hàng và nhập kho', icon: <ShoppingCartOutlined /> },

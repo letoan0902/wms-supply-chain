@@ -943,6 +943,14 @@ Trang `/ai-import` gồm bốn bước:
 
 Lỗi `PLAN_LIMIT_EXCEEDED` dùng hộp thoại chung của WMS-23.4. Mục menu chỉ hiện với vai trò được phép.
 
+**Đã làm (12/11)**
+
+- Trang `frontend/src/features/ai/AiImportPage.tsx`, route `/ai-import`; `?type=PRODUCT|SUPPLIER|CUSTOMER` chọn sẵn loại dữ liệu, `?id={extractionId}` được ghi sau khi trích xuất để tải lại trang lấy lại bảng qua `GET /api/ai/extractions/{id}` (chỉnh sửa chỉ nằm trên trình duyệt nên mất, màn hình báo rõ). Mục menu "Nhập dữ liệu bằng AI" (trường `anyOf` của `navigation.tsx`) và nút "Nhập bằng AI" trên trang hàng hóa, nhà cung cấp, khách hàng chỉ hiện theo quyền `aiImport.productSupplier`, `aiImport.customer`; loại dữ liệu chọn được cũng lọc theo hai quyền này.
+- Bước 1: kiểm tra phần mở rộng (xlsx, xls, csv, pdf, png, jpg, jpeg) và 10 MB trước khi gửi; hiện lượt AI tháng (`GET /api/ai/usage`, sau khi trích xuất lấy `usage` của kết quả); chờ tối đa 210 giây (`EXTRACTION_TIMEOUT_MS`), đếm giây, nút "Hủy" (AbortController; máy chủ vẫn có thể chạy xong và tính lượt, màn hình nói rõ). Lỗi 400 hiện nguyên thông báo của máy chủ; `PLAN_LIMIT_EXCEEDED`, `SUBSCRIPTION_EXPIRED` chỉ hiện hộp thoại dùng chung.
+- Bước 2: mỗi cột một phần tử `columns` (dấu * bắt buộc, tooltip tiêu đề có cột nguồn và độ tin cậy ghép cột); ô có `confidence` dưới 0,8 (`LOW_CONFIDENCE_THRESHOLD`) nền vàng cho tới khi được sửa; bấm ô để sửa theo kiểu (chữ có đếm `maxLength`, số đọc theo đúng quy tắc `NumberParser`, ô chọn khi có `options`). Lỗi trước khi nhập: thiếu trường bắt buộc, ô số không đọc được, giá trị ngoài `options`, quá `maxLength`; dòng còn lỗi không chọn được, dòng khác chọn sẵn. Xóa dòng, lọc "Chỉ hiện dòng cần xem lại", thông báo `truncated`, `warnings`, chế độ giả lập, đồng hồ tới `expiresAt` (hết hạn hoặc nhập nhận 404 thì khóa nút nhập, yêu cầu tải lại file). Rời trang khi còn chỉnh sửa chưa nhập hoặc đang chờ trích xuất thì hỏi lại (`useBlocker` và `beforeunload`).
+- Bước 3: hộp xác nhận số dòng sẽ gửi; nút nhập có `data-write-action` (nút trích xuất cũng vậy, vì gateway chặn POST khi gói hết hạn), khóa khi đang chạy; 409 báo "đang nhập"; 400 `VALIDATION_ERROR` đổi `rows[i]` về đúng ô. Kết quả: ba con số, bảng từng dòng đối chiếu `results[k].row` với thứ tự đã gửi, nút mở danh mục, "Sửa và nhập tiếp" (dòng lỗi giữ giá trị và lý do, cùng các dòng chưa gửi), "Tải danh sách dòng lỗi" (xlsx).
+- Chưa chạy với backend thật; logic thuần (`aiImport.ts`) được kiểm bằng script Node tạm.
+
 **Tiêu chí nghiệm thu**
 
 Chạy trọn bước 2 của kịch bản demo: tải file danh mục 50 dòng, sửa vài ô, nhập, mở danh mục thấy đủ hàng hóa.

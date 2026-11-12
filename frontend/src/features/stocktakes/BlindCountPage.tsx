@@ -571,7 +571,7 @@ export default function BlindCountPage() {
           />
         </div>
         {!stepParsed.ok && <Text type="danger" className="text-xs">{stepParsed.error}</Text>}
-        <div className="grid grid-cols-2 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <Button
             size="large"
             icon={<CameraOutlined />}

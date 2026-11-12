@@ -2,7 +2,13 @@
  * Logic thuần của phân hệ kiểm kê (không phụ thuộc React, axios): nhãn trạng thái, đọc số lượng nhập tay, đọc mã
  * quét, đọc chi tiết lỗi 409 và các thao tác được phép theo trạng thái và vai trò. Kiểm tra được bằng Node.
  */
-import type { StocktakeLocation, StocktakeScopeType, StocktakeStatus } from './types'
+import type {
+  ReservedConflict,
+  StockAdjustmentStatus,
+  StocktakeLocation,
+  StocktakeScopeType,
+  StocktakeStatus,
+} from './types'
 
 // ------------------------------------------------------------------------------------------------
 // Nhãn
@@ -33,6 +39,18 @@ export const SCOPE_LABELS: Record<StocktakeScopeType, string> = {
   WAREHOUSE: 'Toàn kho',
   ZONES: 'Theo khu',
   LOCATIONS: 'Theo vị trí',
+}
+
+export const ADJUSTMENT_STATUS_LABELS: Record<StockAdjustmentStatus, string> = {
+  PENDING_APPROVAL: 'Chờ Kế toán duyệt',
+  APPROVED: 'Đã duyệt',
+  REJECTED: 'Bị từ chối',
+}
+
+export const ADJUSTMENT_STATUS_COLORS: Record<StockAdjustmentStatus, string> = {
+  PENDING_APPROVAL: 'warning',
+  APPROVED: 'success',
+  REJECTED: 'error',
 }
 
 export const STATUS_ORDER: readonly StocktakeStatus[] = [
@@ -212,14 +230,64 @@ export interface StocktakeAbilities {
   approveAdjustment: boolean
 }
 
-export type StocktakeAction = 'start' | 'cancel' | 'count' | 'finish'
+export type StocktakeAction =
+  | 'start'
+  | 'cancel'
+  | 'count'
+  | 'finish'
+  | 'approve'
+  | 'approveAdjustment'
+  | 'reject'
+  | 'recount'
 
-/** Các thao tác hiển thị cho đợt theo trạng thái và quyền (máy chủ vẫn kiểm tra lại). */
+/**
+ * Các thao tác hiển thị cho đợt theo trạng thái và quyền (máy chủ vẫn kiểm tra lại). Từ chối ở COUNTED chỉ dành
+ * cho người quản lý được kho; ở PENDING_ACCOUNTING thêm Kế toán (StocktakeApprovalService.reject).
+ */
 export function allowedActions(status: StocktakeStatus, can: StocktakeAbilities): StocktakeAction[] {
   const actions: StocktakeAction[] = []
   if (status === 'DRAFT' && can.manage) actions.push('start')
   if (status === 'COUNTING' && can.count) actions.push('count')
   if (status === 'COUNTING' && can.manage) actions.push('finish')
+  if (status === 'COUNTED' && can.manage) actions.push('approve')
+  if (status === 'PENDING_ACCOUNTING' && can.approveAdjustment) actions.push('approveAdjustment')
+  if ((status === 'COUNTED' && can.manage) || (status === 'PENDING_ACCOUNTING' && (can.manage || can.approveAdjustment))) {
+    actions.push('reject')
+  }
   if ((status === 'DRAFT' || status === 'COUNTING' || status === 'COUNTED') && can.manage) actions.push('cancel')
+  if ((status === 'COUNTING' || status === 'COUNTED') && can.manage) actions.push('recount')
   return actions
+}
+
+/** Kế toán duyệt phải khác người đã duyệt cấp Quản lý kho (máy chủ trả 403 nếu trùng). */
+export function isSameApprover(managerApprovedBy: string | null, username: string | null | undefined): boolean {
+  return Boolean(managerApprovedBy && username && managerApprovedBy === username)
+}
+
+/** Màu chữ của chênh lệch theo dấu: thừa xanh lá, thiếu đỏ, bằng 0 xám. */
+export function varianceTone(value: number | null | undefined): 'increase' | 'decrease' | 'zero' | 'none' {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return 'none'
+  const n = Number(value)
+  return n > 0 ? 'increase' : n < 0 ? 'decrease' : 'zero'
+}
+
+/**
+ * Danh sách dòng trong lỗi 409 khi duyệt mà tồn sau điều chỉnh nhỏ hơn số đang giữ chỗ hoặc âm (`data` là mảng
+ * `lineId`, `binLocationCode`, `productId`, `lotNo`, `newQuantity`, `reservedQuantity`); rỗng nếu không phải loại này.
+ */
+export function reservedConflictsOf(error: unknown): ReservedConflict[] {
+  if (errorStatus(error) !== 409) return []
+  const data = errorDataOf(error)
+  if (!Array.isArray(data)) return []
+  return data
+    .filter((r): r is Record<string, unknown> => typeof r === 'object' && r !== null)
+    .filter((r) => r.newQuantity !== undefined && r.reservedQuantity !== undefined)
+    .map((r) => ({
+      lineId: r.lineId === null || r.lineId === undefined ? null : Number(r.lineId),
+      binLocationCode: typeof r.binLocationCode === 'string' ? r.binLocationCode : '',
+      productId: r.productId === null || r.productId === undefined ? null : Number(r.productId),
+      lotNo: typeof r.lotNo === 'string' && r.lotNo ? r.lotNo : null,
+      newQuantity: Number(r.newQuantity),
+      reservedQuantity: Number(r.reservedQuantity),
+    }))
 }

@@ -1,5 +1,5 @@
 import { ArrowLeftOutlined, ReloadOutlined } from '@ant-design/icons'
-import { Alert, Button, Card, Descriptions, Progress, Result, Space, Spin, Table, Tabs, Tag, Typography } from 'antd'
+import { Alert, App, Button, Card, Descriptions, Progress, Result, Space, Spin, Table, Tabs, Tag, Typography } from 'antd'
 import { useMemo, useState } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router-dom'
 import ForbiddenResult from '../../components/ForbiddenResult'
@@ -7,10 +7,20 @@ import { getApiErrorMessage, getErrorStatus } from '../../services/api'
 import { formatDateTime } from '../../utils/format'
 import { useCan } from '../auth/useCan'
 import { formatLocalDate } from '../inventory/inventoryUtils'
+import ActionErrorDetails from './components/ActionErrorDetails'
+import AdjustmentPanel from './components/AdjustmentPanel'
 import CountLinesTable from './components/CountLinesTable'
 import StocktakeActionBar from './components/StocktakeActionBar'
 import StocktakeStatusTag from './components/StocktakeStatusTag'
-import { SCOPE_LABELS, isFrozenStatus, progressPercent, type StocktakeAbilities } from './stocktakeLogic'
+import VarianceView from './components/VarianceView'
+import { requestRecount } from './stocktakeApi'
+import {
+  SCOPE_LABELS,
+  allowedActions,
+  isFrozenStatus,
+  progressPercent,
+  type StocktakeAbilities,
+} from './stocktakeLogic'
 import type { StocktakeLocation, StocktakeSession } from './types'
 import { productLabel, useProductBriefs } from './useProductBriefs'
 import { useStocktakeSession } from './useStocktakeSession'
@@ -93,8 +103,12 @@ function StatusNotice({ session }: { session: StocktakeSession }) {
   }
 }
 
-/** Chi tiết đợt kiểm kê: thông tin, tiến độ, vị trí, dòng đếm và các thao tác theo trạng thái, vai trò. */
+/**
+ * Chi tiết đợt kiểm kê: thông tin, tiến độ, vị trí, dòng đếm, đối soát chênh lệch, phiếu điều chỉnh và các thao tác
+ * theo trạng thái, vai trò (duyệt hai cấp: Quản lý kho rồi Kế toán).
+ */
 export default function StocktakeDetailPage() {
+  const { modal, message } = App.useApp()
   const params = useParams()
   const id = Number(params.id)
   const validId = Number.isInteger(id) && id > 0 ? id : null
@@ -151,6 +165,35 @@ export default function StocktakeDetailPage() {
     setLinesToken((t) => t + 1)
   }
 
+  // Đếm lại khi đợt đang đếm (chọn ở tab Dòng đếm); khi chờ duyệt thì chọn ở tab Chênh lệch
+  const canRecountLines = session.status === 'COUNTING' && allowedActions(session.status, abilities).includes('recount')
+  const recountFromLines = (lineIds: number[]) =>
+    new Promise<boolean>((resolve) => {
+      modal.confirm({
+        title: `Yêu cầu đếm lại ${lineIds.length} dòng?`,
+        okText: 'Yêu cầu đếm lại',
+        cancelText: 'Đóng',
+        okButtonProps: { 'data-write-action': 'true' },
+        content: 'Số đếm của các dòng này bị xóa và dòng có thẻ "Đếm lại"; nhân viên đếm lại rồi Quản lý kho kết thúc đếm.',
+        onOk: async () => {
+          try {
+            const updated = await requestRecount(session.id, lineIds)
+            handleUpdated(updated)
+            message.success(`Đã yêu cầu đếm lại ${lineIds.length} dòng`)
+            resolve(true)
+          } catch (err) {
+            modal.error({
+              title: 'Không yêu cầu đếm lại được',
+              content: <ActionErrorDetails error={err} fallback="Không yêu cầu đếm lại được" />,
+            })
+            reload()
+            resolve(false)
+          }
+        },
+        onCancel: () => resolve(false),
+      })
+    })
+
   const locations = session.locations ?? []
   const locationColumns = [
     {
@@ -179,8 +222,24 @@ export default function StocktakeDetailPage() {
         session.status === 'DRAFT' ? (
           <Alert type="info" showIcon message="Dòng cần đếm được tạo khi bắt đầu kiểm kê (chụp tồn hệ thống)." />
         ) : (
-          <CountLinesTable sessionId={session.id} reloadToken={linesToken} />
+          <CountLinesTable
+            sessionId={session.id}
+            reloadToken={linesToken}
+            onRecount={canRecountLines ? recountFromLines : undefined}
+          />
         ),
+    },
+    {
+      key: 'variance',
+      label: 'Chênh lệch',
+      children: (
+        <VarianceView
+          session={session}
+          abilities={abilities}
+          reloadToken={linesToken}
+          onSessionUpdated={handleUpdated}
+        />
+      ),
     },
     {
       key: 'locations',
@@ -207,6 +266,23 @@ export default function StocktakeDetailPage() {
           />
         ),
     },
+    ...(session.adjustmentId !== null
+      ? [
+          {
+            key: 'adjustment',
+            label: `Phiếu điều chỉnh ${session.adjustmentCode ?? ''}`,
+            children: abilities.variance ? (
+              <AdjustmentPanel adjustmentId={session.adjustmentId} reloadToken={linesToken} />
+            ) : (
+              <Result
+                status="403"
+                title="Không có quyền xem phiếu điều chỉnh"
+                subTitle="Phiếu điều chỉnh có tồn hệ thống nên chỉ dành cho Quản trị viên, Kế toán và Quản lý kho phụ trách kho."
+              />
+            ),
+          },
+        ]
+      : []),
   ]
 
   return (

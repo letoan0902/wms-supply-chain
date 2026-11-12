@@ -1,3 +1,5 @@
+import type { PageResponse } from '../../types/api'
+
 /**
  * Kiểu dữ liệu của phân hệ kiểm kê, khớp DTO của inventory-service (hợp đồng ở docs/api/KIEM_KE.md).
  * Số lượng là số thập phân tối đa 3 chữ số sau dấu phẩy; thời gian ISO 8601 UTC, ngày dạng `yyyy-MM-dd`.
@@ -133,4 +135,107 @@ export interface CountPayload {
   lotNo?: string
   quantity: number
   mode: CountMode
+}
+
+/** Bộ lọc GET /api/inventory/stocktakes/{id}/variances (chỉ có sau khi kết thúc đếm). */
+export interface VarianceQuery {
+  onlyDifferences: boolean
+  binCode?: string
+  productId?: number
+  page: number
+  size: number
+}
+
+/** Tổng hợp chênh lệch toàn đợt (StocktakeVarianceReportResponse.Summary). Không có giá trị tiền. */
+export interface VarianceSummary {
+  totalLines: number
+  countedLines: number
+  linesWithVariance: number
+  increaseLines: number
+  decreaseLines: number
+  totalIncreaseQuantity: number
+  /** Tổng số lượng thiếu (số dương) */
+  totalDecreaseQuantity: number
+  netVarianceQuantity: number
+  reservedConflictLines: number
+}
+
+/** Dòng chênh lệch (StocktakeVarianceLineResponse): có tồn hệ thống, chỉ người duyệt được xem. */
+export interface VarianceLine {
+  lineId: number
+  binLocationId: number
+  binLocationCode: string
+  zone: string | null
+  productId: number
+  lotNo: string | null
+  systemQuantity: number
+  systemReservedQuantity: number
+  countedQuantity: number | null
+  /** Số đếm trừ tồn hệ thống */
+  varianceQuantity: number | null
+  counted: boolean
+  unexpected: boolean
+  recountRequested: boolean
+  /** Số đếm nhỏ hơn số đang giữ chỗ cho đơn: không duyệt được cho tới khi xử lý */
+  reservedConflict: boolean
+  countTimes: number
+  lastCountedBy: string | null
+  lastCountedAt: string | null
+  reason: string | null
+}
+
+export interface VarianceReport {
+  summary: VarianceSummary
+  lines: PageResponse<VarianceLine>
+}
+
+/** Dòng phiếu điều chỉnh; `quantityBefore`, `quantityAfter` có giá trị khi phiếu đã duyệt. */
+export interface StockAdjustmentLine {
+  id: number
+  stocktakeLineId: number | null
+  binLocationId: number
+  binLocationCode: string
+  productId: number
+  lotNo: string | null
+  systemQuantity: number
+  countedQuantity: number
+  differenceQuantity: number
+  quantityBefore: number | null
+  quantityAfter: number | null
+  reason: string | null
+}
+
+/** Phiếu điều chỉnh tồn kho (StockAdjustmentResponse). `lines` chỉ có ở API chi tiết. */
+export interface StockAdjustment {
+  id: number
+  code: string
+  sessionId: number
+  sessionCode: string
+  warehouseId: number
+  warehouseCode: string | null
+  warehouseName: string | null
+  status: StockAdjustmentStatus
+  totalIncreaseQuantity: number
+  totalDecreaseQuantity: number
+  totalLines: number
+  notes: string | null
+  requestedBy: string | null
+  requestedAt: string | null
+  approvedBy: string | null
+  approvedAt: string | null
+  rejectedBy: string | null
+  rejectedAt: string | null
+  rejectReason: string | null
+  createdAt: string | null
+  lines: StockAdjustmentLine[] | null
+}
+
+/** Phần tử `data` của lỗi 409 khi tồn sau điều chỉnh nhỏ hơn giữ chỗ hoặc âm (StocktakeReservedConflict). */
+export interface ReservedConflict {
+  lineId: number | null
+  binLocationCode: string
+  productId: number | null
+  lotNo: string | null
+  newQuantity: number
+  reservedQuantity: number
 }

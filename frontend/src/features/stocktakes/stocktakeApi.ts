@@ -4,9 +4,13 @@ import type {
   CountLinesQuery,
   CountPayload,
   CreateStocktakePayload,
+  StockAdjustment,
   StocktakeCountLine,
   StocktakeListQuery,
   StocktakeSession,
+  VarianceLine,
+  VarianceQuery,
+  VarianceReport,
 } from './types'
 
 /**
@@ -85,5 +89,54 @@ export async function fetchCountLines(
     params: cleanParams(query),
     signal,
   })
+  return res.data.data
+}
+
+// ----------------------------- Chênh lệch, đếm lại, duyệt hai cấp -----------------------------
+
+/** Báo cáo chênh lệch (chỉ ADMIN, ACCOUNTANT, WAREHOUSE_MANAGER của kho; chỉ sau khi kết thúc đếm). */
+export async function fetchVariances(id: number, query: VarianceQuery, signal?: AbortSignal): Promise<VarianceReport> {
+  const res = await api.get<ApiResponse<VarianceReport>>(`${BASE}/${id}/variances`, {
+    params: cleanParams(query),
+    signal,
+  })
+  return res.data.data
+}
+
+/** Yêu cầu đếm lại các dòng chọn: xóa số đếm, đợt quay lại COUNTING. */
+export async function requestRecount(id: number, lineIds: number[]): Promise<StocktakeSession> {
+  const res = await api.post<ApiResponse<StocktakeSession>>(`${BASE}/${id}/recount`, { lineIds })
+  return res.data.data
+}
+
+/** Ghi lý do chênh lệch cho một dòng (ở COUNTED); chuỗi rỗng xóa lý do. */
+export async function saveLineReason(id: number, lineId: number, reason: string): Promise<VarianceLine> {
+  const res = await api.put<ApiResponse<VarianceLine>>(`${BASE}/${id}/lines/${lineId}/reason`, {
+    reason: reason.trim() || null,
+  })
+  return res.data.data
+}
+
+/** Quản lý kho duyệt: không lệch thì COMPLETED, có lệch thì sinh phiếu điều chỉnh (PENDING_ACCOUNTING). */
+export async function approveByManager(id: number, notes?: string): Promise<StocktakeSession> {
+  const res = await api.post<ApiResponse<StocktakeSession>>(`${BASE}/${id}/approve`, { notes: notes?.trim() || null })
+  return res.data.data
+}
+
+/** Kế toán duyệt phiếu điều chỉnh: cập nhật tồn, mở đóng băng, đợt COMPLETED. Phải khác người duyệt cấp quản lý. */
+export async function approveAdjustment(id: number): Promise<StocktakeSession> {
+  const res = await api.post<ApiResponse<StocktakeSession>>(`${BASE}/${id}/adjustment/approve`)
+  return res.data.data
+}
+
+/** Từ chối kết quả kiểm kê hoặc phiếu điều chỉnh (bắt buộc lý do): mở đóng băng, tồn giữ nguyên. */
+export async function rejectStocktake(id: number, reason: string): Promise<StocktakeSession> {
+  const res = await api.post<ApiResponse<StocktakeSession>>(`${BASE}/${id}/reject`, { reason: reason.trim() })
+  return res.data.data
+}
+
+/** Chi tiết phiếu điều chỉnh kèm các dòng (GET /api/inventory/stock-adjustments/{id}). */
+export async function fetchAdjustment(adjustmentId: number, signal?: AbortSignal): Promise<StockAdjustment> {
+  const res = await api.get<ApiResponse<StockAdjustment>>(`/inventory/stock-adjustments/${adjustmentId}`, { signal })
   return res.data.data
 }

@@ -304,7 +304,7 @@ Lập đợt kiểm kê (Quản trị hệ thống, Quản lý kho của kho):
 3. Tùy chọn giới hạn hàng hóa (tối đa 200), chọn ngày dự kiến, nhập ghi chú.
 4. Bấm "Tạo đợt kiểm kê". Đợt ở trạng thái Mới lập, mã dạng ST-yyyyMM-NN, màn hình mở chi tiết đợt.
 
-Chi tiết đợt: thông tin, tiến độ, người bắt đầu, kết thúc đếm, duyệt; tab "Dòng đếm" (số đã đếm của từng dòng, lọc mã vị trí, hàng hóa, "Chỉ dòng chưa đếm") và tab "Vị trí". Các nút hiện theo trạng thái và vai trò:
+Chi tiết đợt: thông tin, tiến độ, người bắt đầu, kết thúc đếm, duyệt; tab "Dòng đếm" (số đã đếm của từng dòng, lọc mã vị trí, hàng hóa, "Chỉ dòng chưa đếm"), tab "Chênh lệch", tab "Vị trí" và tab "Phiếu điều chỉnh" (khi đã có phiếu). Các nút hiện theo trạng thái và vai trò:
 - "Bắt đầu kiểm kê" (đợt Mới lập, Quản trị hệ thống, Quản lý kho): hộp xác nhận nhắc rằng hệ thống đóng băng các vị trí và chụp tồn hệ thống. Cho tới khi đợt kết thúc, lập phiếu nhập kho vào các vị trí này, xuất kho chỉ định các vị trí này, duyệt xuất và nhận hàng điều chuyển qua các vị trí này đều bị từ chối. Một vị trí đang thuộc đợt khác thì không bắt đầu được, màn hình nêu mã vị trí và mã đợt đó.
 - "Màn hình đếm" (đợt Đang đếm, Quản trị hệ thống, Quản lý kho, Nhân viên kho của kho).
 - "Kết thúc đếm" (đợt Đang đếm, Quản trị hệ thống, Quản lý kho): còn dòng chưa đếm thì màn hình báo số dòng và hỏi lần hai "Tính ... dòng bằng 0 và kết thúc" hoặc "Quay lại đếm tiếp". Sau khi kết thúc, hệ thống tính chênh lệch và đợt chuyển Chờ Quản lý kho duyệt.
@@ -319,6 +319,20 @@ Chi tiết đợt: thông tin, tiến độ, người bắt đầu, kết thúc 
 6. Bật "Chưa đếm" để chỉ xem dòng còn thiếu của vị trí; thanh tiến độ đầu trang là tiến độ cả đợt.
 
 Màn hình đếm không bao giờ hiện tồn hệ thống, chỉ hiện số đã đếm trong đợt. Các lần quét nhanh được xếp hàng và gửi lần lượt theo thứ tự. Lần ghi lỗi nằm ở mục "Lần ghi chưa thành công" (và đánh dấu đỏ trên dòng) với nút "Thử lại" hoặc "Bỏ"; hệ thống không tự gửi lại. Khi mất kết nối, màn hình không biết máy chủ đã ghi hay chưa: danh sách được tải lại, hãy xem số đã đếm của dòng trước khi thử lại. Rời màn hình khi còn lần ghi chưa xong thì có hộp hỏi xác nhận.
+
+Đối soát chênh lệch (tab "Chênh lệch", chỉ Quản trị hệ thống, Kế toán, Quản lý kho của kho; Nhân viên kho thấy thông báo không có quyền vì đếm mù không được xem tồn hệ thống):
+1. Có số liệu sau khi kết thúc đếm. Các thẻ tổng hợp: tổng dòng, đã đếm, dòng có lệch, tổng thừa, tổng thiếu, chênh lệch ròng, dòng xung đột giữ chỗ. Hệ thống chưa có giá vốn nên không có giá trị tiền.
+2. Bảng dòng: vị trí, hàng hóa, số lô, tồn hệ thống, đang giữ chỗ, thực đếm, chênh lệch (xanh lá là thừa, đỏ là thiếu), thẻ "Nhỏ hơn giữ chỗ", "Hàng phát sinh", "Đã đếm lại", người đếm cuối. Lọc "Chỉ dòng có lệch" (bật sẵn), mã vị trí, hàng hóa.
+3. Khi đợt Chờ Quản lý kho duyệt, Quản trị hệ thống và Quản lý kho ghi được "Lý do chênh lệch" cho từng dòng (tối đa 255 ký tự, bấm nút lưu hoặc Enter); lý do được chép vào phiếu điều chỉnh.
+4. Đếm lại: tích chọn các dòng nghi sai rồi bấm "Yêu cầu đếm lại". Số đếm của các dòng đó bị xóa, đợt quay lại Đang đếm, dòng có thẻ "Đếm lại" trên màn hình đếm; đếm xong thì Quản lý kho bấm "Kết thúc đếm" lại. Khi đợt đang đếm, Quản lý kho cũng chọn được dòng ở tab "Dòng đếm" và bấm "Đếm lại".
+5. Dòng "Nhỏ hơn giữ chỗ" (số đếm nhỏ hơn số đang giữ chỗ cho đơn bán) chặn việc duyệt: hủy hoặc đổi giữ chỗ của đơn liên quan, hoặc đếm lại, rồi mới duyệt.
+
+Duyệt hai cấp:
+1. Quản lý kho duyệt (đợt Chờ Quản lý kho duyệt, Quản trị hệ thống hoặc Quản lý kho của kho): bấm "Quản lý kho duyệt", nhập ghi chú nếu cần, bấm "Duyệt". Không có chênh lệch thì đợt Hoàn tất ngay và vị trí được mở đóng băng. Có chênh lệch thì hệ thống lập phiếu điều chỉnh (mã ADJ-yyyyMM-NN) và đợt chuyển Chờ Kế toán duyệt; tồn kho chưa đổi. Nếu có dòng mà tồn sau điều chỉnh nhỏ hơn số đang giữ chỗ hoặc bị âm, màn hình liệt kê các dòng đó và không duyệt.
+2. Kế toán duyệt (đợt Chờ Kế toán duyệt, Kế toán hoặc Quản trị hệ thống): bấm "Kế toán duyệt phiếu điều chỉnh" rồi "Duyệt và cập nhật tồn kho". Tồn kho các dòng được cập nhật (tồn mới bằng tồn hiện tại cộng chênh lệch), vị trí mở đóng băng, đợt Hoàn tất. Người duyệt cấp Kế toán phải khác người đã duyệt cấp Quản lý kho: nút bị khóa nếu bạn chính là người đó, và máy chủ từ chối (403) nếu vẫn gửi; hãy nhờ một Kế toán hoặc Quản trị hệ thống khác.
+3. Từ chối: bấm "Từ chối", bắt buộc nhập lý do. Ở Chờ Quản lý kho duyệt dành cho Quản trị hệ thống, Quản lý kho; ở Chờ Kế toán duyệt có thêm Kế toán. Tồn kho giữ nguyên, phiếu điều chỉnh (nếu có) chuyển Bị từ chối, vị trí mở đóng băng.
+
+Tab "Phiếu điều chỉnh": mã phiếu, trạng thái (Chờ Kế toán duyệt, Đã duyệt, Bị từ chối), tổng thừa, tổng thiếu, người đề nghị, người duyệt hoặc từ chối kèm lý do, và từng dòng: tồn hệ thống, thực đếm, chênh lệch, tồn trước và tồn sau (có sau khi Kế toán duyệt), lý do. Lịch sử biến động xem ở menu "Báo cáo", tab "Thẻ kho" (chọn hàng hóa và kho), chứng từ loại "Phiếu kiểm kê" mang mã phiếu điều chỉnh.
 
 ## Dashboard
 

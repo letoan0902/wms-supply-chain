@@ -1,5 +1,5 @@
-import { SearchOutlined } from '@ant-design/icons'
-import { Alert, Col, Input, Row, Switch, Table, Tag, Typography } from 'antd'
+import { RedoOutlined, SearchOutlined } from '@ant-design/icons'
+import { Alert, Button, Col, Input, Row, Switch, Table, Tag, Typography } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { useCallback, useMemo, useState } from 'react'
 import { getApiErrorMessage } from '../../../services/api'
@@ -18,19 +18,25 @@ interface Props {
   sessionId: number
   /** Tăng lên để tải lại (sau khi đổi trạng thái đợt) */
   reloadToken: number
+  /**
+   * Cho chọn dòng để yêu cầu đếm lại (Quản lý kho khi đợt đang đếm). Hàm trả true nếu đã gửi thành công để bỏ chọn.
+   */
+  onRecount?: (lineIds: number[]) => Promise<boolean>
 }
 
 /**
  * Dòng đếm của đợt (GET .../count-lines): số đã đếm, số lần đếm, người đếm cuối; KHÔNG có tồn hệ thống. Lọc chưa
  * đếm, mã vị trí, hàng hóa; phân trang trên máy chủ.
  */
-export default function CountLinesTable({ sessionId, reloadToken }: Props) {
+export default function CountLinesTable({ sessionId, reloadToken, onRecount }: Props) {
   const [onlyUncounted, setOnlyUncounted] = useState(false)
   const [binInput, setBinInput] = useState('')
   const [binCode, setBinCode] = useState('')
   const [product, setProduct] = useState<ProductOption | null>(null)
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(50)
+  const [selected, setSelected] = useState<number[]>([])
+  const [recounting, setRecounting] = useState(false)
 
   const fetcher = useCallback(
     (query: CountLinesQuery, signal: AbortSignal) => fetchCountLines(sessionId, query, signal),
@@ -135,7 +141,7 @@ export default function CountLinesTable({ sessionId, reloadToken }: Props) {
             className="w-full"
           />
         </Col>
-        <Col xs={24} md={8}>
+        <Col xs={24} md={onRecount ? 4 : 8}>
           <label className="flex items-center gap-2 cursor-pointer">
             <Switch
               checked={onlyUncounted}
@@ -147,6 +153,26 @@ export default function CountLinesTable({ sessionId, reloadToken }: Props) {
             <Text>Chỉ dòng chưa đếm</Text>
           </label>
         </Col>
+        {onRecount && (
+          <Col xs={24} md={4} className="flex md:justify-end">
+            <Button
+              icon={<RedoOutlined />}
+              disabled={selected.length === 0}
+              loading={recounting}
+              data-write-action
+              onClick={async () => {
+                setRecounting(true)
+                try {
+                  if (await onRecount(selected)) setSelected([])
+                } finally {
+                  setRecounting(false)
+                }
+              }}
+            >
+              Đếm lại ({selected.length})
+            </Button>
+          </Col>
+        )}
       </Row>
       {error ? <Alert type="error" showIcon message={getApiErrorMessage(error, 'Không tải được dòng đếm')} /> : null}
       <Table<StocktakeCountLine>
@@ -156,6 +182,15 @@ export default function CountLinesTable({ sessionId, reloadToken }: Props) {
         dataSource={lines}
         loading={loading}
         scroll={{ x: 860 }}
+        rowSelection={
+          onRecount
+            ? {
+                selectedRowKeys: selected,
+                preserveSelectedRowKeys: true,
+                onChange: (keys) => setSelected(keys.map(Number)),
+              }
+            : undefined
+        }
         locale={{ emptyText: 'Không có dòng đếm phù hợp' }}
         pagination={{
           current: page,

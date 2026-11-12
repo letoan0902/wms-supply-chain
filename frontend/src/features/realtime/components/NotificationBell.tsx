@@ -22,6 +22,7 @@ const STATUS_CONFIG: Record<ConnectionStatus, { badge: BadgeProps['status']; lab
 
 const TYPE_ICONS: Record<RealtimeNotification['type'], ReactNode> = {
   LOW_STOCK: <WarningOutlined />,
+  STOCK_ALERT: <WarningOutlined />,
   ORDER_CREATED: <ShoppingCartOutlined />,
   ORDER_DISPATCHED: <CarOutlined />,
 }

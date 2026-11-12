@@ -1,14 +1,24 @@
 import { LockOutlined, UserOutlined } from '@ant-design/icons'
-import { App, Button, Carousel, Checkbox, Form, Input, Typography } from 'antd'
+import { Alert, App, Button, Carousel, Checkbox, Form, Input, Typography } from 'antd'
 import { useState } from 'react'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { getApiErrorMessage, getErrorStatus } from '../../services/api'
 import type { LoginRequest } from '../../types/auth'
 import { getToken, saveAuth } from '../../utils/storage'
-import { login } from './authApi'
+import ResendActivationForm from './ResendActivationForm'
+import { REDIRECT_PARAM, safeRedirectPath } from './loginRedirect'
+import { getAuthErrorCode, getInactiveCompanyStatus, login } from './authApi'
 
 interface LocationState {
-  from?: { pathname: string }
+  from?: { pathname: string; search?: string; hash?: string }
+  /** Tên đăng nhập điền sẵn (trang kích hoạt doanh nghiệp chuyển sang) */
+  username?: string
+}
+
+/** Doanh nghiệp chưa kích hoạt qua email: thông báo của máy chủ và tên đăng nhập hoặc email vừa nhập. */
+interface PendingActivation {
+  message: string
+  identifier: string
 }
 
 const slides = [
@@ -47,8 +57,17 @@ export default function LoginPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const [submitting, setSubmitting] = useState(false)
+  const [pendingActivation, setPendingActivation] = useState<PendingActivation | null>(null)
 
-  const redirectTo = (location.state as LocationState | null)?.from?.pathname ?? '/'
+  const locationState = location.state as LocationState | null
+  // Trang cần quay lại: state của router (chuyển trong ứng dụng) hoặc tham số `redirect` (phiên hết hạn, tải lại
+  // trang). Giữ cả query string, ví dụ /payment/result?orderCode=... khi quay lại từ PayOS; chỉ nhận đường dẫn
+  // nội bộ, không bao giờ chuyển sang URL tuyệt đối lấy từ query string.
+  const from = locationState?.from
+  const redirectTo =
+    safeRedirectPath(from ? `${from.pathname}${from.search ?? ''}${from.hash ?? ''}` : null) ??
+    safeRedirectPath(new URLSearchParams(location.search).get(REDIRECT_PARAM)) ??
+    '/'
 
   // Đã đăng nhập thì vào thẳng hệ thống
   if (getToken()) {
@@ -57,12 +76,25 @@ export default function LoginPage() {
 
   const handleFinish = async (values: LoginRequest) => {
     setSubmitting(true)
+    setPendingActivation(null)
     try {
       const result = await login(values)
-      saveAuth(result.accessToken, { username: result.username, roles: result.roles }, result.refreshToken)
+      saveAuth(
+        result.accessToken,
+        { username: result.username, roles: result.roles, company: result.company },
+        result.refreshToken,
+      )
       message.success('Đăng nhập thành công')
       navigate(redirectTo, { replace: true })
     } catch (error) {
+      // Doanh nghiệp vừa đăng ký chưa bấm liên kết kích hoạt trong email: hiện hướng dẫn và nút gửi lại
+      if (getAuthErrorCode(error) === 'COMPANY_INACTIVE' && getInactiveCompanyStatus(error) === 'PENDING') {
+        setPendingActivation({
+          message: getApiErrorMessage(error, 'Doanh nghiệp chưa được kích hoạt. Vui lòng kiểm tra email đăng ký.'),
+          identifier: values.username,
+        })
+        return
+      }
       const fallback =
         getErrorStatus(error) === 401
           ? 'Tên đăng nhập hoặc mật khẩu không đúng.'
@@ -154,11 +186,29 @@ export default function LoginPage() {
             </Typography.Text>
           </div>
 
+          {pendingActivation && (
+            <Alert
+              type="warning"
+              showIcon
+              className="mb-4 rounded-lg"
+              message={<span className="text-sm font-semibold">Doanh nghiệp chưa được kích hoạt</span>}
+              description={
+                <div className="space-y-3">
+                  <p className="text-xs text-slate-600">{pendingActivation.message}</p>
+                  <ResendActivationForm
+                    initialEmail={pendingActivation.identifier.includes('@') ? pendingActivation.identifier : undefined}
+                  />
+                </div>
+              }
+            />
+          )}
+
           <Form<LoginRequest>
             layout="vertical"
             requiredMark={false}
             onFinish={handleFinish}
             autoComplete="off"
+            initialValues={{ username: locationState?.username }}
           >
             <Form.Item
               label={<span className="text-xs font-semibold text-slate-700">Tên đăng nhập</span>}

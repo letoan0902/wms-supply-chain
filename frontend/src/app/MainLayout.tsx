@@ -25,6 +25,10 @@ import NotificationBell from '../features/realtime/components/NotificationBell'
 import { useWebSocket } from '../features/realtime/useWebSocket'
 import { navigationItems } from './navigation'
 import { ROLE_CONFIG } from '../features/users/types'
+import SubscriptionLayer from '../features/subscription/components/SubscriptionLayer'
+import { READ_ONLY_ALLOWED_CLASS } from '../features/subscription/readOnlyGuard'
+import { useSubscriptionStore } from '../features/subscription/subscriptionStore'
+import AiChatWidget from '../features/ai/components/AiChatWidget'
 
 const { Header, Sider, Content } = Layout
 
@@ -60,8 +64,12 @@ export default function MainLayout() {
   // Nối WebSocket nhận thông báo thời gian thực (MainLayout chỉ hiển thị sau khi đăng nhập)
   useWebSocket()
 
-  // Đường dẫn gốc của mục menu đang chọn: '/' giữ nguyên, '/products/12' thành '/products'
-  const selectedKey = `/${pathname.split('/')[1]}`
+  // Mục menu đang chọn: mục có đường dẫn dài nhất khớp với đầu đường dẫn hiện tại
+  // ('/products/12' thành '/products', '/settings/api-keys' giữ nguyên); không khớp mục nào thì lấy đoạn đầu.
+  const selectedKey =
+    navigationItems
+      .filter((item) => item.path !== '/' && (pathname === item.path || pathname.startsWith(`${item.path}/`)))
+      .sort((a, b) => b.path.length - a.path.length)[0]?.path ?? `/${pathname.split('/')[1]}`
   const currentTitle = navigationItems.find((item) => item.path === selectedKey)?.label
 
   // Xử lý đăng xuất thực tế
@@ -75,6 +83,7 @@ export default function MainLayout() {
       setLogoutLoading(false)
       setLogoutModalOpen(false)
       clearAuth()
+      useSubscriptionStore.getState().reset()
       navigate('/login', { replace: true })
     }
   }
@@ -214,7 +223,12 @@ export default function MainLayout() {
           <div className="flex shrink-0 items-center gap-3">
             <NotificationBell />
             {/* User profile trigger */}
-            <Dropdown menu={{ items: userMenu }} placement="bottomRight" trigger={['click']}>
+            <Dropdown
+              menu={{ items: userMenu }}
+              placement="bottomRight"
+              trigger={['click']}
+              rootClassName={READ_ONLY_ALLOWED_CLASS}
+            >
               <button
                 type="button"
                 className="flex cursor-pointer items-center gap-2.5 rounded-md border border-transparent px-2 py-1 text-left select-none transition-colors hover:bg-slate-50 hover:border-slate-200/60"
@@ -236,12 +250,18 @@ export default function MainLayout() {
           </div>
         </Header>
 
-        <Content className="p-5 sm:p-6 min-h-[calc(100vh-56px)]">
+        {/* Dải nhắc dùng thử, dải hết hạn, chế độ chỉ đọc và hộp thoại gói dịch vụ dùng chung */}
+        <SubscriptionLayer />
+
+        <Content className="p-4 sm:p-6">
           <Suspense fallback={<PageLoading tip="Đang tải dữ liệu phân hệ..." />}>
             <Outlet />
           </Suspense>
         </Content>
       </Layout>
+
+      {/* Nút và khung chat trợ lý AI nổi ở góc phải dưới của mọi trang */}
+      <AiChatWidget />
 
       {/* Modal Xác nhận Đăng xuất */}
       <Modal

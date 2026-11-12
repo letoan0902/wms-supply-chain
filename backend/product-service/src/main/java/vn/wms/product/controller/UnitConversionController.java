@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -42,6 +43,7 @@ public class UnitConversionController {
 
     @GetMapping
     @Operation(summary = "Lấy danh sách các tỷ lệ quy đổi của một sản phẩm (kèm tỷ lệ quy đổi tích lũy về đơn vị cơ sở)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'PURCHASING', 'SALES', 'ACCOUNTANT', 'INTEGRATION')")
     public ApiResponse<List<UnitConversionResponse>> getConversions(
             @Parameter(description = "ID sản phẩm") @PathVariable Long productId) {
         return ApiResponse.ok(unitConversionService.getConversions(productId));
@@ -49,6 +51,7 @@ public class UnitConversionController {
 
     @PostMapping
     @Operation(summary = "Thêm mới cấu hình quy đổi đơn vị tính cho sản phẩm")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'PURCHASING')")
     public ResponseEntity<ApiResponse<UnitConversionResponse>> createConversion(
             @Parameter(description = "ID sản phẩm") @PathVariable Long productId,
             @Valid @RequestBody CreateUnitConversionRequest request) {
@@ -59,6 +62,7 @@ public class UnitConversionController {
 
     @PutMapping("/{id}")
     @Operation(summary = "Cập nhật cấu hình quy đổi đơn vị tính")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'PURCHASING')")
     public ApiResponse<UnitConversionResponse> updateConversion(
             @Parameter(description = "ID sản phẩm") @PathVariable Long productId,
             @Parameter(description = "ID cấu hình quy đổi") @PathVariable Long id,
@@ -68,6 +72,7 @@ public class UnitConversionController {
 
     @DeleteMapping("/{id}")
     @Operation(summary = "Xóa cấu hình quy đổi đơn vị tính")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'PURCHASING')")
     public ApiResponse<Void> deleteConversion(
             @Parameter(description = "ID sản phẩm") @PathVariable Long productId,
             @Parameter(description = "ID cấu hình quy đổi") @PathVariable Long id) {
@@ -77,6 +82,7 @@ public class UnitConversionController {
 
     @PostMapping("/convert-to-base")
     @Operation(summary = "Quy đổi số lượng từ đơn vị đóng gói về đơn vị cơ sở khi tính toán tồn kho (FR06)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'PURCHASING', 'SALES', 'ACCOUNTANT')")
     public ApiResponse<ConvertToBaseResponse> convertToBase(
             @Parameter(description = "ID sản phẩm") @PathVariable Long productId,
             @Valid @RequestBody ConvertToBaseRequest request) {
@@ -85,6 +91,7 @@ public class UnitConversionController {
 
     @PostMapping("/calculate")
     @Operation(summary = "Quy đổi số lượng giữa 2 đơn vị tính bất kỳ trên cây quy đổi đa cấp")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'PURCHASING', 'SALES', 'ACCOUNTANT')")
     public ApiResponse<CalculateConversionResponse> calculate(
             @Parameter(description = "ID sản phẩm") @PathVariable Long productId,
             @Valid @RequestBody CalculateConversionRequest request) {
@@ -93,6 +100,7 @@ public class UnitConversionController {
 
     @GetMapping("/breakdown")
     @Operation(summary = "Phân rã số lượng tồn cơ sở sang các cấp đóng gói trực quan (VD: 50 Chai -> 2 Thùng, 2 Chai)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'PURCHASING', 'SALES', 'ACCOUNTANT', 'INTEGRATION')")
     public ApiResponse<BreakdownResponse> breakdown(
             @Parameter(description = "ID sản phẩm") @PathVariable Long productId,
             @Parameter(description = "Tổng số lượng theo đơn vị cơ sở") @RequestParam BigDecimal baseQuantity) {

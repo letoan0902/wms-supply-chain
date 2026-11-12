@@ -1,9 +1,11 @@
 package vn.wms.order.repository;
 
+import jakarta.persistence.LockModeType;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import vn.wms.order.entity.OrderStatus;
@@ -27,11 +29,25 @@ public interface SalesOrderRepository extends JpaRepository<SalesOrder, Long> {
     @EntityGraph(attributePaths = {"customer", "items"})
     Optional<SalesOrder> findById(Long id);
 
-    @Override
+    /**
+     * Khóa dòng bi quan (SELECT FOR UPDATE) đơn bán khi lập phiếu xuất kho: hai phiếu xuất đồng thời cho cùng
+     * một đơn phải xếp hàng, phiếu sau đọc số lượng đã xuất mới nhất nên không thể xuất vượt số lượng đặt (WMS-12.1).
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
     @EntityGraph(attributePaths = {"customer", "items"})
+    @Query("SELECT so FROM SalesOrder so WHERE so.id = :id")
+    Optional<SalesOrder> findByIdForUpdate(@Param("id") Long id);
+
+    /*
+     * Hai truy vấn phân trang dưới đây chỉ nạp kèm khách hàng, KHÔNG nạp kèm danh sách dòng hàng (WMS-19.3): nạp
+     * kèm một collection khi phân trang khiến Hibernate đọc toàn bộ đơn khớp điều kiện rồi mới cắt trang trong bộ nhớ
+     * (cảnh báo HHH90003004). Dòng hàng của cả trang được nạp sau bằng một câu IN nhờ hibernate.default_batch_fetch_size.
+     */
+    @Override
+    @EntityGraph(attributePaths = {"customer"})
     Page<SalesOrder> findAll(Pageable pageable);
 
-    @EntityGraph(attributePaths = {"customer", "items"})
+    @EntityGraph(attributePaths = {"customer"})
     @Query("SELECT so FROM SalesOrder so " +
            "WHERE (:keyword IS NULL OR :keyword = '' " +
            "       OR LOWER(so.soNumber) LIKE LOWER(CONCAT('%', :keyword, '%')) " +

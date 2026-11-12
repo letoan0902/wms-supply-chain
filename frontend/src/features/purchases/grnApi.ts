@@ -1,4 +1,5 @@
 import { api } from '../../services/api'
+import { IDEMPOTENCY_KEY_HEADER, isReplayedReceipt } from '../../services/stockDocuments'
 import type { ApiResponse, PageResponse } from '../../types/api'
 import type {
   CreateGrnRequest,
@@ -8,12 +9,28 @@ import type {
   PoReceiptProgressResponse,
 } from './grnTypes'
 
+export interface CreateGrnResult {
+  grn: GrnResponse
+  /** true: phiếu đã được lập từ lần bấm trước với cùng khóa, lần này máy chủ không tạo phiếu mới */
+  replayed: boolean
+}
+
 /**
  * Gọi API lập Phiếu nhập kho (GRN) từ đơn mua hàng PO (FR11 - WMS-10.1, WMS-10.4).
+ * `idempotencyKey` là khóa chống trùng của form (một khóa mỗi lần mở form): gửi lại cùng khóa thì máy chủ trả
+ * 200 kèm phiếu đã lập thay vì 201 và phiếu mới (docs/api/CHUNG_TU_TON_KHO.md mục 1).
  */
-export async function createGoodsReceipt(payload: CreateGrnRequest): Promise<GrnResponse> {
-  const res = await api.post<ApiResponse<GrnResponse>>('/orders/goods-receipt-notes', payload)
-  return res.data.data
+export async function createGoodsReceipt(
+  payload: CreateGrnRequest,
+  idempotencyKey?: string
+): Promise<CreateGrnResult> {
+  const res = await api.post<ApiResponse<GrnResponse>>('/orders/goods-receipt-notes', payload, {
+    headers: idempotencyKey ? { [IDEMPOTENCY_KEY_HEADER]: idempotencyKey } : undefined,
+  })
+  return {
+    grn: res.data.data,
+    replayed: isReplayedReceipt(res.status, res.headers as Record<string, unknown>),
+  }
 }
 
 /**

@@ -19,5 +19,8 @@ dependencies {
     runtimeOnly "io.jsonwebtoken:jjwt-impl:${jjwtVersion}"
     runtimeOnly "io.jsonwebtoken:jjwt-jackson:${jjwtVersion}"
 
+    // Giao diện Swagger tổng hợp qua gateway (WMS-21.1), cùng phiên bản springdoc với các service
+    implementation "org.springdoc:springdoc-openapi-starter-webflux-ui:${springdocVersion}"
+
     testImplementation 'org.springframework.boot:spring-boot-starter-test'
 }

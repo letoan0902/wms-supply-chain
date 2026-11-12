@@ -6,10 +6,12 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.mock.mockito.MockBean;
+import vn.wms.order.client.InventoryClient;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import vn.wms.order.dto.CreateGrnItemRequest;
 import vn.wms.order.dto.CreateGrnRequest;
@@ -24,6 +26,7 @@ import vn.wms.order.entity.PurchaseOrderItem;
 import vn.wms.order.entity.Supplier;
 import vn.wms.order.entity.SupplierTransaction;
 import vn.wms.order.entity.SupplierTransactionType;
+import vn.wms.order.repository.DocumentSequenceRepository;
 import vn.wms.order.repository.GoodsReceiptNoteRepository;
 import vn.wms.order.repository.PurchaseBillRepository;
 import vn.wms.order.repository.PurchaseOrderRepository;
@@ -35,7 +38,6 @@ import vn.wms.order.service.PurchaseBillService;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.hasSize;
@@ -50,6 +52,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles("test")
 @Transactional
 class PurchaseBillIntegrationTest {
+
+    /** Lập phiếu nhập hỏi inventory-service về vị trí đóng băng (WMS-20.4); mock trả rỗng là không có xung đột. */
+    @MockBean
+    private InventoryClient inventoryClient;
 
     @Autowired
     private MockMvc mockMvc;
@@ -77,6 +83,9 @@ class PurchaseBillIntegrationTest {
 
     @Autowired
     private GoodsReceiptNoteRepository goodsReceiptNoteRepository;
+
+    @Autowired
+    private DocumentSequenceRepository documentSequenceRepository;
 
     private Supplier createSupplier(String code, String name, BigDecimal initialDebt) {
         Supplier s = new Supplier();
@@ -320,36 +329,49 @@ class PurchaseBillIntegrationTest {
     }
 
     @Test
-    @DisplayName("Sau khi khởi động lại (bộ đếm trong bộ nhớ rỗng) mã hóa đơn mới không trùng mã đã lưu trong ngày")
-    @SuppressWarnings("unchecked")
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    @DisplayName("Mất bộ đếm số chứng từ (dữ liệu tạo trước khi có bảng document_sequences) thì mã hóa đơn mới không trùng mã đã lưu trong ngày")
     void testBillNumberAfterRestart_DoesNotReuseExistingNumber() {
-        Map<String, ?> dailySequences = (Map<String, ?>) ReflectionTestUtils.getField(purchaseBillService, "dailySequences");
-        dailySequences.clear();
-
+        // Bộ đếm nằm trong cơ sở dữ liệu (WMS-22.4b). Test không mở transaction bao ngoài để hóa đơn đầu tiên đã
+        // commit, giống tình huống thật: hóa đơn có sẵn nhưng chưa có dòng bộ đếm cho ngày đó.
         Supplier supplier = createSupplier("NCC-PB-06", "Công ty Nhựa Bình Minh", BigDecimal.ZERO);
         PurchaseOrder po1 = createApprovedPo(supplier, new BigDecimal("10.000"), new BigDecimal("1000.00"));
-        goodsReceiptService.create(new CreateGrnRequest(
-                po1.getId(), LocalDate.now(), null,
-                List.of(new CreateGrnItemRequest(
-                        po1.getItems().get(0).getId(), new BigDecimal("10.000"), BigDecimal.ZERO, null,
-                        null, null, null, null, null, null
-                ))
-        ), "admin");
-        String firstNumber = purchaseBillRepository.findByPurchaseOrderIdOrderByIdDesc(po1.getId()).get(0).getBillNumber();
+        PurchaseOrder po2 = null;
+        try {
+            goodsReceiptService.create(new CreateGrnRequest(
+                    po1.getId(), LocalDate.now(), null,
+                    List.of(new CreateGrnItemRequest(
+                            po1.getItems().get(0).getId(), new BigDecimal("10.000"), BigDecimal.ZERO, null,
+                            null, null, null, null, null, null
+                    ))
+            ), "admin");
+            String firstNumber = purchaseBillRepository.findByPurchaseOrderIdOrderByIdDesc(po1.getId()).get(0).getBillNumber();
 
-        // Giả lập restart: xóa bộ đếm trong bộ nhớ của service
-        dailySequences.clear();
+            // Giả lập mất bộ đếm: xóa các dòng document_sequences của doanh nghiệp
+            documentSequenceRepository.deleteAll();
 
-        PurchaseOrder po2 = createApprovedPo(supplier, new BigDecimal("5.000"), new BigDecimal("1000.00"));
-        goodsReceiptService.create(new CreateGrnRequest(
-                po2.getId(), LocalDate.now(), null,
-                List.of(new CreateGrnItemRequest(
-                        po2.getItems().get(0).getId(), new BigDecimal("5.000"), BigDecimal.ZERO, null,
-                        null, null, null, null, null, null
-                ))
-        ), "admin");
-        String secondNumber = purchaseBillRepository.findByPurchaseOrderIdOrderByIdDesc(po2.getId()).get(0).getBillNumber();
+            po2 = createApprovedPo(supplier, new BigDecimal("5.000"), new BigDecimal("1000.00"));
+            goodsReceiptService.create(new CreateGrnRequest(
+                    po2.getId(), LocalDate.now(), null,
+                    List.of(new CreateGrnItemRequest(
+                            po2.getItems().get(0).getId(), new BigDecimal("5.000"), BigDecimal.ZERO, null,
+                            null, null, null, null, null, null
+                    ))
+            ), "admin");
+            String secondNumber = purchaseBillRepository.findByPurchaseOrderIdOrderByIdDesc(po2.getId()).get(0).getBillNumber();
 
-        assertThat(secondNumber).startsWith("PB-").isNotEqualTo(firstNumber);
+            assertThat(secondNumber).startsWith("PB-").isNotEqualTo(firstNumber);
+        } finally {
+            for (PurchaseOrder po : java.util.Arrays.asList(po1, po2)) {
+                if (po == null) {
+                    continue;
+                }
+                purchaseBillRepository.deleteAll(purchaseBillRepository.findByPurchaseOrderIdOrderByIdDesc(po.getId()));
+                goodsReceiptNoteRepository.deleteAll(goodsReceiptNoteRepository.findByPurchaseOrderIdOrderByIdDesc(po.getId()));
+                purchaseOrderRepository.deleteById(po.getId());
+            }
+            transactionRepository.deleteAll(transactionRepository.findBySupplierIdOrderByIdDesc(supplier.getId()));
+            supplierRepository.deleteById(supplier.getId());
+        }
     }
 }

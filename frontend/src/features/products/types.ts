@@ -169,3 +169,42 @@ export interface BatchBarcodeResult {
   type: BarcodeType
   base64Image: string
 }
+
+/**
+ * Một dòng của POST /api/products/bulk (vn.wms.product.dto.BulkProductItem, docs/SAAS_SPEC.md mục WMS-22.4b).
+ * Danh mục và đơn vị tính ghi bằng tên: tên chưa có trong doanh nghiệp thì backend tự tạo.
+ */
+export interface BulkProductItem {
+  sku: string
+  name: string
+  barcode?: string
+  description?: string
+  categoryName?: string
+  uomName: string
+  purchasePrice?: number
+  sellingPrice?: number
+  vatRate?: number
+  safetyStock?: number
+  reorderPoint?: number
+  maxStock?: number
+}
+
+export type BulkRowStatus = 'CREATED' | 'SKIPPED' | 'FAILED'
+
+/** Kết quả một dòng: `row` đếm từ 1 trong lần gọi, `code` là SKU đã chuẩn hóa, `id` là ID hàng vừa tạo hoặc đã có. */
+export interface BulkRowResult {
+  row: number
+  status: BulkRowStatus
+  id?: number | null
+  code?: string | null
+  message?: string | null
+}
+
+/** Kết quả POST /api/products/bulk (vn.wms.common.bulk.BulkResult). */
+export interface BulkImportResult {
+  total: number
+  created: number
+  skipped: number
+  failed: number
+  results: BulkRowResult[]
+}

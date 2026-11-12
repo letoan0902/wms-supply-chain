@@ -72,3 +72,47 @@ h4.ant-typography,
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
+
+/*
+ * Chế độ chỉ đọc khi thuê bao hết hạn (src/features/subscription/readOnlyGuard.ts): làm mờ các nút ghi.
+ * Danh sách biểu tượng phải trùng WRITE_ICON_CLASSES; việc chặn bấm do readOnlyGuard.ts thực hiện.
+ */
+body.wms-read-only
+  :is(button, a, [role='button'], [role='menuitem'], .ant-btn):is(
+    [data-write-action],
+    [data-write-action] *,
+    .ant-popconfirm-buttons .ant-btn-primary,
+    :has(
+        .anticon-plus,
+        .anticon-edit,
+        .anticon-delete,
+        .anticon-save,
+        .anticon-check-circle,
+        .anticon-stop,
+        .anticon-close-circle,
+        .anticon-dollar,
+        .anticon-dollar-circle,
+        .anticon-inbox,
+        .anticon-file-done
+      )
+  ):not(
+    .wms-read-only-allowed *,
+    [data-read-only-allowed] *,
+    .ant-input-affix-wrapper *,
+    .ant-select *,
+    .ant-picker *,
+    .ant-input-number *,
+    .ant-pagination *,
+    .ant-table-filter-dropdown *
+  ) {
+  opacity: 0.45;
+  cursor: not-allowed !important;
+}
+
+/*
+ * Lỗi hết hạn hoặc vượt giới hạn gói đã có hộp thoại riêng: getApiErrorMessage (src/services/api.ts) trả chuỗi
+ * rỗng, nên thông báo nổi rỗng mà màn hình vẫn gọi message.error(...) được ẩn đi để không báo lần hai.
+ */
+.ant-message-notice-wrapper:has(.ant-message-custom-content > span:empty) {
+  display: none;
+}

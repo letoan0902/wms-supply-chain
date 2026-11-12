@@ -7,6 +7,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -43,6 +44,7 @@ public class BinLocationController {
 
     @GetMapping
     @Operation(summary = "Tra cứu danh sách vị trí ô/kệ theo bộ lọc (kho, khu, kệ, trạng thái)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'INTEGRATION')")
     public ApiResponse<List<BinLocationResponse>> listLocations(
             @RequestParam(required = false) Long warehouseId,
             @RequestParam(required = false) String zone,
@@ -55,12 +57,14 @@ public class BinLocationController {
 
     @GetMapping("/zones")
     @Operation(summary = "Lấy danh sách các khu vực (Zone) trong kho")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'INTEGRATION')")
     public ApiResponse<List<String>> listZones(@RequestParam Long warehouseId) {
         return ApiResponse.ok(binLocationService.listZonesByWarehouse(warehouseId));
     }
 
     @GetMapping("/{id}")
     @Operation(summary = "Xem thông tin chi tiết một vị trí ô/kệ")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'INTEGRATION')")
     public ApiResponse<BinLocationResponse> getLocationById(@PathVariable Long id) {
         return ApiResponse.ok(binLocationService.getLocationById(id));
     }
@@ -68,6 +72,7 @@ public class BinLocationController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Tạo mới một vị trí ô/kệ đơn lẻ (WMS-06.1)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER')")
     public ApiResponse<BinLocationResponse> createLocation(@Valid @RequestBody CreateBinLocationRequest request) {
         return ApiResponse.ok(binLocationService.createLocation(request));
     }
@@ -75,6 +80,7 @@ public class BinLocationController {
     @PostMapping("/bulk")
     @ResponseStatus(HttpStatus.CREATED)
     @Operation(summary = "Sinh hàng loạt vị trí ô/kệ tự động theo dải kệ và ô (WMS-06.1)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER')")
     public ApiResponse<List<BinLocationResponse>> bulkCreateLocations(
             @Valid @RequestBody BulkCreateBinLocationsRequest request
     ) {
@@ -83,6 +89,7 @@ public class BinLocationController {
 
     @PutMapping("/{id}")
     @Operation(summary = "Cập nhật thông tin vị trí ô/kệ (WMS-06.1)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER')")
     public ApiResponse<BinLocationResponse> updateLocation(
             @PathVariable Long id,
             @RequestBody UpdateBinLocationRequest request
@@ -93,18 +100,21 @@ public class BinLocationController {
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @Operation(summary = "Xóa vị trí ô/kệ nếu không có hàng hóa bên trong (WMS-06.1)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER')")
     public void deleteLocation(@PathVariable Long id) {
         binLocationService.deleteLocation(id);
     }
 
     @GetMapping("/{id}/barcode/preview")
     @Operation(summary = "Xem trước thông tin tem vị trí kèm mã vạch Base64 (WMS-06.2)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'INTEGRATION')")
     public ApiResponse<BinBarcodeResponse> getBarcodePreview(@PathVariable Long id) {
         return ApiResponse.ok(binLocationService.generateBarcode(id));
     }
 
     @GetMapping(value = "/{id}/barcode", produces = MediaType.IMAGE_PNG_VALUE)
     @Operation(summary = "Tải trực tiếp ảnh mã vạch Code 128 dạng PNG (WMS-06.2)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'INTEGRATION')")
     public ResponseEntity<byte[]> getBarcodePng(@PathVariable Long id) {
         byte[] imageBytes = binLocationService.generateBarcodePng(id);
         return ResponseEntity.ok()

@@ -16,6 +16,8 @@ public enum ErrorCode {
     UNSUPPORTED_MEDIA_TYPE(415, "Định dạng nội dung không được hỗ trợ"),
     INTERNAL_ERROR(500, "Lỗi hệ thống, vui lòng thử lại sau"),
     SERVICE_UNAVAILABLE(503, "Dịch vụ phụ thuộc chưa sẵn sàng, vui lòng thử lại sau"),
+    /** Vượt giới hạn tốc độ gọi API (api-gateway trả cho API key gọi quá số request mỗi giây, WMS-25.1). */
+    TOO_MANY_REQUESTS(429, "Gửi quá nhiều yêu cầu trong thời gian ngắn, vui lòng thử lại sau"),
 
     // --- Mã lỗi của mô hình SaaS đa doanh nghiệp (docs/SAAS_SPEC.md, mục 2.4). ---
     // Đặt sau các mã chung để fromHttpStatus(403) vẫn trả FORBIDDEN và fromHttpStatus(400) vẫn trả BAD_REQUEST.

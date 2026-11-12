@@ -10,6 +10,8 @@ export interface AuthUser {
   fullName?: string
   email?: string
   warehouseIds?: number[]
+  /** Doanh nghiệp của người dùng (từ `company` của kết quả đăng nhập) */
+  company?: CompanySummary
 }
 
 /** Doanh nghiệp của người dùng, trả trong `company` của kết quả đăng nhập và của GET /api/auth/me. */

@@ -44,7 +44,7 @@ public class PurchaseBillController {
 
     @GetMapping
     @Operation(summary = "Danh sách hóa đơn mua hàng có phân trang, tìm kiếm và lọc trạng thái")
-    @PreAuthorize("hasAnyRole('ADMIN', 'PURCHASING', 'ACCOUNTANT', 'WAREHOUSE_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'PURCHASING', 'ACCOUNTANT', 'WAREHOUSE_MANAGER', 'INTEGRATION')")
     public ApiResponse<PageResponse<PurchaseBillResponse>> list(
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) PurchaseBillStatus status,
@@ -58,35 +58,35 @@ public class PurchaseBillController {
 
     @GetMapping("/summary")
     @Operation(summary = "Báo cáo tổng quan công nợ mua hàng & hóa đơn NCC (Metrics Summary)")
-    @PreAuthorize("hasAnyRole('ADMIN', 'PURCHASING', 'ACCOUNTANT', 'WAREHOUSE_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'PURCHASING', 'ACCOUNTANT', 'WAREHOUSE_MANAGER', 'INTEGRATION')")
     public ApiResponse<PurchaseBillSummaryResponse> getSummary() {
         return ApiResponse.ok(purchaseBillService.getSummary());
     }
 
     @GetMapping("/{id}")
     @Operation(summary = "Chi tiết hóa đơn mua hàng theo ID")
-    @PreAuthorize("hasAnyRole('ADMIN', 'PURCHASING', 'ACCOUNTANT', 'WAREHOUSE_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'PURCHASING', 'ACCOUNTANT', 'WAREHOUSE_MANAGER', 'INTEGRATION')")
     public ApiResponse<PurchaseBillResponse> getById(@PathVariable Long id) {
         return ApiResponse.ok(purchaseBillService.getById(id));
     }
 
     @GetMapping("/number/{billNumber}")
     @Operation(summary = "Chi tiết hóa đơn mua hàng theo Mã hóa đơn")
-    @PreAuthorize("hasAnyRole('ADMIN', 'PURCHASING', 'ACCOUNTANT', 'WAREHOUSE_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'PURCHASING', 'ACCOUNTANT', 'WAREHOUSE_MANAGER', 'INTEGRATION')")
     public ApiResponse<PurchaseBillResponse> getByBillNumber(@PathVariable String billNumber) {
         return ApiResponse.ok(purchaseBillService.getByBillNumber(billNumber));
     }
 
     @GetMapping("/grn/{grnId}")
     @Operation(summary = "Tra cứu hóa đơn mua hàng theo ID phiếu nhập kho (GRN)")
-    @PreAuthorize("hasAnyRole('ADMIN', 'PURCHASING', 'ACCOUNTANT', 'WAREHOUSE_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'PURCHASING', 'ACCOUNTANT', 'WAREHOUSE_MANAGER', 'INTEGRATION')")
     public ApiResponse<PurchaseBillResponse> getByGrnId(@PathVariable Long grnId) {
         return ApiResponse.ok(purchaseBillService.getByGrnId(grnId));
     }
 
     @GetMapping("/po/{poId}")
     @Operation(summary = "Danh sách hóa đơn mua hàng theo ID đơn mua hàng (PO)")
-    @PreAuthorize("hasAnyRole('ADMIN', 'PURCHASING', 'ACCOUNTANT', 'WAREHOUSE_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'PURCHASING', 'ACCOUNTANT', 'WAREHOUSE_MANAGER', 'INTEGRATION')")
     public ApiResponse<List<PurchaseBillResponse>> listByPoId(@PathVariable Long poId) {
         return ApiResponse.ok(purchaseBillService.listByPoId(poId));
     }

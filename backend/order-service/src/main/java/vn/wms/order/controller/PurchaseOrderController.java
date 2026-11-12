@@ -49,7 +49,7 @@ public class PurchaseOrderController {
 
     @GetMapping
     @Operation(summary = "Danh sách đơn mua hàng (PO) có phân trang, tìm kiếm và lọc đa tiêu chí")
-    @PreAuthorize("hasAnyRole('ADMIN', 'PURCHASING', 'WAREHOUSE_MANAGER', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'PURCHASING', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'ACCOUNTANT', 'INTEGRATION')")
     public ApiResponse<PageResponse<PurchaseOrderResponse>> listPurchaseOrders(
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) Long supplierId,
@@ -65,21 +65,21 @@ public class PurchaseOrderController {
 
     @GetMapping("/summary")
     @Operation(summary = "Báo cáo tổng quan tình hình đơn mua hàng (PO Metrics Summary)")
-    @PreAuthorize("hasAnyRole('ADMIN', 'PURCHASING', 'WAREHOUSE_MANAGER', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'PURCHASING', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'ACCOUNTANT', 'INTEGRATION')")
     public ApiResponse<PurchaseOrderSummaryResponse> getSummary() {
         return ApiResponse.ok(purchaseOrderService.getSummary());
     }
 
     @GetMapping("/{id}")
     @Operation(summary = "Chi tiết đơn mua hàng theo ID (kèm danh sách mặt hàng)")
-    @PreAuthorize("hasAnyRole('ADMIN', 'PURCHASING', 'WAREHOUSE_MANAGER', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'PURCHASING', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'ACCOUNTANT', 'INTEGRATION')")
     public ApiResponse<PurchaseOrderResponse> getById(@PathVariable Long id) {
         return ApiResponse.ok(purchaseOrderService.getById(id));
     }
 
     @GetMapping("/number/{poNumber}")
     @Operation(summary = "Chi tiết đơn mua hàng theo Mã PO")
-    @PreAuthorize("hasAnyRole('ADMIN', 'PURCHASING', 'WAREHOUSE_MANAGER', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'PURCHASING', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'ACCOUNTANT', 'INTEGRATION')")
     public ApiResponse<PurchaseOrderResponse> getByPoNumber(@PathVariable String poNumber) {
         return ApiResponse.ok(purchaseOrderService.getByPoNumber(poNumber));
     }

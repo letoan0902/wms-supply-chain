@@ -21,6 +21,7 @@ import type { ColumnsType } from 'antd/es/table'
 import { useState } from 'react'
 import type { Warehouse } from '../types'
 import { formatNumber } from '../../../utils/format'
+import { useCan } from '../../auth/useCan'
 
 interface Props {
   warehouses: Warehouse[]
@@ -43,6 +44,7 @@ export default function WarehouseTable({
   onViewBins,
   onSearch,
 }: Props) {
+  const can = useCan()
   const [keyword, setKeyword] = useState('')
   const [activeFilter, setActiveFilter] = useState<string>('all')
 
@@ -156,14 +158,17 @@ export default function WarehouseTable({
       align: 'center',
       render: (_, record) => (
         <Space size={2}>
-          <Tooltip title="Xem sơ đồ vị trí ô/kệ">
-            <Button
-              type="text"
-              size="small"
-              icon={<ApartmentOutlined className="text-slate-600" />}
-              onClick={() => onViewBins(record)}
-            />
-          </Tooltip>
+          {can('location.read', record.id) && (
+            <Tooltip title="Xem sơ đồ vị trí ô/kệ">
+              <Button
+                type="text"
+                size="small"
+                icon={<ApartmentOutlined className="text-slate-600" />}
+                onClick={() => onViewBins(record)}
+              />
+            </Tooltip>
+          )}
+          {can('warehouse.write', record.id) && (
           <Tooltip title="Chỉnh sửa kho">
             <Button
               type="text"
@@ -172,6 +177,8 @@ export default function WarehouseTable({
               onClick={() => onEditWarehouse(record)}
             />
           </Tooltip>
+          )}
+          {can('warehouse.write', record.id) && (
           <Tooltip title={record.active ? 'Khóa kho' : 'Mở khóa kho'}>
             <Popconfirm
               title={record.active ? 'Khóa kho hàng này?' : 'Mở khóa kho hàng này?'}
@@ -197,6 +204,8 @@ export default function WarehouseTable({
               />
             </Popconfirm>
           </Tooltip>
+          )}
+          {can('warehouse.delete') && (
           <Tooltip title="Xóa kho">
             <Popconfirm
               title="Xác nhận xóa kho hàng?"
@@ -214,6 +223,7 @@ export default function WarehouseTable({
               />
             </Popconfirm>
           </Tooltip>
+          )}
         </Space>
       ),
     },
@@ -249,13 +259,15 @@ export default function WarehouseTable({
           />
         </div>
 
-        <Button
-          type="primary"
-          icon={<PlusOutlined />}
-          onClick={onAddWarehouse}
-        >
-          Thêm kho mới
-        </Button>
+        {can('warehouse.create') && (
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={onAddWarehouse}
+          >
+            Thêm kho mới
+          </Button>
+        )}
       </div>
 
       <Table

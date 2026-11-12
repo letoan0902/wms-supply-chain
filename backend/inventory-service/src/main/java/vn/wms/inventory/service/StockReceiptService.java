@@ -2,11 +2,14 @@ package vn.wms.inventory.service;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.wms.common.exception.ApiException;
 import vn.wms.common.messaging.event.OrderReceivedEvent;
 import vn.wms.common.messaging.event.ReceivedItemLine;
+import vn.wms.inventory.dto.FrozenLocationConflict;
+import vn.wms.inventory.dto.internal.ReceiptLocationCheckRequest;
 import vn.wms.inventory.entity.BinLocation;
 import vn.wms.inventory.entity.IncomingStock;
 import vn.wms.inventory.entity.InventoryLot;
@@ -21,6 +24,7 @@ import vn.wms.inventory.repository.StockReceiptRepository;
 import vn.wms.inventory.repository.WarehouseRepository;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -39,6 +43,14 @@ public class StockReceiptService {
     private final BinLocationRepository binLocationRepository;
     private final WarehouseRepository warehouseRepository;
     private final StockReceiptRepository stockReceiptRepository;
+
+    /** Chặn nhập vào vị trí đang đóng băng kiểm kê (WMS-14.1). */
+    @org.springframework.beans.factory.annotation.Autowired
+    private StocktakeFreezeGuard stocktakeFreezeGuard;
+
+    /** Ghi sổ kho cho mỗi lần cộng tồn (WMS-17.1). */
+    @Autowired
+    private StockMovementRecorder stockMovementRecorder;
 
     public StockReceiptService(IncomingStockRepository incomingStockRepository,
                                StockItemRepository stockItemRepository,
@@ -112,6 +124,7 @@ public class StockReceiptService {
 
             // 2. Xác định vị trí ô/kệ lưu kho (Bin Location)
             BinLocation binLocation = resolveBinLocation(warehouse, line.locationId(), line.locationCode());
+            if (stocktakeFreezeGuard != null) stocktakeFreezeGuard.assertNotFrozen(binLocation.getId(), line.productId(), "nhập kho");
 
             // Cùng một số lô cho stock_items và inventory_lots để LotService đồng bộ khóa/trừ tồn giữa hai bảng
             // theo (số lô, ô, sản phẩm); dòng không có số lô thì dùng số lô sinh từ mã GRN.
@@ -121,12 +134,35 @@ public class StockReceiptService {
 
             // 3. Tăng tồn OnHand vào bảng stock_items
             updateStockItem(binLocation, line, lotNumber, acceptedQty);
+            stockMovementRecorder.recordReceipt(event, binLocation, line, lotNumber, acceptedQty);
 
             // 4. Lưu tồn chi tiết theo Lô & Vị trí ô vào bảng inventory_lots (WMS-10.2 - FR12)
             updateInventoryLot(binLocation, line, lotNumber, acceptedQty);
         }
 
         log.info("Đã hoàn tất xử lý tăng OnHand và giảm Incoming stock cho phiếu nhập GRN '{}'", event.grnNumber());
+    }
+
+    /**
+     * Kiểm tra trước khi order-service lưu phiếu nhập (WMS-20.4): trả về các dòng sẽ cộng tồn vào vị trí đang đóng
+     * băng kiểm kê; danh sách rỗng nghĩa là nhập được. Vị trí được xác định bằng đúng quy tắc của
+     * {@link #processOrderReceived} nên không lệch với nơi hàng thực sự được cất. Kho không có vị trí nào thì ném lỗi
+     * 400 như luồng nhập, để phiếu không được lưu rồi mới hỏng ở luồng nền.
+     * Không đổi dữ liệu; listener {@code order.received} vẫn kiểm tra lại (chốt chặn cuối khi đợt kiểm kê bắt đầu
+     * giữa lúc kiểm tra và lúc sự kiện được xử lý).
+     */
+    @Transactional
+    public List<FrozenLocationConflict> findFrozenReceiptLocations(ReceiptLocationCheckRequest request) {
+        Warehouse warehouse = warehouseRepository.findById(request.warehouseId())
+                .orElseThrow(() -> ApiException.notFound("Không tìm thấy kho hàng với ID: " + request.warehouseId()));
+        List<FrozenLocationConflict> conflicts = new ArrayList<>();
+        for (ReceiptLocationCheckRequest.Line line : request.lines()) {
+            BinLocation binLocation = resolveBinLocation(warehouse, line.locationId(), line.locationCode());
+            if (stocktakeFreezeGuard != null) {
+                stocktakeFreezeGuard.findConflict(binLocation.getId(), line.productId()).ifPresent(conflicts::add);
+            }
+        }
+        return conflicts;
     }
 
     private void reduceIncomingStock(Long poId, String poNumber, Long warehouseId, Long productId, String skuCode, BigDecimal acceptedQty) {
@@ -148,20 +184,8 @@ public class StockReceiptService {
             log.info("Đã giảm Incoming stock cho PO {} (SKU: {}): giảm {} -> còn lại {}",
                     poNumber, skuCode, acceptedQty, newQty);
         } else {
-            // Trường hợp không tìm thấy theo orderId chính xác, tìm bất kỳ incoming stock nào của sản phẩm tại kho
-            List<IncomingStock> list = incomingStockRepository.findByWarehouseIdAndProductIdAndStatusForUpdate(warehouseId, productId, "INCOMING");
-            if (!list.isEmpty()) {
-                IncomingStock inc = list.get(0);
-                BigDecimal currentQty = inc.getQuantity() != null ? inc.getQuantity() : BigDecimal.ZERO;
-                BigDecimal newQty = currentQty.subtract(acceptedQty).max(BigDecimal.ZERO);
-                inc.setQuantity(newQty);
-                if (newQty.compareTo(BigDecimal.ZERO) == 0) {
-                    inc.setStatus("RECEIVED");
-                }
-                incomingStockRepository.save(inc);
-                log.info("Đã giảm Incoming stock dự phòng tại kho {} (SKU: {}): giảm {} -> còn lại {}",
-                        warehouseId, skuCode, acceptedQty, newQty);
-            }
+            log.warn("Không tìm thấy Incoming stock cho PO {} (ID: {}) với sản phẩm ID {} để giảm tồn đang về",
+                    poNumber, poId, productId);
         }
     }
 
@@ -169,33 +193,35 @@ public class StockReceiptService {
         if (locationId != null) {
             Optional<BinLocation> opt = binLocationRepository.findById(locationId);
             if (opt.isPresent()) {
-                return opt.get();
+                BinLocation bin = opt.get();
+                if (bin.getWarehouse() != null && !warehouse.getId().equals(bin.getWarehouse().getId())) {
+                    log.warn("Vị trí ô kệ ID {} thuộc kho ID {}, khác với kho nhập {}",
+                            locationId, bin.getWarehouse().getId(), warehouse.getId());
+                } else {
+                    return bin;
+                }
             }
         }
 
         if (locationCode != null && !locationCode.isBlank()) {
-            Optional<BinLocation> opt = binLocationRepository.findByCode(locationCode.trim());
+            Optional<BinLocation> opt = binLocationRepository.findByWarehouseIdAndCode(warehouse.getId(), locationCode.trim());
             if (opt.isPresent()) {
                 return opt.get();
             }
+            Optional<BinLocation> globalOpt = binLocationRepository.findByCode(locationCode.trim());
+            if (globalOpt.isPresent() && globalOpt.get().getWarehouse() != null
+                    && warehouse.getId().equals(globalOpt.get().getWarehouse().getId())) {
+                return globalOpt.get();
+            }
         }
 
-        // Nếu không chỉ định vị trí, tìm vị trí ô đầu tiên có sẵn trong kho
+        // Nếu không chỉ định vị trí hoặc vị trí không thuộc kho, lấy ô đầu tiên có sẵn trong kho
         List<BinLocation> availableBins = binLocationRepository.findByWarehouseIdOrderByZoneAscRackAscBinAsc(warehouse.getId());
         if (!availableBins.isEmpty()) {
             return availableBins.get(0);
         }
 
-        // Nếu kho chưa có ô/kệ nào, tự động tạo vị trí mặc định
-        BinLocation defaultBin = new BinLocation();
-        defaultBin.setWarehouse(warehouse);
-        defaultBin.setZone("ZONE-A");
-        defaultBin.setRack("01");
-        defaultBin.setBin("01");
-        defaultBin.setCode(warehouse.getCode() + "-DEFAULT");
-        defaultBin.setActive(true);
-        defaultBin.setStatus("AVAILABLE");
-        return binLocationRepository.save(defaultBin);
+        throw ApiException.badRequest("Kho '" + warehouse.getName() + "' chưa có vị trí ô kệ nào để lưu cất hàng");
     }
 
     private void updateStockItem(BinLocation binLocation, ReceivedItemLine line, String lotNo, BigDecimal quantity) {

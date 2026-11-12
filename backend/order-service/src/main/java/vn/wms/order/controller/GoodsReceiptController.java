@@ -45,16 +45,31 @@ public class GoodsReceiptController {
         this.goodsReceiptService = goodsReceiptService;
     }
 
+    /** Header tùy chọn chứa khóa chống trùng do client sinh (WMS-20.4). */
+    public static final String IDEMPOTENCY_KEY_HEADER = "Idempotency-Key";
+    /** Header trả về {@code true} khi request trùng khóa và nhận lại phiếu đã lập trước đó. */
+    public static final String IDEMPOTENT_REPLAYED_HEADER = "Idempotent-Replayed";
+
     @PostMapping
-    @Operation(summary = "Lập phiếu nhập kho GRN dựa trên đơn mua hàng PO đã duyệt (hỗ trợ nhập đủ hoặc nhiều đợt - Partial Receipt)")
+    @Operation(summary = "Lập phiếu nhập kho GRN dựa trên đơn mua hàng PO đã duyệt (hỗ trợ nhập đủ hoặc nhiều đợt - Partial Receipt)",
+            description = "Header tùy chọn Idempotency-Key (tối đa 100 ký tự, duy nhất trong doanh nghiệp): gửi lại cùng khóa "
+                    + "không tạo phiếu mới mà trả 200 kèm phiếu đã lập và header Idempotent-Replayed: true; khóa đã dùng "
+                    + "cho đơn mua khác trả 409.")
     @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF')")
     public ResponseEntity<ApiResponse<GrnResponse>> create(
             @Valid @RequestBody CreateGrnRequest request,
-            @RequestHeader(value = "X-User-Name", required = false) String receivedBy) {
-        GrnResponse created = goodsReceiptService.create(request, receivedBy);
+            @RequestHeader(value = "X-User-Name", required = false) String receivedBy,
+            @RequestHeader(value = IDEMPOTENCY_KEY_HEADER, required = false) String idempotencyKey) {
+        GoodsReceiptService.CreateResult result = goodsReceiptService.create(request, receivedBy, idempotencyKey);
+        GrnResponse grn = result.grn();
+        if (result.replayed()) {
+            return ResponseEntity.ok()
+                    .header(IDEMPOTENT_REPLAYED_HEADER, "true")
+                    .body(ApiResponse.ok(grn));
+        }
         return ResponseEntity
-                .created(URI.create("/api/orders/goods-receipt-notes/" + created.id()))
-                .body(ApiResponse.ok(created));
+                .created(URI.create("/api/orders/goods-receipt-notes/" + grn.id()))
+                .body(ApiResponse.ok(grn));
     }
 
     @PostMapping("/{id}/confirm")
@@ -68,7 +83,7 @@ public class GoodsReceiptController {
 
     @GetMapping
     @Operation(summary = "Danh sách phiếu nhập kho có phân trang, tìm kiếm và lọc đa tiêu chí")
-    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'PURCHASING', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'PURCHASING', 'ACCOUNTANT', 'INTEGRATION')")
     public ApiResponse<PageResponse<GrnResponse>> list(
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) GoodsReceiptStatus status,
@@ -85,35 +100,35 @@ public class GoodsReceiptController {
 
     @GetMapping("/summary")
     @Operation(summary = "Báo cáo tổng quan tình hình nhập kho (GRN Metrics Summary)")
-    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'PURCHASING', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'PURCHASING', 'ACCOUNTANT', 'INTEGRATION')")
     public ApiResponse<GrnSummaryResponse> getSummary() {
         return ApiResponse.ok(goodsReceiptService.getSummary());
     }
 
     @GetMapping("/{id}")
     @Operation(summary = "Chi tiết phiếu nhập kho theo ID kèm danh sách dòng hàng đạt/hỏng")
-    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'PURCHASING', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'PURCHASING', 'ACCOUNTANT', 'INTEGRATION')")
     public ApiResponse<GrnResponse> getById(@PathVariable Long id) {
         return ApiResponse.ok(goodsReceiptService.getById(id));
     }
 
     @GetMapping("/number/{grnNumber}")
     @Operation(summary = "Chi tiết phiếu nhập kho theo Mã GRN")
-    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'PURCHASING', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'PURCHASING', 'ACCOUNTANT', 'INTEGRATION')")
     public ApiResponse<GrnResponse> getByGrnNumber(@PathVariable String grnNumber) {
         return ApiResponse.ok(goodsReceiptService.getByGrnNumber(grnNumber));
     }
 
     @GetMapping("/po/{poId}")
     @Operation(summary = "Danh sách các phiếu nhập kho đã lập theo một PO (lịch sử các đợt nhập hàng)")
-    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'PURCHASING', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'PURCHASING', 'ACCOUNTANT', 'INTEGRATION')")
     public ApiResponse<List<GrnResponse>> listByPoId(@PathVariable Long poId) {
         return ApiResponse.ok(goodsReceiptService.listByPoId(poId));
     }
 
     @GetMapping("/po/{poId}/progress")
     @Operation(summary = "Theo dõi tiến độ nhập kho của PO (đã nhập bao nhiêu, còn lại bao nhiêu từng dòng mặt hàng)")
-    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'PURCHASING', 'ACCOUNTANT')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'PURCHASING', 'ACCOUNTANT', 'INTEGRATION')")
     public ApiResponse<PoReceiptProgressResponse> getPoReceiptProgress(@PathVariable Long poId) {
         return ApiResponse.ok(goodsReceiptService.getPoReceiptProgress(poId));
     }

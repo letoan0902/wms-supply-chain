@@ -23,3 +23,10 @@ spring:
 eureka:
   client:
     enabled: false
+
+# Bật kiểm tra doanh nghiệp như production; request MockMvc không gửi X-Company-Id thuộc doanh nghiệp 1.
+# Test gọi thẳng service hoặc repository được TenantTestExecutionListener đặt doanh nghiệp 1 trước khi mở transaction.
+app:
+  tenant:
+    required: true
+    default-company-id: 1

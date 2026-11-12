@@ -15,9 +15,11 @@ import UnitConversionModal from './components/UnitConversionModal'
 import * as productApi from './productApi'
 import type { Category, CreateProductPayload, Product, Uom, UpdateProductPayload } from './types'
 import { getApiErrorMessage } from '../../services/api'
+import { useCan } from '../auth/useCan'
 
 export default function ProductsPage() {
   const { message } = App.useApp()
+  const can = useCan()
 
   // State danh sách
   const [products, setProducts] = useState<Product[]>([])
@@ -187,25 +189,30 @@ export default function ProductsPage() {
             Làm mới
           </Button>
 
-          <Button
-            icon={<FileExcelOutlined className="text-slate-600" />}
-            onClick={() => setIsImportModalOpen(true)}
-            className="text-xs"
-          >
-            Nhập Excel
-          </Button>
+          {can('product.write') && (
+            <Button
+              data-write-action
+              icon={<FileExcelOutlined className="text-slate-600" />}
+              onClick={() => setIsImportModalOpen(true)}
+              className="text-xs"
+            >
+              Nhập Excel
+            </Button>
+          )}
 
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => {
-              setEditingProduct(null)
-              setIsFormModalOpen(true)
-            }}
-            className="text-xs font-medium"
-          >
-            Thêm sản phẩm
-          </Button>
+          {can('product.write') && (
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => {
+                setEditingProduct(null)
+                setIsFormModalOpen(true)
+              }}
+              className="text-xs font-medium"
+            >
+              Thêm sản phẩm
+            </Button>
+          )}
         </Space>
       </div>
 

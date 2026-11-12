@@ -68,6 +68,14 @@ public class StockTransferService {
     @Autowired(required = false)
     private WmsEventPublisher wmsEventPublisher;
 
+    /** Chặn nhận hàng điều chuyển vào vị trí đang đóng băng kiểm kê (WMS-14.1); xuất kho nguồn đi qua StockDeductionService. */
+    @Autowired
+    private StocktakeFreezeGuard stocktakeFreezeGuard;
+
+    /** Ghi sổ kho cho mỗi lần cộng tồn tại kho đích (WMS-17.1); xuất kho nguồn được ghi trong StockDeductionService. */
+    @Autowired
+    private StockMovementRecorder stockMovementRecorder;
+
     public StockTransferService(
             StockTransferRepository stockTransferRepository,
             StockTransferItemRepository stockTransferItemRepository,
@@ -486,6 +494,7 @@ public class StockTransferService {
                     throw ApiException.badRequest("Vị trí '" + destBinLocation.getCode() + "' hiện đang bị khóa hoặc ngừng hoạt động");
                 }
 
+                if (stocktakeFreezeGuard != null) stocktakeFreezeGuard.assertNotFrozen(destBinLocation.getId(), item.getProductId(), "nhận hàng điều chuyển");
                 // Cập nhật tăng tồn kho OnHand tại kho đích với Khóa bi quan
                 List<StockItem> existingItems = stockItemRepository
                         .findAllByBinLocationIdAndProductIdWithPessimisticLock(destBinLocation.getId(), item.getProductId());
@@ -518,6 +527,7 @@ public class StockTransferService {
                 BigDecimal afterQty = (savedItem != null && savedItem.getQuantity() != null)
                         ? savedItem.getQuantity()
                         : destStockItem.getQuantity();
+                stockMovementRecorder.recordTransferIn(transfer, item, destBinLocation, savedItem != null ? savedItem : destStockItem, receivedQty, currentUser);
 
                 // Phát sự kiện inventory.updated cho SKU tại kho đích
                 publishInventoryUpdated(

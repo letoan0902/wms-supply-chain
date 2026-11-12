@@ -16,6 +16,7 @@ Frontend (http://localhost:5173)
                                                inventory-service    :8083 -> inventory_db
                                                order-service        :8084 -> order_db
                                                notification-service :8085 -> notification_db
+                                               ai-service           :8086 -> Redis, Claude
 
  discovery-server :8761 (Eureka)             config-server :8888 (native, config-repo/)
    gateway và 5 service nghiệp vụ              gateway và 5 service nghiệp vụ
@@ -62,6 +63,7 @@ backend/
   inventory-service/     # kho, zone/rack/bin, tồn kho, điều chuyển, kiểm kê
   order-service/         # nhà cung cấp, khách hàng, PO/GRN, SO/GDN
   notification-service/  # nhận sự kiện RabbitMQ, gửi email cảnh báo
+  ai-service/            # gọi Claude qua SDK Anthropic, đếm lượt AI theo gói
 ```
 
 Mỗi module nghiệp vụ có cùng bố cục: `src/main/java/vn/wms/<tên>/{config,controller,entity,dto,repository,service}`,
@@ -77,6 +79,7 @@ Mỗi module nghiệp vụ có cùng bố cục: `src/main/java/vn/wms/<tên>/{c
 | inventory-service | 8083 | Kho, vị trí, tồn kho, điều chuyển, kiểm kê | `inventory_db` | http://localhost:8083/actuator/health |
 | order-service | 8084 | Nhà cung cấp, khách hàng, PO/GRN, SO/GDN | `order_db` | http://localhost:8084/actuator/health |
 | notification-service | 8085 | RabbitMQ consumer, email cảnh báo | `notification_db` | http://localhost:8085/actuator/health |
+| ai-service | 8086 | Gọi Claude (SDK Anthropic), đếm lượt AI theo gói, giả lập khi chưa có khóa | không | http://localhost:8086/actuator/health |
 | discovery-server | 8761 | Eureka (dashboard tại `/`) | không | http://localhost:8761/actuator/health |
 | config-server | 8888 | Cấu hình tập trung | không | http://localhost:8888/actuator/health |
 
@@ -93,6 +96,7 @@ Endpoint khung hiện có (gọi qua gateway `:8080` hoặc trực tiếp vào s
 | `GET /api/inventory/warehouses` | inventory-service | Danh sách kho |
 | `GET /api/orders/purchase` | order-service | Danh sách đơn mua hàng, phân trang |
 | `GET /api/notifications/health-info` | notification-service | Cấu hình RabbitMQ / email đang chạy |
+| `GET /api/ai/health`, `GET /api/ai/usage`, `POST /api/ai/ask` | ai-service | Chế độ chạy, lượt AI trong tháng, hỏi thử một câu (cần header `X-Company-Id`) |
 
 ## 5. Yêu cầu môi trường
 
@@ -161,6 +165,7 @@ Mỗi lệnh chạy trong một terminal riêng, từ thư mục `backend/`:
 ./gradlew :inventory-service:bootRun
 ./gradlew :order-service:bootRun
 ./gradlew :notification-service:bootRun
+./gradlew :ai-service:bootRun           #    chạy giả lập khi chưa có ANTHROPIC_API_KEY (cần TENANT_DEFAULT_COMPANY_ID=1 khi gọi không qua gateway)
 ./gradlew :api-gateway:bootRun         # 4. Gateway             (8080)
 ```
 
@@ -238,12 +243,19 @@ Ngoài các biến dưới đây, mọi thuộc tính Spring đều ghi đè đ�
 | api-gateway | `JWT_SECRET` | như trên | Khóa kiểm tra chữ ký token |
 | api-gateway | `GATEWAY_JWT_ENABLED` | `false` | Bật kiểm tra JWT tại gateway |
 | api-gateway | `CORS_ALLOWED_ORIGINS` | `http://localhost:5173` | Origin frontend được phép (phân tách bằng dấu phẩy) |
+| product, inventory, order, notification, ai | `SECURITY_ALLOW_ANONYMOUS` | `true` | `true`: request không có danh tính của gateway được coi là nhà phát triển đủ vai trò (máy phát triển). Máy chủ đặt `false`: thiếu danh tính trả 401 (`docs/SECURITY.md`) |
 | notification-service | `MAIL_HOST` / `MAIL_PORT` | `localhost` / `1025` | Máy chủ SMTP |
 | notification-service | `MAIL_USERNAME` / `MAIL_PASSWORD` | rỗng | Tài khoản SMTP; rỗng thì gửi không xác thực. Có giá trị thì tự bật xác thực, cổng 587 tự bật STARTTLS, cổng 465 tự bật SSL |
 | notification-service | `MAIL_FROM` | `no-reply@wms.local` | Địa chỉ người gửi |
 | notification-service | `NOTIFICATION_EXCHANGE` | `wms.events` | Exchange (topic) nhận sự kiện |
 | notification-service | `NOTIFICATION_QUEUE` | `notification.alerts` | Queue của service |
 | notification-service | `NOTIFICATION_ROUTING_KEY` | `alert.#` | Routing key binding |
+| ai-service | `AI_MOCK` | `true` | Trả câu trả lời mẫu, không gọi Claude. Đặt `false` và có khóa mới gọi thật |
+| ai-service | `ANTHROPIC_API_KEY` | rỗng | Khóa Anthropic, chỉ đặt trên máy chủ; rỗng thì luôn giả lập. Không bao giờ ghi vào file trong repo |
+| ai-service | `AI_MODEL` / `AI_EFFORT` | `claude-sonnet-5-5` / `low` | Mô hình Claude và mức suy nghĩ (`low`, `medium`, `high`) |
+| ai-service | `AI_MAX_TOKENS` | `4096` | Số token đầu ra tối đa của một câu trả lời |
+| ai-service | `AI_SERVER_FALLBACK` | `true` | Gửi `fallbacks: "default"` (beta) để câu bị từ chối được chạy lại trên mô hình dự phòng |
+| ai-service | `AI_MOCK_COUNTS_USAGE` | `true` | Câu trả lời giả lập có bị tính lượt AI hay không |
 | discovery-server | `EUREKA_HOSTNAME` | `localhost` | Hostname của Eureka |
 | discovery-server | `EUREKA_SELF_PRESERVATION` | `false` | Dev tắt để instance chết bị loại nhanh; production nên bật |
 | config-server | `CONFIG_REPO_LOCATIONS` | `classpath:/config-repo/` | Nơi đọc cấu hình, ví dụ `file:/config-repo/` |
@@ -285,7 +297,10 @@ Trạng thái hiện tại là khung, có chủ đích để nhóm phát triển
 - `api-gateway` có sẵn `JwtAuthenticationGlobalFilter`: khi `GATEWAY_JWT_ENABLED=true` yêu cầu header Authorization dạng Bearer
   với token hợp lệ (trừ `/api/auth/login`, `/actuator/**` và request preflight CORS), thêm header `X-User-Name`, `X-User-Roles`
   cho service phía sau và luôn gỡ hai header này nếu client tự gửi. Mặc định TẮT.
-- Các service còn lại tạm `permitAll` (xem `config/SecurityConfig` trong mỗi service, có ghi TODO).
+- Các service nghiệp vụ (product, inventory, order, notification, ai) dùng chuỗi bộ lọc chung của module `common`
+  (`WmsSecurityAutoConfiguration`): header của gateway thành `Authentication` với authority `ROLE_<vai trò>`, mỗi API
+  khai báo vai trò bằng `@PreAuthorize` (đã bật `@EnableMethodSecurity`). Ma trận vai trò, chế độ phát triển
+  (`SECURITY_ALLOW_ANONYMOUS`) và API nội bộ `/internal/**` xem `docs/SECURITY.md` (WMS-20.3).
 - Hằng số vai trò dùng chung: `vn.wms.common.constant.Roles` (`ADMIN`, `WAREHOUSE_MANAGER`, `WAREHOUSE_STAFF`,
   `PURCHASING`, `SALES`, `ACCOUNTANT`).
 - Trước khi triển khai thật: đặt `JWT_SECRET` mạnh và giống nhau ở auth-service và gateway, đặt
@@ -346,7 +361,7 @@ Trạng thái hiện tại là khung, có chủ đích để nhóm phát triển
   Refresh Token trong HttpOnly cookie, khóa tài khoản tạm thời khi đăng nhập sai nhiều lần (theo `docs/ARCHITECTURE.md`).
 - [ ] api-gateway: bật `GATEWAY_JWT_ENABLED=true`, thêm kiểm tra quyền theo vai trò ở mức route và giới hạn tốc độ
   (rate limiting, dùng Redis qua `spring-boot-starter-data-redis-reactive`).
-- [ ] Các service nghiệp vụ: thay `permitAll` bằng phân quyền theo vai trò (đọc `X-User-Name` / `X-User-Roles` từ gateway hoặc kiểm tra JWT).
+- [x] Các service nghiệp vụ: thay `permitAll` bằng phân quyền theo vai trò (đọc `X-User-Name` / `X-User-Roles` từ gateway), xem `docs/SECURITY.md`.
 - [ ] product-service: CRUD sản phẩm, danh mục, đơn vị tính; tra cứu theo SKU và barcode (để `ProductClient` dùng).
 - [ ] inventory-service: nhập/xuất/điều chuyển/kiểm kê, phát sự kiện cảnh báo tồn kho thấp lên RabbitMQ (routing key `alert.*`).
 - [ ] order-service: dòng hàng của PO/SO, phiếu nhập GRN và phiếu xuất GDN.

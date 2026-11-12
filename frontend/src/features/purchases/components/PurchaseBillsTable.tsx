@@ -27,7 +27,7 @@ import { useEffect, useState } from 'react'
 import * as XLSX from 'xlsx'
 import { getApiErrorMessage } from '../../../services/api'
 import { formatCurrency, formatNumber } from '../../../utils/format'
-import { getStoredUser } from '../../../utils/storage'
+import { useCan } from '../../auth/useCan'
 import * as supplierApi from '../../suppliers/supplierApi'
 import type { Supplier } from '../../suppliers/types'
 import * as purchaseBillsApi from '../purchaseBillsApi'
@@ -48,9 +48,8 @@ interface PurchaseBillsTableProps {
 
 export default function PurchaseBillsTable({ onBillUpdated }: PurchaseBillsTableProps) {
   const { message } = App.useApp()
-  const currentUser = getStoredUser()
-  const canRecordPayment =
-    currentUser?.roles?.some((r) => ['ADMIN', 'ACCOUNTANT'].includes(r)) ?? false
+  // Ghi thanh toán hóa đơn mua: ADMIN, Kế toán (features/auth/permissions.ts)
+  const canRecordPayment = useCan()('purchaseBill.pay')
 
   // Danh sách hóa đơn & phân trang
   const [bills, setBills] = useState<PurchaseBill[]>([])

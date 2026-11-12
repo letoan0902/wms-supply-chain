@@ -1,0 +1,19 @@
+# Cấu hình cho test: tắt Eureka/Config Server, luôn chạy chế độ giả lập (không gọi Claude, không cần khóa).
+# Redis được giả lập bằng @MockBean StringRedisTemplate trong từng lớp test.
+spring:
+  cloud:
+    config:
+      enabled: false
+eureka:
+  client:
+    enabled: false
+
+app:
+  tenant:
+    required: true
+    # Không có doanh nghiệp mặc định để kiểm tra được lỗi COMPANY_REQUIRED.
+    default-company-id:
+  ai:
+    mock: true
+    model: claude-sonnet-5-5
+    effort: low

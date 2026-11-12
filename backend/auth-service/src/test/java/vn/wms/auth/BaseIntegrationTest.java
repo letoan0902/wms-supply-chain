@@ -28,9 +28,16 @@ import vn.wms.auth.security.JwtService;
 import vn.wms.auth.subscription.entity.Plan;
 import vn.wms.auth.subscription.repository.PlanRepository;
 import vn.wms.common.constant.Roles;
+import vn.wms.common.messaging.WmsEventPublisher;
+import vn.wms.common.messaging.event.AccountEmailKind;
+import vn.wms.common.messaging.event.AccountEmailRequestedEvent;
+import vn.wms.common.tenant.TenantContext;
 
 import java.math.BigDecimal;
+import java.time.Duration;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -38,6 +45,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -109,6 +117,21 @@ public abstract class BaseIntegrationTest {
     @MockBean
     protected HashOperations<String, Object, Object> hashOperations;
 
+    /**
+     * auth-service phát sự kiện yêu cầu gửi email tài khoản (WMS-23.6) qua {@link WmsEventPublisher}; test không có
+     * broker nên giả lập và ghi lại từng sự kiện kèm doanh nghiệp trong ngữ cảnh lúc phát (giống header
+     * {@code x-wms-company-id} mà bean thật gắn).
+     */
+    @MockBean
+    protected WmsEventPublisher eventPublisher;
+
+    /** Sự kiện đã phát trong test hiện tại. */
+    protected final List<PublishedEvent> publishedEvents = new ArrayList<>();
+
+    /** Một sự kiện đã phát: routing key, payload và doanh nghiệp gắn vào header. */
+    protected record PublishedEvent(String routingKey, Object payload, Long companyId) {
+    }
+
     protected final Map<String, String> mockRedisStore = new HashMap<>();
     protected final Map<String, Map<String, String>> mockRedisHashMap = new HashMap<>();
 
@@ -116,6 +139,13 @@ public abstract class BaseIntegrationTest {
     void setUp() {
         mockRedisStore.clear();
         mockRedisHashMap.clear();
+        publishedEvents.clear();
+
+        doAnswer(invocation -> {
+            publishedEvents.add(new PublishedEvent(invocation.getArgument(0), invocation.getArgument(1),
+                    TenantContext.getCompanyId()));
+            return null;
+        }).when(eventPublisher).publishAfterCommit(anyString(), any());
 
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
         when(redisTemplate.opsForHash()).thenReturn(hashOperations);
@@ -163,6 +193,12 @@ public abstract class BaseIntegrationTest {
             mockRedisStore.put(key, value);
             return null;
         }).when(valueOperations).set(anyString(), anyString(), any());
+
+        // SET NX có hạn (giới hạn gửi lại email, WMS-23.6): bộ nhớ giả lập không tự hết hạn, test tự xóa khóa
+        when(valueOperations.setIfAbsent(anyString(), anyString(), any(Duration.class))).thenAnswer(invocation -> {
+            String key = invocation.getArgument(0);
+            return mockRedisStore.putIfAbsent(key, invocation.getArgument(1)) == null;
+        });
 
         when(valueOperations.increment(anyString())).thenAnswer(invocation -> {
             String key = invocation.getArgument(0);
@@ -283,6 +319,39 @@ public abstract class BaseIntegrationTest {
         jdbcTemplate.update("UPDATE companies SET status = ? WHERE id = ?", status, companyId);
         // Bỏ bản sao Company trong bộ nhớ đệm của Hibernate để lần đọc sau lấy trạng thái mới từ cơ sở dữ liệu
         entityManager.clear();
+    }
+
+    /** Các yêu cầu gửi email tài khoản loại {@code kind} tới {@code email}, theo thứ tự phát. */
+    protected List<AccountEmailRequestedEvent> accountEmailsTo(String email, AccountEmailKind kind) {
+        return publishedEvents.stream()
+                .map(PublishedEvent::payload)
+                .filter(AccountEmailRequestedEvent.class::isInstance)
+                .map(AccountEmailRequestedEvent.class::cast)
+                .filter(event -> event.kind() == kind && event.recipientEmail().equalsIgnoreCase(email))
+                .toList();
+    }
+
+    /** Mã trong liên kết của email loại {@code kind} gửi gần nhất tới {@code email}. */
+    protected String latestTokenSentTo(String email, AccountEmailKind kind) {
+        List<AccountEmailRequestedEvent> emails = accountEmailsTo(email, kind);
+        if (emails.isEmpty()) {
+            throw new AssertionError("Không có email " + kind + " nào gửi tới " + email);
+        }
+        String link = emails.get(emails.size() - 1).link();
+        return link.substring(link.indexOf("token=") + "token=".length());
+    }
+
+    /**
+     * Doanh nghiệp vừa đăng ký ở trạng thái PENDING (WMS-23.6): bấm liên kết kích hoạt trong email gửi tới
+     * {@code email} như người dùng thật, sau đó đăng nhập được.
+     */
+    protected void activateCompanyByEmail(String email) throws Exception {
+        mockMvc.perform(post("/api/auth/companies/activate")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                Map.of("token", latestTokenSentTo(email, AccountEmailKind.ACTIVATION)))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("ACTIVE"));
     }
 
     protected String loginJson(String username, String password) throws Exception {

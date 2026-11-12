@@ -1,0 +1,1185 @@
+{
+  "info": {
+    "_postman_id": "d36bd8ba-9ac6-474c-a00b-67f6965436da",
+    "name": "WMS QA 00 - Chuẩn bị doanh nghiệp A, B và tài khoản các vai trò",
+    "description": "Đăng ký hai doanh nghiệp mới A và B (mã, email ngẫu nhiên theo runId), đăng nhập ADMIN, tạo và đăng nhập tài khoản năm vai trò còn lại của A. Stack kiểm thử phải đặt REGISTRATION_REQUIRE_ACTIVATION=false (xem qa/README.md). Truyền --env-var runId=<giá trị> và dùng lại đúng giá trị đó cho các collection 10, 20, 30.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "TC-SET-01 Kiểm tra hệ thống sẵn sàng",
+      "description": "",
+      "item": [
+        {
+          "name": "TC-SET-01.1 Gateway trả trạng thái sức khỏe",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.status(200, 'api-gateway đang chạy');",
+                  "qa.test('Trạng thái UP', () => pm.expect((qa.json() || {}).status, qa.brief()).to.eql('UP'));",
+                  "qa.test('runId của lượt chạy: ' + qa.runId() + ' (dùng lại giá trị này cho 10, 20, 30)', () => pm.expect(qa.runId()).to.match(/^[a-z0-9]{4,20}$/));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/actuator/health",
+            "description": "200, status = UP",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "TC-SET-01.2 Danh sách gói dịch vụ công khai",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(200, 'Xem bảng giá không cần đăng nhập');",
+                  "const plans = qa.content();",
+                  "const byCode = {};",
+                  "plans.forEach((p) => { byCode[p.code] = p; });",
+                  "qa.test('Có đủ ba gói FREE, TRIAL, PRO', () => pm.expect(Object.keys(byCode)).to.include.members(['FREE', 'TRIAL', 'PRO']));",
+                  "qa.test('Giới hạn gói FREE đúng mục 2.5 của SAAS_SPEC', () => {",
+                  "  const f = byCode.FREE || {};",
+                  "  qa.expectNum(f.maxUsers, 3, 'maxUsers'); qa.expectNum(f.maxWarehouses, 1, 'maxWarehouses');",
+                  "  qa.expectNum(f.maxSkus, 200, 'maxSkus'); qa.expectNum(f.maxAiRequests, 20, 'maxAiRequests');",
+                  "  pm.expect(f.apiAccess).to.eql(false);",
+                  "});",
+                  "qa.test('Gói TRIAL cho 50 người dùng, 20 kho, SKU không giới hạn, có API key', () => {",
+                  "  const t = byCode.TRIAL || {};",
+                  "  qa.expectNum(t.maxUsers, 50, 'maxUsers'); qa.expectNum(t.maxWarehouses, 20, 'maxWarehouses');",
+                  "  qa.expectNum(t.maxSkus, -1, 'maxSkus'); pm.expect(t.apiAccess).to.eql(true);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/auth/plans",
+            "description": "200, có ba gói FREE, TRIAL, PRO; FREE: 3 người dùng, 1 kho, 200 SKU, 20 lượt AI, không có API key",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "TC-SET-02 Đăng ký doanh nghiệp A và B",
+      "description": "",
+      "item": [
+        {
+          "name": "TC-SET-02.1 Đăng ký doanh nghiệp A",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "const digits = String(Math.floor(Math.random() * 1e10)).padStart(10, '0');",
+                  "pm.variables.set('regBody', JSON.stringify({",
+                  "  companyName: 'QA Công ty A ' + qa.runId(),",
+                  "  taxCode: digits,",
+                  "  phone: '09' + digits.slice(0, 8),",
+                  "  fullName: 'Quản trị QA A',",
+                  "  username: qa.user('A', 'ADMIN'),",
+                  "  email: qa.email('A', 'ADMIN'),",
+                  "  password: qa.password()",
+                  "}));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "const d = qa.data() || {};",
+                  "if (pm.response.code === 201 && d.activationRequired === true) {",
+                  "  qa.stop('Stack kiểm thử phải tắt kích hoạt qua email',",
+                  "    'Đăng ký trả activationRequired = true: đặt REGISTRATION_REQUIRE_ACTIVATION=false cho auth-service (qa/docker-compose.qa.yml) rồi chạy lại.');",
+                  "} else {",
+                  "  qa.ok(201, 'Đăng ký doanh nghiệp A');",
+                  "  qa.test('Doanh nghiệp A ở trạng thái ACTIVE, gói dùng thử TRIAL', () => {",
+                  "    pm.expect(d.company && d.company.status, qa.brief()).to.eql('ACTIVE');",
+                  "    pm.expect(d.subscription && d.subscription.plan).to.eql('TRIAL');",
+                  "    pm.expect(d.company.code).to.match(/^CTY\\d{6}$/);",
+                  "  });",
+                  "  if (d.company) { qa.set('A_companyId', d.company.id); qa.set('A_companyCode', d.company.code); }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/companies/register",
+            "description": "201; activationRequired = false (stack kiểm thử tắt kích hoạt qua email); company.status = ACTIVE; subscription.plan = TRIAL",
+            "body": {
+              "mode": "raw",
+              "raw": "{{regBody}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "TC-SET-02.2 Đăng ký doanh nghiệp B",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "const digits = String(Math.floor(Math.random() * 1e10)).padStart(10, '0');",
+                  "pm.variables.set('regBody', JSON.stringify({",
+                  "  companyName: 'QA Công ty B ' + qa.runId(),",
+                  "  taxCode: digits,",
+                  "  phone: '09' + digits.slice(0, 8),",
+                  "  fullName: 'Quản trị QA B',",
+                  "  username: qa.user('B', 'ADMIN'),",
+                  "  email: qa.email('B', 'ADMIN'),",
+                  "  password: qa.password()",
+                  "}));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "const d = qa.data() || {};",
+                  "if (pm.response.code === 201 && d.activationRequired === true) {",
+                  "  qa.stop('Stack kiểm thử phải tắt kích hoạt qua email',",
+                  "    'Đăng ký trả activationRequired = true: đặt REGISTRATION_REQUIRE_ACTIVATION=false cho auth-service (qa/docker-compose.qa.yml) rồi chạy lại.');",
+                  "} else {",
+                  "  qa.ok(201, 'Đăng ký doanh nghiệp B');",
+                  "  qa.test('Doanh nghiệp B ở trạng thái ACTIVE, gói dùng thử TRIAL', () => {",
+                  "    pm.expect(d.company && d.company.status, qa.brief()).to.eql('ACTIVE');",
+                  "    pm.expect(d.subscription && d.subscription.plan).to.eql('TRIAL');",
+                  "    pm.expect(d.company.code).to.match(/^CTY\\d{6}$/);",
+                  "  });",
+                  "  if (d.company) { qa.set('B_companyId', d.company.id); qa.set('B_companyCode', d.company.code); }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/companies/register",
+            "description": "201; activationRequired = false (stack kiểm thử tắt kích hoạt qua email); company.status = ACTIVE; subscription.plan = TRIAL",
+            "body": {
+              "mode": "raw",
+              "raw": "{{regBody}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "TC-SET-02.3 Đăng ký lại cùng tên đăng nhập bị từ chối",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "pm.variables.set('dupBody', JSON.stringify({",
+                  "  companyName: 'QA Công ty trùng ' + qa.runId(), fullName: 'Người trùng',",
+                  "  username: qa.user('A', 'ADMIN'), email: 'dup.' + qa.runId() + '@qa.example.com', password: qa.password()",
+                  "}));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.error(409, 'CONFLICT', 'Tên đăng nhập đã tồn tại');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/companies/register",
+            "description": "409 CONFLICT, không tạo doanh nghiệp mới",
+            "body": {
+              "mode": "raw",
+              "raw": "{{dupBody}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "TC-SET-03 Đăng nhập ADMIN và thuê bao dùng thử",
+      "description": "",
+      "item": [
+        {
+          "name": "TC-SET-03.1 Đăng nhập ADMIN của công ty A",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "pm.variables.set('loginUser', qa.user('A', 'ADMIN'));",
+                  "pm.variables.set('loginPass', qa.password());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(200, 'Đăng nhập ADMIN của A thành công');",
+                  "const d = qa.data() || {};",
+                  "qa.test('Kết quả đăng nhập có accessToken và vai trò ADMIN', () => {",
+                  "  pm.expect(d.accessToken, qa.brief()).to.be.a('string');",
+                  "  pm.expect(d.roles).to.include('ADMIN');",
+                  "});",
+                  "if (d.accessToken) qa.set('tok_A_ADMIN', d.accessToken);",
+                  "if (d.company && d.company.id) {",
+                  "  const known = qa.get('A_companyId');",
+                  "  if (known) qa.test('Token thuộc đúng doanh nghiệp A', () => pm.expect(String(d.company.id)).to.eql(String(known)));",
+                  "  else qa.set('A_companyId', d.company.id);",
+                  "}",
+                  "",
+                  "qa.test('Đăng nhập trả thông tin thuê bao TRIAL ACTIVE', () => {",
+                  "  pm.expect(d.subscription && d.subscription.plan, qa.brief()).to.eql('TRIAL');",
+                  "  pm.expect(d.subscription.status).to.eql('ACTIVE');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/login",
+            "description": "200, có accessToken; roles chứa ADMIN; company.id đúng doanh nghiệp A",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{loginUser}}\",\n  \"password\": \"{{loginPass}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "TC-SET-03.2 Đăng nhập ADMIN của công ty B",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "pm.variables.set('loginUser', qa.user('B', 'ADMIN'));",
+                  "pm.variables.set('loginPass', qa.password());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(200, 'Đăng nhập ADMIN của B thành công');",
+                  "const d = qa.data() || {};",
+                  "qa.test('Kết quả đăng nhập có accessToken và vai trò ADMIN', () => {",
+                  "  pm.expect(d.accessToken, qa.brief()).to.be.a('string');",
+                  "  pm.expect(d.roles).to.include('ADMIN');",
+                  "});",
+                  "if (d.accessToken) qa.set('tok_B_ADMIN', d.accessToken);",
+                  "if (d.company && d.company.id) {",
+                  "  const known = qa.get('B_companyId');",
+                  "  if (known) qa.test('Token thuộc đúng doanh nghiệp B', () => pm.expect(String(d.company.id)).to.eql(String(known)));",
+                  "  else qa.set('B_companyId', d.company.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/login",
+            "description": "200, có accessToken; roles chứa ADMIN; company.id đúng doanh nghiệp B",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{loginUser}}\",\n  \"password\": \"{{loginPass}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "TC-SET-03.3 Thuê bao của A sau đăng ký",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"tok_A_ADMIN\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(200, 'Xem thuê bao');",
+                  "const s = qa.data() || {};",
+                  "qa.test('Gói dùng thử 30 ngày đang hoạt động', () => {",
+                  "  pm.expect(s.plan).to.eql('TRIAL'); pm.expect(s.status).to.eql('ACTIVE'); pm.expect(s.readOnly).to.eql(false);",
+                  "  pm.expect(qa.num(s.daysRemaining)).to.be.within(29, 30);",
+                  "});",
+                  "qa.test('Mức dùng có 1 người dùng (ADMIN vừa tạo)', () => qa.expectNum(s.usage && s.usage.users, 1, 'usage.users'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_ADMIN}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/subscription",
+            "description": "200, plan TRIAL, status ACTIVE, daysRemaining 30, readOnly false, usage.users = 1"
+          }
+        }
+      ]
+    },
+    {
+      "name": "TC-SET-04 Tạo tài khoản các vai trò của A",
+      "description": "",
+      "item": [
+        {
+          "name": "TC-SET-04.1 ADMIN của A tạo tài khoản WAREHOUSE_MANAGER",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "pm.variables.set('newUserBody', JSON.stringify({",
+                  "  username: qa.user('A', 'WAREHOUSE_MANAGER'), email: qa.email('A', 'WAREHOUSE_MANAGER'), password: qa.password(),",
+                  "  fullName: 'QA WAREHOUSE_MANAGER', roles: ['WAREHOUSE_MANAGER']",
+                  "}));",
+                  "qa.need([\"tok_A_ADMIN\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(201, 'Tạo tài khoản WAREHOUSE_MANAGER');",
+                  "const u = qa.data() || {};",
+                  "qa.test('Tài khoản thuộc doanh nghiệp A, đúng vai trò', () => {",
+                  "  pm.expect(u.roles, qa.brief()).to.eql(['WAREHOUSE_MANAGER']);",
+                  "  pm.expect(String(u.companyId)).to.eql(String(qa.get('A_companyId')));",
+                  "  pm.expect(u.enabled).to.eql(true);",
+                  "});",
+                  "if (u.id) qa.set('uid_A_MANAGER', u.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_ADMIN}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/users",
+            "description": "201, tài khoản bật, roles = [WAREHOUSE_MANAGER], companyId = A",
+            "body": {
+              "mode": "raw",
+              "raw": "{{newUserBody}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-SET-04.2 ADMIN của A tạo tài khoản WAREHOUSE_STAFF",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "pm.variables.set('newUserBody', JSON.stringify({",
+                  "  username: qa.user('A', 'WAREHOUSE_STAFF'), email: qa.email('A', 'WAREHOUSE_STAFF'), password: qa.password(),",
+                  "  fullName: 'QA WAREHOUSE_STAFF', roles: ['WAREHOUSE_STAFF']",
+                  "}));",
+                  "qa.need([\"tok_A_ADMIN\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(201, 'Tạo tài khoản WAREHOUSE_STAFF');",
+                  "const u = qa.data() || {};",
+                  "qa.test('Tài khoản thuộc doanh nghiệp A, đúng vai trò', () => {",
+                  "  pm.expect(u.roles, qa.brief()).to.eql(['WAREHOUSE_STAFF']);",
+                  "  pm.expect(String(u.companyId)).to.eql(String(qa.get('A_companyId')));",
+                  "  pm.expect(u.enabled).to.eql(true);",
+                  "});",
+                  "if (u.id) qa.set('uid_A_STAFF', u.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_ADMIN}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/users",
+            "description": "201, tài khoản bật, roles = [WAREHOUSE_STAFF], companyId = A",
+            "body": {
+              "mode": "raw",
+              "raw": "{{newUserBody}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-SET-04.3 ADMIN của A tạo tài khoản PURCHASING",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "pm.variables.set('newUserBody', JSON.stringify({",
+                  "  username: qa.user('A', 'PURCHASING'), email: qa.email('A', 'PURCHASING'), password: qa.password(),",
+                  "  fullName: 'QA PURCHASING', roles: ['PURCHASING']",
+                  "}));",
+                  "qa.need([\"tok_A_ADMIN\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(201, 'Tạo tài khoản PURCHASING');",
+                  "const u = qa.data() || {};",
+                  "qa.test('Tài khoản thuộc doanh nghiệp A, đúng vai trò', () => {",
+                  "  pm.expect(u.roles, qa.brief()).to.eql(['PURCHASING']);",
+                  "  pm.expect(String(u.companyId)).to.eql(String(qa.get('A_companyId')));",
+                  "  pm.expect(u.enabled).to.eql(true);",
+                  "});",
+                  "if (u.id) qa.set('uid_A_PURCHASING', u.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_ADMIN}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/users",
+            "description": "201, tài khoản bật, roles = [PURCHASING], companyId = A",
+            "body": {
+              "mode": "raw",
+              "raw": "{{newUserBody}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-SET-04.4 ADMIN của A tạo tài khoản SALES",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "pm.variables.set('newUserBody', JSON.stringify({",
+                  "  username: qa.user('A', 'SALES'), email: qa.email('A', 'SALES'), password: qa.password(),",
+                  "  fullName: 'QA SALES', roles: ['SALES']",
+                  "}));",
+                  "qa.need([\"tok_A_ADMIN\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(201, 'Tạo tài khoản SALES');",
+                  "const u = qa.data() || {};",
+                  "qa.test('Tài khoản thuộc doanh nghiệp A, đúng vai trò', () => {",
+                  "  pm.expect(u.roles, qa.brief()).to.eql(['SALES']);",
+                  "  pm.expect(String(u.companyId)).to.eql(String(qa.get('A_companyId')));",
+                  "  pm.expect(u.enabled).to.eql(true);",
+                  "});",
+                  "if (u.id) qa.set('uid_A_SALES', u.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_ADMIN}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/users",
+            "description": "201, tài khoản bật, roles = [SALES], companyId = A",
+            "body": {
+              "mode": "raw",
+              "raw": "{{newUserBody}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-SET-04.5 ADMIN của A tạo tài khoản ACCOUNTANT",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "pm.variables.set('newUserBody', JSON.stringify({",
+                  "  username: qa.user('A', 'ACCOUNTANT'), email: qa.email('A', 'ACCOUNTANT'), password: qa.password(),",
+                  "  fullName: 'QA ACCOUNTANT', roles: ['ACCOUNTANT']",
+                  "}));",
+                  "qa.need([\"tok_A_ADMIN\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(201, 'Tạo tài khoản ACCOUNTANT');",
+                  "const u = qa.data() || {};",
+                  "qa.test('Tài khoản thuộc doanh nghiệp A, đúng vai trò', () => {",
+                  "  pm.expect(u.roles, qa.brief()).to.eql(['ACCOUNTANT']);",
+                  "  pm.expect(String(u.companyId)).to.eql(String(qa.get('A_companyId')));",
+                  "  pm.expect(u.enabled).to.eql(true);",
+                  "});",
+                  "if (u.id) qa.set('uid_A_ACCOUNTANT', u.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_ADMIN}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/users",
+            "description": "201, tài khoản bật, roles = [ACCOUNTANT], companyId = A",
+            "body": {
+              "mode": "raw",
+              "raw": "{{newUserBody}}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "TC-SET-05 Đăng nhập các vai trò của A",
+      "description": "",
+      "item": [
+        {
+          "name": "TC-SET-05.1 Đăng nhập WAREHOUSE_MANAGER của công ty A",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "pm.variables.set('loginUser', qa.user('A', 'WAREHOUSE_MANAGER'));",
+                  "pm.variables.set('loginPass', qa.password());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(200, 'Đăng nhập WAREHOUSE_MANAGER của A thành công');",
+                  "const d = qa.data() || {};",
+                  "qa.test('Kết quả đăng nhập có accessToken và vai trò WAREHOUSE_MANAGER', () => {",
+                  "  pm.expect(d.accessToken, qa.brief()).to.be.a('string');",
+                  "  pm.expect(d.roles).to.include('WAREHOUSE_MANAGER');",
+                  "});",
+                  "if (d.accessToken) qa.set('tok_A_MANAGER', d.accessToken);",
+                  "if (d.company && d.company.id) {",
+                  "  const known = qa.get('A_companyId');",
+                  "  if (known) qa.test('Token thuộc đúng doanh nghiệp A', () => pm.expect(String(d.company.id)).to.eql(String(known)));",
+                  "  else qa.set('A_companyId', d.company.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/login",
+            "description": "200, có accessToken; roles chứa WAREHOUSE_MANAGER; company.id đúng doanh nghiệp A",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{loginUser}}\",\n  \"password\": \"{{loginPass}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "TC-SET-05.2 Đăng nhập WAREHOUSE_STAFF của công ty A",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "pm.variables.set('loginUser', qa.user('A', 'WAREHOUSE_STAFF'));",
+                  "pm.variables.set('loginPass', qa.password());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(200, 'Đăng nhập WAREHOUSE_STAFF của A thành công');",
+                  "const d = qa.data() || {};",
+                  "qa.test('Kết quả đăng nhập có accessToken và vai trò WAREHOUSE_STAFF', () => {",
+                  "  pm.expect(d.accessToken, qa.brief()).to.be.a('string');",
+                  "  pm.expect(d.roles).to.include('WAREHOUSE_STAFF');",
+                  "});",
+                  "if (d.accessToken) qa.set('tok_A_STAFF', d.accessToken);",
+                  "if (d.company && d.company.id) {",
+                  "  const known = qa.get('A_companyId');",
+                  "  if (known) qa.test('Token thuộc đúng doanh nghiệp A', () => pm.expect(String(d.company.id)).to.eql(String(known)));",
+                  "  else qa.set('A_companyId', d.company.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/login",
+            "description": "200, có accessToken; roles chứa WAREHOUSE_STAFF; company.id đúng doanh nghiệp A",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{loginUser}}\",\n  \"password\": \"{{loginPass}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "TC-SET-05.3 Đăng nhập PURCHASING của công ty A",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "pm.variables.set('loginUser', qa.user('A', 'PURCHASING'));",
+                  "pm.variables.set('loginPass', qa.password());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(200, 'Đăng nhập PURCHASING của A thành công');",
+                  "const d = qa.data() || {};",
+                  "qa.test('Kết quả đăng nhập có accessToken và vai trò PURCHASING', () => {",
+                  "  pm.expect(d.accessToken, qa.brief()).to.be.a('string');",
+                  "  pm.expect(d.roles).to.include('PURCHASING');",
+                  "});",
+                  "if (d.accessToken) qa.set('tok_A_PURCHASING', d.accessToken);",
+                  "if (d.company && d.company.id) {",
+                  "  const known = qa.get('A_companyId');",
+                  "  if (known) qa.test('Token thuộc đúng doanh nghiệp A', () => pm.expect(String(d.company.id)).to.eql(String(known)));",
+                  "  else qa.set('A_companyId', d.company.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/login",
+            "description": "200, có accessToken; roles chứa PURCHASING; company.id đúng doanh nghiệp A",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{loginUser}}\",\n  \"password\": \"{{loginPass}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "TC-SET-05.4 Đăng nhập SALES của công ty A",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "pm.variables.set('loginUser', qa.user('A', 'SALES'));",
+                  "pm.variables.set('loginPass', qa.password());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(200, 'Đăng nhập SALES của A thành công');",
+                  "const d = qa.data() || {};",
+                  "qa.test('Kết quả đăng nhập có accessToken và vai trò SALES', () => {",
+                  "  pm.expect(d.accessToken, qa.brief()).to.be.a('string');",
+                  "  pm.expect(d.roles).to.include('SALES');",
+                  "});",
+                  "if (d.accessToken) qa.set('tok_A_SALES', d.accessToken);",
+                  "if (d.company && d.company.id) {",
+                  "  const known = qa.get('A_companyId');",
+                  "  if (known) qa.test('Token thuộc đúng doanh nghiệp A', () => pm.expect(String(d.company.id)).to.eql(String(known)));",
+                  "  else qa.set('A_companyId', d.company.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/login",
+            "description": "200, có accessToken; roles chứa SALES; company.id đúng doanh nghiệp A",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{loginUser}}\",\n  \"password\": \"{{loginPass}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "TC-SET-05.5 Đăng nhập ACCOUNTANT của công ty A",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "pm.variables.set('loginUser', qa.user('A', 'ACCOUNTANT'));",
+                  "pm.variables.set('loginPass', qa.password());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(200, 'Đăng nhập ACCOUNTANT của A thành công');",
+                  "const d = qa.data() || {};",
+                  "qa.test('Kết quả đăng nhập có accessToken và vai trò ACCOUNTANT', () => {",
+                  "  pm.expect(d.accessToken, qa.brief()).to.be.a('string');",
+                  "  pm.expect(d.roles).to.include('ACCOUNTANT');",
+                  "});",
+                  "if (d.accessToken) qa.set('tok_A_ACCOUNTANT', d.accessToken);",
+                  "if (d.company && d.company.id) {",
+                  "  const known = qa.get('A_companyId');",
+                  "  if (known) qa.test('Token thuộc đúng doanh nghiệp A', () => pm.expect(String(d.company.id)).to.eql(String(known)));",
+                  "  else qa.set('A_companyId', d.company.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/login",
+            "description": "200, có accessToken; roles chứa ACCOUNTANT; company.id đúng doanh nghiệp A",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{loginUser}}\",\n  \"password\": \"{{loginPass}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "TC-SET-05.6 Kế toán không được tạo tài khoản",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"tok_A_ACCOUNTANT\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.forbidden('Kế toán tạo tài khoản');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_ACCOUNTANT}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/users",
+            "description": "403 FORBIDDEN (chỉ ADMIN quản lý người dùng)",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"qa_khong_duoc_tao\",\n  \"email\": \"qa.khong.duoc@qa.example.com\",\n  \"password\": \"QaTest-x-Mk\",\n  \"roles\": [\n    \"SALES\"\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-SET-05.7 Tra ID tài khoản WAREHOUSE_MANAGER của A",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "pm.variables.set('lookupUser', qa.user('A', 'WAREHOUSE_MANAGER'));",
+                  "qa.need([\"tok_A_ADMIN\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(200, 'ADMIN xem danh sách người dùng của doanh nghiệp mình');",
+                  "const u = qa.content().find((x) => x.username === qa.user('A', 'WAREHOUSE_MANAGER'));",
+                  "qa.test('Tìm thấy tài khoản WAREHOUSE_MANAGER', () => pm.expect(u, qa.brief()).to.be.an('object'));",
+                  "if (u) qa.set('uid_A_MANAGER', u.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_ADMIN}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/users?keyword={{lookupUser}}&size=5",
+            "description": "200, danh sách có đúng tài khoản WAREHOUSE_MANAGER vừa tạo"
+          }
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const qa = eval(pm.collectionVariables.get('qaLib'));",
+          "if (!qa.runId()) {",
+          "  const gen = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);",
+          "  pm.collectionVariables.set('runId', gen);",
+          "  console.log('runId tự sinh cho lượt chạy này: ' + gen);",
+          "}",
+          "[['d_today', 0], ['d_m60', -60], ['d_m40', -40], ['d_m10', -10], ['d_m1', -1], ['d_p5', 5], ['d_p20', 20],",
+          " ['d_p30', 30], ['d_p90', 90], ['d_p180', 180], ['d_p200', 200], ['d_p365', 365]]",
+          "  .forEach(([k, d]) => pm.collectionVariables.set(k, qa.day(d)));"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.test('Không có lỗi máy chủ (HTTP 5xx)', () => pm.expect(pm.response.code, 'HTTP ' + pm.response.code + ' ' + pm.response.text().slice(0, 300)).to.be.below(500));"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "qaLib",
+      "value": "(function qaLibFactory() {\n  const qa = {};\n  const ROLE = {\n    ADMIN: 'admin', WAREHOUSE_MANAGER: 'manager', WAREHOUSE_STAFF: 'staff',\n    PURCHASING: 'purchasing', SALES: 'sales', ACCOUNTANT: 'accountant'\n  };\n  qa.setNext = (name) => {\n    if (pm.execution && typeof pm.execution.setNextRequest === 'function') {\n      pm.execution.setNextRequest(name);\n    } else {\n      postman.setNextRequest(name);\n    }\n  };\n  qa.get = (k) => {\n    const v = pm.collectionVariables.get(k);\n    if (v !== undefined && v !== null && v !== '') return v;\n    return pm.environment.get(k);\n  };\n  qa.set = (k, v) => pm.collectionVariables.set(k, (v !== null && typeof v === 'object') ? JSON.stringify(v) : v);\n  qa.unset = (k) => pm.collectionVariables.unset(k);\n  qa.runId = () => String(pm.environment.get('runId') || pm.collectionVariables.get('runId') || '')\n    .toLowerCase().replace(/[^a-z0-9]/g, '');\n  qa.user = (company, role) => 'qa_' + qa.runId() + '_' + company.toLowerCase() + '_' + (ROLE[role] || role.toLowerCase());\n  qa.email = (company, role) => qa.user(company, role) + '@qa.example.com';\n  // Mật khẩu kiểm thử giả, suy ra từ runId để collection sau đăng nhập lại được (quy tắc API: 6 đến 72 ký tự).\n  qa.password = () => 'QaTest-' + qa.runId() + '-Mk';\n  // Ngày theo giờ Việt Nam (máy chủ chạy TZ=Asia/Ho_Chi_Minh), dạng yyyy-MM-dd.\n  qa.day = (offset) => new Date(Date.now() + 7 * 3600 * 1000 + offset * 86400000).toISOString().slice(0, 10);\n  qa.json = () => { try { return pm.response.json(); } catch (e) { return null; } };\n  qa.data = () => { const b = qa.json(); return b ? b.data : undefined; };\n  qa.content = () => {\n    const d = qa.data();\n    if (Array.isArray(d)) return d;\n    return d && Array.isArray(d.content) ? d.content : [];\n  };\n  qa.brief = () => {\n    let t = '';\n    try { t = pm.response.text(); } catch (e) { t = ''; }\n    return 'HTTP ' + pm.response.code + ': ' + t.slice(0, 500);\n  };\n  qa.num = (x) => (x === null || x === undefined || x === '') ? NaN : Number(x);\n  qa.near = (a, b) => Math.abs(qa.num(a) - qa.num(b)) < 0.0005;\n  qa.expectNum = (actual, expected, what) =>\n    pm.expect(qa.near(actual, expected), what + ': nhận ' + actual + ', cần ' + expected).to.equal(true);\n  qa.test = (label, fn) => pm.test(label, fn);\n  qa.status = (code, label) => pm.test(label + ': HTTP ' + code, () => {\n    pm.expect(pm.response.code, qa.brief()).to.eql(code);\n  });\n  qa.ok = (code, label) => pm.test(label + ': HTTP ' + code + ', success = true', () => {\n    pm.expect(pm.response.code, qa.brief()).to.eql(code);\n    const b = qa.json();\n    pm.expect(b && b.success, qa.brief()).to.eql(true);\n  });\n  qa.error = (status, code, label) => pm.test(label + ': HTTP ' + status + ', mã ' + code, () => {\n    pm.expect(pm.response.code, qa.brief()).to.eql(status);\n    const b = qa.json();\n    pm.expect(b && b.code, qa.brief()).to.eql(code);\n  });\n  qa.notFound = (label) => qa.error(404, 'NOT_FOUND', label);\n  qa.forbidden = (label) => qa.error(403, 'FORBIDDEN', label);\n  qa.planLimit = (limit, current, max, plan, label) =>\n    pm.test(label + ': HTTP 403 PLAN_LIMIT_EXCEEDED, data = {limit: ' + limit + ', current: ' + current\n      + ', max: ' + max + ', plan: ' + plan + '}', () => {\n      pm.expect(pm.response.code, qa.brief()).to.eql(403);\n      const b = qa.json();\n      pm.expect(b && b.code, qa.brief()).to.eql('PLAN_LIMIT_EXCEEDED');\n      pm.expect(b.data, 'thiếu data').to.be.an('object');\n      pm.expect(b.data.limit).to.eql(limit);\n      qa.expectNum(b.data.current, current, 'data.current');\n      qa.expectNum(b.data.max, max, 'data.max');\n      pm.expect(b.data.plan).to.eql(plan);\n    });\n  // Hỏi lại chính request này (tối đa pollMax lần, cách nhau pollDelayMs) cho tới khi cond() đúng.\n  // Chỉ ghi kết quả test ở lần cuối, nên các lần chờ không bị tính là lỗi.\n  qa.poll = (label, cond, assertFn) => {\n    const key = 'poll_' + pm.info.requestName;\n    const n = Number(pm.collectionVariables.get(key) || 0);\n    const max = Number(pm.environment.get('pollMax') || 20);\n    let ok = false;\n    try { ok = !!cond(); } catch (e) { ok = false; }\n    if (!ok && n < max) {\n      pm.collectionVariables.set(key, n + 1);\n      qa.setNext(pm.info.requestName);\n      return false;\n    }\n    pm.collectionVariables.unset(key);\n    pm.test(label, assertFn || (() => {\n      pm.expect(ok, 'Hết thời gian chờ (' + (n + 1) + ' lần): ' + qa.brief()).to.equal(true);\n    }));\n    return ok;\n  };\n  qa.pollDelay = () => {\n    const n = Number(pm.collectionVariables.get('poll_' + pm.info.requestName) || 0);\n    if (n > 0) setTimeout(() => {}, Number(pm.environment.get('pollDelayMs') || 1500));\n  };\n  qa.stop = (label, msg) => {\n    pm.test(label, () => pm.expect.fail(msg));\n    qa.setNext(null);\n  };\n  qa.need = (keys) => {\n    const missing = keys.filter((k) => {\n      const v = qa.get(k);\n      return v === undefined || v === null || v === '';\n    });\n    if (missing.length) {\n      pm.test('Thiếu dữ liệu tiền đề (' + missing.join(', ') + '), bỏ qua request', () =>\n        pm.expect.fail('Bước trước chưa tạo được: ' + missing.join(', ')));\n      if (pm.execution && typeof pm.execution.skipRequest === 'function') pm.execution.skipRequest();\n    }\n    return missing.length === 0;\n  };\n  return qa;\n})()",
+      "type": "string"
+    }
+  ]
+}

@@ -24,6 +24,10 @@
 #      qua x-backend-env của file gốc).
 #   6. inventory-service: đặt TENANT_DEFAULT_COMPANY_ID rỗng, bỏ doanh nghiệp mặc định chỉ dành cho môi trường phát triển.
 #   7. auth-service: PAYOS_MOCK (mặc định true) và địa chỉ trả về của PayOS theo DOMAIN (WMS-23.5a).
+#   8. ai-service: TENANT_DEFAULT_COMPANY_ID rỗng và AI_MOCK (mặc định true) cho tới khi có khóa AI (WMS-24.1).
+#   9. product, order, inventory, notification, ai: SECURITY_ALLOW_ANONYMOUS=false (WMS-20.3, docs/SECURITY.md). Request tới
+#      service mà không có danh tính do gateway gắn (X-User-Name) nhận 401, kể cả khi gọi thẳng vào cổng của service.
+#      Máy phát triển giữ mặc định true để gọi API khi gateway tắt kiểm tra JWT.
 #
 # Yêu cầu Docker Compose v2.24.4 trở lên vì file dùng hai thẻ YAML của Compose:
 #   !reset      xóa giá trị kế thừa từ file gốc (hỗ trợ từ v2.24.0)
@@ -113,6 +117,12 @@ services:
       RATE_LIMIT_ENABLED: ${RATE_LIMIT_ENABLED:-true}
       RATE_LIMIT_REPLENISH_RATE: ${RATE_LIMIT_REPLENISH_RATE:-20}
       RATE_LIMIT_BURST_CAPACITY: ${RATE_LIMIT_BURST_CAPACITY:-40}
+      # API key cho hệ thống ngoài (WMS-25.1): bật/tắt và số request tối đa mỗi giây của một key.
+      GATEWAY_API_KEY_ENABLED: ${GATEWAY_API_KEY_ENABLED:-true}
+      API_KEY_RATE_LIMIT_PER_SECOND: ${API_KEY_RATE_LIMIT_PER_SECOND:-20}
+      # Tài liệu OpenAPI tổng hợp (WMS-21.1): máy phát triển mặc định bật, máy chủ mặc định TẮT để không công bố mô tả API
+      # (/swagger-ui.html và /v3/api-docs/* trả 404). Cần xem tạm thì đặt SWAGGER_ENABLED=true trong .env rồi tạo lại gateway.
+      SWAGGER_ENABLED: ${SWAGGER_ENABLED:-false}
 
   # --------------------------------------------------------------------------
   # Doanh nghiệp mặc định: file compose gốc đặt TENANT_DEFAULT_COMPANY_ID=1 cho máy phát triển. Trên máy chủ phải để
@@ -121,10 +131,12 @@ services:
   product-service:
     environment:
       TENANT_DEFAULT_COMPANY_ID: ""
+      SECURITY_ALLOW_ANONYMOUS: ${SECURITY_ALLOW_ANONYMOUS:-false}
 
   order-service:
     environment:
       TENANT_DEFAULT_COMPANY_ID: ""
+      SECURITY_ALLOW_ANONYMOUS: ${SECURITY_ALLOW_ANONYMOUS:-false}
 
   # --------------------------------------------------------------------------
   # notification-service: hub WebSocket /ws-wms (WMS-02.3). Gateway để /ws-wms/** là đường dẫn công khai vì handshake
@@ -136,6 +148,13 @@ services:
       CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-https://${DOMAIN:-wms.toanmarket.me}}
       GATEWAY_JWT_ENABLED: ${GATEWAY_JWT_ENABLED:-true}
       TENANT_DEFAULT_COMPANY_ID: ""
+      # SMTP gửi email cảnh báo tồn kho (WMS-15.2), đọc từ .env. MAIL_HOST rỗng: không gửi, nội dung ghi vào log.
+      MAIL_HOST: ${MAIL_HOST:-}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:-}
+      SECURITY_ALLOW_ANONYMOUS: ${SECURITY_ALLOW_ANONYMOUS:-false}
 
   # --------------------------------------------------------------------------
   # auth-service: thanh toán PayOS (WMS-23.5a). Ba khóa đọc từ .env (file gốc đã truyền vào container).
@@ -147,6 +166,9 @@ services:
       PAYOS_MOCK: ${PAYOS_MOCK:-true}
       PAYOS_RETURN_URL: ${PAYOS_RETURN_URL:-https://${DOMAIN:-wms.toanmarket.me}/payment/result}
       PAYOS_CANCEL_URL: ${PAYOS_CANCEL_URL:-https://${DOMAIN:-wms.toanmarket.me}/payment/result}
+      # Liên kết trong email kích hoạt và đặt lại mật khẩu (WMS-23.6) trỏ về tên miền production; luôn bắt buộc kích hoạt.
+      APP_FRONTEND_URL: ${APP_FRONTEND_URL:-https://${DOMAIN:-wms.toanmarket.me}}
+      REGISTRATION_REQUIRE_ACTIVATION: ${REGISTRATION_REQUIRE_ACTIVATION:-true}
 
   # --------------------------------------------------------------------------
   # inventory-service: file gốc đặt TENANT_DEFAULT_COMPANY_ID mặc định 1 cho môi trường phát triển.
@@ -155,6 +177,18 @@ services:
     environment:
       # Ghi đè thành rỗng: trên máy chủ request không có doanh nghiệp phải bị từ chối (403), không được ngầm coi là doanh nghiệp 1.
       TENANT_DEFAULT_COMPANY_ID: ""
+      SECURITY_ALLOW_ANONYMOUS: ${SECURITY_ALLOW_ANONYMOUS:-false}
+
+  # --------------------------------------------------------------------------
+  # ai-service (WMS-24.1): khóa ANTHROPIC_API_KEY đọc từ .env (file gốc đã truyền vào container). AI_MOCK mặc định vẫn
+  # true để máy chủ chạy được khi chưa có khóa; tech lead đặt khóa rồi đặt AI_MOCK=false trong .env (deploy/README.md,
+  # mục "Khóa AI"). Doanh nghiệp mặc định để rỗng như các service khác.
+  # --------------------------------------------------------------------------
+  ai-service:
+    environment:
+      AI_MOCK: ${AI_MOCK:-true}
+      TENANT_DEFAULT_COMPANY_ID: ""
+      SECURITY_ALLOW_ANONYMOUS: ${SECURITY_ALLOW_ANONYMOUS:-false}
 
 volumes:
   caddy_data:

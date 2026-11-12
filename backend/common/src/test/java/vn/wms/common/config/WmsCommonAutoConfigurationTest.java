@@ -20,6 +20,8 @@ class WmsCommonAutoConfigurationTest {
             assertThat(context).hasSingleBean(GlobalExceptionHandler.class);
             // spring-security-core có trên classpath test nên advice chuyển tiếp lỗi bảo mật cũng được đăng ký
             assertThat(context).hasSingleBean(SecurityExceptionPassthroughAdvice.class);
+            // Bộ lọc chỉ đọc của vai trò INTEGRATION (API key) có ở mọi service servlet
+            assertThat(context).hasBean("wmsIntegrationAccessFilterRegistration");
         });
     }
 

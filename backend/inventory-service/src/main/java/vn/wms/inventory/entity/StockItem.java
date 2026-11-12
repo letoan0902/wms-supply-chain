@@ -2,6 +2,7 @@ package vn.wms.inventory.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EntityListeners;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -13,6 +14,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import vn.wms.common.tenant.TenantEntity;
+import vn.wms.inventory.cache.StockItemCacheListener;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -21,8 +23,10 @@ import java.time.temporal.ChronoUnit;
 /**
  * Tồn kho của một sản phẩm tại một vị trí (theo lô nếu có).
  * Kế thừa TenantEntity để phân tách theo doanh nghiệp (WMS-22.4a).
+ * Mỗi lần thêm, sửa, xóa đều vô hiệu bộ nhớ đệm tổng tồn sau khi giao dịch commit (WMS-19.1, {@link StockItemCacheListener}).
  */
 @Entity
+@EntityListeners(StockItemCacheListener.class)
 @Table(name = "stock_items")
 @Getter
 @Setter

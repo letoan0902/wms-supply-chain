@@ -53,6 +53,13 @@
       "arguments": {}
     },
     {
+      "name": "notification.auth-emails",
+      "vhost": "/",
+      "durable": true,
+      "auto_delete": false,
+      "arguments": {}
+    },
+    {
       "name": "wms.dead-letter",
       "vhost": "/",
       "durable": true,
@@ -107,6 +114,14 @@
       "destination": "notification.alerts",
       "destination_type": "queue",
       "routing_key": "alert.#",
+      "arguments": {}
+    },
+    {
+      "source": "wms.events",
+      "vhost": "/",
+      "destination": "notification.auth-emails",
+      "destination_type": "queue",
+      "routing_key": "auth.#",
       "arguments": {}
     },
     {

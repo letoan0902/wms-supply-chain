@@ -6,6 +6,8 @@ import type {
   BatchBarcodePayload,
   BatchBarcodeResult,
   BreakdownResult,
+  BulkImportResult,
+  BulkProductItem,
   Category,
   CreateProductPayload,
   CreateUnitConversionPayload,
@@ -44,6 +46,19 @@ export async function fetchProductBySku(sku: string): Promise<Product> {
 
 export async function createProduct(payload: CreateProductPayload): Promise<Product> {
   const res = await api.post<ApiResponse<Product>>('/products', payload)
+  return res.data.data
+}
+
+/** Số dòng tối đa của một lần gọi POST /api/products/bulk (nhiều hơn thì backend trả 400 VALIDATION_ERROR). */
+export const PRODUCT_BULK_MAX_ROWS = 500
+
+/**
+ * Nhập hàng hóa hàng loạt (tối đa {@link PRODUCT_BULK_MAX_ROWS} dòng mỗi lần). Mỗi dòng là một giao dịch riêng nên
+ * luôn trả kết quả theo từng dòng: CREATED, SKIPPED (SKU đã có, không ghi đè) hoặc FAILED kèm lý do.
+ */
+export async function bulkImportProducts(items: BulkProductItem[]): Promise<BulkImportResult> {
+  // 500 dòng, mỗi dòng một transaction: cho phép lâu hơn thời gian chờ mặc định 15 giây
+  const res = await api.post<ApiResponse<BulkImportResult>>('/products/bulk', { items }, { timeout: 120000 })
   return res.data.data
 }
 

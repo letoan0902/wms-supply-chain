@@ -167,7 +167,7 @@ export default function BarcodeModal({ open, product, onClose }: BarcodeModalPro
       title={
         <div className="flex items-center gap-2">
           <span className="text-lg font-semibold">In & Xem trước Tem Mã Vạch (ZXing)</span>
-          <Tag color="blue" className="font-mono">{product.sku}</Tag>
+          <Tag color="blue">{product.sku}</Tag>
         </div>
       }
       open={open}
@@ -304,7 +304,7 @@ export default function BarcodeModal({ open, product, onClose }: BarcodeModalPro
 
                 {batchData && (
                   <div className="flex flex-col items-center p-4 bg-slate-50 border border-slate-200 rounded-lg">
-                    <div className="text-xs text-slate-500 mb-2 font-mono">
+                    <div className="text-xs text-slate-500 mb-2">
                       Nội dung mã hóa: {batchData.encodedContent}
                     </div>
                     <img src={batchData.base64Image} alt="batch barcode" className="max-h-36 object-contain" />

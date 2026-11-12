@@ -343,7 +343,7 @@ export default function PurchasesPage() {
             setSelectedOrder(r)
             setIsDetailModalOpen(true)
           }}
-          className="font-mono font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded text-xs cursor-pointer text-left transition-colors"
+          className="font-mono font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded text-xs cursor-pointer text-left transition-colors"
         >
           {val}
         </button>
@@ -404,7 +404,7 @@ export default function PurchasesPage() {
       width: 160,
       align: 'right',
       render: (val: number) => (
-        <span className="font-bold text-slate-800 text-sm">{formatCurrency(val || 0)}</span>
+        <span className="font-semibold text-slate-800 text-sm tabular-nums">{formatCurrency(val || 0)}</span>
       ),
     },
     {
@@ -552,7 +552,7 @@ export default function PurchasesPage() {
             <span>Quản lý & Phê duyệt Đơn Mua Hàng (PO)</span>
           </Title>
           <Text type="secondary" className="text-sm">
-            Quy trình lập PO, lọc đơn chờ duyệt, phê duyệt / từ chối và đồng bộ Incoming Stock (FR10 - WMS-09)
+            Quy trình lập đơn mua, phê duyệt và theo dõi hàng đang về kho.
           </Text>
         </div>
 
@@ -599,7 +599,7 @@ export default function PurchasesPage() {
         <Col xs={12} sm={6}>
           <Card size="small" className="border-l-4 border-l-blue-500 shadow-2xs">
             <div className="text-xs text-slate-500">Tổng số đơn PO</div>
-            <div className="text-xl font-bold text-slate-800 mt-1">
+            <div className="text-xl font-semibold text-slate-800 mt-1 tabular-nums">
               {formatNumber(summary?.totalOrders ?? total)}
             </div>
           </Card>
@@ -608,7 +608,7 @@ export default function PurchasesPage() {
         <Col xs={12} sm={6}>
           <Card size="small" className="border-l-4 border-l-amber-500 shadow-2xs">
             <div className="text-xs text-slate-500">Đơn chờ duyệt (PENDING)</div>
-            <div className="text-xl font-bold text-amber-600 mt-1 flex items-center gap-2">
+            <div className="text-xl font-semibold text-amber-600 mt-1 flex items-center gap-2 tabular-nums">
               <span>{formatNumber(summary?.pendingOrders ?? 0)}</span>
               {(summary?.pendingOrders ?? 0) > 0 && (
                 <Tag color="warning" className="text-[10px] m-0">Cần xử lý</Tag>
@@ -620,7 +620,7 @@ export default function PurchasesPage() {
         <Col xs={12} sm={6}>
           <Card size="small" className="border-l-4 border-l-green-500 shadow-2xs">
             <div className="text-xs text-slate-500">Đã phê duyệt (APPROVED)</div>
-            <div className="text-xl font-bold text-green-600 mt-1">
+            <div className="text-xl font-semibold text-green-600 mt-1 tabular-nums">
               {formatNumber(summary?.approvedOrders ?? 0)}
             </div>
           </Card>
@@ -629,7 +629,7 @@ export default function PurchasesPage() {
         <Col xs={12} sm={6}>
           <Card size="small" className="border-l-4 border-l-purple-500 shadow-2xs">
             <div className="text-xs text-slate-500">Ngân sách đã duyệt</div>
-            <div className="text-xl font-bold text-purple-700 mt-1">
+            <div className="text-xl font-semibold text-purple-700 mt-1 tabular-nums">
               {formatCurrency(summary?.totalApprovedAmount ?? 0)}
             </div>
           </Card>

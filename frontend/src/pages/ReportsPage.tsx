@@ -115,15 +115,15 @@ export default function ReportsPage() {
       <div className="bg-white p-8 rounded-lg shadow-sm border border-slate-200">
         <Result
           status="403"
-          title="403 - Quyền hạn giới hạn"
-          subTitle="Theo phân quyền nghiệp vụ (Mục 2.5.1 & 2.5.2 SRS), vai trò Nhân viên kho (WAREHOUSE_STAFF) chỉ được phân quyền Xem cảnh báo trên Dashboard, không có quyền truy xuất Sổ báo cáo Nhập - Xuất - Tồn kho và dữ liệu tài chính. Vui lòng liên hệ Quản lý kho hoặc Kế toán nếu bạn cần hỗ trợ."
+          title="403 - Giới hạn quyền truy cập"
+          subTitle="Tài khoản của bạn không có quyền truy cập Sổ Báo cáo Nhập - Xuất - Tồn kho. Vui lòng liên hệ Quản lý kho hoặc Kế toán nếu bạn cần hỗ trợ."
           extra={
             <Button
               type="primary"
               onClick={() => navigate('/')}
               className="bg-blue-600 font-medium"
             >
-              Xem Cảnh báo Tồn kho trên Dashboard
+              Về Trang Tổng quan
             </Button>
           }
         />
@@ -131,10 +131,10 @@ export default function ReportsPage() {
     )
   }
 
-  // Xuất file Excel báo cáo Nhập - Xuất - Tồn (Chỉ Kế toán & Admin - SRS 2.5.1)
+  // Xuất file Excel báo cáo Nhập - Xuất - Tồn
   const handleExportExcel = () => {
     if (!canExportExcel) {
-      message.warning('Theo Mục 2.5.1 SRS, chỉ Quản trị viên và Kế toán có quyền xuất báo cáo Excel.')
+      message.warning('Chỉ Quản trị viên và Kế toán mới có quyền xuất báo cáo Excel.')
       return
     }
 
@@ -168,7 +168,7 @@ export default function ReportsPage() {
       dataIndex: 'sku',
       key: 'sku',
       width: 110,
-      render: (sku: string) => <span className="font-mono text-xs font-semibold text-blue-700">{sku}</span>,
+      render: (sku: string) => <span className="text-xs font-semibold text-blue-700">{sku}</span>,
     },
     {
       title: 'Tên hàng hóa',
@@ -177,7 +177,7 @@ export default function ReportsPage() {
       render: (name: string, r) => (
         <div>
           <div className="font-medium text-gray-900 text-xs">{name}</div>
-          <div className="text-[11px] text-gray-500 font-mono">ĐVT: {r.unit} • {r.warehouseName}</div>
+          <div className="text-[11px] text-gray-500">ĐVT: {r.unit} • {r.warehouseName}</div>
         </div>
       ),
     },
@@ -186,21 +186,21 @@ export default function ReportsPage() {
       dataIndex: 'openingQty',
       key: 'openingQty',
       align: 'right',
-      render: (val: number) => <span className="font-mono text-xs">{formatNumber(val)}</span>,
+      render: (val: number) => <span className="text-xs tabular-nums">{formatNumber(val)}</span>,
     },
     {
       title: 'Nhập trong kỳ',
       dataIndex: 'inwardQty',
       key: 'inwardQty',
       align: 'right',
-      render: (val: number) => <span className="font-mono text-xs text-green-600 font-medium">+{formatNumber(val)}</span>,
+      render: (val: number) => <span className="text-xs text-green-600 font-medium tabular-nums">+{formatNumber(val)}</span>,
     },
     {
       title: 'Xuất trong kỳ',
       dataIndex: 'outwardQty',
       key: 'outwardQty',
       align: 'right',
-      render: (val: number) => <span className="font-mono text-xs text-red-600 font-medium">-{formatNumber(val)}</span>,
+      render: (val: number) => <span className="text-xs text-red-600 font-medium tabular-nums">-{formatNumber(val)}</span>,
     },
     {
       title: 'Tồn cuối kỳ',
@@ -210,7 +210,7 @@ export default function ReportsPage() {
       render: (val: number, r) => {
         const isBelowSafety = val <= r.safetyStock
         return (
-          <span className={`font-mono text-xs font-bold ${isBelowSafety ? 'text-amber-600' : 'text-gray-900'}`}>
+          <span className={`text-xs font-semibold tabular-nums ${isBelowSafety ? 'text-amber-600' : 'text-slate-900'}`}>
             {formatNumber(val)}
           </span>
         )
@@ -223,14 +223,14 @@ export default function ReportsPage() {
             dataIndex: 'unitPrice',
             key: 'unitPrice',
             align: 'right' as const,
-            render: (val: number) => <span className="font-mono text-xs text-gray-700">{formatCurrency(val)}</span>,
+            render: (val: number) => <span className="text-xs text-slate-600 tabular-nums">{formatCurrency(val)}</span>,
           },
           {
             title: 'Tổng giá trị tồn',
             dataIndex: 'totalValue',
             key: 'totalValue',
             align: 'right' as const,
-            render: (val: number) => <span className="font-mono text-xs font-bold text-gray-900">{formatCurrency(val)}</span>,
+            render: (val: number) => <span className="text-xs font-semibold text-slate-900 tabular-nums">{formatCurrency(val)}</span>,
           },
         ]
       : []),
@@ -265,8 +265,8 @@ export default function ReportsPage() {
         />
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <Title level={4} className="!mb-0 font-bold text-gray-900">
-              Sổ Báo Cáo Nhập - Xuất - Tồn Kho (UC-10)
+            <Title level={4} className="!mb-0 font-semibold text-slate-900">
+              Sổ Báo Cáo Nhập - Xuất - Tồn Kho
             </Title>
             <Text type="secondary" className="text-xs">
               Theo dõi biến động hàng tồn, đối soát thẻ kho và xác định giá trị tồn kho theo thời gian thực
@@ -282,10 +282,10 @@ export default function ReportsPage() {
                 onClick={handleExportExcel}
                 className="bg-emerald-600 hover:!bg-emerald-500 font-medium text-xs"
               >
-                Xuất Báo Cáo Excel (.xlsx)
+                Xuất Excel (.xlsx)
               </Button>
             ) : (
-              <Tooltip title="Theo Mục 2.5.1 SRS: Chỉ Quản trị viên và Kế toán có quyền xuất báo cáo Excel.">
+              <Tooltip title="Chỉ Quản trị viên và Kế toán mới có quyền xuất báo cáo Excel.">
                 <Button icon={<LockOutlined />} disabled className="text-xs">
                   Xuất Excel
                 </Button>
@@ -300,9 +300,9 @@ export default function ReportsPage() {
         <Alert
           type="warning"
           showIcon
-          message="Phân quyền Cấp Chi nhánh (Warehouse Scope - SRS 2.5.2)"
-          description="Bạn đang xem dữ liệu báo cáo thuộc phạm vi các kho bạn được phân công phụ trách. Dữ liệu các chi nhánh khác và thông tin doanh thu tài chính được ẩn để bảo mật."
-          className="text-xs border-amber-200 bg-amber-50/50"
+          message="Phạm vi chi nhánh phụ trách"
+          description="Dữ liệu báo cáo được giới hạn theo các kho bạn được phân công quản lý."
+          className="text-xs border-amber-200/80 bg-amber-50/40 rounded-lg"
         />
       )}
 
@@ -340,7 +340,7 @@ export default function ReportsPage() {
             </div>
           </Space>
 
-          <Text type="secondary" className="text-xs font-mono">
+          <Text type="secondary" className="text-xs">
             Hiển thị {filteredData.length} mặt hàng
           </Text>
         </div>

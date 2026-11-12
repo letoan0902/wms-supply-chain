@@ -90,16 +90,16 @@ export default function RecordCustomerTransactionModal({
       destroyOnClose
     >
       {customer && (
-        <div className="p-3 bg-gray-50 rounded-lg border border-gray-200 mb-4 flex justify-between items-center">
+        <div className="p-3 bg-slate-50/80 rounded-lg border border-slate-200/80 mb-4 flex justify-between items-center">
           <div>
-            <span className="text-xs text-gray-500 block">Công nợ hiện tại:</span>
-            <span className="font-bold text-gray-800 text-sm">
+            <span className="text-xs text-slate-500 block">Công nợ hiện tại:</span>
+            <span className="text-sm font-semibold text-slate-800 tabular-nums">
               {formatCurrency(customer.currentDebt)}
             </span>
           </div>
-          <div>
-            <span className="text-xs text-gray-500 block">Hạn mức tín dụng:</span>
-            <span className="font-semibold text-blue-600 text-sm">
+          <div className="text-right">
+            <span className="text-xs text-slate-500 block">Hạn mức tín dụng:</span>
+            <span className="text-sm font-semibold text-slate-800 tabular-nums">
               {formatCurrency(customer.creditLimit)}
             </span>
           </div>

@@ -187,7 +187,7 @@ export default function UnitConversionModal({
       key: 'conversionFactor',
       render: (_: unknown, record: UnitConversion) => (
         <span>
-          = <strong className="text-blue-600 font-mono text-base">{record.conversionFactor}</strong>{' '}
+          = <strong className="text-blue-600 font-semibold text-base tabular-nums">{record.conversionFactor}</strong>{' '}
           {record.toUomName} ({record.toUomCode})
         </span>
       ),
@@ -198,7 +198,7 @@ export default function UnitConversionModal({
       render: (_: unknown, record: UnitConversion) => {
         if (!record.factorToBase) return <span className="text-slate-400">-</span>
         return (
-          <Tag color="cyan" className="font-mono text-sm px-2 py-0.5">
+          <Tag color="cyan" className="text-sm px-2 py-0.5 tabular-nums">
             = {record.factorToBase} {product?.uomName || product?.uomCode}
           </Tag>
         )
@@ -208,7 +208,7 @@ export default function UnitConversionModal({
       title: 'Mã vạch bao bì',
       dataIndex: 'barcode',
       key: 'barcode',
-      render: (text?: string) => (text ? <span className="font-mono text-xs">{text}</span> : <span className="text-slate-400">Không</span>),
+      render: (text?: string) => (text ? <span className="text-xs tabular-nums">{text}</span> : <span className="text-slate-400">Không</span>),
     },
     {
       title: 'Mô tả',
@@ -243,7 +243,7 @@ export default function UnitConversionModal({
       title={
         <div className="flex items-center gap-2">
           <span className="text-lg font-semibold">Cấu hình Quy đổi Đơn vị tính Đa cấp</span>
-          <Tag color="blue" className="font-mono">{product.sku}</Tag>
+          <Tag color="blue">{product.sku}</Tag>
         </div>
       }
       open={open}
@@ -410,7 +410,7 @@ export default function UnitConversionModal({
                   {calcResult && (
                     <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-slate-800">
                       Kết quả: <strong>{calcQuantity}</strong> đơn vị vừa chọn ={' '}
-                      <span className="text-xl font-bold text-blue-700 font-mono">
+                      <span className="text-xl font-bold text-blue-700 tabular-nums">
                         {calcResult.baseQuantity}
                       </span>{' '}
                       <strong>{product.uomName || product.uomCode}</strong> (Hệ số quy đổi tích lũy: x{calcResult.conversionRate})

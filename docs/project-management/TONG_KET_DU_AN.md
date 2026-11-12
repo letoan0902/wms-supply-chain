@@ -54,8 +54,7 @@ Tiêu chí lấy từ [CONTRIBUTING.md](../../CONTRIBUTING.md) mục 7.
 - Độ trễ vượt 500 ms khi tải 40 thao tác mỗi giây dồn vào một mặt hàng (đạt tới 20 thao tác mỗi giây); chưa phân tích
   điểm nghẽn, chưa đo trên máy chủ ([PERFORMANCE.md](../PERFORMANCE.md) mục 5.4).
 - Tồn kho chưa có giá vốn: thẻ Giá trị tồn kho và các báo cáo chưa có cột giá trị.
-- Giao diện: chưa bấm thử từng bước các màn hình đăng ký doanh nghiệp, nhập dữ liệu bằng AI, đối soát và duyệt kiểm kê,
-  thanh toán; chưa thử các vai trò khác Quản trị, chưa thử bề ngang điện thoại; chưa có test tự động.
+- Giao diện: chưa bấm thử từng bước các màn hình đăng ký doanh nghiệp, đối soát và duyệt kiểm kê, thanh toán; chưa thử các vai trò khác Quản trị, chưa thử bề ngang điện thoại; chưa có test tự động.
 - Các điểm nghiệp vụ chưa chốt ghi ở [TEST_PLAN.md](../TEST_PLAN.md) mục 2.5 (hóa đơn mua không cộng VAT, người lập tự
   duyệt đơn mua, phiếu xuất cho đơn thiếu hàng).
 

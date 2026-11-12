@@ -11,7 +11,7 @@ Kết quả kiểm thử của hệ thống tính đến ngày 12/11/2026 (WMS-2
 | Độ phủ của test tự động backend (JaCoCo) | 14.247 dòng lệnh, 6.574 nhánh | Dòng 90,0%; nhánh 69,7% |
 | Kiểm thử đầu cuối qua API (Postman CLI) | 4 bộ, 478 ca, 537 request, 1.258 kiểm tra | Đạt toàn bộ (lượt đầu 32 kiểm tra không đạt, đã sửa) |
 | Tải đồng thời và bất biến tồn kho | 15 ca, ba mức tải 10, 20, 40 thao tác mỗi giây | 14 ca đạt; ca độ trễ đạt tới 20 thao tác mỗi giây, vượt 500 ms ở 40 |
-| AI với Claude thật (model claude-sonnet-5-5) | Trợ lý, tóm tắt dashboard, trích xuất Excel, ảnh, PDF | Đạt khi gọi qua API và trên giao diện dashboard |
+| AI với Claude thật (model claude-sonnet-5-5) | Trợ lý, tóm tắt dashboard, trích xuất Excel, ảnh, PDF | Đạt khi gọi qua API; trên giao diện đã thử tóm tắt dashboard và màn hình nhập bằng AI |
 | Bấm thử giao diện | Các màn hình làm trong tuần 10 đến 12/11 | Xem mục 5; tìm thấy và sửa một lỗi ở màn hình đếm kiểm kê |
 | Frontend | `npm run lint`, `npm run build` | Đạt; frontend chưa có test tự động |
 
@@ -84,7 +84,8 @@ Trên hệ thống thử ở máy, tài khoản Quản trị của một doanh n
 | Đăng nhập | Đăng nhập bằng tài khoản thử | Đạt; ô tên đăng nhập không còn gợi ý tài khoản mặc định |
 | Dashboard | Xem thẻ KPI, tóm tắt AI, cảnh báo, ba biểu đồ mới | Đạt, số khớp dữ liệu thử (một đơn mua 4.840.000 đ, nhập 242, ba cảnh báo) |
 | Chuông cảnh báo | Mở chuông, xem ba cảnh báo, bấm "Tạo đơn mua nháp" | Đạt: form đơn mua điền sẵn hàng và kho, số lượng để trống |
-| Kiểm kê | Tạo đợt toàn kho, bắt đầu (đóng băng ba vị trí), mở màn hình đếm, quét mã vị trí, quét mã vạch và SKU | Màn hình không hiện số hệ thống. Lỗi: quét hàng không quản lý theo lô bị ghi thành hàng phát sinh thay vì cộng vào dòng cần đếm; đã sửa ở giao diện |
+| Kiểm kê | Tạo đợt toàn kho, bắt đầu (đóng băng ba vị trí), mở màn hình đếm, quét mã vị trí, quét mã vạch và SKU | Màn hình không hiện số hệ thống. Lỗi: quét hàng không quản lý theo lô bị ghi thành hàng phát sinh thay vì cộng vào dòng cần đếm; đã sửa ở giao diện và thử lại đạt. Hàng theo lô quét thiếu số lô thì bị từ chối kèm hướng dẫn |
+| Nhập dữ liệu bằng AI (Claude thật) | Tải file CSV ba dòng có tiêu đề cột khác mẫu, trích xuất, xem trước, bấm nhập | Đạt: AI ghép đúng năm cột, ba dòng đọc đúng; kết quả nhập hai dòng tạo mới, một dòng bỏ qua vì mã đã có |
 
-Phần còn lại của giao diện (đăng ký doanh nghiệp, nhập dữ liệu bằng AI, đối soát và duyệt kiểm kê, thanh toán) chưa được
-bấm thử từng bước; luồng nghiệp vụ tương ứng đã qua bộ Postman.
+Phần còn lại của giao diện (đăng ký doanh nghiệp, đối soát và duyệt kiểm kê, thanh toán, khung trợ lý AI với Claude
+thật) chưa được bấm thử từng bước trong lượt này; luồng nghiệp vụ tương ứng đã qua bộ Postman.

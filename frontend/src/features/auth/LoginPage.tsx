@@ -82,7 +82,6 @@ export default function LoginPage() {
       saveAuth(
         result.accessToken,
         { username: result.username, roles: result.roles, company: result.company, subscription: result.subscription },
-        result.refreshToken,
       )
       message.success('Đăng nhập thành công')
       navigate(redirectTo, { replace: true })

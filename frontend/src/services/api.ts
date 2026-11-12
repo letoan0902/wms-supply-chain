@@ -3,9 +3,7 @@ import type { ApiErrorResponse, ApiResponse } from '../types/api'
 import type { RefreshTokenResponse } from '../types/auth'
 import {
   clearAuth,
-  getRefreshToken,
   getToken,
-  saveRefreshToken,
   saveToken,
 } from '../utils/storage'
 import { loginPathWithRedirect } from '../features/auth/loginRedirect'
@@ -166,23 +164,25 @@ api.interceptors.response.use(
       originalRequest._retry = true
       isRefreshing = true
 
-      const currentRefreshToken = getRefreshToken()
-      if (!currentRefreshToken) {
-        clearAuth()
-        if (window.location.pathname !== LOGIN_PATH) {
-          window.location.assign(loginPathWithRedirect())
-        }
-        return Promise.reject(error)
-      }
+      // const currentRefreshToken = getRefreshToken()
+      // if (!currentRefreshToken) {
+      //   clearAuth()
+      //   if (window.location.pathname !== LOGIN_PATH) {
+      //     window.location.assign(loginPathWithRedirect())
+      //   }
+      //   return Promise.reject(error)
+      // }
 
       try {
         // Gọi API refresh qua axios độc lập (không qua instance `api` để tránh đệ quy interceptor)
         const refreshResponse = await axios.post<ApiResponse<RefreshTokenResponse>>(
-          `${api.defaults.baseURL || '/api'}/auth/refresh`,
-          { refreshToken: currentRefreshToken },
-          { headers: { 'Content-Type': 'application/json' } },
-        )
-
+        `${api.defaults.baseURL || '/api'}/auth/refresh`,
+        {},
+        {
+          headers: { 'Content-Type': 'application/json' },
+          withCredentials: true,
+        },
+)
         const data = refreshResponse.data?.data
         const newAccessToken = data?.accessToken
         const newRefreshToken = data?.refreshToken
@@ -193,9 +193,9 @@ api.interceptors.response.use(
 
         // Cập nhật Access Token mới (và Refresh Token mới nếu backend xoay vòng RTR)
         saveToken(newAccessToken)
-        if (newRefreshToken) {
-          saveRefreshToken(newRefreshToken)
-        }
+        // if (newRefreshToken) {
+        //   saveRefreshToken(newRefreshToken)
+        // }
 
         // Giải phóng hàng đợi và thông báo token mới cho các request đang chờ
         processQueue(null, newAccessToken)

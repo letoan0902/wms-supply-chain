@@ -25,6 +25,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.security.SecureRandom;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Base64;
 import java.util.HexFormat;
 import java.util.List;
@@ -123,7 +124,8 @@ public class ApiKeyService {
             if (usedAt != null && (apiKey.getLastUsedAt() == null || usedAt.isAfter(apiKey.getLastUsedAt()))) {
                 apiKey.setLastUsedAt(usedAt);
             }
-            apiKey.setRevokedAt(Instant.now());
+            // Cắt về micro giây như cột DATETIME(6): phản hồi lần thu hồi đầu và các lần đọc lại sau đó trùng khít
+            apiKey.setRevokedAt(Instant.now().truncatedTo(ChronoUnit.MICROS));
             apiKey = apiKeyRepository.save(apiKey);
             log.info("Doanh nghiệp {} thu hồi API key ID {} (tiền tố {})", companyId, apiKey.getId(),
                     apiKey.getKeyPrefix());

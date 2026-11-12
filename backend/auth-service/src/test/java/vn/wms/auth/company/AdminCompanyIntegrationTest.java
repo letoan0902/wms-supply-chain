@@ -64,7 +64,8 @@ public class AdminCompanyIntegrationTest extends BaseIntegrationTest {
         mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(loginReq)))
-                .andExpect(status().isUnauthorized());
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("COMPANY_INACTIVE"));
 
         // 3. Admin toàn hệ thống đăng nhập và xem danh sách công ty chờ duyệt
         String adminToken = loginAndGetToken("admin", DEFAULT_PASSWORD);
@@ -82,7 +83,7 @@ public class AdminCompanyIntegrationTest extends BaseIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.name").value("Công ty TNHH Vận Tải Quốc Tế"))
                 .andExpect(jsonPath("$.data.status").value("PENDING"))
-                .andExpect(jsonPath("$.data.adminUser.enabled").value(false));
+                .andExpect(jsonPath("$.data.adminUser.enabled").value(true));
 
         // 5. Admin phê duyệt công ty và cấp gói dùng thử 30 ngày
         ApproveCompanyRequest approveReq = new ApproveCompanyRequest("TRIAL", 30, null, "Xác minh qua điện thoại");

@@ -185,7 +185,7 @@ api.interceptors.response.use(
 )
         const data = refreshResponse.data?.data
         const newAccessToken = data?.accessToken
-        const newRefreshToken = data?.refreshToken
+        // const newRefreshToken = data?.refreshToken
 
         if (!newAccessToken) {
           throw new Error('Không nhận được Access Token mới từ máy chủ')

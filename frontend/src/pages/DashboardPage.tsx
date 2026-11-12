@@ -2,328 +2,352 @@ import {
   AlertOutlined,
   CalendarOutlined,
   DownloadOutlined,
-  InfoCircleOutlined,
   LockOutlined,
+  ReloadOutlined,
   ShopOutlined,
   WarningOutlined,
 } from '@ant-design/icons'
-import {
-  Alert,
-  App,
-  Button,
-  Card,
-  Col,
-  Empty,
-  Row,
-  Select,
-  Space,
-  Statistic,
-  Table,
-  Tag,
-  Tooltip,
-  Typography,
-} from 'antd'
+import { Alert, App, Button, Card, Col, Empty, Row, Select, Space, Table, Tag, Tooltip, Typography } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import type { ReactNode } from 'react'
-import { useEffect, useMemo, useState } from 'react'
-import {
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Label,
-  Legend,
-  Pie,
-  PieChart,
-  ResponsiveContainer,
-  Tooltip as RechartsTooltip,
-  XAxis,
-  YAxis,
-} from 'recharts'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Label, Legend, Pie, PieChart, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts'
 import * as XLSX from 'xlsx'
 import AiSummaryCard from '../features/ai/components/AiSummaryCard'
+import { fetchDashboardKpiSummary, fetchTrendingItems } from '../features/dashboard/dashboardApi'
+import type { DashboardTimeRange, KpiCardKey, KpiSummaryResponse } from '../features/dashboard/types'
+import { useDashboardRequest } from '../features/dashboard/useDashboardRequest'
+import { fetchAlerts } from '../features/inventory/inventoryApi'
+import { alertTagLabel, KIND_LABELS, SEVERITY_COLORS } from '../features/inventory/inventoryUtils'
+import type { StockAlert, StockAlertKind } from '../features/inventory/types'
+import { ROLE_CONFIG } from '../features/users/types'
 import { fetchWarehouses } from '../features/warehouses/warehouseApi'
 import type { Warehouse } from '../features/warehouses/types'
 import { formatCurrency, formatNumber } from '../utils/format'
 import { getStoredUser } from '../utils/storage'
-import { fetchDashboardKpiSummary } from '../features/dashboard/dashboardApi'
-import type { KpiCardKey, KpiSummaryResponse } from '../features/dashboard/types'
-import {
-  monthlyTradeFinancial,
-  monthlyTradeOperations,
-  stockAlertSamples,
-  trendingItems,
-  type StockAlertItem,
-} from './dashboardSampleData'
 
 const { Title, Text } = Typography
 
+/** Số cảnh báo hiển thị trên dashboard; danh sách đầy đủ ở màn hình Tồn kho. */
+const ALERT_PAGE_SIZE = 8
+
+const TIME_RANGE_OPTIONS: { label: string; value: DashboardTimeRange }[] = [
+  { label: 'Hôm nay', value: 'today' },
+  { label: '7 ngày qua', value: '7d' },
+  { label: 'Tháng này', value: 'month' },
+  { label: 'Quý này', value: 'quarter' },
+]
+
 const renderLegendText = (value: ReactNode) => <span className="text-neutral-600 text-xs">{value}</span>
 
-function getKpiFilterLabel(cardKey: KpiCardKey): string {
-  switch (cardKey) {
-    case 'receivables':
-      return 'Công nợ phải thu'
-    case 'payables':
-      return 'Công nợ phải trả'
-    case 'inventoryValuation':
-      return 'Giá trị kho'
-    case 'monthlyRevenue':
-      return 'Doanh số tháng'
-    case 'availableStock':
-      return 'Tồn kho khả dụng'
-    case 'pendingSalesOrders':
-      return 'Đơn bán (SO)'
-    case 'pendingPurchaseOrders':
-      return 'Đơn mua (PO)'
-    case 'warehouseUtilization':
-      return 'Tỷ lệ lấp đầy'
-    default:
-      return ''
-  }
+/** Một thẻ KPI đã định dạng để hiển thị. */
+interface KpiCardView {
+  key: KpiCardKey
+  title: string
+  value: string
+  subText: string
+  /** Loại cảnh báo tồn kho mà thẻ lọc khi bấm (Click to Filter); không có thì thẻ không bấm được */
+  alertKind?: StockAlertKind
+}
+
+/** Chưa tính được (backend trả null) thì hiện gạch ngang, lời giải thích nằm ở subText. */
+const NOT_AVAILABLE = '—'
+
+function money(amount: number | null | undefined): string {
+  return amount === null || amount === undefined ? NOT_AVAILABLE : formatCurrency(Number(amount))
+}
+
+function quantity(value: number | null | undefined): string {
+  return value === null || value === undefined ? NOT_AVAILABLE : formatNumber(Number(value))
+}
+
+/**
+ * Lắp 8 thẻ theo thứ tự của SRS từ dữ liệu backend, bỏ các thẻ vai trò hiện tại không được xem (`visible = false`).
+ * Không có số mặc định: số nào backend không tính được thì hiện gạch ngang kèm lời giải thích của backend.
+ */
+function buildKpiCards(data: KpiSummaryResponse): KpiCardView[] {
+  const cards: (KpiCardView & { visible: boolean })[] = [
+    {
+      key: 'receivables',
+      title: data.receivables.title,
+      value: money(data.receivables.amount),
+      subText: data.receivables.subText ?? '',
+      visible: data.receivables.visible,
+    },
+    {
+      key: 'payables',
+      title: data.payables.title,
+      value: money(data.payables.amount),
+      subText: data.payables.subText ?? '',
+      visible: data.payables.visible,
+    },
+    {
+      key: 'inventoryValuation',
+      title: data.inventoryValuation.title,
+      value: money(data.inventoryValuation.amount),
+      subText: data.inventoryValuation.subText ?? '',
+      visible: data.inventoryValuation.visible,
+      alertKind: 'EXPIRED',
+    },
+    {
+      key: 'monthlyRevenue',
+      title: data.monthlyRevenue.title,
+      value: money(data.monthlyRevenue.amount),
+      // Tăng trưởng null (tháng trước không có doanh số): backend đã ghi lý do trong subText
+      subText: data.monthlyRevenue.subText ?? '',
+      visible: data.monthlyRevenue.visible,
+    },
+    {
+      key: 'availableStock',
+      title: data.availableStock.title,
+      value: quantity(data.availableStock.totalQuantity),
+      subText: data.availableStock.subText ?? '',
+      visible: data.availableStock.visible,
+      alertKind: 'LOW_STOCK',
+    },
+    {
+      key: 'pendingSalesOrders',
+      title: data.pendingSalesOrders.title,
+      value: quantity(data.pendingSalesOrders.totalOrders),
+      subText: data.pendingSalesOrders.subText ?? '',
+      visible: data.pendingSalesOrders.visible,
+      alertKind: 'NEAR_EXPIRY',
+    },
+    {
+      key: 'pendingPurchaseOrders',
+      title: data.pendingPurchaseOrders.title,
+      value: quantity(data.pendingPurchaseOrders.totalOrders),
+      subText: data.pendingPurchaseOrders.subText ?? '',
+      visible: data.pendingPurchaseOrders.visible,
+      alertKind: 'LOW_STOCK',
+    },
+    {
+      key: 'warehouseUtilization',
+      title: data.warehouseUtilization.title,
+      value:
+        data.warehouseUtilization.occupancyRatePercentage === null ||
+        data.warehouseUtilization.occupancyRatePercentage === undefined
+          ? NOT_AVAILABLE
+          : `${data.warehouseUtilization.occupancyRatePercentage}%`,
+      subText: data.warehouseUtilization.subText ?? '',
+      visible: data.warehouseUtilization.visible,
+      alertKind: 'DEAD_STOCK',
+    },
+  ]
+  return cards.filter((card) => card.visible)
 }
 
 export default function DashboardPage() {
   const { message } = App.useApp()
-  const currentUser = getStoredUser()
-  const roles = currentUser?.roles || []
+  // Đọc phiên một lần: getStoredUser() tạo mảng warehouseIds mới mỗi lần gọi, đưa vào dependency sẽ gọi lại API liên tục
+  const [currentUser] = useState(() => getStoredUser())
+  const roles = useMemo(() => currentUser?.roles ?? [], [currentUser])
+  const userWarehouseIds = useMemo(() => currentUser?.warehouseIds ?? [], [currentUser])
 
-  // Phân quyền theo SRS Mục 2.5.1 & 2.5.2
+  // Phân quyền theo SRS Mục 2.5.1 & 2.5.2 (backend vẫn là nơi quyết định: che số tiền, lọc theo kho)
   const isAdmin = roles.includes('ADMIN')
   const isAccountant = roles.includes('ACCOUNTANT')
   const isWarehouseManager = roles.includes('WAREHOUSE_MANAGER')
   const isWarehouseStaff = roles.includes('WAREHOUSE_STAFF') && !isAdmin && !isAccountant && !isWarehouseManager
-
-  // Phân quyền nghiệp vụ
   const isGlobalScope = isAdmin || isAccountant
-  const canViewFinancials = isAdmin || isAccountant
   const canExportExcel = isAdmin || isAccountant
+  const roleLabel = roles.map((r) => ROLE_CONFIG[r]?.label ?? r).join(', ')
 
   // State bộ lọc Kho và Thời gian
   const [warehouses, setWarehouses] = useState<Warehouse[]>([])
   const [selectedWarehouseId, setSelectedWarehouseId] = useState<number | 'all'>('all')
-  const [timeRange, setTimeRange] = useState<string>('month')
+  const [timeRange, setTimeRange] = useState<DashboardTimeRange>('month')
   const [loadingWarehouses, setLoadingWarehouses] = useState<boolean>(true)
-
-  // State dữ liệu 8 thẻ KPI thời gian thực & tương tác Click-to-Filter (WMS-16.3)
-  const [kpiData, setKpiData] = useState<KpiSummaryResponse | null>(null)
-  const [loadingKpi, setLoadingKpi] = useState<boolean>(true)
   const [activeKpiCard, setActiveKpiCard] = useState<KpiCardKey | null>(null)
+  const [reloadToken, setReloadToken] = useState(0)
 
-  // 1. Tải danh mục Kho từ backend
+  // 1. Tải danh mục Kho; vai trò theo kho mặc định chọn kho đầu tiên được gán
   useEffect(() => {
     let mounted = true
-    async function load() {
-      try {
-        const list = await fetchWarehouses({ active: true })
+    fetchWarehouses({ active: true })
+      .then((list) => {
         if (!mounted) return
         setWarehouses(list)
-
-        // Phân quyền dữ liệu theo phạm vi kho (Warehouse Scope - SRS 2.5.2):
-        if (!isGlobalScope) {
-          const userWarehouseIds = currentUser?.warehouseIds || []
-          if (userWarehouseIds.length > 0) {
-            setSelectedWarehouseId(userWarehouseIds[0])
-          } else if (list.length > 0) {
-            setSelectedWarehouseId(list[0].id)
-          }
+        if (!isGlobalScope && userWarehouseIds.length > 0) {
+          setSelectedWarehouseId(userWarehouseIds[0])
         }
-      } catch {
-        // Fallback danh mục kho mặc định
-      } finally {
+      })
+      .catch(() => {
+        // Không tải được danh mục kho: vẫn hiển thị số liệu theo phạm vi backend tự xác định
+      })
+      .finally(() => {
         if (mounted) setLoadingWarehouses(false)
-      }
-    }
-    void load()
+      })
     return () => {
       mounted = false
     }
-  }, [isGlobalScope, currentUser?.warehouseIds])
+  }, [isGlobalScope, userWarehouseIds])
 
-  // 2. Tải số liệu 8 thẻ KPI điều hành thời gian thực từ backend (WMS-16.1 / WMS-16.3)
-  useEffect(() => {
-    let mounted = true
-    if (!isAdmin && !isAccountant && !isWarehouseManager) {
-      setLoadingKpi(false)
-      return
-    }
-
-    async function loadKpi() {
-      setLoadingKpi(true)
-      try {
-        const data = await fetchDashboardKpiSummary(selectedWarehouseId, timeRange)
-        if (mounted) {
-          setKpiData(data)
-        }
-      } catch (err) {
-        console.warn('Không tải được số liệu KPI:', err)
-      } finally {
-        if (mounted) {
-          setLoadingKpi(false)
-        }
-      }
-    }
-
-    void loadKpi()
-    return () => {
-      mounted = false
-    }
-  }, [selectedWarehouseId, timeRange, isAdmin, isAccountant, isWarehouseManager])
-
-  // Lọc danh sách kho mà người dùng có quyền chọn
+  // Danh sách kho người dùng được chọn: ADMIN, ACCOUNTANT mọi kho; vai trò khác chỉ kho được gán
   const allowedWarehouses = useMemo(() => {
     if (isGlobalScope) return warehouses
-    const userWhIds = currentUser?.warehouseIds || []
-    if (userWhIds.length === 0) return warehouses.slice(0, 1)
-    return warehouses.filter((w) => userWhIds.includes(w.id))
-  }, [warehouses, isGlobalScope, currentUser?.warehouseIds])
+    return warehouses.filter((w) => userWarehouseIds.includes(w.id))
+  }, [warehouses, isGlobalScope, userWarehouseIds])
 
-  // Lọc danh sách cảnh báo theo kho và theo thẻ KPI đang được chọn (Click to Filter)
-  const filteredAlerts = useMemo(() => {
-    let list = stockAlertSamples
-    if (selectedWarehouseId !== 'all') {
-      list = list.filter((a) => a.warehouseId === selectedWarehouseId)
-    }
+  // Chỉ gọi số liệu khi đã biết kho mặc định, tránh gọi hai lần lúc mở trang
+  const scopeKey = loadingWarehouses ? null : `${selectedWarehouseId}:${timeRange}:${reloadToken}`
 
-    if (!activeKpiCard) return list
+  // 2. Tám thẻ KPI (WMS-16.1, GET /api/notifications/dashboard/kpi-summary)
+  const loadKpi = useCallback(
+    () => fetchDashboardKpiSummary(selectedWarehouseId, timeRange),
+    [selectedWarehouseId, timeRange],
+  )
+  const kpi = useDashboardRequest(scopeKey, loadKpi, 'Không tải được số liệu thẻ KPI')
+  const kpiCards = useMemo(() => (kpi.data ? buildKpiCards(kpi.data) : []), [kpi.data])
 
-    switch (activeKpiCard) {
-      case 'availableStock':
-        return list.filter((a) => a.code === 'WARN-01' || a.code === 'WARN-02')
-      case 'pendingPurchaseOrders':
-        return list.filter((a) => a.code === 'WARN-02' || a.code === 'WARN-01')
-      case 'pendingSalesOrders':
-        return list.filter((a) => a.code === 'WARN-03')
-      case 'warehouseUtilization':
-        return list.filter((a) => a.code === 'ERR-04')
-      default:
-        return list
-    }
-  }, [selectedWarehouseId, activeKpiCard])
+  // 3. Biểu đồ mặt hàng xuất bán chạy (WMS-16.2, GET /api/orders/reports/trending-items)
+  const loadTrending = useCallback(
+    () => fetchTrendingItems(selectedWarehouseId, timeRange),
+    [selectedWarehouseId, timeRange],
+  )
+  const trending = useDashboardRequest(scopeKey, loadTrending, 'Không tải được thống kê mặt hàng bán chạy')
 
-  const handleToggleCardFilter = (cardKey: KpiCardKey) => {
-    setActiveKpiCard((prev) => (prev === cardKey ? null : cardKey))
+  // 4. Cảnh báo tồn kho thật (GET /api/inventory/alerts), lọc theo thẻ KPI đang chọn (Click to Filter)
+  const activeCard = kpiCards.find((card) => card.key === activeKpiCard)
+  const alertKind = activeCard?.alertKind
+  const alertKey = loadingWarehouses ? null : `${selectedWarehouseId}:${alertKind ?? 'ALL'}:${reloadToken}`
+  const loadAlerts = useCallback(
+    () =>
+      fetchAlerts({
+        kind: alertKind,
+        warehouseId: selectedWarehouseId === 'all' ? undefined : selectedWarehouseId,
+        page: 0,
+        size: ALERT_PAGE_SIZE,
+      }),
+    [alertKind, selectedWarehouseId],
+  )
+  const alerts = useDashboardRequest(alertKey, loadAlerts, 'Không tải được cảnh báo tồn kho')
+
+  const handleToggleCardFilter = (card: KpiCardView) => {
+    if (!card.alertKind) return
+    setActiveKpiCard((prev) => (prev === card.key ? null : card.key))
   }
 
-  // Xuất file Excel báo cáo tổng quan
+  const reloadAll = () => setReloadToken((token) => token + 1)
+
+  // Xuất Excel số liệu đang hiển thị (thẻ KPI và mặt hàng bán chạy), không có số mẫu
   const handleExportExcel = () => {
     if (!canExportExcel) {
       message.warning('Chỉ Quản trị viên và Kế toán mới có quyền xuất báo cáo Excel.')
       return
     }
+    if (!kpi.data) {
+      message.warning('Chưa có số liệu KPI để xuất.')
+      return
+    }
+    const scope =
+      selectedWarehouseId === 'all'
+        ? 'Toàn hệ thống'
+        : (allowedWarehouses.find((w) => w.id === selectedWarehouseId)?.name ?? `Kho #${selectedWarehouseId}`)
 
-    const dataToExport = [
-      {
-        'Chỉ số / Danh mục': 'Công nợ phải thu',
-        'Giá trị': '248,500,000 đ',
-        'Phạm vi': selectedWarehouseId === 'all' ? 'Toàn hệ thống' : `Kho ID #${selectedWarehouseId}`,
-        'Ghi chú': '12 khách hàng còn dư nợ đến hạn',
-      },
-      {
-        'Chỉ số / Danh mục': 'Công nợ phải trả',
-        'Giá trị': '132,800,000 đ',
-        'Phạm vi': selectedWarehouseId === 'all' ? 'Toàn hệ thống' : `Kho ID #${selectedWarehouseId}`,
-        'Ghi chú': '4 nhà cung cấp đến hạn trong tuần',
-      },
-      {
-        'Chỉ số / Danh mục': 'Giá trị tồn kho',
-        'Giá trị': '1,420,000,000 đ',
-        'Phạm vi': selectedWarehouseId === 'all' ? 'Toàn hệ thống' : `Kho ID #${selectedWarehouseId}`,
-        'Ghi chú': 'Giá vốn bình quân lưu kho',
-      },
-      {
-        'Chỉ số / Danh mục': 'Doanh số bán tháng',
-        'Giá trị': '655,000,000 đ',
-        'Phạm vi': selectedWarehouseId === 'all' ? 'Toàn hệ thống' : `Kho ID #${selectedWarehouseId}`,
-        'Ghi chú': 'Tổng giá trị hóa đơn xuất',
-      },
-    ]
+    const kpiRows = kpiCards.map((card) => ({
+      'Chỉ số': card.title,
+      'Giá trị': card.value,
+      'Phạm vi': scope,
+      'Ghi chú': card.subText,
+    }))
+    const trendingRows = (trending.data?.slices ?? []).map((slice) => ({
+      'Mã hàng': slice.productId === null ? '' : slice.sku,
+      'Tên hàng': slice.name,
+      'Số lượng': Number(slice.quantity),
+      'Đơn vị': slice.uom,
+      'Tỷ trọng (%)': slice.percentage,
+    }))
 
-    const worksheet = XLSX.utils.json_to_sheet(dataToExport)
     const workbook = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'KPI_Dashboard')
+    XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(kpiRows), 'KPI')
+    if (trendingRows.length > 0) {
+      XLSX.utils.book_append_sheet(workbook, XLSX.utils.json_to_sheet(trendingRows), 'Mat_hang_ban_chay')
+    }
     const fileName = `WMS_Bao_Cao_KPI_${new Date().toISOString().slice(0, 10)}.xlsx`
     XLSX.writeFile(workbook, fileName)
     message.success(`Đã xuất báo cáo KPI: ${fileName}`)
   }
 
-  // Cột cho bảng cảnh báo kho
-  const alertColumns: ColumnsType<StockAlertItem> = [
+  const alertColumns: ColumnsType<StockAlert> = [
     {
-      title: 'Mã cảnh báo',
-      dataIndex: 'code',
-      key: 'code',
+      title: 'Loại',
+      key: 'kind',
       width: 110,
-      render: (code: string) => {
-        const color = code === 'WARN-02' ? 'error' : code === 'WARN-01' ? 'warning' : code === 'WARN-03' ? 'gold' : 'processing'
-        return <Tag color={color} className="text-xs">{code}</Tag>
-      },
+      render: (_, r) => (
+        <Tag color={SEVERITY_COLORS[r.severity]} className="text-xs m-0">
+          {alertTagLabel(r.kind, r.severity)}
+        </Tag>
+      ),
     },
     {
       title: 'Hàng hóa / Vị trí',
       key: 'item',
       render: (_, r) => (
-        <div>
-          <div className="font-semibold text-gray-900 text-xs">{r.productName}</div>
-          <div className="text-[11px] text-gray-500">
-            {r.sku} • {r.locationCode || 'Chưa định vị'}
+        <div className="min-w-0">
+          <div className="font-semibold text-slate-900 text-xs">{r.productName ?? `Sản phẩm #${r.productId}`}</div>
+          <div className="text-[11px] text-slate-500">
+            {[r.skuCode, r.lotNo ? `Lô ${r.lotNo}` : null, r.binCode].filter(Boolean).join(' • ') || 'Chưa định vị'}
           </div>
         </div>
       ),
     },
     {
-      title: 'Kho bãi',
-      dataIndex: 'warehouseName',
-      key: 'warehouseName',
-      render: (wh: string) => <span className="text-xs text-gray-600">{wh}</span>,
-    },
-    {
-      title: 'Nội dung cảnh báo & Đề xuất xử lý',
-      key: 'action',
+      title: 'Kho',
+      key: 'warehouse',
+      responsive: ['md'],
       render: (_, r) => (
-        <div>
-          <div className="text-xs text-gray-800">{r.message}</div>
-          <div className="text-[11px] text-amber-700 font-medium mt-0.5 flex items-center gap-1">
-            <InfoCircleOutlined /> {r.actionNote}
-          </div>
-        </div>
+        <span className="text-xs text-slate-600">{r.warehouseName ?? r.warehouseCode ?? `Kho #${r.warehouseId}`}</span>
       ),
+    },
+    {
+      title: 'Nội dung cảnh báo',
+      key: 'message',
+      render: (_, r) => <span className="text-xs text-slate-800">{r.message}</span>,
     },
   ]
 
-  const totalTrendingQuantity = trendingItems.reduce((sum, item) => sum + item.value, 0)
+  // `fill` là màu từng lát cắt do backend gán (Recharts đọc trường này của từng phần tử)
+  const trendingSlices = (trending.data?.slices ?? []).map((slice) => ({
+    ...slice,
+    quantity: Number(slice.quantity),
+    fill: slice.color,
+  }))
 
   return (
     <div className="flex flex-col gap-5 w-full">
-      {/* 1. Header Toolbar & Phân quyền thông minh */}
+      {/* 1. Thanh tiêu đề và bộ lọc */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-4 rounded-lg border border-slate-200/80 shadow-xs">
-        <div>
-          <div className="flex items-center gap-2">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
             <Title level={4} className="!mb-0 font-semibold text-slate-900">
               Bảng điều khiển & Thống kê KPI
             </Title>
-            <Tag color="blue" className="text-xs font-normal">
-              {isAdmin ? 'Quản trị hệ thống' : isAccountant ? 'Kế toán' : isWarehouseManager ? 'Quản lý kho' : 'Nhân viên kho'}
-            </Tag>
+            {roleLabel && (
+              <Tag color="blue" className="text-xs font-normal">
+                {roleLabel}
+              </Tag>
+            )}
           </div>
           <Text type="secondary" className="text-xs">
             Theo dõi sức chứa, lưu chuyển hàng hóa và cảnh báo vận hành theo thời gian thực
           </Text>
         </div>
 
-        {/* Bộ lọc Kho & Thời gian & Nút Xuất Excel */}
         <Space wrap size="middle">
-          {/* Bộ lọc Nhà kho theo phạm vi phân quyền (SRS 2.5.2) */}
+          {/* Bộ lọc Kho theo phạm vi phân quyền (SRS 2.5.2) */}
           <div className="flex items-center gap-1.5">
-            <ShopOutlined className="text-gray-400 text-xs" />
-            <Text className="text-xs text-gray-500">Kho:</Text>
+            <ShopOutlined className="text-slate-400 text-xs" />
+            <Text className="text-xs text-slate-500">Kho:</Text>
             <Select
               size="middle"
-              className="w-52"
-              value={selectedWarehouseId}
+              className="w-44 sm:w-52"
+              value={selectedWarehouseId === 'all' && !isGlobalScope ? undefined : selectedWarehouseId}
+              placeholder="Kho được phân công"
               loading={loadingWarehouses}
               onChange={(val) => setSelectedWarehouseId(val)}
               options={[
-                ...(isGlobalScope ? [{ label: 'Tất cả kho bãi', value: 'all' as const }] : []),
+                ...(isGlobalScope ? [{ label: 'Tất cả kho', value: 'all' as const }] : []),
                 ...allowedWarehouses.map((w) => ({
                   label: `${w.name} (${w.code})`,
                   value: w.id,
@@ -334,28 +358,27 @@ export default function DashboardPage() {
 
           {/* Bộ lọc Thời gian */}
           <div className="flex items-center gap-1.5">
-            <CalendarOutlined className="text-gray-400 text-xs" />
+            <CalendarOutlined className="text-slate-400 text-xs" />
             <Select
               size="middle"
               className="w-32"
               value={timeRange}
               onChange={(val) => setTimeRange(val)}
-              options={[
-                { label: 'Hôm nay', value: 'today' },
-                { label: '7 ngày qua', value: '7d' },
-                { label: 'Tháng này', value: 'month' },
-                { label: 'Quý này', value: 'quarter' },
-              ]}
+              options={TIME_RANGE_OPTIONS}
             />
           </div>
 
-          {/* Nút Xuất Excel */}
+          <Button icon={<ReloadOutlined />} onClick={reloadAll} className="text-xs">
+            Làm mới
+          </Button>
+
           {canExportExcel ? (
             <Button
               type="primary"
               icon={<DownloadOutlined />}
               onClick={handleExportExcel}
-              className="bg-emerald-600 hover:!bg-emerald-500 text-xs font-medium"
+              disabled={!kpi.data}
+              className="text-xs font-medium"
             >
               Xuất Excel
             </Button>
@@ -369,16 +392,17 @@ export default function DashboardPage() {
         </Space>
       </div>
 
+      {/* 2. Tóm tắt bằng AI (WMS-18.3) */}
       <AiSummaryCard warehouseId={selectedWarehouseId === 'all' ? null : selectedWarehouseId} ready={!loadingWarehouses} />
 
-      {/* 2. Thông báo phạm vi chi nhánh phụ trách */}
+      {/* 3. Thông báo phạm vi kho phụ trách */}
       {isWarehouseStaff && (
         <Alert
           type="info"
           showIcon
           icon={<WarningOutlined className="text-blue-600" />}
           message="Chế độ vận hành kho chi nhánh"
-          description="Dữ liệu hiển thị các chỉ số xuất nhập và cảnh báo vật lý phù hợp với kho bạn phụ trách."
+          description="Dữ liệu hiển thị các chỉ số xuất nhập và cảnh báo phù hợp với kho bạn phụ trách. Số liệu tài chính được ẩn theo vai trò."
           className="text-xs border-blue-200/80 bg-blue-50/40 rounded-lg"
         />
       )}
@@ -387,354 +411,171 @@ export default function DashboardPage() {
         <Alert
           type="warning"
           showIcon
-          message="Phạm vi chi nhánh phụ trách"
-          description="Dữ liệu và số liệu thống kê được giới hạn theo các kho bạn được phân công quản lý."
+          message="Phạm vi kho phụ trách"
+          description="Dữ liệu và số liệu thống kê được giới hạn theo các kho bạn được phân công."
           className="text-xs border-amber-200/80 bg-amber-50/40 rounded-lg"
         />
       )}
 
-      {/* 3. Thẻ Chỉ số KPI Điều hành (WMS-16.1 & WMS-16.3) */}
-      <Row gutter={[16, 16]}>
-        {/* Nhóm thẻ tài chính (Chỉ hiện cho Admin & Accountant) */}
-        {canViewFinancials && (
-          <>
-            {/* 1. Công nợ phải thu */}
-            <Col xs={24} sm={12} xl={6}>
-              <Card
-                variant="borderless"
-                loading={loadingKpi}
-                onClick={() => handleToggleCardFilter('receivables')}
-                className={`transition-all duration-150 cursor-pointer h-full border ${
-                  activeKpiCard === 'receivables'
-                    ? 'border-slate-800 bg-slate-50/70 shadow-2xs ring-1 ring-slate-800/10'
-                    : 'border-slate-200/80 bg-white hover:border-slate-300 hover:bg-slate-50/30'
-                }`}
-              >
-                <Statistic
-                  title={<span className="text-xs font-medium text-slate-500">Công nợ phải thu</span>}
-                  value={kpiData?.receivables?.amount ?? 248500000}
-                  formatter={(val) =>
-                    (kpiData?.receivables?.visible ?? true)
-                      ? formatCurrency(Number(val))
-                      : '*** đ'
-                  }
-                  valueStyle={{ fontSize: '1.35rem', fontWeight: 600, color: '#0f172a' }}
-                />
-                <span className="text-xs text-slate-400 mt-1 block truncate">
-                  {kpiData?.receivables?.subText || '12 khách hàng còn dư nợ đến hạn'}
-                </span>
-              </Card>
-            </Col>
-
-            {/* 2. Công nợ phải trả */}
-            <Col xs={24} sm={12} xl={6}>
-              <Card
-                variant="borderless"
-                loading={loadingKpi}
-                onClick={() => handleToggleCardFilter('payables')}
-                className={`transition-all duration-150 cursor-pointer h-full border ${
-                  activeKpiCard === 'payables'
-                    ? 'border-slate-800 bg-slate-50/70 shadow-2xs ring-1 ring-slate-800/10'
-                    : 'border-slate-200/80 bg-white hover:border-slate-300 hover:bg-slate-50/30'
-                }`}
-              >
-                <Statistic
-                  title={<span className="text-xs font-medium text-slate-500">Công nợ phải trả</span>}
-                  value={kpiData?.payables?.amount ?? 132800000}
-                  formatter={(val) =>
-                    (kpiData?.payables?.visible ?? true)
-                      ? formatCurrency(Number(val))
-                      : '*** đ'
-                  }
-                  valueStyle={{ fontSize: '1.35rem', fontWeight: 600, color: '#0f172a' }}
-                />
-                <span className="text-xs text-slate-400 mt-1 block truncate">
-                  {kpiData?.payables?.subText || '4 nhà cung cấp đến hạn trong tuần'}
-                </span>
-              </Card>
-            </Col>
-
-            {/* 3. Giá trị kho hàng */}
-            <Col xs={24} sm={12} xl={6}>
-              <Card
-                variant="borderless"
-                loading={loadingKpi}
-                onClick={() => handleToggleCardFilter('inventoryValuation')}
-                className={`transition-all duration-150 cursor-pointer h-full border ${
-                  activeKpiCard === 'inventoryValuation'
-                    ? 'border-slate-800 bg-slate-50/70 shadow-2xs ring-1 ring-slate-800/10'
-                    : 'border-slate-200/80 bg-white hover:border-slate-300 hover:bg-slate-50/30'
-                }`}
-              >
-                <Statistic
-                  title={<span className="text-xs font-medium text-slate-500">Giá trị kho hàng</span>}
-                  value={kpiData?.inventoryValuation?.amount ?? 1420000000}
-                  formatter={(val) =>
-                    (kpiData?.inventoryValuation?.visible ?? true)
-                      ? formatCurrency(Number(val))
-                      : '*** đ'
-                  }
-                  valueStyle={{ fontSize: '1.35rem', fontWeight: 600, color: '#0f172a' }}
-                />
-                <span className="text-xs text-slate-400 mt-1 block truncate">
-                  {kpiData?.inventoryValuation?.subText || 'Tính theo giá vốn bình quân'}
-                </span>
-              </Card>
-            </Col>
-
-            {/* 4. Doanh số xuất bán tháng */}
-            <Col xs={24} sm={12} xl={6}>
-              <Card
-                variant="borderless"
-                loading={loadingKpi}
-                onClick={() => handleToggleCardFilter('monthlyRevenue')}
-                className={`transition-all duration-150 cursor-pointer h-full border ${
-                  activeKpiCard === 'monthlyRevenue'
-                    ? 'border-slate-800 bg-slate-50/70 shadow-2xs ring-1 ring-slate-800/10'
-                    : 'border-slate-200/80 bg-white hover:border-slate-300 hover:bg-slate-50/30'
-                }`}
-              >
-                <Statistic
-                  title={<span className="text-xs font-medium text-slate-500">Doanh số xuất bán tháng</span>}
-                  value={kpiData?.monthlyRevenue?.amount ?? 655000000}
-                  formatter={(val) =>
-                    (kpiData?.monthlyRevenue?.visible ?? true)
-                      ? formatCurrency(Number(val))
-                      : '*** đ'
-                  }
-                  valueStyle={{ fontSize: '1.35rem', fontWeight: 600, color: '#0f172a' }}
-                />
-                <span className="text-xs text-slate-400 mt-1 block truncate">
-                  {kpiData?.monthlyRevenue?.subText || 'Tăng 11.2% so với tháng trước'}
-                </span>
-              </Card>
-            </Col>
-          </>
-        )}
-
-        {/* 5. Tồn kho khả dụng */}
-        <Col xs={24} sm={12} xl={canViewFinancials ? 6 : 6}>
-          <Card
-            variant="borderless"
-            loading={loadingKpi}
-            onClick={() => handleToggleCardFilter('availableStock')}
-            className={`transition-all duration-150 cursor-pointer h-full border ${
-              activeKpiCard === 'availableStock'
-                ? 'border-slate-800 bg-slate-50/70 shadow-2xs ring-1 ring-slate-800/10'
-                : 'border-slate-200/80 bg-white hover:border-slate-300 hover:bg-slate-50/30'
-            }`}
-          >
-            <Statistic
-              title={<span className="text-xs font-medium text-slate-500">Tồn kho khả dụng</span>}
-              value={kpiData?.availableStock?.totalQuantity ?? 24850}
-              formatter={(val) => formatNumber(Number(val))}
-              valueStyle={{ fontSize: '1.35rem', fontWeight: 600, color: '#0f172a' }}
-            />
-            <span className="text-xs text-slate-400 mt-1 block truncate">
-              {kpiData?.availableStock?.subText || 'Sản phẩm lưu tại các vị trí ô/kệ'}
-            </span>
-          </Card>
-        </Col>
-
-        {/* 6. Đơn bán chờ xuất (SO) */}
-        <Col xs={24} sm={12} xl={canViewFinancials ? 6 : 6}>
-          <Card
-            variant="borderless"
-            loading={loadingKpi}
-            onClick={() => handleToggleCardFilter('pendingSalesOrders')}
-            className={`transition-all duration-150 cursor-pointer h-full border ${
-              activeKpiCard === 'pendingSalesOrders'
-                ? 'border-slate-800 bg-slate-50/70 shadow-2xs ring-1 ring-slate-800/10'
-                : 'border-slate-200/80 bg-white hover:border-slate-300 hover:bg-slate-50/30'
-            }`}
-          >
-            <Statistic
-              title={<span className="text-xs font-medium text-slate-500">Đơn bán chờ xuất kho (SO)</span>}
-              value={kpiData?.pendingSalesOrders?.totalOrders ?? 18}
-              formatter={(val) => formatNumber(Number(val))}
-              valueStyle={{ fontSize: '1.35rem', fontWeight: 600, color: '#0f172a' }}
-            />
-            <span className="text-xs text-slate-400 mt-1 block truncate">
-              {kpiData?.pendingSalesOrders?.subText || '5 đơn cần điều phối lấy hàng gấp'}
-            </span>
-          </Card>
-        </Col>
-
-        {/* 7. Đơn mua chờ tiếp nhận (PO) */}
-        <Col xs={24} sm={12} xl={canViewFinancials ? 6 : 6}>
-          <Card
-            variant="borderless"
-            loading={loadingKpi}
-            onClick={() => handleToggleCardFilter('pendingPurchaseOrders')}
-            className={`transition-all duration-150 cursor-pointer h-full border ${
-              activeKpiCard === 'pendingPurchaseOrders'
-                ? 'border-slate-800 bg-slate-50/70 shadow-2xs ring-1 ring-slate-800/10'
-                : 'border-slate-200/80 bg-white hover:border-slate-300 hover:bg-slate-50/30'
-            }`}
-          >
-            <Statistic
-              title={<span className="text-xs font-medium text-slate-500">Đơn mua chờ tiếp nhận (PO)</span>}
-              value={kpiData?.pendingPurchaseOrders?.totalOrders ?? 7}
-              formatter={(val) => formatNumber(Number(val))}
-              valueStyle={{ fontSize: '1.35rem', fontWeight: 600, color: '#0f172a' }}
-            />
-            <span className="text-xs text-slate-400 mt-1 block truncate">
-              {kpiData?.pendingPurchaseOrders?.subText || '3 lô hàng dự kiến đến trong hôm nay'}
-            </span>
-          </Card>
-        </Col>
-
-        {/* 8. Tỷ lệ lấp đầy kho */}
-        <Col xs={24} sm={12} xl={canViewFinancials ? 6 : 6}>
-          <Card
-            variant="borderless"
-            loading={loadingKpi}
-            onClick={() => handleToggleCardFilter('warehouseUtilization')}
-            className={`transition-all duration-150 cursor-pointer h-full border ${
-              activeKpiCard === 'warehouseUtilization'
-                ? 'border-slate-800 bg-slate-50/70 shadow-2xs ring-1 ring-slate-800/10'
-                : 'border-slate-200/80 bg-white hover:border-slate-300 hover:bg-slate-50/30'
-            }`}
-          >
-            <Statistic
-              title={<span className="text-xs font-medium text-slate-500">Tỷ lệ lấp đầy kho</span>}
-              value={kpiData?.warehouseUtilization?.occupancyRatePercentage ?? 78.5}
-              formatter={(val) => `${Number(val)}%`}
-              valueStyle={{ fontSize: '1.35rem', fontWeight: 600, color: '#0f172a' }}
-            />
-            <span className="text-xs text-slate-400 mt-1 block truncate">
-              {kpiData?.warehouseUtilization?.subText || '184 / 234 vị trí ô kệ đang sử dụng'}
-            </span>
-          </Card>
-        </Col>
-      </Row>
-
-      {/* 4. Trung tâm Cảnh báo kho */}
-      <Card
-        variant="borderless"
-        className="shadow-none border border-slate-200/80 bg-white"
-        title={
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <AlertOutlined className="text-amber-500 text-sm" />
-              <span className="font-semibold text-slate-900 text-sm">
-                Cảnh báo Tồn kho & Hạn dùng
-              </span>
-              <span className="text-[11px] font-medium text-rose-700 bg-rose-50 border border-rose-200/70 rounded-full px-2 py-0.5">
-                {filteredAlerts.length} cần lưu ý
-              </span>
-            </div>
-            {activeKpiCard && (
-              <div className="flex items-center gap-2">
-                <Tag
-                  closable
-                  onClose={() => setActiveKpiCard(null)}
-                  className="text-xs text-slate-600 bg-slate-100 border-slate-300"
-                >
-                  Lọc theo: {getKpiFilterLabel(activeKpiCard)}
-                </Tag>
-                <Button
-                  type="link"
-                  size="small"
-                  onClick={() => setActiveKpiCard(null)}
-                  className="text-xs !p-0 text-slate-500 hover:text-slate-800"
-                >
-                  Xem tất cả
-                </Button>
-              </div>
-            )}
-          </div>
-        }
-      >
-        <Table<StockAlertItem>
-          columns={alertColumns}
-          dataSource={filteredAlerts}
-          rowKey="id"
-          pagination={false}
-          size="middle"
-          locale={{ emptyText: <Empty description="Hiện không có cảnh báo tồn kho bất thường" /> }}
+      {/* 4. Hàng thẻ KPI (WMS-16.1 dữ liệu, WMS-16.3 giao diện và lọc khi bấm) */}
+      {kpi.error ? (
+        <Alert
+          type="error"
+          showIcon
+          message="Không tải được số liệu thẻ KPI"
+          description={kpi.error}
+          action={
+            <Button size="small" onClick={reloadAll}>
+              Thử lại
+            </Button>
+          }
+          className="rounded-lg"
         />
-      </Card>
+      ) : (
+        <Row gutter={[16, 16]}>
+          {kpi.loading
+            ? Array.from({ length: 4 }, (_, i) => (
+                <Col key={i} xs={24} sm={12} xl={6}>
+                  <Card variant="borderless" loading className="h-full border border-slate-200/80" />
+                </Col>
+              ))
+            : kpiCards.map((card) => {
+                const isActive = activeKpiCard === card.key
+                const clickable = Boolean(card.alertKind)
+                return (
+                  <Col key={card.key} xs={24} sm={12} xl={6}>
+                    <Card
+                      variant="borderless"
+                      onClick={clickable ? () => handleToggleCardFilter(card) : undefined}
+                      role={clickable ? 'button' : undefined}
+                      tabIndex={clickable ? 0 : undefined}
+                      aria-pressed={clickable ? isActive : undefined}
+                      onKeyDown={
+                        clickable
+                          ? (e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault()
+                                handleToggleCardFilter(card)
+                              }
+                            }
+                          : undefined
+                      }
+                      className={`transition-all duration-150 h-full border ${clickable ? 'cursor-pointer' : ''} ${
+                        isActive
+                          ? 'border-slate-800 bg-slate-50/70 shadow-2xs ring-1 ring-slate-800/10'
+                          : 'border-slate-200/80 bg-white hover:border-slate-300'
+                      }`}
+                    >
+                      <div className="text-xs font-medium text-slate-500">{card.title}</div>
+                      <div className="mt-1 text-[1.35rem] font-semibold text-slate-900 tabular-nums break-words">
+                        {card.value}
+                      </div>
+                      <span className="text-xs text-slate-500 mt-1 block" title={card.subText}>
+                        {card.subText}
+                      </span>
+                      {clickable && (
+                        <span className="text-[11px] text-slate-400 mt-1 block">
+                          Bấm để lọc cảnh báo {KIND_LABELS[card.alertKind as StockAlertKind].toLowerCase()}
+                        </span>
+                      )}
+                    </Card>
+                  </Col>
+                )
+              })}
+        </Row>
+      )}
 
-      {/* 5. Biểu đồ Phân tích (Cột đôi & Tròn) */}
+      {/* 5. Cảnh báo tồn kho và biểu đồ mặt hàng bán chạy */}
       <Row gutter={[16, 16]}>
         <Col xs={24} xl={14}>
           <Card
             variant="borderless"
-            className="shadow-none border border-slate-200/80 bg-white"
+            className="shadow-none border border-slate-200/80 bg-white h-full"
             title={
-              <span className="font-semibold text-slate-900 text-sm">
-                {canViewFinancials
-                  ? 'Giá trị Mua vào và Bán ra theo tháng (triệu đồng)'
-                  : 'Sản lượng Nhập kho & Xuất kho theo tháng (sản phẩm)'}
-              </span>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <AlertOutlined className="text-amber-500 text-sm" />
+                  <span className="font-semibold text-slate-900 text-sm">Cảnh báo Tồn kho & Hạn dùng</span>
+                  {alerts.data && (
+                    <span className="text-[11px] font-medium text-rose-700 bg-rose-50 border border-rose-200/70 rounded-full px-2 py-0.5">
+                      {formatNumber(alerts.data.totalElements)} cần lưu ý
+                    </span>
+                  )}
+                </div>
+                {activeCard?.alertKind && (
+                  <Tag
+                    closable
+                    onClose={() => setActiveKpiCard(null)}
+                    className="text-xs text-slate-600 bg-slate-100 border-slate-300 m-0 w-fit"
+                  >
+                    Lọc: {KIND_LABELS[activeCard.alertKind]}
+                  </Tag>
+                )}
+              </div>
             }
           >
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart
-                data={canViewFinancials ? monthlyTradeFinancial : monthlyTradeOperations}
-                margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
-              >
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="month" stroke="#64748b" fontSize={12} tickLine={false} />
-                <YAxis stroke="#64748b" fontSize={12} tickLine={false} />
-                <RechartsTooltip
-                  formatter={(value) =>
-                    canViewFinancials
-                      ? `${formatNumber(Number(value))} triệu đồng`
-                      : `${formatNumber(Number(value))} sản phẩm`
-                  }
-                />
-                <Legend itemSorter="dataKey" formatter={renderLegendText} />
-                <Bar
-                  dataKey="purchase"
-                  name={canViewFinancials ? 'Mua vào (Tiền)' : 'Nhập kho (SL)'}
-                  fill="#0284c7"
-                  radius={[3, 3, 0, 0]}
-                />
-                <Bar
-                  dataKey="sales"
-                  name={canViewFinancials ? 'Bán ra (Tiền)' : 'Xuất kho (SL)'}
-                  fill="#10b981"
-                  radius={[3, 3, 0, 0]}
-                />
-              </BarChart>
-            </ResponsiveContainer>
+            {alerts.error ? (
+              <Alert type="error" showIcon message={alerts.error} />
+            ) : (
+              <Table<StockAlert>
+                columns={alertColumns}
+                dataSource={alerts.data?.content ?? []}
+                loading={alerts.loading}
+                rowKey="id"
+                pagination={false}
+                size="middle"
+                locale={{ emptyText: <Empty description="Hiện không có cảnh báo tồn kho" /> }}
+              />
+            )}
+            {alerts.data && alerts.data.totalElements > ALERT_PAGE_SIZE && (
+              <div className="mt-3 text-xs text-slate-500">
+                Đang hiện {ALERT_PAGE_SIZE} cảnh báo nghiêm trọng nhất; xem đầy đủ ở màn hình Tồn kho.
+              </div>
+            )}
           </Card>
         </Col>
 
         <Col xs={24} xl={10}>
           <Card
             variant="borderless"
-            className="shadow-none border border-slate-200/80 bg-white"
-            title={
-              <span className="font-semibold text-slate-900 text-sm">
-                Mặt hàng xuất bán chạy nhất
-              </span>
-            }
+            className="shadow-none border border-slate-200/80 bg-white h-full"
+            loading={trending.loading}
+            title={<span className="font-semibold text-slate-900 text-sm">Mặt hàng xuất bán chạy nhất</span>}
           >
-            <ResponsiveContainer width="100%" height={300}>
-              <PieChart>
-                <Pie
-                  data={trendingItems}
-                  dataKey="value"
-                  nameKey="name"
-                  innerRadius={65}
-                  outerRadius={100}
-                  paddingAngle={2}
-                >
-                  <Label
-                    value={`${formatNumber(totalTrendingQuantity)} sp`}
-                    position="center"
-                    fill="#0f172a"
-                    fontSize={14}
-                    fontWeight={600}
+            {trending.error ? (
+              <Alert type="error" showIcon message={trending.error} />
+            ) : trendingSlices.length === 0 ? (
+              <Empty description="Chưa có đơn bán đã xác nhận trong khoảng thời gian này" />
+            ) : (
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={trendingSlices}
+                    dataKey="quantity"
+                    nameKey="name"
+                    innerRadius={65}
+                    outerRadius={100}
+                    paddingAngle={2}
+                    isAnimationActive={false}
+                  >
+                    <Label
+                      value={formatNumber(Number(trending.data?.totalVolume ?? 0))}
+                      position="center"
+                      fill="#0f172a"
+                      fontSize={14}
+                      fontWeight={600}
+                    />
+                  </Pie>
+                  <RechartsTooltip
+                    formatter={(value, _name, item) => {
+                      const slice = item?.payload as (typeof trendingSlices)[number] | undefined
+                      return `${formatNumber(Number(value))} ${slice?.uom ?? ''} (${slice?.percentage ?? 0}%)`
+                    }}
                   />
-                </Pie>
-                <RechartsTooltip formatter={(value) => `${formatNumber(Number(value))} sản phẩm`} />
-                <Legend verticalAlign="bottom" itemSorter={null} formatter={renderLegendText} />
-              </PieChart>
-            </ResponsiveContainer>
+                  <Legend verticalAlign="bottom" itemSorter={null} formatter={renderLegendText} />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
           </Card>
         </Col>
       </Row>

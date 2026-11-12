@@ -26,6 +26,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Service xử lý báo cáo thống kê tỷ trọng đơn hàng và mặt hàng xuất bán chạy (Trending Items - WMS-16.2).
@@ -36,6 +37,19 @@ public class OrderReportService {
 
     private static final Logger log = LoggerFactory.getLogger(OrderReportService.class);
     private static final Duration CACHE_TTL = Duration.ofSeconds(60);
+
+    /** Số mặt hàng hiển thị riêng mặc định và tối đa; phần còn lại gom vào nhóm "Mặt hàng khác". */
+    public static final int DEFAULT_LIMIT = 5;
+    public static final int MAX_LIMIT = 20;
+
+    /** Các khoảng thời gian được chấp nhận ở tham số {@code dateRange}. */
+    public static final List<String> DATE_RANGES = List.of("TODAY", "7_DAYS", "THIS_MONTH", "THIS_QUARTER", "ALL_TIME");
+
+    /** Đơn bán được tính là đã bán: cùng quy ước với doanh số tháng của thẻ KPI (OrderKpiInternalService). */
+    private static final List<OrderStatus> SOLD_STATUSES = List.of(OrderStatus.CONFIRMED, OrderStatus.COMPLETED);
+
+    /** Giá trị giữ chỗ cho danh sách kho khi không lọc theo kho (mệnh đề IN không nhận danh sách rỗng). */
+    private static final List<Long> NO_WAREHOUSE_FILTER = List.of(-1L);
 
     /**
      * Bảng màu chuẩn dùng cho biểu đồ tròn Donut (Recharts) ở giao diện người dùng.
@@ -58,41 +72,30 @@ public class OrderReportService {
     /**
      * Thống kê Top mặt hàng xuất bán chạy nhất theo khoảng thời gian và kho.
      *
-     * @param warehouseId ID kho (tùy chọn)
-     * @param dateRange   Khoảng thời gian: TODAY, 7_DAYS, THIS_MONTH, THIS_QUARTER, ALL_TIME
-     * @param limit       Số lượng mặt hàng hiển thị độc lập (mặc định 5)
+     * @param warehouseId ID kho (tùy chọn); bỏ trống thì lấy mọi kho trong phạm vi của người xem
+     * @param dateRange   Khoảng thời gian: TODAY, 7_DAYS, THIS_MONTH, THIS_QUARTER, ALL_TIME (bỏ trống là 7_DAYS)
+     * @param limit       Số lượng mặt hàng hiển thị độc lập, từ 1 đến 20 (bỏ trống là 5)
      */
     @Transactional(readOnly = true)
-    public TrendingItemsReportResponse getTrendingItems(Long warehouseId, String dateRange, int limit) {
-        // 1. Kiểm tra xác thực người dùng (Chặn 401 nếu chưa đăng nhập)
+    public TrendingItemsReportResponse getTrendingItems(Long warehouseId, String dateRange, Integer limit) {
+        // 1. Bắt buộc có người dùng (401) và doanh nghiệp (COMPANY_REQUIRED); không được rơi về doanh nghiệp mặc định
+        // vì khóa cache có ID doanh nghiệp: rơi về doanh nghiệp 1 sẽ trả số liệu của doanh nghiệp 1 cho người khác.
         CurrentUser currentUser = UserContext.requireCurrentUser();
-        Long companyId = TenantContext.isSet() ? TenantContext.getCompanyId() : 1L;
+        Long companyId = TenantContext.requireCompanyId();
 
-        int safeLimit = (limit > 0 && limit <= 20) ? limit : 5;
-        String range = (dateRange != null && !dateRange.isBlank()) ? dateRange.trim().toUpperCase() : "7_DAYS";
+        int safeLimit = resolveLimit(limit);
+        String range = resolveRange(dateRange);
 
-        // 2. Kiểm tra phân quyền phạm vi kho (Chặn 403 nếu nhân viên truy cập kho ngoài quyền)
-        Long effectiveWarehouseId = warehouseId;
-        if (!UserContext.isGlobalScope(currentUser)) {
-            Set<Long> allowedWhs = currentUser.warehouseIds();
-            if (warehouseId != null && (allowedWhs == null || !allowedWhs.contains(warehouseId))) {
-                throw ApiException.forbidden("Tài khoản không có quyền truy cập dữ liệu của kho #" + warehouseId);
-            }
-            if (warehouseId == null && allowedWhs != null && !allowedWhs.isEmpty()) {
-                effectiveWarehouseId = allowedWhs.iterator().next();
-            }
-        }
-
-        // Tên kho hiển thị
-        String warehouseName = "Tất cả các kho";
-        if (effectiveWarehouseId != null) {
-            warehouseName = inventoryGateway.findWarehouse(effectiveWarehouseId)
-                    .map(WarehouseSummary::name)
-                    .orElse("Kho #" + effectiveWarehouseId);
-        }
+        // 2. Phạm vi kho: ADMIN, ACCOUNTANT xem mọi kho; vai trò khác chỉ các kho được gán, chưa được gán kho nào
+        // thì 403 (BR-13), xin kho ngoài phạm vi thì 403. Tập rỗng nghĩa là không lọc theo kho.
+        Set<Long> warehouseScope = UserContext.resolveAllowedWarehouses(currentUser, warehouseId);
+        boolean allWarehouses = warehouseScope.isEmpty();
+        List<Long> warehouseIds = allWarehouses ? NO_WAREHOUSE_FILTER : warehouseScope.stream().sorted().toList();
+        Long singleWarehouseId = warehouseIds.size() == 1 && !allWarehouses ? warehouseIds.get(0) : null;
 
         String cacheKey = "wms:orders:company:" + companyId + ":trending:"
-                + (effectiveWarehouseId != null ? effectiveWarehouseId : "all") + ":" + range + ":" + safeLimit;
+                + (allWarehouses ? "all" : warehouseIds.stream().map(String::valueOf).collect(Collectors.joining(",")))
+                + ":" + range + ":" + safeLimit;
 
         // 3. Đọc từ Redis Cache (Cache-Aside Pattern)
         try {
@@ -102,33 +105,26 @@ public class OrderReportService {
                 return new TrendingItemsReportResponse(
                         cached.title(), cached.totalVolume(), cached.unit(), cached.dateRange(),
                         cached.warehouseName(), cached.slices(),
-                        new TrendingItemsReportResponse.ReportMeta(companyId, effectiveWarehouseId, cached.meta().calculatedAt(), true)
+                        new TrendingItemsReportResponse.ReportMeta(companyId, singleWarehouseId, cached.meta().calculatedAt(), true)
                 );
             }
         } catch (Exception ex) {
             log.warn("Không đọc được cache báo cáo Trending Items từ Redis: {}", ex.getMessage());
         }
 
-        // 4. Xác định mốc thời gian lọc
+        // 4. Xác định mốc thời gian lọc (ngày đặt hàng, tính cả hai đầu)
         LocalDate today = LocalDate.now();
-        LocalDate startDate;
-        LocalDate endDate = today;
+        LocalDate startDate = switch (range) {
+            case "TODAY" -> today;
+            case "THIS_MONTH" -> today.withDayOfMonth(1);
+            case "THIS_QUARTER" -> LocalDate.of(today.getYear(), ((today.getMonthValue() - 1) / 3) * 3 + 1, 1);
+            case "ALL_TIME" -> LocalDate.of(2000, 1, 1);
+            default -> today.minusDays(6); // 7 ngày gần nhất, tính cả hôm nay
+        };
 
-        switch (range) {
-            case "TODAY" -> startDate = today;
-            case "THIS_MONTH" -> startDate = today.withDayOfMonth(1);
-            case "THIS_QUARTER" -> {
-                int firstMonthOfQuarter = ((today.getMonthValue() - 1) / 3) * 3 + 1;
-                startDate = LocalDate.of(today.getYear(), firstMonthOfQuarter, 1);
-            }
-            case "ALL_TIME" -> startDate = LocalDate.of(2000, 1, 1);
-            default -> startDate = today.minusDays(7); // Mặc định 7 ngày qua
-        }
-
-        // 5. Truy vấn dữ liệu thực tế từ so_items
-        List<OrderStatus> validStatuses = List.of(OrderStatus.CONFIRMED, OrderStatus.COMPLETED);
+        // 5. Tổng hợp trong cơ sở dữ liệu (JPQL nên được lọc theo doanh nghiệp tự động qua @TenantId)
         List<Object[]> rawRows = salesOrderItemRepository.findTopSoldProducts(
-                startDate, endDate, validStatuses, effectiveWarehouseId
+                startDate, today, SOLD_STATUSES, allWarehouses, warehouseIds
         );
 
         // 6. Tính tổng sản lượng toàn bộ mặt hàng xuất bán trong kỳ
@@ -152,44 +148,34 @@ public class OrderReportService {
                 String sku = (String) row[1];
                 String name = (String) row[2];
                 String uom = (String) row[3];
-                BigDecimal qty = (BigDecimal) row[4];
+                BigDecimal qty = row[4] != null ? (BigDecimal) row[4] : BigDecimal.ZERO;
 
                 topSlicesVolume = topSlicesVolume.add(qty);
-
-                double percentage = qty.divide(totalVolume, 3, RoundingMode.HALF_UP)
-                        .multiply(BigDecimal.valueOf(100))
-                        .setScale(1, RoundingMode.HALF_UP)
-                        .doubleValue();
 
                 String color = (i < CHART_COLORS.length) ? CHART_COLORS[i] : CHART_COLORS[CHART_COLORS.length - 1];
 
                 slices.add(new TrendingItemSliceDto(
-                        productId, sku, name, uom != null ? uom : "SP", qty, percentage, color
+                        productId, sku, name, uom != null ? uom : "SP", qty, percentageOf(qty, totalVolume), color
                 ));
             }
 
             // Nếu còn các mặt hàng khác nằm ngoài top limit: Gom thành nhóm "Khác"
             if (rawRows.size() > safeLimit) {
                 BigDecimal otherQty = totalVolume.subtract(topSlicesVolume);
-                double otherPercentage = otherQty.divide(totalVolume, 3, RoundingMode.HALF_UP)
-                        .multiply(BigDecimal.valueOf(100))
-                        .setScale(1, RoundingMode.HALF_UP)
-                        .doubleValue();
-
                 slices.add(new TrendingItemSliceDto(
-                        null, "OTHERS", "Mặt hàng khác", "SP", otherQty, otherPercentage, OTHER_COLOR
+                        null, "OTHERS", "Mặt hàng khác", "SP", otherQty, percentageOf(otherQty, totalVolume), OTHER_COLOR
                 ));
             }
         }
 
         TrendingItemsReportResponse response = new TrendingItemsReportResponse(
-                "Trending Items - Mặt hàng xuất bán chạy",
+                "Mặt hàng xuất bán chạy",
                 totalVolume,
                 "sản phẩm",
                 range,
-                warehouseName,
+                resolveWarehouseName(allWarehouses, warehouseIds),
                 slices,
-                new TrendingItemsReportResponse.ReportMeta(companyId, effectiveWarehouseId, Instant.now(), false)
+                new TrendingItemsReportResponse.ReportMeta(companyId, singleWarehouseId, Instant.now(), false)
         );
 
         // 7. Lưu Cache vào Redis
@@ -201,5 +187,51 @@ public class OrderReportService {
         }
 
         return response;
+    }
+
+    private static int resolveLimit(Integer limit) {
+        if (limit == null) {
+            return DEFAULT_LIMIT;
+        }
+        if (limit < 1 || limit > MAX_LIMIT) {
+            throw ApiException.badRequest("Tham số limit phải từ 1 đến " + MAX_LIMIT);
+        }
+        return limit;
+    }
+
+    private static String resolveRange(String dateRange) {
+        if (dateRange == null || dateRange.isBlank()) {
+            return "7_DAYS";
+        }
+        String range = dateRange.trim().toUpperCase();
+        if (!DATE_RANGES.contains(range)) {
+            throw ApiException.badRequest("Khoảng thời gian không hợp lệ: " + dateRange
+                    + ". Giá trị được chấp nhận: " + String.join(", ", DATE_RANGES));
+        }
+        return range;
+    }
+
+    private static double percentageOf(BigDecimal qty, BigDecimal total) {
+        return qty.divide(total, 3, RoundingMode.HALF_UP)
+                .multiply(BigDecimal.valueOf(100))
+                .setScale(1, RoundingMode.HALF_UP)
+                .doubleValue();
+    }
+
+    /** Tên kho chỉ để hiển thị: không gọi được inventory-service thì dùng "Kho #id", không làm hỏng cả báo cáo. */
+    private String resolveWarehouseName(boolean allWarehouses, List<Long> warehouseIds) {
+        if (allWarehouses) {
+            return "Tất cả các kho";
+        }
+        if (warehouseIds.size() > 1) {
+            return warehouseIds.size() + " kho được phân công";
+        }
+        Long id = warehouseIds.get(0);
+        try {
+            return inventoryGateway.findWarehouse(id).map(WarehouseSummary::name).orElse("Kho #" + id);
+        } catch (ApiException ex) {
+            log.warn("Không lấy được tên kho {} cho báo cáo Trending Items: {}", id, ex.getMessage());
+            return "Kho #" + id;
+        }
     }
 }

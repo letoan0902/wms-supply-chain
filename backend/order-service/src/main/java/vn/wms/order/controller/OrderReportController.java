@@ -27,18 +27,20 @@ public class OrderReportController {
     /**
      * Lấy dữ liệu báo cáo tỷ trọng các mặt hàng xuất bán chạy nhất.
      *
-     * @param warehouseId ID kho (tùy chọn, lọc theo kho hoặc tất cả)
-     * @param dateRange   Khoảng thời gian: TODAY, 7_DAYS, THIS_MONTH, THIS_QUARTER, ALL_TIME
-     * @param limit       Số lượng mặt hàng hiển thị độc lập (mặc định 5, phần còn lại gom vào 'Khác')
+     * @param warehouseId ID kho (tùy chọn); bỏ trống thì lấy mọi kho trong phạm vi của người xem
+     * @param dateRange   Khoảng thời gian: TODAY, 7_DAYS, THIS_MONTH, THIS_QUARTER, ALL_TIME; giá trị khác trả 400
+     * @param limit       Số lượng mặt hàng hiển thị độc lập, từ 1 đến 20 (mặc định 5, phần còn lại gom vào 'Khác')
      * @return Báo cáo tỷ trọng kèm danh sách lát cắt (slices) đã gán mã màu Recharts
      */
     @GetMapping("/trending-items")
     @Operation(summary = "Thống kê Top mặt hàng xuất bán chạy nhất (Trending Items Donut Chart)")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SALES', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'ACCOUNTANT')")
+    // Dashboard mở cho cả sáu vai trò như thẻ KPI (docs/SECURITY.md); báo cáo chỉ có số lượng, không có số tiền,
+    // và được lọc theo phạm vi kho của người xem trong service.
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'PURCHASING', 'SALES', 'ACCOUNTANT')")
     public ApiResponse<TrendingItemsReportResponse> getTrendingItems(
             @RequestParam(required = false) Long warehouseId,
-            @RequestParam(required = false, defaultValue = "7_DAYS") String dateRange,
-            @RequestParam(required = false, defaultValue = "5") int limit
+            @RequestParam(required = false) String dateRange,
+            @RequestParam(required = false) Integer limit
     ) {
         return ApiResponse.ok(orderReportService.getTrendingItems(warehouseId, dateRange, limit));
     }

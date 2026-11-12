@@ -49,6 +49,7 @@ Các tệp: [deploy/docker-compose.prod.yml](../deploy/docker-compose.prod.yml) 
 | `DB_USERNAME` | Tài khoản ứng dụng dùng chung, giữ `wms` để khớp `docker/mysql/init.sql` | `wms` | Không |
 | `DB_PASSWORD` | Mật khẩu tài khoản ứng dụng; bắt buộc | không có | Có |
 | `MYSQL_PORT` | Cổng publish MySQL trên `127.0.0.1` (chỉ máy phát triển) | `3306` | Không |
+| `DOCUMENT_SEQUENCE_POOL_SIZE` | Số kết nối của nhóm riêng cấp số chứng từ trong order-service (mỗi kết nối chỉ giữ vài mili giây, [PERFORMANCE.md](PERFORMANCE.md) mục 5); có trong `order-service/application.yml`, compose không truyền | `3` | Không |
 
 MySQL chỉ đọc hai mật khẩu khi khởi tạo volume `mysql_data` lần đầu. Đổi trong `.env` về sau không đổi mật khẩu trong MySQL (xem mục 9.3). `DB_URL` của từng service do `docker-compose.yml` đặt sẵn, không đặt trong `.env`.
 

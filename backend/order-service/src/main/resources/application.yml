@@ -105,6 +105,10 @@ app:
   # (deploy/docker-compose.prod.yml): request thiếu danh tính nhận 401 ngay tại service.
   security:
     allow-anonymous-without-gateway: ${SECURITY_ALLOW_ANONYMOUS:true}
+  # Nhóm kết nối riêng để cấp số chứng từ (WMS-20.4, docs/PERFORMANCE.md mục 5): mỗi kết nối chỉ bị giữ vài mili giây,
+  # tách khỏi nhóm chính để request lập chứng từ không chờ kết nối thứ hai của nhóm mà nó đang giữ một kết nối.
+  document-sequence:
+    pool-size: ${DOCUMENT_SEQUENCE_POOL_SIZE:3}
 
 ---
 # Nạp cấu hình tập trung từ Config Server. Tiền tố optional nghĩa là Config Server chưa chạy thì service vẫn

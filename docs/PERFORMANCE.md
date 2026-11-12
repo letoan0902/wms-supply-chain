@@ -3,7 +3,8 @@
 Tài liệu của WMS-19: bộ nhớ đệm Redis cho tổng tồn và tồn khả dụng (WMS-19.1), chỉ mục theo doanh nghiệp và sửa truy
 vấn lặp cho các API danh sách (WMS-19.3). Yêu cầu gốc nằm ở SRS (API nghiệp vụ phản hồi trong 500 ms, trừ tồn chịu 30
 đến 50 request đồng thời, Dashboard tải trong 2 giây có phân trang) và ở `docs/project-management/KE_HOACH_JIRA.md`
-(WMS-19, WMS-19.1 đến WMS-19.3). Kiểm thử tải đồng thời (WMS-19.2) là task riêng.
+(WMS-19, WMS-19.1 đến WMS-19.3). Kiểm thử tải đồng thời (WMS-19.2) là task riêng; lỗi cạn nhóm kết nối nó phát hiện
+và cách định cỡ nhóm kết nối nằm ở mục 5 (WMS-20.4).
 
 ## 1. Bộ nhớ đệm tổng tồn và tồn khả dụng (WMS-19.1)
 
@@ -193,3 +194,43 @@ trong phạm vi người dùng và danh sách kho (giới hạn theo gói dịch
 - **Đệm danh sách và báo cáo.** Kết quả lọc nhiều chiều và phân trang, tỷ lệ trúng thấp; tối ưu bằng chỉ mục.
 - **Tìm kiếm theo từ khóa** (`LIKE '%từ khóa%'`) không dùng được chỉ mục B-tree; trong phạm vi một doanh nghiệp số dòng
   nhỏ nên chấp nhận. Cần thì dùng FULLTEXT ở một task riêng.
+
+## 5. Nhóm kết nối cơ sở dữ liệu (WMS-20.4)
+
+### 5.1. Sự cố khi chạy tải
+
+Chạy `qa/load/concurrency.mjs` trên bộ Docker thật (40 thao tác mỗi giây, trộn tạo đơn bán, xác nhận, lập phiếu xuất và
+đọc của một doanh nghiệp): order-service ngừng trả lời. 604 trên 637 lần `POST /api/orders/sales` hết thời gian chờ 30
+giây, các API đọc của order-service cũng treo, inventory-service vẫn nhanh. Log order-service có 562 dòng
+`SQLTransientConnectionException: HikariPool-1 - Connection is not available, request timed out after 30000ms` và
+khoảng chục dòng `Lock wait timeout exceeded`.
+
+### 5.2. Nguyên nhân và cách sửa
+
+`DocumentNumberService` cấp số chứng từ trong một transaction `REQUIRES_NEW` trên nhóm kết nối chính, trong khi phương
+thức tạo chứng từ gọi nó (`@Transactional` của đơn bán, đơn mua, phiếu nhập, phiếu xuất, hóa đơn mua) đang giữ một kết
+nối của cùng nhóm. Mỗi request tạo chứng từ vì vậy cần HAI kết nối. Khi số request tạo chứng từ cùng lúc bằng kích thước
+nhóm (mặc định 10), mỗi luồng giữ một kết nối và chờ kết nối thứ hai: không luồng nào đi tiếp được cho tới khi hết 30
+giây chờ, và mọi request khác của service (kể cả API đọc) chờ chung nhóm đó.
+
+Quy tắc: **không bao giờ mở transaction mới trên cùng một nhóm kết nối khi đang giữ một kết nối của nhóm đó**
+(`@Transactional(propagation = REQUIRES_NEW)`, `TransactionTemplate` với `PROPAGATION_REQUIRES_NEW`, hay lấy thêm kết
+nối từ cùng `DataSource`). Cần một transaction độc lập bên trong transaction đang mở thì dùng nhóm kết nối riêng mà luồng
+giữ nó không chờ gì khác. `REQUIRES_NEW` chỉ an toàn khi người gọi chắc chắn không giữ kết nối (không có transaction bao
+ngoài; `spring.jpa.open-in-view: false` ở mọi service nên controller không giữ kết nối).
+
+Cách sửa: cấp số qua nhóm kết nối riêng `document-sequence` (lớp `DocumentSequencePool`, cùng URL, tài khoản, driver với
+nhóm chính, mặc định 3 kết nối, biến `DOCUMENT_SEQUENCE_POOL_SIZE`), bằng JDBC thuần trong một transaction ngắn:
+`SELECT ... FOR UPDATE` dòng (company_id, tiền tố), `UPDATE` hoặc `INSERT` khi chưa có dòng, commit. Đồ thị chờ không
+còn vòng: luồng giữ kết nối chính có thể chờ kết nối cấp số; luồng giữ kết nối cấp số chỉ chờ khóa dòng bộ đếm, được trả
+sau vài mili giây. Truy vấn số lớn nhất đã có (khởi tạo bộ đếm) và kiểm tra số đã dùng vẫn chạy qua JPA trên kết nối của
+người gọi, lúc không giữ kết nối cấp số. Bảo đảm cũ giữ nguyên: số duy nhất theo doanh nghiệp và tiền tố kể cả khi chạy
+nhiều phiên bản service, khóa chỉ giữ vài mili giây, chứng từ lập thất bại chỉ bỏ qua một số. Nhóm này cố ý không đăng ký
+thành bean `DataSource` để Spring Boot vẫn tự cấu hình nhóm chính cho JPA và Flyway.
+
+Kiểm chứng: `DocumentNumberPoolStarvationTest` thu nhóm chính còn 4 kết nối (chờ tối đa 3 giây) và cấp số từ 16 luồng
+cùng lúc trong transaction đã giữ kết nối, cho hai doanh nghiệp. Trên mã cũ test hỏng vì
+`HikariPool-1 - Connection is not available, request timed out after 3017ms (total=4, active=4, idle=0, waiting=10)`;
+với bản sửa mọi lần cấp thành công, mỗi doanh nghiệp nhận đúng `...-0001` đến `...-0008`. Cùng kịch bản, thêm 64 luồng
+chia cho hai phiên bản service (mỗi phiên bản một nhóm cấp số riêng), đã chạy trên MySQL 8.0.43 thử nghiệm sau khi Flyway
+áp V1 đến V11 và Hibernate kiểm tra schema: số liên tiếp, không trùng, không deadlock, không `Lock wait timeout`.

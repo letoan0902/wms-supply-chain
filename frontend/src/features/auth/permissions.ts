@@ -133,6 +133,10 @@ export const CAPABILITIES = {
 
   // notification-service, ai-service
   'dashboard.view': { roles: ALL },
+  /** Số tiền trên dashboard (thẻ KPI tài chính, số tiền mua bán theo thời gian); backend trả null với vai trò khác */
+  'dashboard.amounts': { roles: ['ADMIN', 'ACCOUNTANT'] },
+  /** Bảng giao dịch kho gần nhất (GET /api/inventory/dashboard/recent-transactions), cùng quyền với báo cáo kho */
+  'dashboard.recentTransactions': { roles: ['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'ACCOUNTANT'], scope: 'read' },
   /** Cấu hình RabbitMQ, SMTP (GET /api/notifications/health-info) */
   'system.health': { roles: ['ADMIN'] },
   /** Trích xuất bằng AI dữ liệu hàng hóa, nhà cung cấp */

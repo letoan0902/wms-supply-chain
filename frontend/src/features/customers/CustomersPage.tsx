@@ -1,22 +1,17 @@
 import {
-  CloseCircleOutlined,
   DeleteOutlined,
   DollarCircleOutlined,
   EditOutlined,
-  ExclamationCircleOutlined,
   EyeOutlined,
   FileExcelOutlined,
   LockOutlined,
   PlusOutlined,
   ReloadOutlined,
   UnlockOutlined,
-  UsergroupAddOutlined,
 } from '@ant-design/icons'
 import {
   App,
-  Badge,
   Button,
-  Card,
   Col,
   Input,
   Popconfirm,
@@ -25,9 +20,7 @@ import {
   Select,
   Space,
   Table,
-  Tag,
   Tooltip,
-  Typography,
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { useEffect, useState } from 'react'
@@ -49,8 +42,6 @@ import type {
   RecordCustomerTransactionPayload,
   UpdateCustomerPayload,
 } from './types'
-
-const { Title, Text } = Typography
 
 const formatCurrency = (val?: number): string =>
   new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(val ?? 0)
@@ -387,27 +378,21 @@ export default function CustomersPage() {
                 setDetailCustomer(r)
                 setIsDetailModalOpen(true)
               }}
-              className="text-left font-bold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer"
+              className="text-left font-medium text-slate-900 hover:text-blue-600 cursor-pointer text-sm"
             >
               {r.name}
             </button>
           </div>
           <div className="flex items-center gap-2 mt-1">
-            <span className="font-mono text-xs text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded border border-gray-200">
+            <span className="text-xs text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200/60 tabular-nums">
               {r.code}
             </span>
-            {r.customerType === 'WHOLESALE' ? (
-              <Tag color="geekblue" className="text-[11px] m-0">
-                Khách sỉ / Đại lý
-              </Tag>
-            ) : (
-              <Tag color="cyan" className="text-[11px] m-0">
-                Khách lẻ
-              </Tag>
-            )}
+            <span className="text-[11px] text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">
+              {r.customerType === 'WHOLESALE' ? 'Khách sỉ / Đại lý' : 'Khách lẻ'}
+            </span>
           </div>
           {r.taxCode && (
-            <div className="text-[11px] text-gray-400 mt-0.5">MST: {r.taxCode}</div>
+            <div className="text-[11px] text-slate-400 mt-0.5">MST: {r.taxCode}</div>
           )}
         </div>
       ),
@@ -418,25 +403,27 @@ export default function CustomersPage() {
       width: 180,
       render: (_, r) => (
         <div className="text-xs space-y-0.5">
-          {r.contactName && <div className="font-medium text-gray-800">{r.contactName}</div>}
-          {r.phone && <div className="text-gray-600">{r.phone}</div>}
-          {r.email && <div className="text-gray-400 truncate max-w-[160px]">{r.email}</div>}
+          {r.contactName && <div className="font-medium text-slate-800">{r.contactName}</div>}
+          {r.phone && <div className="text-slate-600 tabular-nums">{r.phone}</div>}
+          {r.email && <div className="text-slate-400 truncate max-w-[160px]">{r.email}</div>}
           {!r.contactName && !r.phone && !r.email && (
-            <span className="text-gray-300">-</span>
+            <span className="text-slate-300">-</span>
           )}
         </div>
       ),
     },
     {
-      title: 'Hạn mức tín dụng (VNĐ)',
+      title: 'Hạn mức tín dụng',
       dataIndex: 'creditLimit',
       key: 'creditLimit',
-      width: 170,
+      width: 160,
       align: 'right',
       render: (val: number, r) => (
         <div>
-          <div className="font-semibold text-blue-700">{formatCurrency(val)}</div>
-          <div className="text-[11px] text-gray-400">
+          <div className="text-xs font-semibold text-slate-800 tabular-nums">
+            {formatCurrency(val)}
+          </div>
+          <div className="text-[11px] text-slate-400">
             {r.paymentTerms ? `Điều khoản: ${r.paymentTerms}` : 'Chưa đặt điều khoản'}
           </div>
         </div>
@@ -445,21 +432,21 @@ export default function CustomersPage() {
     {
       title: 'Công nợ hiện tại',
       key: 'currentDebt',
-      width: 170,
+      width: 160,
       align: 'right',
       render: (_, r) => {
         const isOver = r.creditLimit > 0 && r.currentDebt > r.creditLimit
         return (
           <div>
             <div
-              className={`font-bold ${
-                isOver || r.debtLocked ? 'text-red-600' : 'text-gray-800'
+              className={`text-xs font-semibold tabular-nums ${
+                isOver || r.debtLocked ? 'text-red-600' : 'text-slate-900'
               }`}
             >
               {formatCurrency(r.currentDebt)}
             </div>
             {r.creditLimit > 0 && (
-              <div className="text-[11px] text-gray-400">
+              <div className="text-[11px] text-slate-400 tabular-nums">
                 Còn lại: {formatCurrency(Math.max(0, r.creditLimit - r.currentDebt))}
               </div>
             )}
@@ -468,7 +455,7 @@ export default function CustomersPage() {
       },
     },
     {
-      title: 'Cảnh báo hạn mức (FR14)',
+      title: 'Cảnh báo hạn mức',
       key: 'warningStatus',
       width: 190,
       render: (_, r) => {
@@ -482,11 +469,12 @@ export default function CustomersPage() {
         if (r.debtLocked) {
           return (
             <div>
-              <Tag color="magenta" icon={<LockOutlined />} className="font-semibold">
-                ĐÃ KHÓA NỢ
-              </Tag>
-              <div className="text-[11px] text-red-500 font-medium mt-0.5">
-                Chặn toàn bộ đơn bán
+              <span className="inline-flex items-center gap-1.5 text-xs text-red-700 font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-600" />
+                Đang khóa nợ
+              </span>
+              <div className="text-[11px] text-red-500 font-normal mt-0.5">
+                Chặn đơn bán hàng
               </div>
             </div>
           )
@@ -495,15 +483,16 @@ export default function CustomersPage() {
         if (isOver) {
           return (
             <div>
-              <Tag color="error" icon={<CloseCircleOutlined />} className="font-semibold">
-                VƯỢT HẠN MỨC ({rawPercent}%)
-              </Tag>
+              <span className="inline-flex items-center gap-1.5 text-xs text-red-600 font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                Vượt hạn mức ({rawPercent}%)
+              </span>
               <Progress
                 percent={percent}
                 size="small"
                 status="exception"
                 showInfo={false}
-                className="mt-1"
+                className="mt-1 m-0"
               />
             </div>
           )
@@ -512,15 +501,16 @@ export default function CustomersPage() {
         if (isNear) {
           return (
             <div>
-              <Tag color="warning" icon={<ExclamationCircleOutlined />} className="font-semibold">
-                CẬN HẠN MỨC ({rawPercent}%)
-              </Tag>
+              <span className="inline-flex items-center gap-1.5 text-xs text-amber-600 font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                Cận hạn mức ({rawPercent}%)
+              </span>
               <Progress
                 percent={percent}
                 size="small"
                 strokeColor="#f59e0b"
                 showInfo={false}
-                className="mt-1"
+                className="mt-1 m-0"
               />
             </div>
           )
@@ -528,23 +518,24 @@ export default function CustomersPage() {
 
         if (limit === 0) {
           return (
-            <Tag color="default" className="text-gray-500">
+            <span className="text-xs text-slate-500">
               Thanh toán ngay
-            </Tag>
+            </span>
           )
         }
 
         return (
           <div>
-            <Tag color="success" className="font-normal">
+            <span className="inline-flex items-center gap-1.5 text-xs text-emerald-600">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
               An toàn ({rawPercent}%)
-            </Tag>
+            </span>
             <Progress
               percent={percent}
               size="small"
               strokeColor="#10b981"
               showInfo={false}
-              className="mt-1"
+              className="mt-1 m-0"
             />
           </div>
         )
@@ -556,25 +547,25 @@ export default function CustomersPage() {
       key: 'active',
       width: 120,
       align: 'center',
-      render: (val: boolean) =>
-        val ? (
-          <Badge status="success" text="Đang hợp tác" />
-        ) : (
-          <Badge status="default" text="Ngưng hợp tác" />
-        ),
+      render: (val: boolean) => (
+        <span className="inline-flex items-center gap-1.5 text-xs text-slate-600">
+          <span className={`w-1.5 h-1.5 rounded-full ${val ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+          {val ? 'Hoạt động' : 'Tạm dừng'}
+        </span>
+      ),
     },
     {
       title: 'Thao tác',
       key: 'actions',
-      width: 180,
+      width: 170,
       fixed: 'right',
       render: (_, r) => (
-        <Space size={4}>
-          <Tooltip title="Xem chi tiết & Kiểm tra hạn mức (FR14)">
+        <Space size={2}>
+          <Tooltip title="Xem chi tiết & Kiểm tra hạn mức">
             <Button
               type="text"
               size="small"
-              icon={<EyeOutlined className="text-blue-600" />}
+              icon={<EyeOutlined className="text-slate-600" />}
               onClick={() => {
                 setDetailCustomer(r)
                 setIsDetailModalOpen(true)
@@ -587,7 +578,7 @@ export default function CustomersPage() {
               <Button
                 type="text"
                 size="small"
-                icon={<EditOutlined className="text-amber-600" />}
+                icon={<EditOutlined className="text-slate-600" />}
                 onClick={() => {
                   setEditingCustomer(r)
                   setIsFormModalOpen(true)
@@ -597,15 +588,15 @@ export default function CustomersPage() {
           )}
 
           {canToggleLock && (
-            <Tooltip title={r.debtLocked ? 'Mở khóa nợ cho khách' : 'Khóa nợ chặn đơn bán (FR14)'}>
+            <Tooltip title={r.debtLocked ? 'Mở khóa nợ cho khách' : 'Khóa nợ chặn đơn bán'}>
               <Button
                 type="text"
                 size="small"
                 icon={
                   r.debtLocked ? (
-                    <UnlockOutlined className="text-emerald-600" />
+                    <UnlockOutlined className="text-slate-600" />
                   ) : (
-                    <LockOutlined className="text-purple-600" />
+                    <LockOutlined className="text-slate-600" />
                   )
                 }
                 onClick={() => handleToggleDebtLock(r)}
@@ -618,7 +609,7 @@ export default function CustomersPage() {
               <Button
                 type="text"
                 size="small"
-                icon={<DollarCircleOutlined className="text-emerald-600" />}
+                icon={<DollarCircleOutlined className="text-slate-600" />}
                 onClick={() => {
                   setSelectedCustomerForRecord(r)
                   setIsRecordModalOpen(true)
@@ -658,30 +649,33 @@ export default function CustomersPage() {
   }
 
   return (
-    <div className="p-4 sm:p-6 space-y-6">
+    <div className="space-y-6">
       {/* HEADER */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <Title level={3} className="!mb-1 flex items-center gap-2">
-            <UsergroupAddOutlined className="text-blue-600" />
-            <span>Quản lý Khách hàng & Cảnh báo Công nợ</span>
-          </Title>
-          <Text type="secondary" className="text-xs sm:text-sm">
-            Cấu hình hạn mức nợ (Credit Limit), cảnh báo trực quan khi vượt hạn mức hoặc bị khóa nợ
-            (FR14)
-          </Text>
+          <h1 className="text-xl font-semibold text-slate-900 tracking-tight">
+            Khách hàng
+          </h1>
+          <p className="text-sm text-slate-500 mt-1">
+            Quản lý danh sách khách hàng, cấu hình hạn mức tín dụng và kiểm soát công nợ phải thu.
+          </p>
         </div>
 
         <Space wrap>
-          <Button icon={<ReloadOutlined />} onClick={reloadData} loading={loading}>
+          <Button
+            icon={<ReloadOutlined className="text-slate-500" />}
+            onClick={reloadData}
+            loading={loading}
+            className="text-slate-700"
+          >
             Làm mới
           </Button>
 
           <Button
-            icon={<FileExcelOutlined />}
+            icon={<FileExcelOutlined className="text-slate-500" />}
             onClick={handleExportExcel}
             loading={exporting}
-            className="text-emerald-600 border-emerald-300 hover:text-emerald-700 hover:border-emerald-500"
+            className="text-slate-700"
           >
             Xuất Excel
           </Button>
@@ -713,9 +707,9 @@ export default function CustomersPage() {
         onSelectFilter={handleSelectFilterCard}
       />
 
-      {/* SEARCH & FILTERS */}
-      <Card size="small" className="shadow-2xs">
-        <Row gutter={[12, 12]} align="middle">
+      {/* SEARCH, FILTERS & TABLE */}
+      <div className="bg-white border border-slate-200/80 rounded-lg p-5">
+        <Row gutter={[12, 12]} align="middle" className="mb-4">
           <Col xs={24} sm={10} md={8}>
             <Input.Search
               placeholder="Tìm theo Mã, Tên, Số điện thoại..."
@@ -750,7 +744,7 @@ export default function CustomersPage() {
           <Col xs={12} sm={8} md={5}>
             <Select
               className="w-full"
-              placeholder="Cảnh báo công nợ (FR14)"
+              placeholder="Cảnh báo công nợ"
               allowClear
               value={
                 debtLocked ? 'LOCKED' : filterOverLimit ? 'OVER_LIMIT' : undefined
@@ -770,8 +764,8 @@ export default function CustomersPage() {
               }}
               options={[
                 { label: 'Tất cả cảnh báo nợ', value: undefined },
-                { label: 'Vượt hạn mức nợ (FR14)', value: 'OVER_LIMIT' },
-                { label: 'Đang bị khóa nợ (FR14)', value: 'LOCKED' },
+                { label: 'Vượt hạn mức nợ', value: 'OVER_LIMIT' },
+                { label: 'Đang bị khóa nợ', value: 'LOCKED' },
               ]}
             />
           </Col>
@@ -810,10 +804,7 @@ export default function CustomersPage() {
             </Button>
           </Col>
         </Row>
-      </Card>
 
-      {/* TABLE */}
-      <Card size="small" className="shadow-2xs">
         <Table<Customer>
           columns={columns}
           dataSource={customers}
@@ -833,7 +824,7 @@ export default function CustomersPage() {
           }}
           scroll={{ x: 1100 }}
         />
-      </Card>
+      </div>
 
       {/* MODAL THÊM / SỬA KHÁCH HÀNG */}
       <CustomerFormModal

@@ -93,7 +93,7 @@ ADMIN là quản trị của một doanh nghiệp nên có mọi quyền nghiệ
 | `POST /api/inventory/stock/picking-list` (order-service gọi khi lập phiếu xuất, xem lấy hàng) | R | R | R | - | R | - | - |
 | `POST /api/inventory/stock/reservations/release` (order-service gọi khi hủy, xóa đơn bán) | W | W | - | - | W | - | - |
 | `POST /api/inventory/stock/deduct`, `/dispatch` (trừ tồn trực tiếp, giao diện không gọi) | W | W | - | - | - | - | - |
-| `GET /api/inventory/reports/**` (nhập-xuất-tồn, thẻ kho, truy vết lô) | R | R (kho được gán) | R (kho được gán) | - | - | R | - |
+| `GET /api/inventory/reports/**` (nhập-xuất-tồn, thẻ kho, truy vết lô, kèm `/export` tải file Excel của nhập-xuất-tồn và thẻ kho: cùng quyền và phạm vi kho) | R | R (kho được gán) | R (kho được gán) | - | - | R | - |
 | `GET /api/inventory/alerts`, `/alerts/summary` (cảnh báo tồn kho, theo phạm vi kho của người gọi) | R | R | R | R | R | R | R |
 | `POST /api/inventory/alerts/scan` (chạy quét cảnh báo ngay) | W | - | - | - | - | - | - |
 | `GET /api/inventory/stocktakes/**` (danh sách, chi tiết, dòng đếm) | R | R | R | - | - | R | - |
@@ -133,6 +133,7 @@ ADMIN là quản trị của một doanh nghiệp nên có mọi quyền nghiệ
 | Lập, xác nhận xuất phiếu xuất | W | W | W | - | - | - | - |
 | `GET /api/orders/purchase-bills/**` | R | R | - | R | - | R | R |
 | Ghi thanh toán hóa đơn mua | W | - | - | - | - | W | - |
+| `GET /api/orders/reports/trending-items` (mặt hàng bán chạy trên dashboard, chỉ số lượng, kho lọc theo phạm vi) | R | R | R | R | R | R | - |
 
 ### notification-service và ai-service
 
@@ -158,7 +159,9 @@ vai trò ở chế độ máy chủ; dùng `vn.wms.common.test.GatewayHeaders` (
 - INTEGRATION đọc mọi API `GET` dưới `/api/products/**`, `/api/inventory/**`, `/api/orders/**` như trước WMS-20.3
   (khi `@PreAuthorize` chưa có tác dụng), trừ kiểm kê, phiếu điều chỉnh tồn, báo cáo kho (kiểm tra viết tay vốn đã từ
   chối) và danh sách lấy hàng của đơn bán (gọi tiếp một API `POST` của inventory-service mà API key không được gọi).
-- KPI dashboard mở cho cả sáu vai trò (SRS UC-10: mọi tác nhân); service đã che số tiền và lọc theo kho.
+- KPI dashboard mở cho cả sáu vai trò (SRS UC-10: mọi tác nhân); service đã che số tiền và lọc theo kho. Biểu đồ
+  mặt hàng bán chạy (`/api/orders/reports/trending-items`) cùng sáu vai trò: chỉ có số lượng, không có số tiền, vai trò
+  không phải ADMIN, ACCOUNTANT chỉ thấy các kho được gán.
 - Nhập hàng loạt nhà cung cấp gồm WAREHOUSE_MANAGER và PURCHASING để khớp màn hình nhập bằng AI (WMS-24.2 cho
   ADMIN, WAREHOUSE_MANAGER, PURCHASING nhập nhà cung cấp và hàng hóa).
 - Hàng hóa: WAREHOUSE_STAFF thêm, sửa (SRS: "Xem, Thêm/Sửa"); PURCHASING thêm, sửa vì nhập hàng hóa bằng AI dành cho

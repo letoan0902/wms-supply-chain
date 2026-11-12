@@ -158,7 +158,7 @@ export default function SupplierTransactionsModal({
       width: 140,
       render: (code: string | null) =>
         code ? (
-          <span className="font-mono text-xs font-semibold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded">
+          <span className="text-xs font-semibold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded">
             {code}
           </span>
         ) : (
@@ -174,7 +174,7 @@ export default function SupplierTransactionsModal({
       render: (val: number, record) => {
         const conf = TYPE_CONFIG[record.transactionType]
         return (
-          <span className={conf.textColor}>
+          <span className={`text-xs tabular-nums ${conf.textColor}`}>
             {conf.prefix} {formatCurrency(val)}
           </span>
         )
@@ -187,7 +187,9 @@ export default function SupplierTransactionsModal({
       align: 'right',
       width: 150,
       render: (val: number) => (
-        <span className="font-semibold text-slate-800">{formatCurrency(val)}</span>
+        <span className="text-xs font-medium text-slate-800 tabular-nums">
+          {formatCurrency(val)}
+        </span>
       ),
     },
     {

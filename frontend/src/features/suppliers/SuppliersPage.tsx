@@ -2,9 +2,8 @@ import {
   FileExcelOutlined,
   PlusOutlined,
   ReloadOutlined,
-  ShopOutlined,
 } from '@ant-design/icons'
-import { App, Button, Space, Typography } from 'antd'
+import { App, Button, Space } from 'antd'
 import { useEffect, useState } from 'react'
 import * as XLSX from 'xlsx'
 import { getApiErrorMessage } from '../../services/api'
@@ -24,8 +23,6 @@ import type {
   SupplierDebtSummary,
   UpdateSupplierPayload,
 } from './types'
-
-const { Title, Text } = Typography
 
 export default function SuppliersPage() {
   const { message } = App.useApp()
@@ -273,29 +270,29 @@ export default function SuppliersPage() {
       {/* Header trang */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <Title level={3} className="!mb-1 flex items-center gap-2 text-slate-800">
-            <ShopOutlined className="text-blue-600" />
-            <span>Quản lý Nhà cung cấp & Công nợ</span>
-          </Title>
-          <Text type="secondary" className="text-sm">
-            Hồ sơ đối tác cung ứng, điều khoản thanh toán và theo dõi công nợ phải trả (FR09 - WMS-08.3)
-          </Text>
+          <h1 className="text-xl font-semibold text-slate-900 tracking-tight">
+            Nhà cung cấp
+          </h1>
+          <p className="text-sm text-slate-500 mt-1">
+            Hồ sơ đối tác cung ứng, điều khoản thanh toán và theo dõi công nợ phải trả.
+          </p>
         </div>
 
         <Space wrap>
           <Button
-            icon={<FileExcelOutlined />}
+            icon={<FileExcelOutlined className="text-slate-500" />}
             onClick={handleExportExcel}
             loading={exporting}
-            className="hover:border-green-600 hover:text-green-600"
+            className="text-slate-700"
           >
             Xuất Excel
           </Button>
 
           <Button
-            icon={<ReloadOutlined />}
+            icon={<ReloadOutlined className="text-slate-500" />}
             onClick={reloadData}
             loading={loading || summaryLoading}
+            className="text-slate-700"
           >
             Làm mới
           </Button>

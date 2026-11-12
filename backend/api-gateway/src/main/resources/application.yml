@@ -24,6 +24,8 @@ spring:
             allowed-origins: "${CORS_ALLOWED_ORIGINS:http://localhost:5173}"
             allowed-methods: GET,POST,PUT,PATCH,DELETE,OPTIONS
             allowed-headers: "*"
+            # Cho trình duyệt đọc tên file tải về (xuất Excel báo cáo kho, WMS-17.3)
+            exposed-headers: Content-Disposition
             allow-credentials: true
             max-age: 3600
       # Tránh trùng header CORS nếu service phía sau cũng trả CORS

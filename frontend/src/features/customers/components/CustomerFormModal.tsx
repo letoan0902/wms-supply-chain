@@ -156,7 +156,7 @@ export default function CustomerFormModal({
             name="customerType"
             label={
               <span className="font-medium text-gray-700">
-                Phân loại khách hàng (FR14)
+                Phân loại khách hàng
               </span>
             }
             className="mb-0"
@@ -301,7 +301,7 @@ export default function CustomerFormModal({
 
         <Divider className="my-3">
           <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-            Cấu hình hạn mức nợ & Điều khoản thanh toán (FR14)
+            Cấu hình hạn mức nợ & Điều khoản thanh toán
           </span>
         </Divider>
 
@@ -312,7 +312,7 @@ export default function CustomerFormModal({
               label={
                 <Space size={4}>
                   <span>Hạn mức công nợ tối đa (Credit Limit)</span>
-                  <Tooltip title="Số tiền nợ tối đa cho phép khách hàng được nợ tại bất kỳ thời điểm nào. Khi nợ đạt 90% sẽ cảnh báo, vượt 100% hệ thống sẽ tự động CHẶN đơn bán hàng theo quy định FR14.">
+                  <Tooltip title="Số tiền nợ tối đa cho phép khách hàng được nợ tại bất kỳ thời điểm nào. Khi nợ đạt 90% sẽ cảnh báo, vượt 100% hệ thống sẽ tự động chặn đơn bán hàng theo quy định quản lý công nợ.">
                     <InfoCircleOutlined className="text-blue-500" />
                   </Tooltip>
                 </Space>
@@ -408,7 +408,7 @@ export default function CustomerFormModal({
                   valuePropName="checked"
                   label={
                     <span className="font-medium text-red-700">
-                      Khóa nợ chặn bán hàng (FR14)
+                      Khóa nợ chặn bán hàng
                     </span>
                   }
                   className="mb-0"

@@ -36,22 +36,22 @@ interface NotificationItemProps {
 function NotificationItem({ item, color, unreadBackground }: NotificationItemProps) {
   return (
     <li
-      className="flex gap-3 rounded-md px-2 py-2"
+      className="flex gap-2.5 rounded px-2.5 py-2 transition-colors border-b border-slate-100 last:border-b-0"
       style={{ background: item.read ? undefined : unreadBackground }}
     >
-      <span className="pt-0.5 text-base" style={{ color }}>
+      <span className="pt-0.5 text-sm shrink-0" style={{ color }}>
         {TYPE_ICONS[item.type]}
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex items-start justify-between gap-2">
-          <Typography.Text strong={!item.read} className="min-w-0">
+          <Typography.Text strong={!item.read} className="min-w-0 text-xs text-slate-800">
             {item.title}
           </Typography.Text>
-          <Typography.Text type="secondary" className="shrink-0 text-xs">
+          <Typography.Text type="secondary" className="shrink-0 text-[11px] text-slate-400 font-mono">
             {formatNotificationTime(item.occurredAt)}
           </Typography.Text>
         </div>
-        <Typography.Paragraph type="secondary" className="text-sm" style={{ margin: 0 }}>
+        <Typography.Paragraph type="secondary" className="text-xs text-slate-500 mt-0.5" style={{ margin: 0 }}>
           {item.message}
         </Typography.Paragraph>
       </div>
@@ -77,47 +77,56 @@ export default function NotificationBell() {
   const statusConfig = STATUS_CONFIG[status]
 
   const content = (
-    <div className="w-[360px] max-w-[calc(100vw-104px)]">
-      <div className="flex items-center justify-between gap-2 pb-2">
-        <Typography.Text strong className="whitespace-nowrap">
+    <div className="w-[340px] max-w-[calc(100vw-48px)]">
+      <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-100">
+        <span className="text-xs font-semibold text-slate-800">
           Thông báo
-        </Typography.Text>
-        <div className="flex flex-wrap items-center justify-end">
-          <Button type="link" size="small" disabled={unreadCount === 0} onClick={markAllAsRead}>
-            Đánh dấu đã đọc
+        </span>
+        <div className="flex items-center gap-1">
+          <Button
+            type="text"
+            size="small"
+            disabled={unreadCount === 0}
+            onClick={markAllAsRead}
+            className="text-[11px] text-slate-500 hover:text-slate-800 px-1.5 h-6"
+          >
+            Đã đọc
           </Button>
           <Button
-            type="link"
+            type="text"
             size="small"
             disabled={notifications.length === 0}
             onClick={clearNotifications}
+            className="text-[11px] text-slate-400 hover:text-rose-600 px-1.5 h-6"
           >
-            Xóa tất cả
+            Xóa
           </Button>
         </div>
       </div>
 
       {status === 'disconnected' && (
-        <div className="mb-2 flex items-center justify-between gap-2">
-          <Typography.Text type="secondary" className="text-xs">
+        <div className="my-2 flex items-center justify-between gap-2 bg-slate-50 p-2 rounded border border-slate-200/80">
+          <span className="text-[11px] text-slate-500">
             {statusConfig.label}
-          </Typography.Text>
-          <Button size="small" onClick={reconnectRealtime}>
+          </span>
+          <Button size="small" onClick={reconnectRealtime} className="text-xs h-6">
             Kết nối lại
           </Button>
         </div>
       )}
 
       {notifications.length === 0 ? (
-        <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="Chưa có thông báo" />
+        <div className="py-6">
+          <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={<span className="text-xs text-slate-400">Không có thông báo mới</span>} />
+        </div>
       ) : (
-        <ul className="m-0 flex max-h-[400px] list-none flex-col gap-1 overflow-y-auto p-0">
+        <ul className="m-0 flex max-h-[380px] list-none flex-col overflow-y-auto p-0 mt-1">
           {notifications.map((item) => (
             <NotificationItem
               key={item.id}
               item={item}
               color={severityColors[item.severity]}
-              unreadBackground={token.colorPrimaryBg}
+              unreadBackground="rgba(37, 99, 235, 0.04)"
             />
           ))}
         </ul>
@@ -126,9 +135,9 @@ export default function NotificationBell() {
   )
 
   return (
-    <div className="flex items-center gap-1">
+    <div className="flex items-center gap-1.5">
       <Tooltip title={statusConfig.label}>
-        <span className="inline-flex cursor-default px-1" aria-label={statusConfig.label}>
+        <span className="inline-flex cursor-default p-0.5" aria-label={statusConfig.label}>
           <Badge status={statusConfig.badge} />
         </span>
       </Tooltip>
@@ -137,7 +146,8 @@ export default function NotificationBell() {
           <Button
             type="text"
             shape="circle"
-            icon={<BellOutlined style={{ fontSize: 18 }} />}
+            className="h-8 w-8 flex items-center justify-center text-slate-500 hover:text-slate-800 hover:bg-slate-100"
+            icon={<BellOutlined className="text-base" />}
             aria-label={unreadCount > 0 ? `Thông báo, ${unreadCount} chưa đọc` : 'Thông báo'}
           />
         </Badge>

@@ -544,7 +544,7 @@
             "description": "409 CONFLICT (mã chuẩn hóa thành CAI đã có)",
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"code\": \"cai\",\n  \"name\": \"Cái trùng\"\n}",
+              "raw": "{\n  \"code\": \"CAI\",\n  \"name\": \"Cái trùng\"\n}",
               "options": {
                 "raw": {
                   "language": "json"
@@ -1728,7 +1728,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "const qa = eval(pm.collectionVariables.get('qaLib'));",
-                  "qa.ok(200, 'Xem khu'); qa.test('Có khu A và B', () => pm.expectqa.content().to.have.members(['A', 'B']));"
+                  "qa.ok(200, 'Xem khu'); qa.test('Có khu A và B', () => pm.expect(qa.data()).to.have.members(['A', 'B']));"
                 ]
               }
             }

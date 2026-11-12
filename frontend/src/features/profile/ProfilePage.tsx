@@ -256,7 +256,7 @@ export default function ProfilePage() {
                     </Descriptions.Item>
                     <Descriptions.Item label="Trạng thái">
                       <Tag color={profile?.enabled ? 'success' : 'error'}>
-                        {profile?.enabled ? 'Hoạt động (ACTIVE)' : 'Tạm khóa (LOCKED)'}
+                        {profile?.enabled ? 'Hoạt động' : 'Tạm khóa'}
                       </Tag>
                     </Descriptions.Item>
                     <Descriptions.Item label="Vai trò RBAC">

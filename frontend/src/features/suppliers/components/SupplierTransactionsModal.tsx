@@ -270,7 +270,7 @@ export default function SupplierTransactionsModal({
               </div>
 
               <div>
-                <div className="text-xs text-slate-500">Hạn mức nợ (Credit Limit):</div>
+                <div className="text-xs text-slate-500">Hạn mức nợ:</div>
                 <div className="text-base font-semibold text-slate-800">
                   {formatCurrency(creditLimit)}
                 </div>

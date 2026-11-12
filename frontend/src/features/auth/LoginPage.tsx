@@ -219,7 +219,7 @@ export default function LoginPage() {
               <Input
                 size="large"
                 prefix={<UserOutlined className="text-slate-400" />}
-                placeholder="Ví dụ: admin, manager..."
+                placeholder="Nhập tên đăng nhập"
                 autoComplete="username"
                 className="rounded-lg"
               />

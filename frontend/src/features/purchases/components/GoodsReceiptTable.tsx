@@ -353,7 +353,7 @@ export default function GoodsReceiptTable({ onOpenCreateGrn }: GoodsReceiptTable
 
         <Col xs={12} sm={6}>
           <Card size="small" className="border-l-4 border-l-emerald-500 shadow-2xs">
-            <div className="text-xs text-slate-500">Đã hoàn tất (COMPLETED)</div>
+            <div className="text-xs text-slate-500">Đã hoàn tất</div>
             <div className="text-xl font-bold text-emerald-600 mt-1">
               {formatNumber(summary?.completedGrn ?? 0)}
             </div>

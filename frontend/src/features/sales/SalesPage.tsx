@@ -256,7 +256,7 @@ export default function SalesPage() {
           'Thuế VAT (VNĐ)': so.taxAmount || 0,
           'Tổng thanh toán (VNĐ)': so.totalAmount || 0,
           'Trạng thái': conf?.label || so.status,
-          'Lý do Backorder': so.backorderReason || '',
+          'Lý do thiếu hàng': so.backorderReason || '',
           'Người duyệt': so.confirmedBy || '',
           'Thời gian tạo': so.createdAt ? dayjs(so.createdAt).format('DD/MM/YYYY HH:mm') : '',
         }
@@ -283,7 +283,7 @@ export default function SalesPage() {
     setConfirmingId(order.id)
     try {
       await salesApi.confirmSalesOrder(order.id)
-      message.success(`Đã xác nhận đơn bán "${order.soNumber}"! Tồn kho đã được giữ chỗ (Soft Reservation).`)
+      message.success(`Đã xác nhận đơn bán "${order.soNumber}"! Tồn kho đã được giữ chỗ.`)
     } catch (err) {
       const shortages = stockShortagesOf(err)
       if (shortages.length > 0) {
@@ -465,7 +465,7 @@ export default function SalesPage() {
               <Tooltip title="Xác nhận đơn (Giữ hàng ảo)">
                 <Popconfirm
                   title="Xác nhận đơn bán?"
-                  description={`Xác nhận duyệt đơn "${r.soNumber}" và thực hiện Soft Reservation?`}
+                  description={`Xác nhận duyệt đơn "${r.soNumber}" và giữ hàng?`}
                   icon={<ExclamationCircleOutlined className="text-green-500" />}
                   onConfirm={() => handleQuickConfirm(r)}
                   okText="Xác nhận"
@@ -485,7 +485,7 @@ export default function SalesPage() {
 
             {/* Lấy hàng thông minh (Smart Picking - WMS-12.3) */}
             {r.status === 'CONFIRMED' && canPick && (
-              <Tooltip title="Lấy hàng thông minh (Smart Picking Route)">
+              <Tooltip title="Lấy hàng thông minh (lộ trình lấy hàng)">
                 <Button
                   data-write-action
                   size="small"
@@ -583,7 +583,7 @@ export default function SalesPage() {
       key: 'BACKORDER',
       label: (
         <span className="flex items-center gap-1.5">
-          <span>Thiếu hàng (Backorder)</span>
+          <span>Thiếu hàng</span>
           {(summary?.backorders ?? 0) > 0 && (
             <Badge
               count={summary?.backorders}
@@ -614,7 +614,7 @@ export default function SalesPage() {
             <span>Quản lý Đơn Bán Hàng & Công Nợ Phải Thu (SO)</span>
           </Title>
           <Text type="secondary" className="text-sm">
-            Quy trình bán hàng, kiểm tra ATP, giữ hàng ảo (Soft Reservation), tạo hóa đơn và theo dõi công nợ phải thu (FR14, FR15, FR16, FR18)
+            Quy trình bán hàng, kiểm tra ATP, giữ hàng, tạo hóa đơn và theo dõi công nợ phải thu
           </Text>
         </div>
 
@@ -667,7 +667,7 @@ export default function SalesPage() {
         <Col xs={24} sm={12} md={6} lg={5}>
           <Card size="small" className="shadow-2xs border-slate-200">
             <Statistic
-              title="Thiếu hàng (Backorder)"
+              title="Thiếu hàng"
               value={summary?.backorders ?? 0}
               valueStyle={{ color: '#faad14' }}
               prefix={<WarningOutlined className="mr-1" />}

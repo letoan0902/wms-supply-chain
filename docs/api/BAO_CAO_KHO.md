@@ -1,4 +1,4 @@
-# Hợp đồng API báo cáo kho (WMS-17.1, WMS-17.2)
+# Hợp đồng API báo cáo kho (WMS-17.1, WMS-17.2, WMS-17.3)
 
 Dịch vụ: **inventory-service**, đi qua API Gateway với tiền tố `/api/inventory/reports`. Mọi phản hồi bọc trong
 `ApiResponse` chuẩn của dự án: `{ success, code, message, data, timestamp }`. Lỗi có `success = false`, `code` là mã
@@ -33,7 +33,7 @@ Doanh nghiệp tạo sau migration không có mốc (`ledgerStartedAt = null`), 
 
 | HTTP | `code` | Khi nào |
 | --- | --- | --- |
-| 400 | `BAD_REQUEST` | Thiếu `fromDate`/`toDate`/`productId`/`warehouseId`/`lotNo`, sai định dạng ngày, `toDate` trước `fromDate`, khoảng quá 366 ngày, `page < 0`, `size` ngoài 1..200, `sort`/`direction`/`groupBy` không hợp lệ, bộ lọc khớp quá 2000 sản phẩm, xuất quá 20000 dòng |
+| 400 | `BAD_REQUEST` | Thiếu `fromDate`/`toDate`/`productId`/`warehouseId`/`lotNo`, sai định dạng ngày, `toDate` trước `fromDate`, khoảng quá 366 ngày, `page < 0`, `size` ngoài 1..200, `sort`/`direction`/`groupBy` không hợp lệ, bộ lọc khớp quá 2000 sản phẩm |
 | 401 | `UNAUTHORIZED` | Không có thông tin người dùng (gọi không qua gateway) |
 | 403 | `FORBIDDEN` | Vai trò không được xem báo cáo; tài khoản kho chưa được gán kho; xem kho không được gán |
 | 403 | `COMPANY_REQUIRED` | Không xác định được doanh nghiệp |
@@ -357,23 +357,56 @@ nhiều lô; `null` khi chưa nhận), `destinationBinLocationCode`, `receivedAt
 
 ---
 
-## 4. Dành cho WMS-17.3 (xuất Excel bằng Apache POI)
+## 4. Xuất Excel (WMS-17.3)
 
-Không truy vấn lại cơ sở dữ liệu. Tiêm `vn.wms.inventory.service.report.StockReportService` và gọi trong request của
-người dùng (để giữ nguyên phân quyền, phạm vi kho và doanh nghiệp):
+Hai endpoint trả file `.xlsx` do backend lập bằng Apache POI (`SXSSFWorkbook`, ghi theo luồng nên 20000 dòng không làm
+đầy bộ nhớ). Cùng bộ lọc, cùng kiểm tra tham số, vai trò, phạm vi kho và doanh nghiệp như API xem (xem phần 0); không
+có `page`, `size`.
 
-| Phương thức | Trả về |
-| --- | --- |
-| `getInOutBalanceForExport(InOutBalanceQuery query)` | `InOutBalanceReportResponse` với **toàn bộ** dòng trong `rows.content` (một trang), `totals`, `dataNote`, `valuationNote`. `page`, `size` của query bị bỏ qua. Quá 20000 dòng: `400 BAD_REQUEST` |
-| `getStockCardForExport(Long productId, Long warehouseId, LocalDate fromDate, LocalDate toDate)` | `StockCardResponse` với toàn bộ dòng thẻ kho trong `lines.content`. Quá 20000 dòng: `400` |
+| Endpoint | Tham số | Tên file |
+| --- | --- | --- |
+| `GET /api/inventory/reports/in-out-balance/export` | `fromDate`, `toDate` (bắt buộc), `warehouseId`, `categoryId`, `productId`, `keyword`, `groupBy`, `sort`, `direction` | `bao-cao-xuat-nhap-ton_{fromDate}_{toDate}.xlsx` |
+| `GET /api/inventory/reports/stock-card/export` | `productId`, `warehouseId`, `fromDate`, `toDate` (bắt buộc) | `the-kho_{SKU}_{mã kho}_{fromDate}_{toDate}.xlsx` (SKU, mã kho chỉ giữ chữ, số, `.`, `_`, `-`) |
 
-`InOutBalanceQuery(warehouseId, fromDate, toDate, categoryId, productId, keyword, groupBy, sort, direction, page, size)`.
-Dòng phẳng để ghi ra sheet: `vn.wms.inventory.dto.report.InOutBalanceRow`, `vn.wms.inventory.dto.report.StockCardLine`
-(cột tiếng Việt gợi ý: Mã SKU, Tên sản phẩm, ĐVT, Kho, Tồn đầu kỳ, Nhập trong kỳ, Xuất trong kỳ, Tồn cuối kỳ; với thẻ
-kho: Thời điểm, Loại, Số chứng từ, Chứng từ tham chiếu, Số lô, Vị trí, Nhập, Xuất, Tồn, Người thực hiện, Diễn giải).
-Ô có giá trị `null` ghi trống, không ghi 0; ghi `dataNote` và `valuationNote` ở dòng chú thích cuối sheet.
-Gợi ý endpoint tải file: `GET /api/inventory/reports/in-out-balance/export` và
-`GET /api/inventory/reports/stock-card/export` cùng tham số với API xem.
+Phản hồi 200:
+
+```
+Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet
+Content-Disposition: attachment; filename="bao-cao-xuat-nhap-ton_2026-11-01_2026-11-12.xlsx"; filename*=UTF-8''bao-cao-xuat-nhap-ton_2026-11-01_2026-11-12.xlsx
+Cache-Control: no-store
+```
+
+Tên file chỉ gồm ký tự ASCII nên `filename` và `filename*` giống nhau. API Gateway cho phép trình duyệt đọc
+`Content-Disposition` (`exposed-headers` của CORS). Lỗi (400, 401, 403, 404, 503) vẫn là JSON `ApiResponse` như API xem,
+vì file chỉ bắt đầu ghi sau khi mọi kiểm tra đã qua; frontend đọc body lỗi dạng Blob rồi `JSON.parse`.
+
+### Bố cục sheet
+
+Cả hai sheet có cùng cấu trúc: dòng 1 tiêu đề báo cáo (ô gộp hết chiều ngang), dòng 2 điều kiện lọc (ô gộp), dòng 3
+tiêu đề cột (chữ đậm, cố định khi cuộn), các dòng dữ liệu, dòng tổng, một dòng trống rồi các ghi chú (ô gộp). Số lượng là
+ô số định dạng `#,##0.000`; ngày là ô ngày `dd/MM/yyyy`; số lượng `null` để ô trống, không ghi 0.
+
+- Sheet `Xuat_Nhap_Ton`: `STT`, `Mã SKU`, `Tên sản phẩm`, `ĐVT`, `Kho` (chỉ khi `groupBy = PRODUCT_WAREHOUSE`), `Tồn đầu kỳ`,
+  `Nhập trong kỳ`, `Xuất trong kỳ`, `Tồn cuối kỳ`. Dòng `Tổng cộng` lấy từ `totals` của service (không cộng lại trong
+  bộ xuất). Cột giá trị tiền không có vì luôn `null`; lý do nằm ở ghi chú `Giá trị tiền: ...`.
+- Sheet `The_kho`: `STT`, `Thời điểm` (ô ngày giờ `dd/MM/yyyy HH:mm`, giờ Việt Nam), `Loại biến động`, `Số chứng từ`,
+  `Chứng từ tham chiếu`, `Số lô`, `Hạn dùng` (ô ngày), `Vị trí`, `Nhập`, `Xuất`, `Tồn`, `Người thực hiện`, `Diễn giải`.
+  Sau dòng `Tồn đầu kỳ` là các biến động, rồi `Cộng phát sinh trong kỳ` (tổng nhập, xuất) và `Tồn cuối kỳ`.
+- Ghi chú cuối sheet: `Ghi chú số liệu: {dataNote}` (khi có), `Giá trị tiền: {valuationNote}` (báo cáo Xuất - Nhập -
+  Tồn), `Lập lúc: dd/MM/yyyy HH:mm` (giờ Việt Nam).
+
+### Giới hạn 20000 dòng
+
+Quá 20000 dòng khớp thì file chứa 20000 dòng đầu (theo thứ tự của API xem) và có ghi chú "Báo cáo có N dòng, vượt giới
+hạn 20000 dòng ... file chỉ gồm 20000 dòng đầu". Dòng tổng, tồn đầu kỳ, tồn cuối kỳ vẫn tính trên toàn bộ dòng khớp.
+Không còn trả `400` khi vượt giới hạn.
+
+### Dành cho code Java
+
+`StockReportService.getInOutBalanceForExport(InOutBalanceQuery)` và `getStockCardForExport(...)` trả toàn bộ dòng (tối đa
+20000) trong `rows.content` / `lines.content`; `totalElements` là tổng số dòng khớp thật nên lớn hơn số dòng trả về khi
+bị cắt. Bộ lập file: `StockReportExportService` (gọi service, dựng điều kiện lọc, đặt tên file) và `StockReportExcelWriter`
+(ghi POI).
 
 ## 5. Ghi chú cho người làm phần kiểm kê, điều chỉnh
 

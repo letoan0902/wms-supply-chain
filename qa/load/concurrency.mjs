@@ -79,8 +79,8 @@ function record(label, ms, status, code, text) {
   if (DEADLOCK.test(String(text || ''))) deadlocks.push({ label, status, text: String(text || '').slice(0, 200) });
 }
 
-async function call(label, method, path, { token, body, apiKey } = {}) {
-  const headers = { Accept: 'application/json' };
+async function call(label, method, path, { token, body, apiKey, headers: extraHeaders } = {}) {
+  const headers = { Accept: 'application/json', ...(extraHeaders || {}) };
   if (token) headers.Authorization = `Bearer ${token}`;
   if (apiKey) headers['X-Api-Key'] = apiKey;
   if (body !== undefined) headers['Content-Type'] = 'application/json';
@@ -361,14 +361,16 @@ async function runIdempotency() {
     JSON.stringify(statuses(g1)) === '[201,400]' && g1s.reached && g1s.later && eq(g1s.later.onHand, 50),
     `HTTP ${statuses(g1).join(', ')}, onHand ${g1s.later && g1s.later.onHand}`);
 
-  // G2: hai phiếu nhập từng phần giống nhau.
+  // G2: hai phiếu nhập từng phần giống nhau, gửi cùng một Idempotency-Key như form nhập kho làm khi người dùng bấm
+  // đúp hoặc gửi lại sau khi quá giờ (docs/api/CHUNG_TU_TON_KHO.md): yêu cầu thứ hai nhận lại phiếu đầu (HTTP 200).
   const po2 = await approvedPo(grnProduct, 100);
-  const g2 = await twice(() => call('POST /api/orders/goods-receipt-notes', 'POST', '/api/orders/goods-receipt-notes', { ...t, body: grnBody(po2, 30) }));
+  const g2Key = { 'Idempotency-Key': `qa-load-${Date.now()}-${Math.random().toString(36).slice(2, 10)}` };
+  const g2 = await twice(() => call('POST /api/orders/goods-receipt-notes', 'POST', '/api/orders/goods-receipt-notes', { ...t, headers: g2Key, body: grnBody(po2, 30) }));
   const created = g2.filter((r) => r.status === 201).length;
   const g2s = await stableAfter(grnProduct, 50 + 30 * Math.max(created, 1), undefined, 'G2');
   check('G2', 'Hai phiếu nhập từng phần trùng: chỉ ghi một lần, tồn tăng đúng 30',
     created === 1 && g2s.later && eq(g2s.later.onHand, 80),
-    `HTTP ${statuses(g2).join(', ')}, onHand ${g2s.later && g2s.later.onHand} (cần 80); API chưa có khóa chống nộp trùng`);
+    `HTTP ${statuses(g2).join(', ')}, onHand ${g2s.later && g2s.later.onHand} (cần 80)`);
 
   // G3 đến G5 trên một sản phẩm có 100 tồn.
   const soProduct = await createProduct('IDEM-SO');

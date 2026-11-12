@@ -116,6 +116,15 @@ class ApiGatewayApplicationTest {
     }
 
     @Test
+    void exposesContentDispositionToFrontendForFileDownloads() {
+        // Frontend đọc tên file tải về (xuất Excel báo cáo kho) từ Content-Disposition nên header phải được CORS cho phép đọc
+        webTestClient.get().uri("/api/inventory/reports/in-out-balance/export")
+                .header("Origin", "http://localhost:5173")
+                .exchange()
+                .expectHeader().valueEquals("Access-Control-Expose-Headers", "Content-Disposition");
+    }
+
+    @Test
     void registersRateLimiterBeansFromConfiguration() {
         assertThat(keyResolver).isInstanceOf(UserOrIpKeyResolver.class);
         assertThat(rateLimiter).isNotNull();

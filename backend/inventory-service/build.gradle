@@ -26,6 +26,9 @@ dependencies {
     implementation 'org.flywaydb:flyway-mysql'
     runtimeOnly 'com.mysql:mysql-connector-j'
 
+    // Xuất Excel báo cáo kho (WMS-17.3): ghi file xlsx kiểu streaming (SXSSFWorkbook), cùng phiên bản với ai-service
+    implementation "org.apache.poi:poi-ooxml:${apachePoiVersion}"
+
     // Tài liệu API: /swagger-ui.html
     implementation "org.springdoc:springdoc-openapi-starter-webmvc-ui:${springdocVersion}"
 

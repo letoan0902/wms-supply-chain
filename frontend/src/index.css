@@ -6,6 +6,11 @@
 @layer theme, base, antd, components, utilities;
 @import "tailwindcss";
 
+@theme {
+  --font-sans: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+  --font-mono: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+}
+
 html,
 body,
 #root {
@@ -14,8 +19,56 @@ body,
 
 body {
   margin: 0;
-  background-color: #f5f7fa;
-  font-family:
-    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans',
-    sans-serif;
+  background-color: #f8fafc;
+  color: #0f172a;
+  font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Đồng bộ font chữ hệ thống thuần Roboto, triệt tiêu hoàn toàn font monospace (Roboto Mono / Consolas) */
+.font-mono,
+code,
+kbd,
+samp,
+pre {
+  font-family: 'Roboto', -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif !important;
+}
+
+/* Điều chỉnh độ đậm tiêu đề Ant Design hài hòa với Roboto, tránh quá đậm (no heavy 700-900 shouts) */
+h1.ant-typography,
+h2.ant-typography,
+h3.ant-typography,
+h4.ant-typography,
+.ant-typography h1,
+.ant-typography h2,
+.ant-typography h3,
+.ant-typography h4 {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+/* Định dạng số liệu bảng kế toán / tồn kho chuẩn xác (tabular numbers) */
+.tabular-nums,
+[data-tabular-nums] {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Thanh cuộn tinh giản (quiet scrollbar) cho menu kho và bảng tác vụ */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
 }

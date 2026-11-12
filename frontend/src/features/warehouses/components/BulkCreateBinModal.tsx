@@ -63,18 +63,18 @@ export default function BulkCreateBinModal({
 
   return (
     <Modal
-      title="Sinh dải Vị trí Ô/Kệ tự động (Bulk Location Generator)"
+      title="Sinh dải vị trí ô/kệ tự động"
       open={open}
       onCancel={onClose}
       onOk={() => form.submit()}
       confirmLoading={loading}
       okText={`Tạo ${previewCount} vị trí`}
       cancelText="Hủy"
-      width={600}
+      width={560}
       destroyOnClose
     >
-      <div className="text-xs text-gray-500 mb-3">
-        Tự động tạo hàng loạt vị trí lưu trữ theo dải kệ (Rack) và dải ô (Bin) chỉ trong một thao tác.
+      <div className="text-xs text-slate-500 mb-4">
+        Tự động tạo hàng loạt vị trí lưu trữ theo dải kệ và dải ô trong một thao tác.
       </div>
 
       <Form
@@ -116,24 +116,24 @@ export default function BulkCreateBinModal({
               { max: 20, message: 'Tối đa 20 ký tự' },
             ]}
           >
-            <Input placeholder="vd: ZA, ZB, KHOLANH" className="uppercase font-mono" />
+            <Input placeholder="vd: ZA, ZB, KHOLANH" className="uppercase" />
           </Form.Item>
         </div>
 
-        <div className="p-3 bg-gray-50 rounded-lg border border-gray-200 mb-4">
-          <div className="text-xs font-semibold text-gray-700 mb-2">Cấu hình Dải Kệ (Rack Range)</div>
+        <div className="p-3 bg-slate-50/80 rounded-lg border border-slate-200/80 mb-3">
+          <div className="text-xs font-medium text-slate-700 mb-2">Cấu hình dải kệ (Rack)</div>
           <div className="grid grid-cols-3 gap-3">
             <Form.Item
               name="rackPrefix"
-              label="Tiền tố Kệ"
+              label="Tiền tố kệ"
               rules={[{ required: true, message: 'Bắt buộc' }]}
               className="mb-0"
             >
-              <Input placeholder="R" className="uppercase font-mono" />
+              <Input placeholder="R" className="uppercase" />
             </Form.Item>
             <Form.Item
               name="rackFrom"
-              label="Từ kệ số"
+              label="Từ số"
               rules={[{ required: true, message: 'Bắt buộc' }]}
               className="mb-0"
             >
@@ -141,7 +141,7 @@ export default function BulkCreateBinModal({
             </Form.Item>
             <Form.Item
               name="rackTo"
-              label="Đến kệ số"
+              label="Đến số"
               rules={[{ required: true, message: 'Bắt buộc' }]}
               className="mb-0"
             >
@@ -150,20 +150,20 @@ export default function BulkCreateBinModal({
           </div>
         </div>
 
-        <div className="p-3 bg-gray-50 rounded-lg border border-gray-200 mb-4">
-          <div className="text-xs font-semibold text-gray-700 mb-2">Cấu hình Dải Ô (Bin Range)</div>
+        <div className="p-3 bg-slate-50/80 rounded-lg border border-slate-200/80 mb-3">
+          <div className="text-xs font-medium text-slate-700 mb-2">Cấu hình dải ô (Bin)</div>
           <div className="grid grid-cols-3 gap-3">
             <Form.Item
               name="binPrefix"
-              label="Tiền tố Ô"
+              label="Tiền tố ô"
               rules={[{ required: true, message: 'Bắt buộc' }]}
               className="mb-0"
             >
-              <Input placeholder="B" className="uppercase font-mono" />
+              <Input placeholder="B" className="uppercase" />
             </Form.Item>
             <Form.Item
               name="binFrom"
-              label="Từ ô số"
+              label="Từ số"
               rules={[{ required: true, message: 'Bắt buộc' }]}
               className="mb-0"
             >
@@ -171,7 +171,7 @@ export default function BulkCreateBinModal({
             </Form.Item>
             <Form.Item
               name="binTo"
-              label="Đến ô số"
+              label="Đến số"
               rules={[{ required: true, message: 'Bắt buộc' }]}
               className="mb-0"
             >
@@ -191,7 +191,7 @@ export default function BulkCreateBinModal({
         <Alert
           type="info"
           showIcon
-          message={`Hệ thống sẽ sinh ${previewCount} vị trí lưu trữ chuẩn 4 cấp (Warehouse - Zone - Rack - Bin).`}
+          message={`Hệ thống sẽ sinh ${previewCount} vị trí lưu trữ phân cấp (Kho - Khu - Kệ - Ô).`}
           description="Các vị trí đã tồn tại từ trước sẽ tự động được bỏ qua để tránh trùng lặp."
         />
       </Form>

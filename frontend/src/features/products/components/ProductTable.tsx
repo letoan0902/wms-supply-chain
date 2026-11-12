@@ -16,12 +16,12 @@ import {
   Select,
   Space,
   Table,
-  Tag,
   Tooltip,
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import * as XLSX from 'xlsx'
 import type { Category, Product } from '../types'
+import { formatCurrency, formatNumber } from '../../../utils/format'
 
 interface ProductTableProps {
   products: Product[]
@@ -98,20 +98,20 @@ export default function ProductTable({
       title: 'Ảnh',
       dataIndex: 'imageUrl',
       key: 'imageUrl',
-      width: 65,
+      width: 56,
       align: 'center',
       render: (url?: string) =>
         url ? (
           <Image
             src={url}
-            width={44}
-            height={44}
-            className="rounded object-cover border border-slate-200"
-            fallback="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='44' height='44' viewBox='0 0 24 24' fill='%23ccc'><path d='M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z'/></svg>"
+            width={38}
+            height={38}
+            className="rounded object-cover border border-slate-200/80"
+            fallback="data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='38' height='38' viewBox='0 0 24 24' fill='%2394a3b8'><path d='M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z'/></svg>"
           />
         ) : (
-          <div className="w-11 h-11 mx-auto rounded bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-400">
-            <PictureOutlined />
+          <div className="w-9 h-9 mx-auto rounded bg-slate-100 border border-slate-200/60 flex items-center justify-center text-slate-400">
+            <PictureOutlined className="text-xs" />
           </div>
         ),
     },
@@ -119,22 +119,22 @@ export default function ProductTable({
       title: 'Mã SKU & Tên hàng hóa',
       key: 'name',
       render: (_: unknown, record: Product) => (
-        <div className="space-y-0.5">
+        <div className="space-y-1">
           <div className="flex items-center gap-2">
-            <Tag color="blue" className="font-mono font-medium m-0">
+            <span className="text-xs font-semibold text-slate-800 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200/70 inline-flex items-center">
               {record.sku}
-            </Tag>
+            </span>
             {record.barcode && (
-              <span className="text-xs text-slate-500 font-mono flex items-center gap-1">
-                <BarcodeOutlined /> {record.barcode}
+              <span className="text-[11px] text-slate-400 inline-flex items-center gap-1">
+                <BarcodeOutlined className="text-[10px]" /> {record.barcode}
               </span>
             )}
           </div>
-          <div className="font-medium text-slate-800 hover:text-blue-600 transition-colors">
+          <div className="font-medium text-slate-900 leading-tight">
             {record.name}
           </div>
           {record.description && (
-            <div className="text-xs text-slate-500 truncate max-w-xs">{record.description}</div>
+            <div className="text-xs text-slate-500 truncate max-w-sm">{record.description}</div>
           )}
         </div>
       ),
@@ -143,32 +143,37 @@ export default function ProductTable({
       title: 'Nhóm hàng',
       dataIndex: 'categoryName',
       key: 'categoryName',
-      width: 130,
+      width: 140,
       render: (name?: string) =>
-        name ? <Tag color="geekblue">{name}</Tag> : <span className="text-slate-400">-</span>,
+        name ? (
+          <span className="text-xs text-slate-600 font-normal">{name}</span>
+        ) : (
+          <span className="text-slate-400 text-xs">—</span>
+        ),
     },
     {
-      title: 'Đơn vị cơ sở',
+      title: 'Đơn vị',
       key: 'uom',
-      width: 100,
+      width: 90,
       align: 'center',
       render: (_: unknown, record: Product) => (
-        <Tag color="purple" className="font-medium">
+        <span className="text-xs font-medium text-slate-700 bg-slate-100/80 px-2 py-0.5 rounded border border-slate-200/70">
           {record.uomName || record.uomCode}
-        </Tag>
+        </span>
       ),
     },
     {
-      title: 'Giá bán / Giá nhập',
+      title: 'Giá bán / Giá vốn',
       key: 'price',
-      width: 150,
+      width: 140,
+      align: 'right',
       render: (_: unknown, record: Product) => (
-        <div className="text-xs">
-          <div className="font-semibold text-slate-900">
-            {record.sellingPrice ? `${record.sellingPrice.toLocaleString('vi-VN')} đ` : '-'}
+        <div className="text-right">
+          <div className="text-xs font-semibold text-slate-900 tabular-nums">
+            {record.sellingPrice ? formatCurrency(record.sellingPrice) : '—'}
           </div>
-          <div className="text-slate-400">
-            Vốn: {record.purchasePrice ? `${record.purchasePrice.toLocaleString('vi-VN')} đ` : '-'}
+          <div className="text-[11px] text-slate-400 tabular-nums mt-0.5">
+            {record.purchasePrice ? `Vốn: ${formatCurrency(record.purchasePrice)}` : 'Vốn: —'}
           </div>
         </div>
       ),
@@ -179,26 +184,28 @@ export default function ProductTable({
       key: 'vatRate',
       width: 70,
       align: 'center',
-      render: (vat?: number) => (vat ? <span className="font-mono text-xs">{vat}%</span> : '0%'),
+      render: (vat?: number) => (
+        <span className="text-xs text-slate-600">{vat ? `${vat}%` : '0%'}</span>
+      ),
     },
     {
       title: 'Quản lý kho',
       key: 'flags',
-      width: 140,
+      width: 130,
       render: (_: unknown, record: Product) => (
-        <div className="flex flex-col gap-1 text-xs">
+        <div className="flex flex-col gap-1 text-[11px]">
           {record.manageByLot ? (
-            <Tag color="cyan" className="m-0 text-[11px]">
-              Theo Lô (Lot)
-            </Tag>
+            <span className="text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200/60 inline-block w-fit">
+              Theo Lô
+            </span>
           ) : null}
           {record.manageByExpiration ? (
-            <Tag color="orange" className="m-0 text-[11px]">
-              Theo Hạn (Exp)
-            </Tag>
+            <span className="text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200/60 inline-block w-fit">
+              Theo Hạn
+            </span>
           ) : null}
           {!record.manageByLot && !record.manageByExpiration && (
-            <span className="text-slate-400">Chuẩn</span>
+            <span className="text-slate-400">Tiêu chuẩn</span>
           )}
         </div>
       ),
@@ -206,17 +213,18 @@ export default function ProductTable({
     {
       title: 'Định mức tồn',
       key: 'stockThresholds',
-      width: 130,
+      width: 120,
+      align: 'right',
       render: (_: unknown, record: Product) => (
-        <div className="text-xs space-y-0.5">
-          <div title="Tồn an toàn tối thiểu" className="text-amber-700 font-mono">
-            Min: {record.safetyStock || 0}
+        <div className="text-right text-[11px] space-y-0.5 tabular-nums">
+          <div title="Tồn tối thiểu an toàn" className="text-slate-700">
+            <span className="text-slate-400 text-[10px]">Min:</span> {formatNumber(record.safetyStock || 0)}
           </div>
-          <div title="Điểm đặt lại" className="text-blue-700 font-mono">
-            Đặt: {record.reorderPoint || 0}
+          <div title="Điểm đặt hàng lại" className="text-slate-500">
+            <span className="text-slate-400 text-[10px]">Đặt:</span> {formatNumber(record.reorderPoint || 0)}
           </div>
-          <div title="Tồn tối đa" className="text-slate-500 font-mono">
-            Max: {record.maxStock || 0}
+          <div title="Tồn tối đa" className="text-slate-400">
+            <span className="text-slate-400 text-[10px]">Max:</span> {formatNumber(record.maxStock || 0)}
           </div>
         </div>
       ),
@@ -225,59 +233,74 @@ export default function ProductTable({
       title: 'Trạng thái',
       dataIndex: 'active',
       key: 'active',
-      width: 100,
+      width: 110,
       align: 'center',
       render: (active: boolean) =>
         active ? (
-          <Tag color="success">Đang dùng</Tag>
+          <span className="inline-flex items-center gap-1.5 text-xs text-emerald-700 font-medium">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+            Hoạt động
+          </span>
         ) : (
-          <Tag color="default">Tạm ngưng</Tag>
+          <span className="inline-flex items-center gap-1.5 text-xs text-slate-400 font-normal">
+            <span className="w-1.5 h-1.5 rounded-full bg-slate-300"></span>
+            Tạm ngưng
+          </span>
         ),
     },
     {
       title: 'Thao tác',
       key: 'actions',
-      width: 160,
+      width: 140,
       align: 'center',
       render: (_: unknown, record: Product) => (
-        <Space size={4}>
-          <Tooltip title="Cấu hình quy đổi đơn vị (1 Thùng = 4 Lốc = 24 Chai)">
+        <Space size={2}>
+          <Tooltip title="Cấu hình quy đổi đơn vị đo lường">
             <Button
               type="text"
-              icon={<SwapOutlined className="text-blue-600" />}
+              icon={<SwapOutlined />}
               size="small"
+              className="text-slate-500 hover:text-slate-900 hover:bg-slate-100"
               onClick={() => onOpenConversions(record)}
             />
           </Tooltip>
 
-          <Tooltip title="Xem & In tem mã vạch (Barcode / QR Code)">
+          <Tooltip title="Xem & In tem mã vạch Barcode/QR">
             <Button
               type="text"
-              icon={<BarcodeOutlined className="text-emerald-600" />}
+              icon={<BarcodeOutlined />}
               size="small"
+              className="text-slate-500 hover:text-slate-900 hover:bg-slate-100"
               onClick={() => onOpenBarcode(record)}
             />
           </Tooltip>
 
-          <Tooltip title="Chỉnh sửa sản phẩm">
+          <Tooltip title="Chỉnh sửa thông tin">
             <Button
               type="text"
-              icon={<EditOutlined className="text-slate-600" />}
+              icon={<EditOutlined />}
               size="small"
+              className="text-slate-500 hover:text-slate-900 hover:bg-slate-100"
               onClick={() => onEdit(record)}
             />
           </Tooltip>
 
           <Popconfirm
-            title="Xác nhận ngưng hoạt động sản phẩm này?"
-            description="Sản phẩm sẽ chuyển sang trạng thái ngưng hoạt động (xóa mềm) để bảo toàn tham chiếu tồn kho."
-            okText="Ngưng hoạt động"
+            title="Ngưng hoạt động sản phẩm?"
+            description="Mã hàng này sẽ chuyển sang trạng thái ngưng hoạt động."
+            okText="Đồng ý"
             cancelText="Hủy"
             okButtonProps={{ danger: true }}
             onConfirm={() => onDelete(record.id)}
           >
-            <Tooltip title="Ngưng hoạt động (Xóa mềm)">
-              <Button type="text" danger icon={<DeleteOutlined />} size="small" />
+            <Tooltip title="Ngưng hoạt động">
+              <Button
+                type="text"
+                danger
+                icon={<DeleteOutlined />}
+                size="small"
+                className="text-slate-400 hover:text-rose-600 hover:bg-rose-50"
+              />
             </Tooltip>
           </Popconfirm>
         </Space>
@@ -286,17 +309,17 @@ export default function ProductTable({
   ]
 
   return (
-    <div className="space-y-4">
-      {/* Bộ lọc và tìm kiếm */}
-      <div className="p-4 bg-white rounded-lg border border-slate-200 shadow-sm flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-3">
+    <div className="space-y-3">
+      {/* Bộ lọc và thanh công cụ dữ liệu */}
+      <div className="p-3 sm:p-4 bg-white rounded-lg border border-slate-200/80 flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2.5">
           <Input
-            placeholder="Tìm theo mã SKU, tên hàng hoặc barcode..."
-            prefix={<SearchOutlined className="text-slate-400" />}
+            placeholder="Tìm kiếm mã SKU, tên hoặc barcode..."
+            prefix={<SearchOutlined className="text-slate-400 text-xs" />}
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
             onPressEnter={handleApplyFilter}
-            className="w-72"
+            className="w-64 sm:w-72"
             allowClear
           />
 
@@ -305,7 +328,7 @@ export default function ProductTable({
             allowClear
             value={selectedCategory}
             onChange={(v) => setSelectedCategory(v)}
-            className="w-48"
+            className="w-44"
             options={categories.map((c) => ({
               label: c.name,
               value: c.id,
@@ -319,39 +342,51 @@ export default function ProductTable({
             onChange={(v) => setSelectedActive(v)}
             className="w-36"
             options={[
-              { label: 'Đang hoạt động', value: true },
-              { label: 'Ngưng hoạt động', value: false },
+              { label: 'Hoạt động', value: true },
+              { label: 'Tạm ngưng', value: false },
             ]}
           />
 
-          <Button type="primary" onClick={handleApplyFilter}>
-            Lọc
+          <Button type="primary" onClick={handleApplyFilter} className="text-xs">
+            Tìm kiếm
           </Button>
 
-          <Button onClick={handleResetFilter}>Đặt lại</Button>
+          <Button onClick={handleResetFilter} className="text-xs text-slate-600">
+            Xóa lọc
+          </Button>
         </div>
 
         <div className="flex items-center gap-2">
-          <Button icon={<DownloadOutlined />} onClick={handleExportExcel} disabled={products.length === 0}>
+          <Button
+            icon={<DownloadOutlined className="text-slate-500" />}
+            onClick={handleExportExcel}
+            disabled={products.length === 0}
+            className="text-xs text-slate-700"
+          >
             Xuất Excel
           </Button>
         </div>
       </div>
 
       {/* Bảng dữ liệu DataTable */}
-      <div className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
+      <div className="bg-white rounded-lg border border-slate-200/80 overflow-hidden">
         <Table
           dataSource={products}
           columns={columns}
           rowKey="id"
           loading={loading}
+          scroll={{ x: 1050 }}
           pagination={{
             current: page + 1,
             pageSize,
             total,
             showSizeChanger: true,
             pageSizeOptions: ['10', '20', '50', '100'],
-            showTotal: (totalCount) => `Tổng cộng ${totalCount} sản phẩm (SKU)`,
+            showTotal: (totalCount) => (
+              <span className="text-xs text-slate-500">
+                Tổng cộng <strong className="text-slate-800 font-semibold">{totalCount}</strong> mã SKU
+              </span>
+            ),
             onChange: (p, ps) => onPageChange(p - 1, ps),
           }}
           size="middle"

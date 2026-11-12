@@ -1,17 +1,12 @@
 import {
   AppstoreOutlined,
-  CheckCircleOutlined,
   DeleteOutlined,
-  InboxOutlined,
-  LockOutlined,
   PlusOutlined,
   PrinterOutlined,
   TableOutlined,
 } from '@ant-design/icons'
 import {
-  Badge,
   Button,
-  Card,
   Col,
   Empty,
   Popconfirm,
@@ -21,7 +16,6 @@ import {
   Space,
   Spin,
   Table,
-  Tag,
   Tooltip,
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
@@ -87,11 +81,11 @@ export default function BinManagementView({
 
   const columns: ColumnsType<BinLocation> = [
     {
-      title: 'Mã vị trí (Bin Code)',
+      title: 'Mã vị trí',
       dataIndex: 'code',
       key: 'code',
       render: (code: string) => (
-        <span className="font-mono font-bold text-gray-800 bg-gray-100 px-2 py-0.5 rounded border border-gray-300">
+        <span className="text-xs font-medium text-slate-800 bg-slate-100 px-2 py-0.5 rounded border border-slate-200/60 tabular-nums">
           {code}
         </span>
       ),
@@ -101,25 +95,40 @@ export default function BinManagementView({
       dataIndex: 'zone',
       key: 'zone',
       align: 'center',
-      render: (zone: string) => <Tag color="blue">{zone}</Tag>,
+      render: (zone: string) => (
+        <span className="text-xs font-medium text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded">
+          {zone}
+        </span>
+      ),
     },
     {
       title: 'Kệ (Rack)',
       dataIndex: 'rack',
       key: 'rack',
       align: 'center',
+      render: (rack: string) => (
+        <span className="text-xs text-slate-700">{rack}</span>
+      ),
     },
     {
       title: 'Ô (Bin)',
       dataIndex: 'bin',
       key: 'bin',
       align: 'center',
+      render: (bin: string) => (
+        <span className="text-xs font-medium text-slate-900">{bin}</span>
+      ),
     },
     {
       title: 'Tải trọng tối đa',
       dataIndex: 'maxWeight',
       key: 'maxWeight',
-      render: (weight?: number) => `${weight || 1000} kg`,
+      align: 'right',
+      render: (weight?: number) => (
+        <span className="text-xs text-slate-700 tabular-nums">
+          {(weight || 1000).toLocaleString('vi-VN')} kg
+        </span>
+      ),
     },
     {
       title: 'Trạng thái',
@@ -127,9 +136,28 @@ export default function BinManagementView({
       key: 'status',
       align: 'center',
       render: (status: string) => {
-        if (status === 'OCCUPIED') return <Tag color="processing">Đang có hàng</Tag>
-        if (status === 'MAINTENANCE') return <Tag color="default">Bảo trì/Khóa</Tag>
-        return <Tag color="success">Trống</Tag>
+        if (status === 'OCCUPIED') {
+          return (
+            <span className="inline-flex items-center gap-1.5 text-xs text-slate-700">
+              <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+              Đang có hàng
+            </span>
+          )
+        }
+        if (status === 'MAINTENANCE') {
+          return (
+            <span className="inline-flex items-center gap-1.5 text-xs text-slate-500">
+              <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+              Bảo trì/Khóa
+            </span>
+          )
+        }
+        return (
+          <span className="inline-flex items-center gap-1.5 text-xs text-slate-700">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+            Trống
+          </span>
+        )
       },
     },
     {
@@ -137,12 +165,12 @@ export default function BinManagementView({
       key: 'actions',
       align: 'center',
       render: (_, record) => (
-        <Space size="small">
-          <Tooltip title="Xem & In tem mã vạch">
+        <Space size={2}>
+          <Tooltip title="In tem mã vạch">
             <Button
               type="text"
               size="small"
-              icon={<PrinterOutlined className="text-blue-600" />}
+              icon={<PrinterOutlined className="text-slate-600" />}
               onClick={() => onPrintBarcode(record)}
             />
           </Tooltip>
@@ -164,11 +192,11 @@ export default function BinManagementView({
   ]
 
   return (
-    <Card variant="borderless" className="shadow-xs">
+    <div className="bg-white border border-slate-200/80 rounded-lg p-5">
       {/* Thanh công cụ chọn kho và bộ lọc */}
-      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-5 pb-4 border-b border-gray-100">
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-5 pb-4 border-b border-slate-100">
         <div className="flex flex-wrap items-center gap-3">
-          <span className="text-sm font-semibold text-gray-700">Chọn kho bãi:</span>
+          <span className="text-sm font-medium text-slate-700">Kho bãi:</span>
           <Select
             value={selectedWarehouseId}
             onChange={onSelectWarehouse}
@@ -181,7 +209,7 @@ export default function BinManagementView({
 
           {zones.length > 0 && (
             <div className="flex items-center gap-1.5 ml-2">
-              <span className="text-xs text-gray-500">Khu vực:</span>
+              <span className="text-xs text-slate-500">Khu vực:</span>
               <Radio.Group
                 value={selectedZone}
                 onChange={(e) => setSelectedZone(e.target.value)}
@@ -201,7 +229,7 @@ export default function BinManagementView({
             value={statusFilter}
             onChange={setStatusFilter}
             size="small"
-            className="w-32"
+            className="w-36"
             options={[
               { value: 'ALL', label: 'Mọi trạng thái' },
               { value: 'EMPTY', label: 'Ô trống' },
@@ -226,7 +254,6 @@ export default function BinManagementView({
           </Radio.Group>
 
           <Button
-            type="dashed"
             icon={<PlusOutlined />}
             onClick={onAddSingleLocation}
             size="small"
@@ -238,31 +265,30 @@ export default function BinManagementView({
             type="primary"
             icon={<PlusOutlined />}
             onClick={onBulkCreateLocations}
-            className="bg-blue-600"
             size="small"
           >
-            Sinh hàng loạt (Bulk)
+            Sinh hàng loạt
           </Button>
         </div>
       </div>
 
       {/* Chú thích màu sắc sơ đồ trực quan (Legend) */}
-      <div className="flex items-center gap-6 mb-4 text-xs text-gray-600 bg-gray-50 p-2.5 rounded-lg border border-gray-100">
-        <span className="font-semibold text-gray-800">Chú thích sơ đồ:</span>
+      <div className="flex flex-wrap items-center gap-6 mb-4 text-xs text-slate-600 bg-slate-50/80 px-3 py-2 rounded-md border border-slate-200/60">
+        <span className="font-medium text-slate-700">Chú thích trạng thái:</span>
         <span className="flex items-center gap-1.5">
-          <span className="w-3.5 h-3.5 rounded bg-emerald-100 border border-emerald-400 inline-block" />
-          <span>Ô trống (Sẵn sàng xếp hàng)</span>
+          <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" />
+          <span>Ô trống (Sẵn sàng)</span>
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="w-3.5 h-3.5 rounded bg-blue-100 border border-blue-400 inline-block" />
+          <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />
           <span>Đang có hàng tồn</span>
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="w-3.5 h-3.5 rounded bg-gray-200 border border-gray-400 inline-block" />
+          <span className="w-2 h-2 rounded-full bg-slate-400 inline-block" />
           <span>Tạm khóa / Bảo trì</span>
         </span>
-        <span className="ml-auto text-gray-400">
-          Kho: <strong>{currentWarehouse?.name}</strong> | Tổng: <strong>{filteredLocations.length}</strong> ô
+        <span className="ml-auto text-slate-500">
+          Kho: <strong className="text-slate-700 font-semibold">{currentWarehouse?.name}</strong> | Tổng: <strong className="text-slate-700 font-semibold">{filteredLocations.length}</strong> vị trí
         </span>
       </div>
 
@@ -291,84 +317,90 @@ export default function BinManagementView({
         />
       ) : (
         /* Sơ đồ trực quan dạng ma trận Kệ - Ô */
-        <div className="space-y-6">
+        <div className="space-y-4">
           {groupedByRack.map(([rackTitle, binList]) => {
             const [zonePart, rackPart] = rackTitle.split('-')
             return (
               <div
                 key={rackTitle}
-                className="border border-gray-200 rounded-xl p-4 bg-white shadow-2xs"
+                className="border border-slate-200/80 rounded-lg p-4 bg-slate-50/30"
               >
-                <div className="flex items-center justify-between mb-3 border-b border-gray-100 pb-2">
+                <div className="flex items-center justify-between mb-3 border-b border-slate-200/60 pb-2">
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-gray-900 text-sm">
-                      Khu vực {zonePart} — Kệ {rackPart}
+                    <span className="font-semibold text-slate-800 text-sm">
+                      Khu {zonePart} — Kệ {rackPart}
                     </span>
-                    <Badge count={binList.length} style={{ backgroundColor: '#108ee9' }} />
+                    <span className="text-[11px] font-medium text-slate-600 bg-slate-100 border border-slate-200 px-1.5 py-0.5 rounded tabular-nums">
+                      {binList.length} ô
+                    </span>
                   </div>
-                  <span className="text-xs text-gray-400 font-mono">
+                  <span className="text-xs text-slate-400">
                     {currentWarehouse?.code}-{rackTitle}
                   </span>
                 </div>
 
-                <Row gutter={[10, 10]}>
+                <Row gutter={[8, 8]}>
                   {binList.map((loc) => {
                     const isOccupied = loc.status === 'OCCUPIED'
                     const isMaintenance = loc.status === 'MAINTENANCE' || !loc.active
 
-                    let bgClass = 'bg-emerald-50/70 border-emerald-300 hover:border-emerald-500'
-                    let badgeColor = 'text-emerald-700'
+                    let cardBorder = 'border-slate-200 hover:border-emerald-500'
+                    let statusIndicator = (
+                      <span className="inline-flex items-center gap-1 text-[11px] text-emerald-600 font-medium">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                        Trống
+                      </span>
+                    )
+
                     if (isOccupied) {
-                      bgClass = 'bg-blue-50/70 border-blue-300 hover:border-blue-500'
-                      badgeColor = 'text-blue-700'
+                      cardBorder = 'border-slate-200 hover:border-blue-500'
+                      statusIndicator = (
+                        <span className="inline-flex items-center gap-1 text-[11px] text-blue-600 font-medium">
+                          <span className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                          Có hàng
+                        </span>
+                      )
                     } else if (isMaintenance) {
-                      bgClass = 'bg-gray-100 border-gray-300 hover:border-gray-400'
-                      badgeColor = 'text-gray-500'
+                      cardBorder = 'border-slate-200 bg-slate-100/60 opacity-75'
+                      statusIndicator = (
+                        <span className="inline-flex items-center gap-1 text-[11px] text-slate-400">
+                          <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
+                          Khóa
+                        </span>
+                      )
                     }
 
                     return (
                       <Col xs={12} sm={8} md={6} lg={4} xl={3} key={loc.id}>
                         <div
-                          className={`border rounded-lg p-2.5 transition-all text-center relative group cursor-pointer ${bgClass}`}
+                          className={`bg-white border rounded-md p-2.5 transition-all text-center relative group cursor-pointer shadow-2xs ${cardBorder}`}
                         >
                           {/* Mã ô */}
-                          <div className={`font-mono font-bold text-xs ${badgeColor}`}>
+                          <div className="font-semibold text-xs text-slate-900 tabular-nums">
                             {loc.bin}
                           </div>
-                          <div className="text-[10px] text-gray-500 truncate mt-0.5" title={loc.code}>
+                          <div className="text-[10px] text-slate-400 truncate mt-0.5" title={loc.code}>
                             {loc.code}
                           </div>
 
                           {/* Trạng thái tóm tắt */}
-                          <div className="mt-1 flex items-center justify-center gap-1 text-[11px]">
-                            {isOccupied ? (
-                              <span className="text-blue-600 font-semibold flex items-center gap-0.5">
-                                <InboxOutlined /> Có hàng
-                              </span>
-                            ) : isMaintenance ? (
-                              <span className="text-gray-500 flex items-center gap-0.5">
-                                <LockOutlined /> Khóa
-                              </span>
-                            ) : (
-                              <span className="text-emerald-600 flex items-center gap-0.5">
-                                <CheckCircleOutlined /> Trống
-                              </span>
-                            )}
+                          <div className="mt-1 flex items-center justify-center">
+                            {statusIndicator}
                           </div>
 
                           {/* Nút in tem nhanh khi hover */}
                           <div className="absolute top-1 right-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <Tooltip title="In tem mã vạch">
                               <Button
-                                type="primary"
+                                type="text"
                                 shape="circle"
                                 size="small"
-                                icon={<PrinterOutlined className="text-[11px]" />}
+                                icon={<PrinterOutlined className="text-slate-500 text-xs" />}
                                 onClick={(e) => {
                                   e.stopPropagation()
                                   onPrintBarcode(loc)
                                 }}
-                                className="bg-blue-600 w-5 h-5 min-w-5"
+                                className="w-5 h-5 min-w-5 flex items-center justify-center bg-slate-100 hover:bg-slate-200"
                               />
                             </Tooltip>
                           </div>
@@ -382,7 +414,7 @@ export default function BinManagementView({
           })}
         </div>
       )}
-    </Card>
+    </div>
   )
 }
 

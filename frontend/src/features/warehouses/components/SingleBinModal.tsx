@@ -57,7 +57,7 @@ export default function SingleBinModal({
 
   return (
     <Modal
-      title="Thêm vị trí Ô/Kệ đơn lẻ"
+      title="Thêm vị trí ô/kệ"
       open={open}
       onCancel={onClose}
       onOk={() => form.submit()}
@@ -89,7 +89,7 @@ export default function SingleBinModal({
               { max: 20, message: 'Tối đa 20 ký tự' },
             ]}
           >
-            <Input placeholder="ZA" className="uppercase font-mono" />
+            <Input placeholder="ZA" className="uppercase" />
           </Form.Item>
 
           <Form.Item
@@ -100,7 +100,7 @@ export default function SingleBinModal({
               { max: 20, message: 'Tối đa 20 ký tự' },
             ]}
           >
-            <Input placeholder="R01" className="uppercase font-mono" />
+            <Input placeholder="R01" className="uppercase" />
           </Form.Item>
 
           <Form.Item
@@ -111,7 +111,7 @@ export default function SingleBinModal({
               { max: 20, message: 'Tối đa 20 ký tự' },
             ]}
           >
-            <Input placeholder="B01" className="uppercase font-mono" />
+            <Input placeholder="B01" className="uppercase" />
           </Form.Item>
         </div>
 

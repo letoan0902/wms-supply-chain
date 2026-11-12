@@ -281,6 +281,48 @@ class InventoryTenantIsolationTest {
     }
 
     @Test
+    @DisplayName("Endpoint nội bộ KPI Dashboard (WMS-16.1) chỉ tổng hợp tồn kho và ô/kệ của doanh nghiệp gọi")
+    void internalKpiMetricsOnlyCountCallerCompany() throws Exception {
+        TenantContext.runAs(COMPANY_A, () -> {
+            StockItem stockA = new StockItem();
+            stockA.setProductId(9101L);
+            stockA.setBinLocation(binLocationRepository.findById(binLocationIdOfA).orElseThrow());
+            stockA.setQuantity(new BigDecimal("150.000"));
+            stockA.setReservedQuantity(new BigDecimal("20.000"));
+            stockItemRepository.save(stockA);
+        });
+        TenantContext.runAs(COMPANY_B, () -> {
+            StockItem stockB = new StockItem();
+            stockB.setProductId(9101L);
+            stockB.setBinLocation(binLocationRepository.findById(binLocationIdOfB).orElseThrow());
+            stockB.setQuantity(new BigDecimal("400.000"));
+            stockB.setReservedQuantity(BigDecimal.ZERO);
+            stockItemRepository.save(stockB);
+        });
+
+        String bodyA = mockMvc.perform(get("/internal/inventory/kpi-metrics")
+                        .header("X-Company-Id", COMPANY_A))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.occupiedLocations", is(1)))
+                .andExpect(jsonPath("$.data.totalLocations", is(1)))
+                .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+        var dataA = objectMapper.readTree(bodyA).path("data");
+        assertThat(dataA.path("availableStockQuantity").decimalValue()).isEqualByComparingTo("130");
+        assertThat(dataA.path("totalStockQuantity").decimalValue()).isEqualByComparingTo("150");
+
+        // Kho của A truyền kèm X-Company-Id của B: không thấy gì của A
+        String bodyB = mockMvc.perform(get("/internal/inventory/kpi-metrics")
+                        .param("warehouseId", warehouseIdOfA.toString())
+                        .header("X-Company-Id", COMPANY_B))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.totalLocations", is(0)))
+                .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
+        var dataB = objectMapper.readTree(bodyB).path("data");
+        assertThat(dataB.path("availableStockQuantity").decimalValue()).isEqualByComparingTo("0");
+        assertThat(dataB.path("totalStockQuantity").decimalValue()).isEqualByComparingTo("0");
+    }
+
+    @Test
     @DisplayName("Tiêu chí 4: Sự kiện order.created của A chỉ tạo hàng đang về (Incoming Stock) cho A")
     void orderCreatedEventForCompanyAOnlyCreatesIncomingStockForCompanyA() throws Exception {
         Long poOrderId = 7701L;

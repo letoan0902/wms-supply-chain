@@ -22,7 +22,7 @@ public class InventoryKpiClient {
         try {
             ApiResponse<InventoryKpiMetricsResponse> response = restClient.get()
                     .uri(uriBuilder -> {
-                        uriBuilder.path("/api/inventory/internal/kpi-metrics");
+                        uriBuilder.path("/internal/inventory/kpi-metrics");
                         if (warehouseId != null) {
                             uriBuilder.queryParam("warehouseId", warehouseId);
                         }

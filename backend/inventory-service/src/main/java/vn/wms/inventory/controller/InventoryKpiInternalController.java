@@ -11,8 +11,13 @@ import vn.wms.common.api.ApiResponse;
 import vn.wms.inventory.dto.internal.InventoryKpiMetricsResponse;
 import vn.wms.inventory.service.InventoryKpiInternalService;
 
+/**
+ * Endpoint nội bộ chỉ cho notification-service gọi qua Eureka. Đường dẫn cố ý nằm ngoài /api/inventory/** để
+ * api-gateway không có route tới nó: endpoint không tự kiểm tra phạm vi kho của người gọi (việc đó do
+ * DashboardKpiService làm), nên không được để người dùng gọi thẳng từ Internet.
+ */
 @RestController
-@RequestMapping("/api/inventory/internal")
+@RequestMapping("/internal/inventory")
 @RequiredArgsConstructor
 @Tag(name = "Inventory Internal KPI", description = "Endpoint nội bộ tổng hợp dữ liệu kho bãi và tồn kho cho Dashboard KPI")
 public class InventoryKpiInternalController {

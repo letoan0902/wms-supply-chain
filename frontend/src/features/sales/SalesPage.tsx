@@ -709,7 +709,7 @@ export default function SalesPage() {
               label: (
                 <Space>
                   <ShoppingOutlined />
-                  <span>Danh sách Đơn bán hàng (SO List)</span>
+                  <span>Danh sách Đơn bán hàng</span>
                   <Badge count={totalOrders} overflowCount={999} style={{ backgroundColor: '#1677ff' }} />
                 </Space>
               ),

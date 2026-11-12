@@ -280,7 +280,7 @@ export const FEATURE_COMPARISON_CATEGORIES: FeatureComparisonCategory[] = [
       },
       {
         name: 'Cảnh báo tự động tồn kho an toàn & cận hạn',
-        tooltip: 'Thông báo qua hệ thống khi hàng dưới mức tối thiểu hoặc gần hết date',
+        tooltip: 'Thông báo qua hệ thống khi hàng dưới mức tối thiểu hoặc gần hết hạn dùng',
         free: 'Cơ bản',
         pro: 'Nâng cao',
         enterprise: 'Tùy biến đa kênh',

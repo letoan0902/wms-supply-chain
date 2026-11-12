@@ -383,7 +383,7 @@ export default function PurchaseOrderForm({
           <div>
             <Title level={4} className="!mb-1 flex items-center gap-2 text-slate-800">
               <FileDoneOutlined className="text-blue-600" />
-              <span>{isEdit ? `Chỉnh sửa Đơn Mua Hàng: ${initialOrder?.poNumber}` : 'Lập Đơn Mua Hàng Mới (Purchase Order)'}</span>
+              <span>{isEdit ? `Chỉnh sửa Đơn Mua Hàng: ${initialOrder?.poNumber}` : 'Lập Đơn Mua Hàng Mới'}</span>
             </Title>
             <Text type="secondary" className="text-xs sm:text-sm">
               Chọn nhà cung cấp, kho tiếp nhận, thêm danh sách sản phẩm SKU và tự động tính tổng tiền thanh toán
@@ -656,7 +656,7 @@ export default function PurchaseOrderForm({
             <Col xs={24} md={14}>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-white p-3 rounded-lg border border-slate-200">
                 <div>
-                  <div className="text-[11px] text-slate-500">Tiền hàng (Subtotal):</div>
+                  <div className="text-[11px] text-slate-500">Tiền hàng:</div>
                   <div className="font-semibold text-slate-700 text-sm">
                     {formatCurrency(orderTotals.subtotal)}
                   </div>
@@ -692,7 +692,7 @@ export default function PurchaseOrderForm({
           <div className="flex items-center justify-between">
             <div className="text-xs text-slate-500 flex items-center gap-1">
               <InfoCircleOutlined className="text-blue-500" />
-              <span>Đơn ở trạng thái <strong>PENDING</strong> sẽ được gửi tới Quản lý để phê duyệt.</span>
+              <span>Đơn <strong>gửi phê duyệt</strong> sẽ được chuyển tới Quản lý để duyệt.</span>
             </div>
 
             <Space>

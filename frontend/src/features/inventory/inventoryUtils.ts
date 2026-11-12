@@ -44,7 +44,7 @@ export function alertTagLabel(kind: StockAlertKind, severity: StockAlertSeverity
     case 'EXPIRED':
       return 'HẾT HẠN'
     case 'NEAR_EXPIRY':
-      return 'CẬN DATE'
+      return 'CẬN HẠN'
     case 'DEAD_STOCK':
       return 'TỒN LÂU'
     case 'LOW_STOCK':

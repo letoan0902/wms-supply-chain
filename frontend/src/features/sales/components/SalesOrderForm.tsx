@@ -515,7 +515,7 @@ export default function SalesOrderForm({
             <Space align="center">
               <FileDoneOutlined className="text-xl text-blue-600" />
               <Title level={4} className="!m-0 text-slate-800">
-                {isEdit ? `Chỉnh sửa Đơn bán hàng: ${initialOrder?.soNumber}` : 'Lập Đơn Bán Hàng Mới (Sales Order)'}
+                {isEdit ? `Chỉnh sửa Đơn bán hàng: ${initialOrder?.soNumber}` : 'Lập Đơn Bán Hàng Mới'}
               </Title>
             </Space>
             <Space>

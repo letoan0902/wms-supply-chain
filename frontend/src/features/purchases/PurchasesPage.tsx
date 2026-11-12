@@ -691,7 +691,7 @@ export default function PurchasesPage() {
             label: (
               <span className="flex items-center gap-1.5 px-1 font-medium">
                 <FileTextOutlined />
-                <span>Danh sách đơn mua hàng (PO List)</span>
+                <span>Danh sách đơn mua hàng</span>
               </span>
             ),
             children: (

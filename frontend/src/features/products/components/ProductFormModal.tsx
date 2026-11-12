@@ -126,7 +126,7 @@ export default function ProductFormModal({
             {editingProduct ? 'Chỉnh sửa sản phẩm / SKU' : 'Thêm mới mã sản phẩm (SKU)'}
           </span>
           {editingProduct && (
-            <span className="text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-700 font-mono">
+            <span className="text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-700 font-medium">
               {editingProduct.sku}
             </span>
           )}
@@ -202,7 +202,7 @@ export default function ProductFormModal({
             >
               <Input
                 placeholder="VD: SKU-SP-001"
-                className="uppercase font-mono font-medium"
+                className="uppercase font-medium"
                 maxLength={64}
               />
             </Form.Item>

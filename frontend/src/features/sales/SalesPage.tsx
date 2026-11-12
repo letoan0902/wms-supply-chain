@@ -410,7 +410,7 @@ export default function SalesPage() {
       width: 150,
       align: 'right',
       render: (val: number) => (
-        <span className="font-bold text-slate-800">{formatCurrency(val)}</span>
+        <span className="font-semibold text-slate-900 tabular-nums">{formatCurrency(val)}</span>
       ),
     },
     {
@@ -499,9 +499,9 @@ export default function SalesPage() {
               </Tooltip>
             )}
 
-            {/* Tạo hóa đơn bán (FR18) */}
+            {/* Tạo hóa đơn bán */}
             {canCreateInvoice && canManageInvoice && (
-              <Tooltip title="Lập hóa đơn bán (FR18)">
+              <Tooltip title="Lập hóa đơn bán">
                 <Button
                   data-write-action
                   size="small"

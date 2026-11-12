@@ -54,6 +54,7 @@ import vn.wms.order.repository.GoodsDeliveryNoteRepository;
 import vn.wms.order.repository.GoodsReceiptNoteRepository;
 import vn.wms.order.repository.PurchaseBillRepository;
 import vn.wms.order.repository.PurchaseOrderRepository;
+import vn.wms.order.repository.SalesOrderItemRepository;
 import vn.wms.order.repository.SalesOrderRepository;
 import vn.wms.order.repository.SupplierRepository;
 import vn.wms.order.repository.SupplierTransactionRepository;
@@ -115,6 +116,7 @@ class OrderTenantIsolationTest {
     @Autowired private CustomerTransactionRepository customerTransactionRepository;
     @Autowired private PurchaseOrderRepository purchaseOrderRepository;
     @Autowired private SalesOrderRepository salesOrderRepository;
+    @Autowired private SalesOrderItemRepository salesOrderItemRepository;
     @Autowired private GoodsReceiptNoteRepository goodsReceiptNoteRepository;
     @Autowired private GoodsDeliveryNoteRepository goodsDeliveryNoteRepository;
     @Autowired private PurchaseBillRepository purchaseBillRepository;
@@ -462,6 +464,27 @@ class OrderTenantIsolationTest {
                 .andExpect(status().isOk())
                 .andReturn().getResponse().getContentAsString(StandardCharsets.UTF_8);
         return objectMapper.readTree(body).path("data");
+    }
+
+    @Test
+    @DisplayName("Báo cáo mặt hàng bán chạy (WMS-16.2) chỉ cộng dòng đơn bán của doanh nghiệp hiện tại và đúng kho")
+    void trendingItemsAggregateOnlyCurrentCompany() {
+        LocalDate from = LocalDate.of(2000, 1, 1);
+        LocalDate to = LocalDate.now().plusDays(1);
+        List<OrderStatus> sold = List.of(OrderStatus.CONFIRMED, OrderStatus.COMPLETED);
+
+        // Hai doanh nghiệp cùng bán 4 hộp SKU-01 ở kho 11: A chỉ thấy 4 của mình, không phải 8
+        List<Object[]> rowsOfA = TenantContext.callAs(COMPANY_A,
+                () -> salesOrderItemRepository.findTopSoldProducts(from, to, sold, true, List.of(-1L)));
+        assertThat(rowsOfA).hasSize(1);
+        assertThat(rowsOfA.get(0)[1]).isEqualTo("SKU-01");
+        assertThat((BigDecimal) rowsOfA.get(0)[4]).isEqualByComparingTo("4");
+
+        // Lọc theo kho: kho 11 có dữ liệu, kho 12 không có
+        assertThat(TenantContext.callAs(COMPANY_A,
+                () -> salesOrderItemRepository.findTopSoldProducts(from, to, sold, false, List.of(11L)))).hasSize(1);
+        assertThat(TenantContext.callAs(COMPANY_A,
+                () -> salesOrderItemRepository.findTopSoldProducts(from, to, sold, false, List.of(12L)))).isEmpty();
     }
 
     private static CreateSupplierRequest supplierRequest(String code, String name, String taxCode) {

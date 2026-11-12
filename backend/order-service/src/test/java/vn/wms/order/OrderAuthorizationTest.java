@@ -83,7 +83,9 @@ class OrderAuthorizationTest {
                     () -> post("/api/orders/purchase-bills/" + MISSING_ID + "/payments")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content("{\"amount\":1000,\"paymentDate\":\"2026-11-11\",\"paymentMethod\":\"CASH\"}"),
-                    A, C));
+                    A, C),
+            endpoint("GET /api/orders/reports/trending-items", () -> get("/api/orders/reports/trending-items"),
+                    A, M, S, P, L, C));
 
     @Autowired
     private MockMvc mockMvc;

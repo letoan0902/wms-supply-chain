@@ -224,7 +224,7 @@ export default function CustomerDetailModal({
       width: 160,
       render: (val?: string) =>
         val ? (
-          <Tag className="font-mono">{val}</Tag>
+          <Tag>{val}</Tag>
         ) : (
           <span className="text-gray-400">-</span>
         ),
@@ -267,7 +267,7 @@ export default function CustomerDetailModal({
             <UserOutlined className="text-blue-600 text-lg" />
             <div>
               <span className="text-lg font-bold text-gray-900">{customer.name}</span>
-              <span className="text-sm font-mono text-gray-500 ml-2">({customer.code})</span>
+              <span className="text-sm text-gray-500 ml-2">({customer.code})</span>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -288,13 +288,13 @@ export default function CustomerDetailModal({
       }
       destroyOnClose
     >
-      {/* KHUNG CẢNH BÁO HẠN MỨC CÔNG NỢ (FR14) */}
-      <div className="my-3 p-4 rounded-xl bg-gradient-to-r from-slate-50 via-blue-50/30 to-indigo-50/40 border border-blue-100 shadow-sm">
+      {/* KHUNG CẢNH BÁO HẠN MỨC CÔNG NỢ */}
+      <div className="my-3 p-4 rounded-lg bg-slate-50 border border-slate-200/80">
         <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
           <div className="flex items-center gap-2">
-            <SafetyCertificateOutlined className="text-blue-600 text-base" />
-            <span className="text-sm font-bold text-gray-800">
-              Kiểm soát hạn mức tín dụng & Công nợ (FR14)
+            <SafetyCertificateOutlined className="text-slate-600 text-base" />
+            <span className="text-sm font-semibold text-slate-800">
+              Kiểm soát hạn mức tín dụng & Công nợ
             </span>
           </div>
 
@@ -303,7 +303,7 @@ export default function CustomerDetailModal({
               <Tag
                 color="magenta"
                 icon={<LockOutlined />}
-                className="font-bold py-0.5 px-2 text-sm"
+                className="font-medium py-0.5 px-2 text-xs"
               >
                 ĐANG BỊ KHÓA NỢ
               </Tag>
@@ -311,7 +311,7 @@ export default function CustomerDetailModal({
               <Tag
                 color="error"
                 icon={<CloseCircleOutlined />}
-                className="font-bold py-0.5 px-2 text-sm"
+                className="font-medium py-0.5 px-2 text-xs"
               >
                 VƯỢT HẠN MỨC ({actualRatio.toFixed(1)}%)
               </Tag>
@@ -319,7 +319,7 @@ export default function CustomerDetailModal({
               <Tag
                 color="warning"
                 icon={<ExclamationCircleOutlined />}
-                className="font-bold py-0.5 px-2 text-sm"
+                className="font-medium py-0.5 px-2 text-xs"
               >
                 CẬN HẠN MỨC ({actualRatio.toFixed(1)}%)
               </Tag>
@@ -329,7 +329,7 @@ export default function CustomerDetailModal({
               <Tag
                 color="success"
                 icon={<CheckCircleOutlined />}
-                className="font-medium py-0.5 px-2"
+                className="font-medium py-0.5 px-2 text-xs"
               >
                 Hạn mức an toàn ({actualRatio.toFixed(1)}%)
               </Tag>
@@ -339,19 +339,19 @@ export default function CustomerDetailModal({
 
         <Row gutter={[16, 16]} className="mb-3">
           <Col xs={24} sm={8}>
-            <div className="bg-white p-3 rounded-lg border border-gray-100 shadow-2xs">
-              <span className="text-xs text-gray-500 block">Hạn mức nợ tối đa (Credit Limit):</span>
-              <span className="text-base font-bold text-blue-700">
+            <div className="bg-white p-3 rounded-lg border border-slate-200/80">
+              <span className="text-xs text-slate-500 block mb-1">Hạn mức nợ tối đa:</span>
+              <span className="text-base font-semibold text-slate-800 tabular-nums">
                 {formatCurrency(customer.creditLimit)}
               </span>
             </div>
           </Col>
           <Col xs={24} sm={8}>
-            <div className="bg-white p-3 rounded-lg border border-gray-100 shadow-2xs">
-              <span className="text-xs text-gray-500 block">Công nợ hiện tại (Current Debt):</span>
+            <div className="bg-white p-3 rounded-lg border border-slate-200/80">
+              <span className="text-xs text-slate-500 block mb-1">Công nợ hiện tại:</span>
               <span
-                className={`text-base font-bold ${
-                  isOverLimit || customer.debtLocked ? 'text-red-600' : 'text-gray-900'
+                className={`text-base font-semibold tabular-nums ${
+                  isOverLimit || customer.debtLocked ? 'text-red-600' : 'text-slate-900'
                 }`}
               >
                 {formatCurrency(customer.currentDebt)}
@@ -359,11 +359,11 @@ export default function CustomerDetailModal({
             </div>
           </Col>
           <Col xs={24} sm={8}>
-            <div className="bg-white p-3 rounded-lg border border-gray-100 shadow-2xs">
-              <span className="text-xs text-gray-500 block">Hạn mức khả dụng còn lại:</span>
+            <div className="bg-white p-3 rounded-lg border border-slate-200/80">
+              <span className="text-xs text-slate-500 block mb-1">Hạn mức khả dụng còn lại:</span>
               <span
-                className={`text-base font-bold ${
-                  (customer.availableCredit ?? 0) <= 0 ? 'text-gray-400' : 'text-emerald-600'
+                className={`text-base font-semibold tabular-nums ${
+                  (customer.availableCredit ?? 0) <= 0 ? 'text-slate-400' : 'text-emerald-600'
                 }`}
               >
                 {formatCurrency(customer.availableCredit)}
@@ -414,7 +414,7 @@ export default function CustomerDetailModal({
                 labelStyle={{ width: '180px', backgroundColor: '#f8fafc', fontWeight: 500 }}
               >
                 <Descriptions.Item label="Mã khách hàng">
-                  <span className="font-mono font-semibold">{customer.code}</span>
+                  <span className="font-semibold">{customer.code}</span>
                 </Descriptions.Item>
                 <Descriptions.Item label="Tên khách hàng">
                   <span className="font-semibold">{customer.name}</span>
@@ -426,7 +426,7 @@ export default function CustomerDetailModal({
                 </Descriptions.Item>
                 <Descriptions.Item label="Mã số thuế">
                   {customer.taxCode ? (
-                    <span className="font-mono">{customer.taxCode}</span>
+                    <span>{customer.taxCode}</span>
                   ) : (
                     <span className="text-gray-400">-</span>
                   )}
@@ -483,7 +483,7 @@ export default function CustomerDetailModal({
             children: (
               <div className="py-2">
                 <p className="text-xs text-gray-500 mb-3">
-                  Công cụ giả lập kiểm tra hạn mức tín dụng (FR14): Nhập giá trị dự kiến của đơn bán
+                  Công cụ giả lập kiểm tra hạn mức tín dụng: Nhập giá trị dự kiến của đơn bán
                   hàng SO để kiểm tra xem hệ thống sẽ cho phép duyệt, cảnh báo hay tự động chặn theo
                   chính sách công nợ.
                 </p>

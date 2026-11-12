@@ -21,7 +21,7 @@ export default function BarcodePrintModal({
 
   return (
     <Modal
-      title="Xem trước & In tem mã vạch vị trí Ô/Kệ"
+      title="In tem mã vạch vị trí"
       open={open}
       onCancel={onClose}
       footer={[
@@ -34,43 +34,42 @@ export default function BarcodePrintModal({
           icon={<PrinterOutlined />}
           onClick={handlePrint}
           disabled={!barcodeData}
-          className="bg-blue-600"
         >
-          In tem nhãn (Print)
+          In tem nhãn
         </Button>,
       ]}
-      width={450}
+      width={440}
       destroyOnClose
     >
-      <div className="py-4">
+      <div className="py-2">
         {loading || !barcodeData ? (
           <div className="flex justify-center items-center py-12">
             <Spin tip="Đang nạp mã vạch Code 128..." />
           </div>
         ) : (
           <div>
-            <div className="text-xs text-gray-500 mb-3 text-center">
-              Khổ in chuẩn máy in nhiệt: <strong>50 x 30 mm</strong> (Thermal Barcode Label)
+            <div className="text-xs text-slate-500 mb-3 text-center">
+              Khổ in chuẩn máy in nhiệt: <strong className="text-slate-700">50 x 30 mm</strong> (Code 128)
             </div>
 
             {/* Khung hiển thị tem nhãn thực tế */}
             <div
               id="printable-barcode-label"
-              className="border-2 border-dashed border-gray-400 p-4 rounded-xl bg-white mx-auto shadow-sm flex flex-col items-center justify-between text-center select-none"
+              className="border border-slate-300 p-4 rounded-lg bg-white mx-auto shadow-2xs flex flex-col items-center justify-between text-center select-none"
               style={{ width: '320px', minHeight: '180px' }}
             >
               {/* Tiêu đề kho và khu vực */}
-              <div className="w-full border-b border-gray-300 pb-1 mb-2 flex justify-between items-center text-xs">
-                <span className="font-bold text-gray-800 tracking-wider">
+              <div className="w-full border-b border-slate-200 pb-1.5 mb-2 flex justify-between items-center text-xs">
+                <span className="font-semibold text-slate-900 tracking-wider">
                   {barcodeData.warehouseCode}
                 </span>
-                <span className="bg-gray-100 px-1.5 py-0.5 rounded text-[11px] font-semibold text-gray-600">
+                <span className="bg-slate-100 px-1.5 py-0.5 rounded text-[11px] font-medium text-slate-700">
                   KHU: {barcodeData.zone}
                 </span>
               </div>
 
               {/* Tọa độ chi tiết Kệ - Ô */}
-              <div className="text-sm font-bold text-gray-700 tracking-wide mb-1">
+              <div className="text-sm font-semibold text-slate-800 tracking-wide mb-1">
                 KỆ {barcodeData.rack} — Ô {barcodeData.bin}
               </div>
 
@@ -84,7 +83,7 @@ export default function BarcodePrintModal({
               </div>
 
               {/* Chân tem */}
-              <div className="text-[10px] text-gray-400 w-full pt-1 border-t border-gray-200 mt-1 flex justify-between">
+              <div className="text-[10px] text-slate-400 w-full pt-1.5 border-t border-slate-100 mt-1 flex justify-between">
                 <span>WMS SUPPLY CHAIN</span>
                 <span>BIN-ID: #{barcodeData.locationId}</span>
               </div>

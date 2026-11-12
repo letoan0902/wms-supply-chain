@@ -305,22 +305,23 @@ export default function WarehousesPage() {
       {/* Tiêu đề trang và nút làm mới */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-xl font-bold text-gray-900 tracking-tight">
-            Quản Lý Đa Kho & Sơ Đồ Vị Trí Ô/Kệ
+          <h1 className="text-xl font-semibold text-slate-900 tracking-tight">
+            Kho và vị trí
           </h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Thiết kế danh mục đa kho, giám sát dung tích sức chứa, cấu trúc vị trí 4 cấp và in tem mã vạch giá kệ.
+          <p className="text-sm text-slate-500 mt-1">
+            Quản lý hệ thống kho bãi, theo dõi sức chứa định mức và sơ đồ vị trí lưu trữ.
           </p>
         </div>
 
         <Button
-          icon={<ReloadOutlined />}
+          icon={<ReloadOutlined className="text-slate-500" />}
           onClick={() => {
             loadWarehouses()
             loadSummary()
             if (selectedWarehouseId) loadLocations(selectedWarehouseId)
           }}
           loading={loadingWarehouses || loadingSummary}
+          className="text-slate-700"
         >
           Làm mới dữ liệu
         </Button>
@@ -337,8 +338,8 @@ export default function WarehousesPage() {
           {
             key: 'warehouses',
             label: (
-              <span className="flex items-center gap-1.5 font-medium px-1">
-                <ShopOutlined /> Danh mục Đa Kho & Năng lực Chứa
+              <span className="flex items-center gap-1.5 font-medium px-1 text-slate-700">
+                <ShopOutlined /> Danh mục kho
               </span>
             ),
             children: (
@@ -357,8 +358,8 @@ export default function WarehousesPage() {
           ...(canReadLocations ? [{
             key: 'locations',
             label: (
-              <span className="flex items-center gap-1.5 font-medium px-1">
-                <ApartmentOutlined /> Sơ đồ Vị trí Ô/Kệ & In Tem Mã Vạch
+              <span className="flex items-center gap-1.5 font-medium px-1 text-slate-700">
+                <ApartmentOutlined /> Sơ đồ vị trí ô/kệ
               </span>
             ),
             children: (

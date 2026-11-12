@@ -1,6 +1,13 @@
 # Cấu hình cho test: tắt Eureka/Config Server, luôn chạy chế độ giả lập (không gọi Claude, không cần khóa).
 # Redis được giả lập bằng @MockBean StringRedisTemplate trong từng lớp test.
 spring:
+  # Khi bộ Docker của nhóm đang chạy ở máy (RabbitMQ cổng 5672, Redis cổng 6379 trên localhost), test không được ghi
+  # vào dữ liệu của hệ thống đó: Redis dùng database 15 thay cho database 0 của ứng dụng, RabbitMQ dùng một virtual
+  # host không tồn tại nên broker từ chối kết nối ngay và sự kiện của test không tới được các service đang chạy.
+  # Không trỏ sang cổng đóng: trên Windows mỗi lần nối vào cổng đóng của localhost mất khoảng 4 giây (đo ngày 12/11/2026).
+  data:
+    redis:
+      database: 15
   cloud:
     config:
       enabled: false

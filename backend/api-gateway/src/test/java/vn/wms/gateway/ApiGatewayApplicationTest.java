@@ -19,6 +19,7 @@ import vn.wms.gateway.security.GatewayJwtProperties;
 import vn.wms.gateway.subscription.SubscriptionGlobalFilter;
 import vn.wms.gateway.subscription.SubscriptionProperties;
 
+import java.time.Duration;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -118,7 +119,11 @@ class ApiGatewayApplicationTest {
     @Test
     void exposesContentDispositionToFrontendForFileDownloads() {
         // Frontend đọc tên file tải về (xuất Excel báo cáo kho) từ Content-Disposition nên header phải được CORS cho phép đọc
-        webTestClient.get().uri("/api/inventory/reports/in-out-balance/export")
+        // Request này đi hết chuỗi filter (giới hạn tốc độ, thuê bao đọc Redis) rồi mới nhận 503 vì test không có
+        // inventory-service. Trên Windows lần nối Redis đầu tiên mất vài giây (thử ::1 rồi mới tới 127.0.0.1, hoặc
+        // không có Redis), vượt 5 giây chờ mặc định của WebTestClient, nên đặt thời gian chờ riêng.
+        webTestClient.mutate().responseTimeout(Duration.ofSeconds(30)).build()
+                .get().uri("/api/inventory/reports/in-out-balance/export")
                 .header("Origin", "http://localhost:5173")
                 .exchange()
                 .expectHeader().valueEquals("Access-Control-Expose-Headers", "Content-Disposition");

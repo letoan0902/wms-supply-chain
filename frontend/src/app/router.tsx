@@ -115,6 +115,10 @@ export const router = createBrowserRouter([
           // Bảng tồn kho thời gian thực, bộ lọc và thẻ màu cảnh báo
           { path: 'inventory', Component: lazy(() => import('../features/inventory/InventoryPage')) },
           { path: 'transfers', Component: lazy(() => import('../features/transfers/TransfersPage')) },
+          // Kiểm kê: danh sách đợt, chi tiết và màn hình đếm mù bằng máy quét (WMS-14.3)
+          { path: 'stocktakes', Component: lazy(() => import('../features/stocktakes/StocktakesPage')) },
+          { path: 'stocktakes/:id', Component: lazy(() => import('../features/stocktakes/StocktakeDetailPage')) },
+          { path: 'stocktakes/:id/count', Component: lazy(() => import('../features/stocktakes/BlindCountPage')) },
           // Quản lý Người dùng & Phân quyền RBAC (FR01, FR02 - Sprint 2)
           { path: 'users', Component: lazy(() => import('../features/users/UsersPage')) },
           // Báo cáo kho: Xuất - Nhập - Tồn và thẻ kho (WMS-17.4)

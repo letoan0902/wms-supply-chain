@@ -76,7 +76,7 @@ export const CAPABILITIES = {
   /** Nhận hàng điều chuyển: kho truyền vào là kho đích */
   'transfer.receive': { roles: ['ADMIN', 'WAREHOUSE_MANAGER'], scope: 'write' },
 
-  // inventory-service: kiểm kê (màn hình kiểm kê do nhóm khác làm, bảng có sẵn để dùng)
+  // inventory-service: kiểm kê (màn hình ở features/stocktakes)
   'stocktake.read': { roles: ['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'ACCOUNTANT'], scope: 'read' },
   /** Lập, bắt đầu, kết thúc, đếm lại, hủy, ghi lý do, duyệt cấp quản lý */
   'stocktake.manage': { roles: ['ADMIN', 'WAREHOUSE_MANAGER'], scope: 'write' },

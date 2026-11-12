@@ -292,7 +292,33 @@ Số tồn còn xem được ở màn hình lập đơn bán (tồn khả dụng
 
 ## Kiểm kê
 
-Mục menu "Kiểm kê" chưa có màn hình trên hệ thống (đang là trang giữ chỗ).
+Vào menu "Kiểm kê". Quản trị hệ thống và Kế toán thấy đợt của mọi kho; Quản lý kho và Nhân viên kho chỉ thấy kho được phân công. Vai trò khác thấy trang "403 - Quyền truy cập bị từ chối".
+
+Trạng thái đợt: Mới lập, Đang đếm, Chờ Quản lý kho duyệt, Chờ Kế toán duyệt, Hoàn tất, Bị từ chối, Đã hủy. Từ lúc bắt đầu tới lúc đợt kết thúc, các vị trí trong phạm vi bị đóng băng (thẻ đỏ "Khóa kiểm kê").
+
+Danh sách đợt: mã đợt, kho, phạm vi, trạng thái, ngày dự kiến, tiến độ (số dòng đã đếm trên tổng số dòng), người lập. Lọc theo mã đợt (gõ rồi Enter), kho, trạng thái, khoảng ngày dự kiến; "Xóa lọc" đưa bộ lọc về mặc định.
+
+Lập đợt kiểm kê (Quản trị hệ thống, Quản lý kho của kho):
+1. Bấm "Tạo đợt kiểm kê".
+2. Chọn kho (chỉ kho đang hoạt động bạn phụ trách), phạm vi: "Toàn kho", "Theo khu" (chọn khu) hoặc "Theo vị trí chọn" (chọn vị trí ô/kệ).
+3. Tùy chọn giới hạn hàng hóa (tối đa 200), chọn ngày dự kiến, nhập ghi chú.
+4. Bấm "Tạo đợt kiểm kê". Đợt ở trạng thái Mới lập, mã dạng ST-yyyyMM-NN, màn hình mở chi tiết đợt.
+
+Chi tiết đợt: thông tin, tiến độ, người bắt đầu, kết thúc đếm, duyệt; tab "Dòng đếm" (số đã đếm của từng dòng, lọc mã vị trí, hàng hóa, "Chỉ dòng chưa đếm") và tab "Vị trí". Các nút hiện theo trạng thái và vai trò:
+- "Bắt đầu kiểm kê" (đợt Mới lập, Quản trị hệ thống, Quản lý kho): hộp xác nhận nhắc rằng hệ thống đóng băng các vị trí và chụp tồn hệ thống. Cho tới khi đợt kết thúc, lập phiếu nhập kho vào các vị trí này, xuất kho chỉ định các vị trí này, duyệt xuất và nhận hàng điều chuyển qua các vị trí này đều bị từ chối. Một vị trí đang thuộc đợt khác thì không bắt đầu được, màn hình nêu mã vị trí và mã đợt đó.
+- "Màn hình đếm" (đợt Đang đếm, Quản trị hệ thống, Quản lý kho, Nhân viên kho của kho).
+- "Kết thúc đếm" (đợt Đang đếm, Quản trị hệ thống, Quản lý kho): còn dòng chưa đếm thì màn hình báo số dòng và hỏi lần hai "Tính ... dòng bằng 0 và kết thúc" hoặc "Quay lại đếm tiếp". Sau khi kết thúc, hệ thống tính chênh lệch và đợt chuyển Chờ Quản lý kho duyệt.
+- "Hủy đợt" (đợt Mới lập, Đang đếm, Chờ Quản lý kho duyệt): lý do không bắt buộc; vị trí được mở đóng băng, tồn kho giữ nguyên.
+
+Đếm mù bằng máy quét (dùng được trên điện thoại hoặc máy quét cầm tay):
+1. Mở đợt Đang đếm, bấm "Màn hình đếm" (hoặc nút "Đếm" ở danh sách).
+2. Chọn vị trí trong ô vị trí, hoặc quét mã vạch vị trí vào ô quét. Khi chưa chọn vị trí, màn hình liệt kê các dòng chưa đếm của cả đợt; bấm một dòng để tới vị trí đó.
+3. Quét mã vạch, SKU hoặc tem lô của hàng hóa vào ô quét (súng bắn mã gửi Enter sau mỗi mã), hoặc bấm "Quét bằng camera". Mỗi lần quét cộng số ở ô "Mỗi lần +" (mặc định 1, đổi thành số trên thùng nếu cần) và phát tiếng bíp; mã không có trong danh mục phát tiếng báo lỗi và hiện thông báo. Hàng quản lý theo lô: quét tem lô do hệ thống in, hoặc nhập "Số lô" trước khi quét.
+4. Trên từng dòng: "+1" cộng thêm, "Nhập số" ghi đè số đếm (tối đa 3 chữ số thập phân, dùng dấu phẩy hoặc dấu chấm, cho phép 0).
+5. Hàng có thực tế mà danh sách không có: quét mã như bình thường, hoặc bấm "Hàng ngoài danh sách", chọn hàng hóa, số lô (nếu theo lô), số lượng. Dòng mới có thẻ "Hàng phát sinh".
+6. Bật "Chưa đếm" để chỉ xem dòng còn thiếu của vị trí; thanh tiến độ đầu trang là tiến độ cả đợt.
+
+Màn hình đếm không bao giờ hiện tồn hệ thống, chỉ hiện số đã đếm trong đợt. Các lần quét nhanh được xếp hàng và gửi lần lượt theo thứ tự. Lần ghi lỗi nằm ở mục "Lần ghi chưa thành công" (và đánh dấu đỏ trên dòng) với nút "Thử lại" hoặc "Bỏ"; hệ thống không tự gửi lại. Khi mất kết nối, màn hình không biết máy chủ đã ghi hay chưa: danh sách được tải lại, hãy xem số đã đếm của dòng trước khi thử lại. Rời màn hình khi còn lần ghi chưa xong thì có hộp hỏi xác nhận.
 
 ## Dashboard
 

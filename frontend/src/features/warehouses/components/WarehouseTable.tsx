@@ -1,5 +1,4 @@
 import {
-  CheckCircleOutlined,
   DeleteOutlined,
   EditOutlined,
   LockOutlined,
@@ -10,14 +9,12 @@ import {
 } from '@ant-design/icons'
 import {
   Button,
-  Card,
   Input,
   Popconfirm,
   Progress,
   Select,
   Space,
   Table,
-  Tag,
   Tooltip,
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
@@ -59,9 +56,9 @@ export default function WarehouseTable({
       title: 'Mã kho',
       dataIndex: 'code',
       key: 'code',
-      width: 140,
+      width: 130,
       render: (code: string) => (
-        <span className="font-mono font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+        <span className="text-xs font-medium text-slate-800 bg-slate-100 px-2 py-0.5 rounded border border-slate-200/60 tabular-nums">
           {code}
         </span>
       ),
@@ -72,19 +69,19 @@ export default function WarehouseTable({
       key: 'name',
       render: (name: string, record) => (
         <div>
-          <div className="font-semibold text-gray-900">{name}</div>
-          <div className="text-xs text-gray-500 truncate max-w-xs">{record.address || 'Chưa có địa chỉ'}</div>
+          <div className="font-medium text-slate-900">{name}</div>
+          <div className="text-xs text-slate-500 truncate max-w-xs">{record.address || '—'}</div>
         </div>
       ),
     },
     {
       title: 'Quản lý & Liên hệ',
       key: 'manager',
-      width: 180,
+      width: 170,
       render: (_, record) => (
         <div className="text-xs">
-          <div className="font-medium text-gray-800">{record.managerName || '—'}</div>
-          <div className="text-gray-500">{record.contactPhone || '—'}</div>
+          <div className="font-medium text-slate-800">{record.managerName || '—'}</div>
+          <div className="text-slate-500 tabular-nums">{record.contactPhone || '—'}</div>
         </div>
       ),
     },
@@ -95,20 +92,22 @@ export default function WarehouseTable({
       width: 110,
       align: 'right',
       render: (capacity: number) => (
-        <span className="font-medium">{formatNumber(capacity || 0)}</span>
+        <span className="text-xs font-medium text-slate-800 tabular-nums">
+          {formatNumber(capacity || 0)}
+        </span>
       ),
     },
     {
-      title: 'Vị trí Ô/Kệ',
+      title: 'Vị trí ô/kệ',
       key: 'locations',
       width: 130,
       align: 'center',
       render: (_, record) => (
-        <div className="text-xs">
-          <span className="text-blue-600 font-semibold">{record.occupiedLocations}</span>
-          <span className="text-gray-400"> / </span>
-          <span>{record.totalLocations}</span>
-          <div className="text-[11px] text-gray-400">đang dùng / tổng</div>
+        <div className="text-xs tabular-nums">
+          <span className="text-slate-800 font-semibold">{record.occupiedLocations}</span>
+          <span className="text-slate-400"> / </span>
+          <span className="text-slate-600">{record.totalLocations}</span>
+          <div className="text-[11px] text-slate-400 font-sans">đang dùng / tổng</div>
         </div>
       ),
     },
@@ -116,21 +115,22 @@ export default function WarehouseTable({
       title: 'Tỷ lệ lấp đầy',
       dataIndex: 'utilizationRate',
       key: 'utilizationRate',
-      width: 160,
+      width: 150,
       render: (rate: number) => {
         const percent = Math.min(rate || 0, 100)
-        let strokeColor = '#52c41a'
-        if (percent > 85) strokeColor = '#f5222d'
-        else if (percent > 65) strokeColor = '#fa8c16'
+        const strokeColor = percent > 85 ? '#ef4444' : percent > 65 ? '#f59e0b' : '#10b981'
 
         return (
           <div className="w-28">
-            <div className="text-xs font-semibold mb-0.5">{percent.toFixed(1)}%</div>
+            <div className="text-xs font-medium text-slate-700 mb-0.5 tabular-nums">
+              {percent.toFixed(1)}%
+            </div>
             <Progress
               percent={percent}
               size="small"
               showInfo={false}
               strokeColor={strokeColor}
+              className="m-0"
             />
           </div>
         )
@@ -142,29 +142,25 @@ export default function WarehouseTable({
       key: 'active',
       width: 120,
       align: 'center',
-      render: (active: boolean) =>
-        active ? (
-          <Tag color="success" icon={<CheckCircleOutlined />}>
-            Hoạt động
-          </Tag>
-        ) : (
-          <Tag color="default" icon={<LockOutlined />}>
-            Tạm dừng
-          </Tag>
-        ),
+      render: (active: boolean) => (
+        <span className="inline-flex items-center gap-1.5 text-xs text-slate-600">
+          <span className={`w-1.5 h-1.5 rounded-full ${active ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+          {active ? 'Hoạt động' : 'Tạm dừng'}
+        </span>
+      ),
     },
     {
       title: 'Thao tác',
       key: 'action',
-      width: 180,
+      width: 160,
       align: 'center',
       render: (_, record) => (
-        <Space size="small">
-          <Tooltip title="Xem sơ đồ vị trí Ô/Kệ">
+        <Space size={2}>
+          <Tooltip title="Xem sơ đồ vị trí ô/kệ">
             <Button
               type="text"
               size="small"
-              icon={<ApartmentOutlined className="text-blue-600" />}
+              icon={<ApartmentOutlined className="text-slate-600" />}
               onClick={() => onViewBins(record)}
             />
           </Tooltip>
@@ -172,7 +168,7 @@ export default function WarehouseTable({
             <Button
               type="text"
               size="small"
-              icon={<EditOutlined className="text-amber-600" />}
+              icon={<EditOutlined className="text-slate-600" />}
               onClick={() => onEditWarehouse(record)}
             />
           </Tooltip>
@@ -193,9 +189,9 @@ export default function WarehouseTable({
                 size="small"
                 icon={
                   record.active ? (
-                    <LockOutlined className="text-gray-500" />
+                    <LockOutlined className="text-slate-400" />
                   ) : (
-                    <UnlockOutlined className="text-green-600" />
+                    <UnlockOutlined className="text-slate-600" />
                   )
                 }
               />
@@ -224,12 +220,12 @@ export default function WarehouseTable({
   ]
 
   return (
-    <Card variant="borderless" className="shadow-xs">
+    <div className="bg-white border border-slate-200/80 rounded-lg p-5">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
         <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
           <Input
             placeholder="Tìm theo mã hoặc tên kho..."
-            prefix={<SearchOutlined className="text-gray-400" />}
+            prefix={<SearchOutlined className="text-slate-400" />}
             value={keyword}
             onChange={(e) => {
               setKeyword(e.target.value)
@@ -244,7 +240,7 @@ export default function WarehouseTable({
               setActiveFilter(val)
               handleSearch(keyword, val)
             }}
-            className="w-36"
+            className="w-40"
             options={[
               { value: 'all', label: 'Tất cả trạng thái' },
               { value: 'true', label: 'Đang hoạt động' },
@@ -257,7 +253,6 @@ export default function WarehouseTable({
           type="primary"
           icon={<PlusOutlined />}
           onClick={onAddWarehouse}
-          className="bg-blue-600"
         >
           Thêm kho mới
         </Button>
@@ -271,7 +266,7 @@ export default function WarehouseTable({
         pagination={{ pageSize: 10, showSizeChanger: true }}
         locale={{ emptyText: 'Chưa có kho hàng nào được tạo' }}
       />
-    </Card>
+    </div>
   )
 }
 

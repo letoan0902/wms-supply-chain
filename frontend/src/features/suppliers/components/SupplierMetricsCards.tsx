@@ -4,7 +4,7 @@ import {
   DollarCircleOutlined,
   ShopOutlined,
 } from '@ant-design/icons'
-import { Card, Col, Row, Skeleton, Statistic } from 'antd'
+import { Card, Col, Row, Skeleton } from 'antd'
 import type { SupplierDebtSummary } from '../types'
 import { formatCurrency, formatNumber } from '../../../utils/format'
 
@@ -19,7 +19,7 @@ export default function SupplierMetricsCards({ summary, loading }: Props) {
       <Row gutter={[16, 16]}>
         {[1, 2, 3, 4].map((i) => (
           <Col xs={24} sm={12} lg={6} key={i}>
-            <Card variant="borderless" className="shadow-xs">
+            <Card className="border border-slate-200/80 rounded-lg shadow-none">
               <Skeleton active paragraph={{ rows: 2 }} />
             </Card>
           </Col>
@@ -38,104 +38,107 @@ export default function SupplierMetricsCards({ summary, loading }: Props) {
     <Row gutter={[16, 16]}>
       {/* 1. Tổng số nhà cung cấp */}
       <Col xs={24} sm={12} lg={6}>
-        <Card variant="borderless" className="shadow-xs hover:shadow-md transition-shadow">
+        <div className="bg-white border border-slate-200/80 rounded-lg p-4 transition-all">
           <div className="flex items-start justify-between">
-            <Statistic
-              title={<span className="text-gray-500 font-medium">Tổng số Nhà cung cấp</span>}
-              value={formatNumber(summary.totalSuppliers)}
-              suffix={<span className="text-xs text-gray-400">đối tác</span>}
-              valueStyle={{ fontWeight: 600, color: '#1677ff' }}
-            />
-            <div className="p-3 bg-blue-50 rounded-xl text-blue-600 text-xl">
+            <div>
+              <div className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">
+                Tổng nhà cung cấp
+              </div>
+              <div className="text-2xl font-semibold text-slate-900 tabular-nums">
+                {formatNumber(summary.totalSuppliers)}{' '}
+                <span className="text-xs font-normal text-slate-400 font-sans">đối tác</span>
+              </div>
+            </div>
+            <div className="w-9 h-9 rounded-md bg-slate-50 border border-slate-200/60 flex items-center justify-center text-slate-600 text-base">
               <ShopOutlined />
             </div>
           </div>
-          <div className="mt-2 text-xs text-gray-500 flex items-center gap-1">
-            <CheckCircleOutlined className="text-green-500" />
+          <div className="mt-3 text-xs text-slate-500 flex items-center gap-1.5 pt-2 border-t border-slate-100">
+            <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500" />
             <span>
-              <strong>{summary.activeSuppliers}</strong> đang giao dịch / {inactiveCount} ngưng
+              <strong className="text-slate-700 font-semibold">{summary.activeSuppliers}</strong> đang giao dịch / {inactiveCount} ngưng
             </span>
           </div>
-        </Card>
+        </div>
       </Col>
 
       {/* 2. Tổng công nợ phải trả */}
       <Col xs={24} sm={12} lg={6}>
-        <Card variant="borderless" className="shadow-xs hover:shadow-md transition-shadow">
+        <div className="bg-white border border-slate-200/80 rounded-lg p-4 transition-all">
           <div className="flex items-start justify-between">
-            <Statistic
-              title={<span className="text-gray-500 font-medium">Tổng công nợ phải trả</span>}
-              value={formatCurrency(summary.totalDebt)}
-              valueStyle={{ fontWeight: 600, color: '#fa8c16' }}
-            />
-            <div className="p-3 bg-amber-50 rounded-xl text-amber-600 text-xl">
+            <div>
+              <div className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">
+                Tổng nợ phải trả
+              </div>
+              <div className="text-xl lg:text-2xl font-semibold text-slate-900 tabular-nums truncate">
+                {formatCurrency(summary.totalDebt)}
+              </div>
+            </div>
+            <div className="w-9 h-9 rounded-md bg-slate-50 border border-slate-200/60 flex items-center justify-center text-slate-600 text-base">
               <DollarCircleOutlined />
             </div>
           </div>
-          <div className="mt-2 text-xs text-gray-500">
-            Nghĩa vụ công nợ thanh toán với toàn bộ NCC (FR09)
+          <div className="mt-3 text-xs text-slate-500 pt-2 border-t border-slate-100 truncate">
+            Nghĩa vụ công nợ thanh toán với toàn bộ đối tác
           </div>
-        </Card>
+        </div>
       </Col>
 
       {/* 3. Vượt hạn mức tín dụng */}
       <Col xs={24} sm={12} lg={6}>
-        <Card
-          variant="borderless"
-          className={`shadow-xs hover:shadow-md transition-shadow ${
-            summary.overLimitSuppliers > 0 ? 'border-l-4 border-l-red-500' : ''
-          }`}
-        >
+        <div className="bg-white border border-slate-200/80 rounded-lg p-4 transition-all">
           <div className="flex items-start justify-between">
-            <Statistic
-              title={<span className="text-gray-500 font-medium">Cảnh báo vượt hạn mức</span>}
-              value={summary.overLimitSuppliers}
-              suffix={<span className="text-xs text-gray-400">NCC</span>}
-              valueStyle={{
-                fontWeight: 600,
-                color: summary.overLimitSuppliers > 0 ? '#ff4d4f' : '#52c41a',
-              }}
-            />
-            <div
-              className={`p-3 rounded-xl text-xl ${
-                summary.overLimitSuppliers > 0
-                  ? 'bg-red-50 text-red-600'
-                  : 'bg-green-50 text-green-600'
-              }`}
-            >
+            <div>
+              <div className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">
+                Vượt hạn mức nợ
+              </div>
+              <div className="text-2xl font-semibold text-slate-900 tabular-nums">
+                {summary.overLimitSuppliers}{' '}
+                <span className="text-xs font-normal text-slate-400 font-sans">NCC</span>
+              </div>
+            </div>
+            <div className="w-9 h-9 rounded-md bg-slate-50 border border-slate-200/60 flex items-center justify-center text-slate-600 text-base">
               <AlertOutlined />
             </div>
           </div>
-          <div className="mt-2 text-xs text-gray-500">
+          <div className="mt-3 text-xs text-slate-500 flex items-center gap-1.5 pt-2 border-t border-slate-100">
             {summary.overLimitSuppliers > 0 ? (
-              <span className="text-red-500 font-medium">
-                Cần ưu tiên thanh toán để tránh bị ngưng cung cấp
-              </span>
+              <>
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-red-500" />
+                <span className="text-red-600 font-medium truncate">
+                  Cần ưu tiên thanh toán đúng hạn
+                </span>
+              </>
             ) : (
-              <span className="text-green-600">Công nợ tất cả NCC trong ngưỡng an toàn</span>
+              <>
+                <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                <span className="text-emerald-600 font-medium">Trong ngưỡng an toàn</span>
+              </>
             )}
           </div>
-        </Card>
+        </div>
       </Col>
 
       {/* 4. Tỷ lệ đối tác hoạt động */}
       <Col xs={24} sm={12} lg={6}>
-        <Card variant="borderless" className="shadow-xs hover:shadow-md transition-shadow">
+        <div className="bg-white border border-slate-200/80 rounded-lg p-4 transition-all">
           <div className="flex items-start justify-between">
-            <Statistic
-              title={<span className="text-gray-500 font-medium">Đối tác sẵn sàng giao dịch</span>}
-              value={activePercent}
-              suffix={<span className="text-xs text-gray-400">%</span>}
-              valueStyle={{ fontWeight: 600, color: '#52c41a' }}
-            />
-            <div className="p-3 bg-emerald-50 rounded-xl text-emerald-600 text-xl">
+            <div>
+              <div className="text-xs font-medium text-slate-500 uppercase tracking-wider mb-1">
+                Tỷ lệ hoạt động
+              </div>
+              <div className="text-2xl font-semibold text-slate-900 tabular-nums">
+                {activePercent}%
+              </div>
+            </div>
+            <div className="w-9 h-9 rounded-md bg-slate-50 border border-slate-200/60 flex items-center justify-center text-slate-600 text-base">
               <CheckCircleOutlined />
             </div>
           </div>
-          <div className="mt-2 text-xs text-gray-500">
-            Đang duy trì quan hệ cung ứng hàng hóa ổn định
+          <div className="mt-3 text-xs text-slate-500 pt-2 border-t border-slate-100 truncate">
+            Đang duy trì quan hệ cung ứng ổn định
           </div>
-        </Card>
+        </div>
       </Col>
     </Row>
   )

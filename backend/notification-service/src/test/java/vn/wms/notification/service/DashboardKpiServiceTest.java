@@ -121,11 +121,11 @@ class DashboardKpiServiceTest {
     }
 
     @Test
-    @DisplayName("Nhân viên kho bị che (mask) 4 thẻ tài chính nhạy cảm")
-    void getKpiSummary_asWarehouseStaff_shouldMaskFinancialCards() {
+    @DisplayName("Quản lý kho xem được chỉ số vận hành nhưng bị che (mask) 4 thẻ tài chính nhạy cảm")
+    void getKpiSummary_asWarehouseManager_shouldMaskFinancialCards() {
         MockHttpServletRequest request = new MockHttpServletRequest();
-        request.addHeader(UserContext.HEADER_USER_NAME, "staff_wh1");
-        request.addHeader(UserContext.HEADER_USER_ROLES, Roles.WAREHOUSE_STAFF);
+        request.addHeader(UserContext.HEADER_USER_NAME, "manager_wh1");
+        request.addHeader(UserContext.HEADER_USER_ROLES, Roles.WAREHOUSE_MANAGER);
         request.addHeader(UserContext.HEADER_USER_WAREHOUSE_IDS, "1");
         RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
         TenantContext.setCompanyId(1L);

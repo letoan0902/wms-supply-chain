@@ -380,7 +380,7 @@ export default function UnitConversionModal({
           },
           {
             key: 'simulator',
-            label: 'Công cụ tính thử tồn kho (FR06 Simulator)',
+            label: 'Công cụ tính thử tồn kho',
             children: (
               <div className="space-y-6">
                 <Card size="small" title="1. Quy đổi số lượng đóng gói về Đơn vị cơ sở">

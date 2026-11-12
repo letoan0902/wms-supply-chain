@@ -152,7 +152,7 @@ export default function CreateSalesInvoiceModal({
       const actionName =
         values.type === 'SALES_INVOICE'
           ? 'Tạo Hóa đơn bán (Ghi nợ phải thu - UNPAID)'
-          : 'Ghi nhận thanh toán (PAID)'
+          : 'Ghi nhận thanh toán'
 
       message.success(`${actionName} thành công cho mã chứng từ "${values.referenceCode}"!`)
       setCreditInfo(null)
@@ -172,7 +172,7 @@ export default function CreateSalesInvoiceModal({
       title={
         <div className="flex items-center gap-2 text-slate-800 text-base font-semibold">
           <FileDoneOutlined className="text-blue-600" />
-          <span>Tạo Hóa Đơn Bán Hàng & Ghi Nhận Công Nợ (FR18)</span>
+          <span>Tạo Hóa Đơn Bán Hàng & Ghi Nhận Công Nợ</span>
         </div>
       }
       onCancel={() => {
@@ -284,7 +284,7 @@ export default function CreateSalesInvoiceModal({
             <Col span={14}>
               <Form.Item
                 name="type"
-                label="Hình thức ghi nhận hóa đơn (FR18)"
+                label="Hình thức ghi nhận hóa đơn"
                 rules={[{ required: true, message: 'Vui lòng chọn hình thức' }]}
               >
                 <Radio.Group className="w-full">

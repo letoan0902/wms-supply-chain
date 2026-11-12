@@ -39,7 +39,9 @@ import { ROLE_CONFIG } from '../users/types'
 import { fetchWarehouses } from '../warehouses/warehouseApi'
 import type { Warehouse } from '../warehouses/types'
 import { getApiErrorMessage } from '../../services/api'
-import { updateStoredUser } from '../../utils/storage'
+import type { CompanySummary } from '../../types/auth'
+import { getStoredUser, updateStoredUser } from '../../utils/storage'
+import { fetchCurrentUser } from '../auth/authApi'
 
 const { Title, Text } = Typography
 
@@ -50,6 +52,8 @@ export default function ProfilePage() {
 
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [warehouses, setWarehouses] = useState<Warehouse[]>([])
+  // Doanh nghiệp: lưu cùng người dùng lúc đăng nhập, đọc lại từ GET /api/auth/me khi mở trang
+  const [company, setCompany] = useState<CompanySummary | null>(() => getStoredUser()?.company ?? null)
   const [loading, setLoading] = useState<boolean>(true)
 
   // Form states
@@ -64,13 +68,19 @@ export default function ProfilePage() {
     const initData = async () => {
       setLoading(true)
       try {
-        const [profileData, whList] = await Promise.all([
+        const [profileData, whList, me] = await Promise.all([
           fetchProfile(),
           fetchWarehouses().catch(() => []),
+          fetchCurrentUser().catch(() => null),
         ])
         if (!ignore) {
           setProfile(profileData)
           setWarehouses(whList || [])
+          if (me?.company) {
+            setCompany(me.company)
+            // Đồng bộ tên doanh nghiệp (có thể vừa đổi) lên thanh tiêu đề
+            updateStoredUser({ company: me.company, subscription: me.subscription ?? null })
+          }
           updateForm.setFieldsValue({
             fullName: profileData.fullName,
             email: profileData.email,
@@ -182,6 +192,11 @@ export default function ProfilePage() {
               <div className="text-xs text-gray-500 font-mono mt-0.5">
                 @{profile?.username} • {profile?.email}
               </div>
+              {company && (
+                <div className="text-xs text-gray-600 mt-0.5">
+                  {company.name} <span className="font-mono text-gray-400">({company.code})</span>
+                </div>
+              )}
               <div className="flex flex-wrap gap-1 mt-2">
                 {profile?.roles?.map((r) => {
                   const cfg = ROLE_CONFIG[r] || { label: r, color: 'default' }
@@ -219,6 +234,12 @@ export default function ProfilePage() {
                     column={{ xs: 1, sm: 2, lg: 3 }}
                     className="bg-white"
                   >
+                    <Descriptions.Item label="Doanh nghiệp">
+                      <span className="text-gray-900 font-medium">{company?.name || '—'}</span>
+                      {company?.code && (
+                        <span className="ml-1.5 font-mono text-xs text-gray-500">({company.code})</span>
+                      )}
+                    </Descriptions.Item>
                     <Descriptions.Item label="Mã nhân sự">
                       <span className="font-mono text-xs text-gray-700">#{profile?.id}</span>
                     </Descriptions.Item>
@@ -235,7 +256,7 @@ export default function ProfilePage() {
                     </Descriptions.Item>
                     <Descriptions.Item label="Trạng thái">
                       <Tag color={profile?.enabled ? 'success' : 'error'}>
-                        {profile?.enabled ? 'Hoạt động (ACTIVE)' : 'Tạm khóa (LOCKED)'}
+                        {profile?.enabled ? 'Hoạt động' : 'Tạm khóa'}
                       </Tag>
                     </Descriptions.Item>
                     <Descriptions.Item label="Vai trò RBAC">

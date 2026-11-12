@@ -81,7 +81,7 @@ export default function LoginPage() {
       const result = await login(values)
       saveAuth(
         result.accessToken,
-        { username: result.username, roles: result.roles, company: result.company },
+        { username: result.username, roles: result.roles, company: result.company, subscription: result.subscription },
         result.refreshToken,
       )
       message.success('Đăng nhập thành công')
@@ -219,7 +219,7 @@ export default function LoginPage() {
               <Input
                 size="large"
                 prefix={<UserOutlined className="text-slate-400" />}
-                placeholder="Ví dụ: admin, manager..."
+                placeholder="Nhập tên đăng nhập"
                 autoComplete="username"
                 className="rounded-lg"
               />
@@ -266,10 +266,10 @@ export default function LoginPage() {
             <div className="mt-4 text-center">
               <span className="text-xs text-slate-500">Doanh nghiệp chưa có tài khoản? </span>
               <Link
-                to="/landing#pricing"
+                to="/register"
                 className="text-xs font-bold text-blue-600 transition-colors hover:text-blue-700 hover:underline"
               >
-                Dùng thử 30 ngày
+                Đăng ký doanh nghiệp
               </Link>
             </div>
           </Form>

@@ -106,7 +106,7 @@ export default function SalesOrderDetailModal({
     try {
       const updated = await salesApi.confirmSalesOrder(order.id)
       message.success(
-        `Đã xác nhận đơn bán "${order.soNumber}"! Hệ thống đã tự động giữ hàng ảo (Soft Reservation) và cập nhật ATP.`
+        `Đã xác nhận đơn bán "${order.soNumber}"! Hệ thống đã tự động giữ hàng và cập nhật ATP.`
       )
       onOrderUpdated?.(updated)
     } catch (err) {
@@ -273,12 +273,12 @@ export default function SalesOrderDetailModal({
           <div className="text-xs text-slate-500">
             {order.status === 'BACKORDER' && (
               <span className="text-amber-600 font-medium">
-                Đơn đang ở trạng thái Backorder (chờ bổ sung hàng vào kho)
+                Đơn đang ở trạng thái Thiếu hàng (chờ bổ sung hàng vào kho)
               </span>
             )}
             {order.status === 'CONFIRMED' && (
               <span className="text-green-600 font-medium">
-                Đã xác nhận & Giữ hàng ảo thành công (Soft Reservation)
+                Đã xác nhận & Giữ hàng thành công
               </span>
             )}
           </div>
@@ -301,7 +301,7 @@ export default function SalesOrderDetailModal({
                   <div className="max-w-xs text-xs space-y-1">
                     <div>Bạn có chắc muốn hủy đơn <strong>{order.soNumber}</strong>?</div>
                     <div className="text-slate-500">
-                      Hệ thống sẽ chuyển trạng thái sang CANCELLED và tự động giải phóng lượng hàng đã giữ chỗ (Soft Reservation).
+                      Hệ thống sẽ chuyển trạng thái sang Đã hủy và tự động giải phóng lượng hàng đã giữ chỗ.
                     </div>
                   </div>
                 }

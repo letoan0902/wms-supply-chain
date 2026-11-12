@@ -8,6 +8,7 @@ import MainLayout from './MainLayout'
 import { navigationItems } from './navigation'
 
 const LoginPage = lazy(() => import('../features/auth/LoginPage'))
+const RegisterPage = lazy(() => import('../features/auth/RegisterPage'))
 const ForgotPasswordPage = lazy(() => import('../features/auth/ForgotPasswordPage'))
 const ActivatePage = lazy(() => import('../features/auth/ActivatePage'))
 const ResetPasswordPage = lazy(() => import('../features/auth/ResetPasswordPage'))
@@ -44,6 +45,14 @@ export const router = createBrowserRouter([
     element: (
       <Suspense fallback={<PageLoading fullScreen tip="Đang tải trang đăng nhập..." />}>
         <LoginPage />
+      </Suspense>
+    ),
+  },
+  {
+    path: '/register',
+    element: (
+      <Suspense fallback={<PageLoading fullScreen tip="Đang tải trang đăng ký..." />}>
+        <RegisterPage />
       </Suspense>
     ),
   },
@@ -97,6 +106,8 @@ export const router = createBrowserRouter([
           { path: 'suppliers', Component: lazy(() => import('../features/suppliers/SuppliersPage')) },
           // Quản lý Khách hàng / Đại lý & Cảnh báo hạn mức công nợ (WMS-08.4 - FR14)
           { path: 'customers', Component: lazy(() => import('../features/customers/CustomersPage')) },
+          // Nhập dữ liệu danh mục bằng AI: tải file, xem trước và sửa, nhập và xem kết quả từng dòng
+          { path: 'ai-import', Component: lazy(() => import('../features/ai/AiImportPage')) },
           // Quản lý Đơn mua hàng (PO) & Nhập kho (WMS-09 - Sprint 2)
           { path: 'purchases', Component: lazy(() => import('../features/purchases/PurchasesPage')) },
           // Quản lý Đơn bán hàng (SO) (WMS-11 - Sprint 3)
@@ -104,6 +115,10 @@ export const router = createBrowserRouter([
           // Bảng tồn kho thời gian thực, bộ lọc và thẻ màu cảnh báo
           { path: 'inventory', Component: lazy(() => import('../features/inventory/InventoryPage')) },
           { path: 'transfers', Component: lazy(() => import('../features/transfers/TransfersPage')) },
+          // Kiểm kê: danh sách đợt, chi tiết và màn hình đếm mù bằng máy quét (WMS-14.3)
+          { path: 'stocktakes', Component: lazy(() => import('../features/stocktakes/StocktakesPage')) },
+          { path: 'stocktakes/:id', Component: lazy(() => import('../features/stocktakes/StocktakeDetailPage')) },
+          { path: 'stocktakes/:id/count', Component: lazy(() => import('../features/stocktakes/BlindCountPage')) },
           // Quản lý Người dùng & Phân quyền RBAC (FR01, FR02 - Sprint 2)
           { path: 'users', Component: lazy(() => import('../features/users/UsersPage')) },
           // Báo cáo kho: Xuất - Nhập - Tồn và thẻ kho (WMS-17.4)

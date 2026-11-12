@@ -310,7 +310,7 @@ export default function PurchaseOrderForm({
               <span>{isEdit ? `Chỉnh sửa Đơn Mua Hàng: ${initialOrder?.poNumber}` : 'Lập Đơn Mua Hàng Mới (Purchase Order)'}</span>
             </Title>
             <Text type="secondary" className="text-xs sm:text-sm">
-              Chọn nhà cung cấp, kho tiếp nhận, thêm danh sách sản phẩm SKU và tự động tính tổng tiền thanh toán (FR10 - WMS-09.3)
+              Chọn nhà cung cấp, kho tiếp nhận, thêm danh sách sản phẩm SKU và tự động tính tổng tiền thanh toán
             </Text>
           </div>
 
@@ -325,7 +325,7 @@ export default function PurchaseOrderForm({
               onClick={() => handleSubmitOrder('DRAFT')}
               loading={submitting}
             >
-              Lưu nháp (DRAFT)
+              Lưu nháp
             </Button>
             <Button
               type="primary"
@@ -334,7 +334,7 @@ export default function PurchaseOrderForm({
               loading={submitting}
               className="bg-blue-600 hover:bg-blue-700 font-semibold"
             >
-              Gửi phê duyệt (PENDING)
+              Gửi phê duyệt
             </Button>
           </Space>
         </div>
@@ -555,7 +555,7 @@ export default function PurchaseOrderForm({
                   Tổng số lượng: <strong>{formatNumber(orderTotals.totalQuantity)}</strong> đơn vị sản phẩm
                 </div>
                 <div className="text-[11px] text-slate-400 italic">
-                  Đơn giá và các khoản chiết khấu, thuế đã được kiểm tra theo chuẩn nghiệp vụ mua hàng (FR10).
+                  Đơn giá và các khoản chiết khấu, thuế đã được kiểm tra theo chuẩn nghiệp vụ mua hàng.
                 </div>
               </div>
             </Col>
@@ -613,7 +613,7 @@ export default function PurchaseOrderForm({
                 onClick={() => handleSubmitOrder('DRAFT')}
                 loading={submitting}
               >
-                Lưu nháp (DRAFT)
+                Lưu nháp
               </Button>
               <Button
                 type="primary"
@@ -622,7 +622,7 @@ export default function PurchaseOrderForm({
                 loading={submitting}
                 className="bg-blue-600 hover:bg-blue-700 font-semibold"
               >
-                Gửi phê duyệt đơn mua (PENDING)
+                Gửi phê duyệt đơn mua
               </Button>
             </Space>
           </div>

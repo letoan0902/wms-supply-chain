@@ -8,17 +8,27 @@ WMS Supply Chain là phần mềm quản lý kho trên web: kho và vị trí ô
 - Nhân viên bán hàng: lập đơn bán, theo dõi khách hàng.
 - Kế toán: công nợ, hóa đơn, thanh toán.
 
-Hướng dẫn phản ánh giao diện tại ngày 11/11/2026.
+Hướng dẫn phản ánh giao diện tại ngày 12/11/2026.
 
 ## Đăng nhập, quên mật khẩu, đăng ký và kích hoạt doanh nghiệp
 
 Đăng ký doanh nghiệp (dùng thử 30 ngày):
-1. Mở trang giới thiệu `/landing` hoặc bấm "Dùng thử 30 ngày" ở trang đăng nhập.
-2. Ở khung "Đăng ký Dùng thử cho Doanh nghiệp", nhập tên công ty, người đại diện, Tên đăng nhập quản trị (3 đến 50 ký tự: chữ, số, dấu chấm, gạch dưới, gạch ngang), Mật khẩu (6 đến 72 ký tự), Email công việc, số điện thoại; tích đồng ý Điều khoản dịch vụ.
-3. Bấm "Kích hoạt Dùng thử Miễn phí 30 ngày". Tài khoản này là quản trị của doanh nghiệp.
-4. Mở email, bấm liên kết kích hoạt (hiệu lực 24 giờ). Trang `/activate` báo "Kích hoạt thành công", bấm "Đăng nhập". Liên kết hỏng hoặc hết hạn thì trang báo "Liên kết kích hoạt không dùng được": nhập email đã dùng để đăng ký và bấm "Gửi lại email kích hoạt".
+1. Mở trang "Đăng ký doanh nghiệp" `/register`: bấm "Đăng ký doanh nghiệp" ở trang đăng nhập, hoặc bất kỳ nút "Dùng thử 30 ngày", "Đăng ký" nào trên trang giới thiệu `/landing` (nút ở thẻ gói Khởi Đầu hoặc Chuyên Nghiệp của bảng giá cũng dẫn tới đây; mọi doanh nghiệp mới đều bắt đầu bằng 30 ngày dùng thử, sau đó chọn gói ở trang "Gói dịch vụ").
+2. Nhập:
+   - Tên doanh nghiệp: bắt buộc, 2 đến 150 ký tự.
+   - Mã số thuế, Số điện thoại: không bắt buộc, mỗi ô tối đa 30 ký tự. Mã số thuế đã có doanh nghiệp khác dùng thì không đăng ký được.
+   - Họ và tên người quản trị: bắt buộc, tối đa 100 ký tự.
+   - Tên đăng nhập: bắt buộc, 3 đến 50 ký tự, chỉ gồm chữ không dấu, chữ số, dấu chấm, gạch dưới, gạch ngang; không trùng tài khoản nào trên hệ thống.
+   - Email: bắt buộc, đúng định dạng, tối đa 100 ký tự, chưa dùng cho tài khoản nào. Liên kết kích hoạt được gửi tới email này.
+   - Mật khẩu (6 đến 72 ký tự) và Nhập lại mật khẩu.
+   - Tích ô đồng ý Điều khoản dịch vụ.
+3. Bấm "Đăng ký và nhận 30 ngày dùng thử". Ô nào sai hoặc bị trùng (tên đăng nhập, email, mã số thuế) sẽ báo đỏ ngay dưới ô đó. Tài khoản vừa tạo là quản trị của doanh nghiệp.
+4. Trang báo "Đăng ký thành công" kèm ngày hết hạn dùng thử và hướng dẫn: mở email vừa nhập, bấm liên kết kích hoạt (hiệu lực 24 giờ). Không thấy email thì kiểm tra thư mục thư rác hoặc bấm "Gửi lại email kích hoạt" ngay trên trang (mỗi email gửi lại tối đa một lần mỗi phút). Chưa kích hoạt thì chưa đăng nhập được.
+5. Bấm liên kết trong email: trang `/activate` báo "Kích hoạt thành công", bấm "Đăng nhập" (tên đăng nhập được điền sẵn). Liên kết hỏng hoặc hết hạn thì trang báo "Liên kết kích hoạt không dùng được": nhập email đã dùng để đăng ký và bấm "Gửi lại email kích hoạt".
 
-Đăng nhập: vào `/login`, nhập Tên đăng nhập, Mật khẩu, bấm "Đăng nhập". Doanh nghiệp chưa kích hoạt sẽ thấy cảnh báo "Doanh nghiệp chưa được kích hoạt" kèm ô gửi lại email kích hoạt.
+Máy chủ thử nghiệm tắt yêu cầu kích hoạt qua email thì sau bước 3 trang chuyển thẳng sang `/login` với tên đăng nhập điền sẵn.
+
+Đăng nhập: vào `/login`, nhập Tên đăng nhập, Mật khẩu, bấm "Đăng nhập". Tên doanh nghiệp hiện ở thanh tiêu đề phía trên, cạnh chuông thông báo. Doanh nghiệp chưa kích hoạt sẽ thấy cảnh báo "Doanh nghiệp chưa được kích hoạt" kèm ô gửi lại email kích hoạt. Đang đăng nhập mà mở `/login` hoặc `/register` thì được đưa thẳng vào trang tổng quan.
 
 Quên mật khẩu:
 1. Ở trang đăng nhập bấm "Quên mật khẩu?" (trang `/forgot-password`), nhập email, bấm "Gửi liên kết đặt lại mật khẩu".
@@ -31,7 +41,7 @@ Quên mật khẩu:
 
 Bấm tên tài khoản ở góc phải trên, chọn "Thông tin tài khoản", "Cập nhật thông tin" hoặc "Đổi mật khẩu" để mở trang "Hồ sơ & Tài khoản cá nhân" ở tab tương ứng.
 
-- Tab "Thông tin tài khoản": xem tên đăng nhập, họ tên, email, trạng thái, vai trò, kho được phân công.
+- Tab "Thông tin tài khoản": xem doanh nghiệp (tên và mã), tên đăng nhập, họ tên, email, trạng thái, vai trò, kho được phân công.
 - Tab "Cập nhật thông tin": sửa Họ và tên, Địa chỉ Email (bắt buộc), bấm "Lưu thay đổi". Tên đăng nhập không đổi được.
 - Tab "Đổi mật khẩu": nhập Mật khẩu hiện tại, Mật khẩu mới (6 đến 72 ký tự), Xác nhận mật khẩu mới, bấm "Cập nhật mật khẩu mới".
 
@@ -282,7 +292,47 @@ Số tồn còn xem được ở màn hình lập đơn bán (tồn khả dụng
 
 ## Kiểm kê
 
-Mục menu "Kiểm kê" chưa có màn hình trên hệ thống (đang là trang giữ chỗ).
+Vào menu "Kiểm kê". Quản trị hệ thống và Kế toán thấy đợt của mọi kho; Quản lý kho và Nhân viên kho chỉ thấy kho được phân công. Vai trò khác thấy trang "403 - Quyền truy cập bị từ chối".
+
+Trạng thái đợt: Mới lập, Đang đếm, Chờ Quản lý kho duyệt, Chờ Kế toán duyệt, Hoàn tất, Bị từ chối, Đã hủy. Từ lúc bắt đầu tới lúc đợt kết thúc, các vị trí trong phạm vi bị đóng băng (thẻ đỏ "Khóa kiểm kê").
+
+Danh sách đợt: mã đợt, kho, phạm vi, trạng thái, ngày dự kiến, tiến độ (số dòng đã đếm trên tổng số dòng), người lập. Lọc theo mã đợt (gõ rồi Enter), kho, trạng thái, khoảng ngày dự kiến; "Xóa lọc" đưa bộ lọc về mặc định.
+
+Lập đợt kiểm kê (Quản trị hệ thống, Quản lý kho của kho):
+1. Bấm "Tạo đợt kiểm kê".
+2. Chọn kho (chỉ kho đang hoạt động bạn phụ trách), phạm vi: "Toàn kho", "Theo khu" (chọn khu) hoặc "Theo vị trí chọn" (chọn vị trí ô/kệ).
+3. Tùy chọn giới hạn hàng hóa (tối đa 200), chọn ngày dự kiến, nhập ghi chú.
+4. Bấm "Tạo đợt kiểm kê". Đợt ở trạng thái Mới lập, mã dạng ST-yyyyMM-NN, màn hình mở chi tiết đợt.
+
+Chi tiết đợt: thông tin, tiến độ, người bắt đầu, kết thúc đếm, duyệt; tab "Dòng đếm" (số đã đếm của từng dòng, lọc mã vị trí, hàng hóa, "Chỉ dòng chưa đếm"), tab "Chênh lệch", tab "Vị trí" và tab "Phiếu điều chỉnh" (khi đã có phiếu). Các nút hiện theo trạng thái và vai trò:
+- "Bắt đầu kiểm kê" (đợt Mới lập, Quản trị hệ thống, Quản lý kho): hộp xác nhận nhắc rằng hệ thống đóng băng các vị trí và chụp tồn hệ thống. Cho tới khi đợt kết thúc, lập phiếu nhập kho vào các vị trí này, xuất kho chỉ định các vị trí này, duyệt xuất và nhận hàng điều chuyển qua các vị trí này đều bị từ chối. Một vị trí đang thuộc đợt khác thì không bắt đầu được, màn hình nêu mã vị trí và mã đợt đó.
+- "Màn hình đếm" (đợt Đang đếm, Quản trị hệ thống, Quản lý kho, Nhân viên kho của kho).
+- "Kết thúc đếm" (đợt Đang đếm, Quản trị hệ thống, Quản lý kho): còn dòng chưa đếm thì màn hình báo số dòng và hỏi lần hai "Tính ... dòng bằng 0 và kết thúc" hoặc "Quay lại đếm tiếp". Sau khi kết thúc, hệ thống tính chênh lệch và đợt chuyển Chờ Quản lý kho duyệt.
+- "Hủy đợt" (đợt Mới lập, Đang đếm, Chờ Quản lý kho duyệt): lý do không bắt buộc; vị trí được mở đóng băng, tồn kho giữ nguyên.
+
+Đếm mù bằng máy quét (dùng được trên điện thoại hoặc máy quét cầm tay):
+1. Mở đợt Đang đếm, bấm "Màn hình đếm" (hoặc nút "Đếm" ở danh sách).
+2. Chọn vị trí trong ô vị trí, hoặc quét mã vạch vị trí vào ô quét. Khi chưa chọn vị trí, màn hình liệt kê các dòng chưa đếm của cả đợt; bấm một dòng để tới vị trí đó.
+3. Quét mã vạch, SKU hoặc tem lô của hàng hóa vào ô quét (súng bắn mã gửi Enter sau mỗi mã), hoặc bấm "Quét bằng camera". Mỗi lần quét cộng số ở ô "Mỗi lần +" (mặc định 1, đổi thành số trên thùng nếu cần) và phát tiếng bíp; mã không có trong danh mục phát tiếng báo lỗi và hiện thông báo. Hàng quản lý theo lô: quét tem lô do hệ thống in, hoặc nhập "Số lô" trước khi quét.
+4. Trên từng dòng: "+1" cộng thêm, "Nhập số" ghi đè số đếm (tối đa 3 chữ số thập phân, dùng dấu phẩy hoặc dấu chấm, cho phép 0).
+5. Hàng có thực tế mà danh sách không có: quét mã như bình thường, hoặc bấm "Hàng ngoài danh sách", chọn hàng hóa, số lô (nếu theo lô), số lượng. Dòng mới có thẻ "Hàng phát sinh".
+6. Bật "Chưa đếm" để chỉ xem dòng còn thiếu của vị trí; thanh tiến độ đầu trang là tiến độ cả đợt.
+
+Màn hình đếm không bao giờ hiện tồn hệ thống, chỉ hiện số đã đếm trong đợt. Các lần quét nhanh được xếp hàng và gửi lần lượt theo thứ tự. Lần ghi lỗi nằm ở mục "Lần ghi chưa thành công" (và đánh dấu đỏ trên dòng) với nút "Thử lại" hoặc "Bỏ"; hệ thống không tự gửi lại. Khi mất kết nối, màn hình không biết máy chủ đã ghi hay chưa: danh sách được tải lại, hãy xem số đã đếm của dòng trước khi thử lại. Rời màn hình khi còn lần ghi chưa xong thì có hộp hỏi xác nhận.
+
+Đối soát chênh lệch (tab "Chênh lệch", chỉ Quản trị hệ thống, Kế toán, Quản lý kho của kho; Nhân viên kho thấy thông báo không có quyền vì đếm mù không được xem tồn hệ thống):
+1. Có số liệu sau khi kết thúc đếm. Các thẻ tổng hợp: tổng dòng, đã đếm, dòng có lệch, tổng thừa, tổng thiếu, chênh lệch ròng, dòng xung đột giữ chỗ. Hệ thống chưa có giá vốn nên không có giá trị tiền.
+2. Bảng dòng: vị trí, hàng hóa, số lô, tồn hệ thống, đang giữ chỗ, thực đếm, chênh lệch (xanh lá là thừa, đỏ là thiếu), thẻ "Nhỏ hơn giữ chỗ", "Hàng phát sinh", "Đã đếm lại", người đếm cuối. Lọc "Chỉ dòng có lệch" (bật sẵn), mã vị trí, hàng hóa.
+3. Khi đợt Chờ Quản lý kho duyệt, Quản trị hệ thống và Quản lý kho ghi được "Lý do chênh lệch" cho từng dòng (tối đa 255 ký tự, bấm nút lưu hoặc Enter); lý do được chép vào phiếu điều chỉnh.
+4. Đếm lại: tích chọn các dòng nghi sai rồi bấm "Yêu cầu đếm lại". Số đếm của các dòng đó bị xóa, đợt quay lại Đang đếm, dòng có thẻ "Đếm lại" trên màn hình đếm; đếm xong thì Quản lý kho bấm "Kết thúc đếm" lại. Khi đợt đang đếm, Quản lý kho cũng chọn được dòng ở tab "Dòng đếm" và bấm "Đếm lại".
+5. Dòng "Nhỏ hơn giữ chỗ" (số đếm nhỏ hơn số đang giữ chỗ cho đơn bán) chặn việc duyệt: hủy hoặc đổi giữ chỗ của đơn liên quan, hoặc đếm lại, rồi mới duyệt.
+
+Duyệt hai cấp:
+1. Quản lý kho duyệt (đợt Chờ Quản lý kho duyệt, Quản trị hệ thống hoặc Quản lý kho của kho): bấm "Quản lý kho duyệt", nhập ghi chú nếu cần, bấm "Duyệt". Không có chênh lệch thì đợt Hoàn tất ngay và vị trí được mở đóng băng. Có chênh lệch thì hệ thống lập phiếu điều chỉnh (mã ADJ-yyyyMM-NN) và đợt chuyển Chờ Kế toán duyệt; tồn kho chưa đổi. Nếu có dòng mà tồn sau điều chỉnh nhỏ hơn số đang giữ chỗ hoặc bị âm, màn hình liệt kê các dòng đó và không duyệt.
+2. Kế toán duyệt (đợt Chờ Kế toán duyệt, Kế toán hoặc Quản trị hệ thống): bấm "Kế toán duyệt phiếu điều chỉnh" rồi "Duyệt và cập nhật tồn kho". Tồn kho các dòng được cập nhật (tồn mới bằng tồn hiện tại cộng chênh lệch), vị trí mở đóng băng, đợt Hoàn tất. Người duyệt cấp Kế toán phải khác người đã duyệt cấp Quản lý kho: nút bị khóa nếu bạn chính là người đó, và máy chủ từ chối (403) nếu vẫn gửi; hãy nhờ một Kế toán hoặc Quản trị hệ thống khác.
+3. Từ chối: bấm "Từ chối", bắt buộc nhập lý do. Ở Chờ Quản lý kho duyệt dành cho Quản trị hệ thống, Quản lý kho; ở Chờ Kế toán duyệt có thêm Kế toán. Tồn kho giữ nguyên, phiếu điều chỉnh (nếu có) chuyển Bị từ chối, vị trí mở đóng băng.
+
+Tab "Phiếu điều chỉnh": mã phiếu, trạng thái (Chờ Kế toán duyệt, Đã duyệt, Bị từ chối), tổng thừa, tổng thiếu, người đề nghị, người duyệt hoặc từ chối kèm lý do, và từng dòng: tồn hệ thống, thực đếm, chênh lệch, tồn trước và tồn sau (có sau khi Kế toán duyệt), lý do. Lịch sử biến động xem ở menu "Báo cáo", tab "Thẻ kho" (chọn hàng hóa và kho), chứng từ loại "Phiếu kiểm kê" mang mã phiếu điều chỉnh.
 
 ## Dashboard
 
@@ -368,7 +418,23 @@ Nhắc hạn và hết hạn:
 
 ## Nhập dữ liệu bằng AI
 
-Chức năng dùng AI đọc danh mục hàng hóa từ tệp Excel, PDF hoặc ảnh chưa có màn hình trên hệ thống (máy chủ đã hỗ trợ, màn hình đang được xây dựng). Hiện có thể nhập nhiều mặt hàng bằng nút "Nhập Excel" ở menu "Danh mục hàng hóa".
+AI đọc file Excel (xlsx, xls), CSV, PDF hoặc ảnh (png, jpg) thành bảng dữ liệu hàng hóa, nhà cung cấp hoặc khách hàng để bạn xem lại, sửa rồi mới nhập vào danh mục. Không có gì được ghi vào danh mục trước khi bạn bấm nhập.
+
+Ai dùng được: hàng hóa và nhà cung cấp cho Quản trị hệ thống, Quản lý kho, Mua hàng; khách hàng cho Quản trị hệ thống, Bán hàng. Menu "Nhập dữ liệu bằng AI" chỉ hiện với các vai trò này; trang "Danh mục hàng hóa", "Nhà cung cấp", "Khách hàng" có nút "Nhập bằng AI" mở sẵn đúng loại dữ liệu.
+
+Các bước:
+1. Vào menu "Nhập dữ liệu bằng AI" (hoặc bấm "Nhập bằng AI" trên trang danh mục), chọn loại dữ liệu.
+2. Kéo thả hoặc bấm chọn một file: tối đa 10 MB, 200 dòng (file dài hơn chỉ lấy 200 dòng đầu). Bảng tính nên có một dòng tiêu đề cột, ví dụ "Mã hàng", "Tên hàng", "ĐVT", "Giá nhập".
+3. Bấm "Trích xuất dữ liệu" và chờ: bảng tính thường xong trong vài chục giây, PDF và ảnh có thể tới khoảng 3 phút. Bấm "Hủy" để thôi chờ. File không đọc được, không có cột phù hợp hoặc sai định dạng sẽ báo lỗi rõ ràng.
+4. Xem lại bảng: mỗi cột là một trường của danh mục (dấu * là bắt buộc); rê chuột lên tiêu đề cột để biết cột đó lấy từ cột nào trong file. Ô nền vàng là ô AI chưa chắc chắn, ô viền đỏ phải sửa trước khi nhập, biểu tượng cảnh báo ở đầu dòng cho biết lý do. Bấm vào ô để sửa (Enter để lưu, Esc để bỏ). Dòng còn lỗi không chọn được; bỏ chọn hoặc xóa những dòng không muốn nhập; bật "Chỉ hiện dòng cần xem lại" để lọc nhanh.
+5. Bấm "Nhập N dòng" và xác nhận. Màn hình hiện tổng số dòng đã tạo mới, bỏ qua (mã đã có trong danh mục, không ghi đè) và lỗi, cùng kết quả từng dòng kèm lý do.
+6. Dòng lỗi giữ nguyên dữ liệu: bấm "Sửa và nhập tiếp" để sửa rồi nhập lại chỉ những dòng đó, hoặc "Tải danh sách dòng lỗi" để lưu ra Excel. Bấm nút "Mở danh mục ..." để xem dữ liệu vừa nhập.
+
+Lưu ý:
+- Mỗi lần trích xuất thành công dùng 1 lượt AI trong hạn mức hằng tháng của gói dịch vụ (màn hình hiện "Lượt AI tháng này"); file lỗi không bị tính, bấm nhập không tính lượt. Hết lượt sẽ hiện hộp thoại "Đã chạm giới hạn của gói dịch vụ".
+- Kết quả trích xuất giữ 1 giờ. Quá thời hạn phải tải file lên lại. Tải lại trang trong thời hạn sẽ lấy lại bảng ban đầu, các chỉnh sửa trước đó bị mất; rời trang khi còn chỉnh sửa chưa nhập sẽ được hỏi lại.
+- Nhãn "Chế độ giả lập" nghĩa là hệ thống chưa bật AI thật: Excel, CSV vẫn đọc được bằng cách ghép tên tiêu đề cột, còn PDF và ảnh không đọc được.
+- Khi gói đã hết hạn, nút trích xuất và nút nhập bị khóa.
 
 ## Trợ lý AI
 

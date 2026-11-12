@@ -886,7 +886,7 @@ export default function SmartGoodsReceiptForm({
             <span>Form Lập Phiếu Nhập Kho Thông Minh (Quét mã vạch cộng dồn SL)</span>
           </Title>
           <Text type="secondary" className="text-xs">
-            Hỗ trợ súng bắn mã vạch quét liên tục (&lt; 100ms) tự động tích cộng dồn, phát âm thanh BEEP, quản lý Lô & HSD (FR07, FR11, FR12)
+            Hỗ trợ súng bắn mã vạch quét liên tục (&lt; 100ms) tự động tích cộng dồn, phát tiếng bíp, quản lý Lô & HSD
           </Text>
         </div>
 
@@ -995,10 +995,10 @@ export default function SmartGoodsReceiptForm({
                 Ô Quét Mã Vạch Thông Minh (Tự động nhận diện súng bắn mã &lt; 100ms)
               </span>
               <Tag color="green" className="text-[10px] m-0">
-                Auto-Focus
+                Tự động chọn ô quét
               </Tag>
               <Tag color="blue" className="text-[10px] m-0">
-                Sound Beep ON
+                Tiếng bíp: Bật
               </Tag>
             </div>
 

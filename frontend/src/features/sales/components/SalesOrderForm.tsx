@@ -448,7 +448,7 @@ export default function SalesOrderForm({
           message.success(`Đơn ${result.soNumber} đã đủ hàng, được giữ chỗ và chuyển sang Đã xác nhận.`)
         } else if (result.status === 'BACKORDER') {
           message.warning(
-            `Đã lưu đơn ${result.soNumber}, đơn vẫn Thiếu hàng (Backorder)${result.backorderReason ? `: ${result.backorderReason}` : ''}`,
+            `Đã lưu đơn ${result.soNumber}, đơn vẫn Thiếu hàng${result.backorderReason ? `: ${result.backorderReason}` : ''}`,
             8
           )
         } else {
@@ -459,7 +459,7 @@ export default function SalesOrderForm({
         if (result.status === 'BACKORDER') {
           // Thiếu ATP hoặc không giữ đủ chỗ lúc xác nhận (đơn khác vừa giữ mất phần tồn): máy chủ lưu đơn ở BACKORDER
           message.warning(
-            `Đơn ${result.soNumber} đã được tạo nhưng chưa xác nhận, chuyển sang Thiếu hàng (Backorder)${result.backorderReason ? `: ${result.backorderReason}` : ''}`,
+            `Đơn ${result.soNumber} đã được tạo nhưng chưa xác nhận, chuyển sang Thiếu hàng${result.backorderReason ? `: ${result.backorderReason}` : ''}`,
             8
           )
         } else {
@@ -519,8 +519,8 @@ export default function SalesOrderForm({
               </Title>
             </Space>
             <Space>
-              <Tag color="blue">FR14: Kiểm tra Hạn mức nợ</Tag>
-              <Tag color="cyan">FR15: Tồn khả dụng ATP</Tag>
+              <Tag color="blue">Kiểm tra hạn mức nợ</Tag>
+              <Tag color="cyan">Tồn khả dụng ATP</Tag>
             </Space>
           </div>
 
@@ -631,10 +631,10 @@ export default function SalesOrderForm({
                 valuePropName="checked"
                 label={
                   <span className="font-semibold text-slate-700">
-                    Cho phép chuyển Backorder
+                    Cho phép chuyển sang thiếu hàng
                   </span>
                 }
-                tooltip="Nếu thiếu hàng ATP, đơn sẽ chuyển sang trạng thái BACKORDER chờ nhập hàng bù thay vì báo lỗi chặn đơn"
+                tooltip="Nếu thiếu hàng ATP, đơn sẽ chuyển sang trạng thái thiếu hàng chờ nhập hàng bù thay vì báo lỗi chặn đơn"
               >
                 <Switch
                   checkedChildren="Cho phép"
@@ -707,7 +707,7 @@ export default function SalesOrderForm({
               <div className="text-xs text-gray-500 space-y-1">
                 <div>• Công thức tính: <Text code>Thành tiền = (Số lượng × Đơn giá - Chiết khấu) + VAT</Text></div>
                 <div>• Tồn khả dụng: <Text code>ATP = OnHand (Tồn thực tế) - Reserved (Đã giữ chỗ)</Text></div>
-                <div>• Khi duyệt đơn bán, số lượng hàng sẽ tự động được giữ chỗ (Soft Reservation).</div>
+                <div>• Khi duyệt đơn bán, số lượng hàng sẽ tự động được giữ chỗ.</div>
               </div>
             </Col>
 
@@ -757,7 +757,7 @@ export default function SalesOrderForm({
               onClick={() => handleSubmit('DRAFT')}
               loading={submitting}
             >
-              Lưu bản nháp (DRAFT)
+              Lưu bản nháp
             </Button>
 
             <Button
@@ -767,7 +767,7 @@ export default function SalesOrderForm({
               loading={submitting}
               className="bg-blue-600 hover:bg-blue-700"
             >
-              {isEdit ? 'Cập nhật đơn bán' : 'Tạo & Xác nhận đơn (CONFIRMED)'}
+              {isEdit ? 'Cập nhật đơn bán' : 'Tạo & Xác nhận đơn'}
             </Button>
           </div>
         </Card>

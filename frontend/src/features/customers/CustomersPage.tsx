@@ -28,6 +28,7 @@ import * as XLSX from 'xlsx'
 import { getApiErrorMessage } from '../../services/api'
 import ForbiddenResult from '../../components/ForbiddenResult'
 import { useCan } from '../auth/useCan'
+import AiImportButton from '../ai/components/AiImportButton'
 import CustomerDetailModal from './components/CustomerDetailModal'
 import CustomerFormModal from './components/CustomerFormModal'
 import CustomerMetricsCards from './components/CustomerMetricsCards'
@@ -205,7 +206,7 @@ export default function CustomersPage() {
         <UnlockOutlined className="text-emerald-500" />
       ),
       content: nextLocked
-        ? 'Khi bị khóa nợ, hệ thống sẽ CHẶN toàn bộ các đơn bán hàng SO mới của khách hàng này (FR14) cho tới khi hoàn tất thanh toán nợ quá hạn!'
+        ? 'Khi bị khóa nợ, hệ thống sẽ CHẶN toàn bộ các đơn bán hàng SO mới của khách hàng này cho tới khi hoàn tất thanh toán nợ quá hạn!'
         : 'Sau khi mở khóa, khách hàng có thể tiếp tục tạo đơn bán hàng nếu công nợ còn trong hạn mức cho phép.',
       okText: nextLocked ? 'Khóa nợ ngay' : 'Mở khóa nợ',
       okType: nextLocked ? 'danger' : 'primary',
@@ -319,7 +320,7 @@ export default function CustomersPage() {
           'Hạn mức tín dụng (VNĐ)': c.creditLimit,
           'Công nợ hiện tại (VNĐ)': c.currentDebt,
           'Hạn mức khả dụng (VNĐ)': c.availableCredit ?? Math.max(0, c.creditLimit - c.currentDebt),
-          'Cảnh báo công nợ (FR14)': debtStatusText,
+          'Cảnh báo công nợ': debtStatusText,
           'Khóa nợ': c.debtLocked ? 'ĐÃ KHÓA' : 'Bình thường',
           'Trạng thái': c.active ? 'Đang hợp tác' : 'Ngưng hợp tác',
           'Ghi chú': c.notes || '',
@@ -678,6 +679,8 @@ export default function CustomersPage() {
           >
             Xuất Excel
           </Button>
+
+          <AiImportButton dataType="CUSTOMER" />
 
           {canCreate && (
             <Button

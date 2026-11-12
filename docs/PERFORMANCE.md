@@ -274,3 +274,21 @@ Tổng một bộ service: 10 + 10 + 10 + 20 + 23 = 73 kết nối, nhỏ hơn `
 không đổi giá trị này); chạy thêm một bản order-service và inventory-service vẫn còn dưới (116). Tomcat giữ mặc định
 (tối đa 200 luồng, hàng đợi 100): luồng vượt số kết nối xếp hàng chờ Hikari tối đa 30 giây (`connection-timeout` mặc
 định), nên kết nối phải được trả nhanh như trên chứ không tăng nhóm vô hạn.
+
+### 5.4. Đo lại trên hệ thống thật sau khi sửa (12/11/2026)
+
+Build lại order-service và inventory-service với bản sửa, chạy lại `qa/load/concurrency.mjs` trên cùng bộ Docker (13
+container và công cụ bắn tải chung một máy phát triển, mọi thao tác dồn vào một mặt hàng ở một kho):
+
+| Tải | Kết quả | `POST /api/orders/sales` p95 | `POST .../sales/{id}/confirm` p95 | `POST /api/orders/goods-delivery-notes` p95 |
+| --- | --- | --- | --- | --- |
+| 40 thao tác/giây, trước khi sửa | order-service treo, 604 trên 637 lần tạo đơn bán hết 30 giây chờ | 30.015 ms | 30.020 ms | 30.017 ms |
+| 40 thao tác/giây, sau khi sửa | 1.200 thao tác trong 30,3 giây, không lỗi 5xx, mọi bất biến tồn kho đạt | 2.480 ms | 2.563 ms | 2.540 ms |
+| 20 thao tác/giây, sau khi sửa | 600 thao tác, không lỗi, mọi bất biến đạt | 122 ms | 132 ms | 150 ms |
+| 10 thao tác/giây, sau khi sửa | 300 thao tác, không lỗi, mọi bất biến đạt | 99 ms | 107 ms | 159 ms |
+
+Bản sửa xử lý đúng sự cố treo: không còn request hết thời gian chờ, log không còn dòng `Connection is not available`.
+Yêu cầu trả lời trong 500 ms đạt tới khoảng 20 thao tác mỗi giây; ở 40 thao tác mỗi giây request xếp hàng nên p95 khoảng
+2,5 giây dù kết quả vẫn đúng. Điểm bão hòa nằm giữa hai mức này và chưa được phân tích: chưa biết phần chờ thuộc về khóa
+dòng tồn kho của một mặt hàng (kịch bản cố ý dồn vào một dòng), nhóm kết nối hay CPU của máy thử. Muốn kết luận cho máy
+chủ triển khai cần đo lại ở đó và với tải rải trên nhiều mặt hàng.

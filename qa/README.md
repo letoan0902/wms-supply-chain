@@ -2,7 +2,7 @@
 
 Thư mục `qa/` chứa bộ kiểm thử đầu cuối chạy qua api-gateway (`http://localhost:8080`) cho các task QA:
 WMS-20.1 (luồng mua, nhập kho), WMS-20.2 (bán, xuất kho, điều chuyển, kiểm kê), WMS-22.5 (cách ly doanh nghiệp, giới hạn gói, hết hạn, API key), WMS-19.2 (tải đồng thời).
-Bảng test case, hành vi dự kiến không đạt và truy vết yêu cầu ở [docs/TEST_PLAN.md](../docs/TEST_PLAN.md).
+Bảng test case, kết quả lượt chạy gần nhất và truy vết yêu cầu ở [docs/TEST_PLAN.md](../docs/TEST_PLAN.md).
 
 ## 1. Thành phần
 
@@ -62,7 +62,9 @@ node qa/run-all.mjs --load              # chạy thêm qa/load/concurrency.mjs (
 
 Script in `runId` ở đầu, dừng nếu `00-setup` thất bại, chạy tiếp các collection còn lại dù có test lỗi, cuối cùng in
 bảng tổng hợp và thoát mã 1 nếu có collection lỗi. Tùy chọn: `--run-id <chuỗi chữ thường và số>`, `--only 00,10`,
-`--output <thư mục>` (báo cáo YAML của Postman CLI), `--poll-max`, `--poll-delay-ms`.
+`--output <thư mục>` (báo cáo YAML của Postman CLI; chỉ dùng được khi đã `postman login`, chưa đăng nhập thì Postman CLI
+báo lỗi và không chạy), `--poll-max`, `--poll-delay-ms`. Không đăng nhập thì bỏ `--output` và ghi lại đầu ra bằng
+`node qa/run-all.mjs > ket-qua.log`.
 
 ### 4.2. Từng collection
 
@@ -134,7 +136,8 @@ theo API, mã HTTP và `code`, danh sách bất biến ĐẠT hoặc VI PHẠM. 
   lỗi đầu tiên trong chuỗi trước, các lỗi sau thường tự hết.
 - Các request chờ sự kiện RabbitMQ (tồn sau phiếu nhập, giữ chỗ, trừ tồn sau phiếu xuất) tự hỏi lại tối đa `pollMax` lần;
   chỉ lần cuối mới ghi kết quả test, nên các lần chờ không bị tính là lỗi.
-- Ca dự kiến không đạt do mã nguồn chưa đáp ứng yêu cầu được liệt kê ở mục 2 của `docs/TEST_PLAN.md`.
+- Kết quả lượt chạy gần nhất (12/11/2026) và các lỗi đã tìm thấy nằm ở mục 2 của `docs/TEST_PLAN.md`; lúc đó mọi ca tự
+  động đều đạt, nên một ca không đạt ở lượt chạy sau là lỗi mới.
 - Ghi "đạt" hoặc "không đạt" vào cột "Kết quả" của `docs/TEST_PLAN.md`.
 
 ## 6. Làm sạch giữa các lượt chạy

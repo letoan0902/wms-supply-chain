@@ -234,3 +234,43 @@ cùng lúc trong transaction đã giữ kết nối, cho hai doanh nghiệp. Tr�
 với bản sửa mọi lần cấp thành công, mỗi doanh nghiệp nhận đúng `...-0001` đến `...-0008`. Cùng kịch bản, thêm 64 luồng
 chia cho hai phiên bản service (mỗi phiên bản một nhóm cấp số riêng), đã chạy trên MySQL 8.0.43 thử nghiệm sau khi Flyway
 áp V1 đến V11 và Hibernate kiểm tra schema: số liên tiếp, không trùng, không deadlock, không `Lock wait timeout`.
+
+### 5.3. Rà soát cả backend và định cỡ nhóm kết nối
+
+| Chỗ | Có giữ kết nối khi lấy kết nối thứ hai? | Kết luận |
+| --- | --- | --- |
+| `DocumentNumberService` (order-service) | Có: gọi từ năm phương thức tạo chứng từ `@Transactional` | Lỗi thật, đã sửa ở mục 5.2 |
+| `PartnerBulkImportService` (order-service, `REQUIRES_NEW` mỗi dòng) | Không: controller gọi thẳng, lớp không có transaction bao ngoài | Không phải lỗi |
+| `ProductBulkRowImporter` (product-service, `REQUIRES_NEW` mỗi dòng) | Không: `ProductBulkService` cố ý không có transaction | Không phải lỗi |
+| `StockAlertRunGuard` (inventory-service, `REQUIRES_NEW`) | Không: `StockAlertScanService` không có transaction, phần đọc của `StockAlertDetector` là transaction chỉ đọc đã đóng trước khi giữ chỗ | Không phải lỗi |
+| `TransactionTemplate` của `PaymentService` (auth-service) | Không: propagation mặc định, gọi PayOS ngoài transaction | Không phải lỗi |
+| Open-session-in-view | `spring.jpa.open-in-view: false` ở mọi service có JPA và ở `config-repo/application.yml` | Controller không giữ kết nối, không cần đổi |
+| Callback sau commit (`afterCommit`, `@TransactionalEventListener`) | Chỉ gửi RabbitMQ, xóa Redis hoặc gọi inventory-service giải phóng giữ chỗ, không mở transaction | Không phải lỗi |
+
+Giữ một kết nối trong lúc gọi đồng bộ sang service khác là thiết kế có chủ đích (lỗi bên kia thì rollback cả thao tác):
+order-service xác nhận đơn bán và tạo đơn ở trạng thái đã xác nhận (kiểm tra tồn khả dụng từng dòng rồi giữ chỗ), lập và
+xuất phiếu xuất kho (trừ tồn), lập và xác nhận phiếu nhập (kiểm tra ô kệ đang kiểm kê); inventory-service lập báo cáo tồn
+trong transaction chỉ đọc có gọi product-service. Thời gian giữ bị chặn bởi thời gian chờ của Feign:
+
+| Service | Feign kết nối / đọc | Một lần gọi tối đa | Lần gọi GET, nếu Spring Cloud LoadBalancer thử lại một lần (mặc định khi có spring-retry) |
+| --- | --- | --- | --- |
+| order-service (đã đặt từ trước) | 3 s / 5 s | 8 s | 16 s |
+| inventory-service (trước: mặc định 10 s / 60 s) | 2 s / 5 s | 7 s | 14 s |
+
+Trường hợp xấu nhất của order-service khi inventory-service treo: xác nhận đơn N dòng giữ kết nối tối đa khoảng
+16 x N + 8 giây (mỗi dòng một lần đọc tồn khả dụng, cộng một lần giữ chỗ); lập phiếu xuất, xuất kho, lập phiếu nhập
+khoảng 8 giây cho lần gọi POST. Trên thực tế lần gọi đầu tiên lỗi là cả thao tác dừng và rollback, nên một request thường
+giữ kết nối tối đa 16 giây, thấp hơn 30 giây chờ kết nối của Hikari.
+
+Định cỡ (biến `DB_POOL_SIZE` của từng container):
+
+| Service | Nhóm chính | Lý do |
+| --- | --- | --- |
+| order-service | 20 (mặc định của Hikari là 10) + 3 kết nối cấp số | Giữ kết nối trong lúc gọi inventory-service |
+| inventory-service | 20 | Nhận các lần gọi trên dưới khóa bi quan, báo cáo gọi product-service |
+| auth-service, product-service, notification-service | 10 (mặc định) | Transaction ngắn, không giữ kết nối qua lời gọi mạng |
+
+Tổng một bộ service: 10 + 10 + 10 + 20 + 23 = 73 kết nối, nhỏ hơn `max_connections` mặc định 151 của MySQL 8 (compose
+không đổi giá trị này); chạy thêm một bản order-service và inventory-service vẫn còn dưới (116). Tomcat giữ mặc định
+(tối đa 200 luồng, hàng đợi 100): luồng vượt số kết nối xếp hàng chờ Hikari tối đa 30 giây (`connection-timeout` mặc
+định), nên kết nối phải được trả nhanh như trên chứ không tăng nhóm vô hạn.

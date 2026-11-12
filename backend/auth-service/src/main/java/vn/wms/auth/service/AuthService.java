@@ -108,7 +108,7 @@ public class AuthService {
 
         // 3a. Kiểm tra tài khoản có bị vô hiệu hóa bởi Admin hay không
         if (!userLogin.isEnabled()) {
-            throw ApiException.unauthorized("Tài khoản đã bị khóa hoặc ngừng kích hoạt");
+            throw ApiException.unauthorized("Tài khoản đã bị khóa hoặc chưa được kích hoạt");
         }
 
         // 3b. Doanh nghiệp của tài khoản phải đang hoạt động (ACTIVE)
@@ -295,7 +295,7 @@ public class AuthService {
                 .orElseThrow(() -> ApiException.unauthorized("Người dùng không tồn tại"));
 
         if (!user.isEnabled()) {
-            throw ApiException.unauthorized("Tài khoản đã bị khóa hoặc ngừng kích hoạt");
+            throw ApiException.unauthorized("Tài khoản đã bị khóa hoặc chưa được kích hoạt");
         }
 
         // Doanh nghiệp đọc lại từ cơ sở dữ liệu, phải đang ACTIVE

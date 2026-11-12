@@ -26,6 +26,10 @@ public interface UserRepository extends JpaRepository<User, Long> {
     @Query("SELECT u FROM User u WHERE u.id = :id AND u.company.id = :companyId")
     Optional<User> findByIdAndCompanyId(@Param("id") Long id, @Param("companyId") Long companyId);
 
+    /** Tìm tài khoản đại diện đầu tiên (Admin) thuộc doanh nghiệp. */
+    @Query("SELECT u FROM User u WHERE u.company.id = :companyId ORDER BY u.id ASC")
+    Optional<User> findFirstByCompanyId(@Param("companyId") Long companyId);
+
     /** Số ADMIN đang hoạt động của một doanh nghiệp (quy tắc "ADMIN cuối cùng" tính trong từng doanh nghiệp). */
     @Query("SELECT COUNT(DISTINCT u) FROM User u JOIN u.roles r " +
             "WHERE r.name = 'ADMIN' AND u.enabled = true AND u.company.id = :companyId")

@@ -73,5 +73,18 @@ public class AlertEventsListener {
         }
         log.info("Nhận sự kiện {} cho {} (routingKey='{}'), gửi email", email.eventType(), email.recipient(), eventType);
         notificationService.process(email);
+
+        // Đẩy thông báo thời gian thực lên WebSocket /topic/alerts cho Admin toàn hệ thống
+        if ("alert.registration".equals(eventType) || "COMPANY_REGISTRATION".equals(email.eventType())) {
+            realtimeService.publish(new vn.wms.notification.realtime.RealtimeNotification(
+                    messageId != null ? messageId : java.util.UUID.randomUUID().toString(),
+                    vn.wms.notification.realtime.RealtimeEventType.LOW_STOCK,
+                    vn.wms.notification.realtime.NotificationSeverity.INFO,
+                    email.subject(),
+                    email.content(),
+                    EventMessages.timestamp(properties),
+                    email
+            ));
+        }
     }
 }

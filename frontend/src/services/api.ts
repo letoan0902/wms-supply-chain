@@ -3,9 +3,7 @@ import type { ApiErrorResponse, ApiResponse } from '../types/api'
 import type { RefreshTokenResponse } from '../types/auth'
 import {
   clearAuth,
-  getRefreshToken,
   getToken,
-  saveRefreshToken,
   saveToken,
 } from '../utils/storage'
 
@@ -14,11 +12,13 @@ const LOGIN_PATH = '/login'
 /**
  * Axios instance dùng chung cho toàn bộ ứng dụng.
  * baseURL mặc định là '/api': Vite proxy (dev) hoặc Nginx (Docker) chuyển tiếp tới API Gateway.
+ * withCredentials: true cho phép trình duyệt tự động gửi và nhận HttpOnly Cookie (chứa Refresh Token - SRS UC-01).
  */
 export const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '/api',
   timeout: 15000,
   headers: { 'Content-Type': 'application/json' },
+  withCredentials: true,
 })
 
 // Gắn Bearer token (nếu có) vào mọi request
@@ -95,36 +95,26 @@ api.interceptors.response.use(
       originalRequest._retry = true
       isRefreshing = true
 
-      const currentRefreshToken = getRefreshToken()
-      if (!currentRefreshToken) {
-        clearAuth()
-        if (window.location.pathname !== LOGIN_PATH) {
-          window.location.assign(LOGIN_PATH)
-        }
-        return Promise.reject(error)
-      }
-
       try {
-        // Gọi API refresh qua axios độc lập (không qua instance `api` để tránh đệ quy interceptor)
+        // Gọi API refresh qua axios độc lập kèm withCredentials: true để trình duyệt tự gửi Cookie HttpOnly (SRS UC-01)
         const refreshResponse = await axios.post<ApiResponse<RefreshTokenResponse>>(
           `${api.defaults.baseURL || '/api'}/auth/refresh`,
-          { refreshToken: currentRefreshToken },
-          { headers: { 'Content-Type': 'application/json' } },
+          {},
+          {
+            headers: { 'Content-Type': 'application/json' },
+            withCredentials: true,
+          },
         )
 
         const data = refreshResponse.data?.data
         const newAccessToken = data?.accessToken
-        const newRefreshToken = data?.refreshToken
 
         if (!newAccessToken) {
           throw new Error('Không nhận được Access Token mới từ máy chủ')
         }
 
-        // Cập nhật Access Token mới (và Refresh Token mới nếu backend xoay vòng RTR)
+        // Cập nhật Access Token mới (Refresh Token mới được backend tự xoay vòng lưu trong HttpOnly Cookie)
         saveToken(newAccessToken)
-        if (newRefreshToken) {
-          saveRefreshToken(newRefreshToken)
-        }
 
         // Giải phóng hàng đợi và thông báo token mới cho các request đang chờ
         processQueue(null, newAccessToken)

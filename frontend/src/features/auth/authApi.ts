@@ -9,17 +9,21 @@ export async function login(payload: LoginRequest): Promise<LoginResult> {
   return response.data.data
 }
 
-/** Gọi POST /api/auth/refresh để làm mới Access Token bằng Refresh Token (dùng axios độc lập). */
-export async function refreshAccessToken(refreshToken: string): Promise<RefreshTokenResponse> {
+/** Gọi POST /api/auth/refresh để làm mới Access Token (HttpOnly Cookie tự gửi qua withCredentials - SRS UC-01). */
+export async function refreshAccessToken(refreshToken?: string): Promise<RefreshTokenResponse> {
+  const payload = refreshToken ? { refreshToken } : {}
   const response = await axios.post<ApiResponse<RefreshTokenResponse>>(
     `${api.defaults.baseURL || '/api'}/auth/refresh`,
-    { refreshToken },
-    { headers: { 'Content-Type': 'application/json' } }
+    payload,
+    {
+      headers: { 'Content-Type': 'application/json' },
+      withCredentials: true,
+    }
   )
   return response.data.data
 }
 
-/** Gọi POST /api/auth/logout để vô hiệu hóa token và xóa session phía server. */
+/** Gọi POST /api/auth/logout để vô hiệu hóa token và xóa session phía server cùng HttpOnly Cookie. */
 export async function logout(): Promise<void> {
   await api.post<ApiResponse<string>>('/auth/logout')
 }

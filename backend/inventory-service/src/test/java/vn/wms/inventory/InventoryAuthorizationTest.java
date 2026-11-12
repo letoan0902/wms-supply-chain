@@ -79,6 +79,10 @@ class InventoryAuthorizationTest {
                     A, M, L),
             endpoint("GET /api/inventory/reports/lot-trace", () -> get("/api/inventory/reports/lot-trace")
                     .param("lotNo", "LOT-KHONG-CO"), A, M, S, C),
+            endpoint("GET /api/inventory/dashboard/stock-by-category",
+                    () -> get("/api/inventory/dashboard/stock-by-category"), A, M, S, P, L, C),
+            endpoint("GET /api/inventory/dashboard/recent-transactions",
+                    () -> get("/api/inventory/dashboard/recent-transactions"), A, M, S, C),
             endpoint("GET /api/inventory/stocktakes", () -> get("/api/inventory/stocktakes"), A, M, S, C),
             endpoint("POST /api/inventory/stocktakes/{id}/start",
                     () -> post("/api/inventory/stocktakes/" + MISSING_ID + "/start"), A, M),

@@ -93,7 +93,7 @@ export default function GoodsReceiptDetailModal({
       },
     },
     {
-      title: 'Số Lô & Hạn sử dụng (FR12)',
+      title: 'Số Lô & Hạn sử dụng',
       width: 180,
       render: (_, r) => (
         <div className="text-xs space-y-0.5">

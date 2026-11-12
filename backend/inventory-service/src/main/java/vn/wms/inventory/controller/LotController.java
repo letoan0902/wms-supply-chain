@@ -42,6 +42,7 @@ public class LotController {
 
     @GetMapping
     @Operation(summary = "Tìm kiếm và phân trang danh sách lô hàng theo vị trí ô/kệ lưu trữ")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'PURCHASING', 'SALES', 'ACCOUNTANT', 'INTEGRATION')")
     public ApiResponse<PageResponse<LotResponse>> searchLots(
             @RequestParam(required = false) Long warehouseId,
             @RequestParam(required = false) Long productId,
@@ -59,6 +60,7 @@ public class LotController {
 
     @GetMapping("/summary")
     @Operation(summary = "Thống kê tổng quan tình trạng các lô hàng (tổng số, hoạt động, cận hạn, hết hạn, bị khóa)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'PURCHASING', 'SALES', 'ACCOUNTANT', 'INTEGRATION')")
     public ApiResponse<LotSummaryResponse> getSummary(
             @RequestParam(required = false) Long warehouseId,
             @RequestParam(required = false, defaultValue = "30") Integer expiringDays
@@ -68,6 +70,7 @@ public class LotController {
 
     @GetMapping("/expiring-soon")
     @Operation(summary = "Danh sách các lô hàng cận hạn sử dụng trong N ngày tới (mặc định 30 ngày)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'PURCHASING', 'SALES', 'ACCOUNTANT', 'INTEGRATION')")
     public ApiResponse<List<LotResponse>> getExpiringSoonLots(
             @RequestParam(required = false) Long warehouseId,
             @RequestParam(required = false, defaultValue = "30") Integer expiringDays

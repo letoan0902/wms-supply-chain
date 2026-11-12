@@ -38,20 +38,32 @@ public class SubscriptionService {
 
     @Transactional
     public Subscription startTrial(Company company) {
+        return startTrial(company, 30);
+    }
+
+    @Transactional
+    public Subscription startTrial(Company company, int trialDays) {
         Plan trialPlan = planRepository.findById(PLAN_TRIAL)
                 .orElseThrow(() -> ApiException.notFound("Không tìm thấy cấu hình gói dùng thử (TRIAL)"));
 
         // Làm tròn tới giây để mốc lưu DB và chuỗi ISO-8601 trên Redis giống nhau (ví dụ 2026-12-09T03:00:00Z)
         Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
-        Instant trialEndsAt = now.plus(30, ChronoUnit.DAYS);
+        int days = trialDays > 0 ? trialDays : 30;
+        Instant trialEndsAt = now.plus(days, ChronoUnit.DAYS);
 
-        Subscription subscription = Subscription.builder()
-                .company(company)
-                .plan(trialPlan)
-                .status(SubscriptionStatus.ACTIVE)
-                .trialEndsAt(trialEndsAt)
-                .expiresAt(null)
-                .build();
+        Subscription subscription = subscriptionRepository.findByCompanyId(company.getId())
+                .orElseGet(() -> Subscription.builder()
+                        .company(company)
+                        .plan(trialPlan)
+                        .status(SubscriptionStatus.ACTIVE)
+                        .trialEndsAt(trialEndsAt)
+                        .expiresAt(null)
+                        .build());
+
+        subscription.setPlan(trialPlan);
+        subscription.setStatus(SubscriptionStatus.ACTIVE);
+        subscription.setTrialEndsAt(trialEndsAt);
+        subscription.setExpiresAt(null);
 
         subscription = subscriptionRepository.save(subscription);
         syncToRedis(subscription);

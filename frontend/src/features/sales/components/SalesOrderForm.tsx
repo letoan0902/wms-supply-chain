@@ -27,6 +27,7 @@ import {
 import dayjs from 'dayjs'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { getApiErrorMessage } from '../../../services/api'
+import { errorMessageOf, stockShortagesOf } from '../../../services/stockDocuments'
 import { formatCurrency, formatNumber } from '../../../utils/format'
 import * as customerApi from '../../customers/customerApi'
 import type { Customer, CustomerCreditCheckResponse } from '../../customers/types'
@@ -45,6 +46,7 @@ import type {
 } from '../types'
 import CustomerCreditAlert from './CustomerCreditAlert'
 import SalesOrderItemsTable from './SalesOrderItemsTable'
+import { StockShortageNotice } from './StockErrorDetails'
 
 const { Title, Text } = Typography
 const { TextArea } = Input
@@ -75,7 +77,7 @@ export default function SalesOrderForm({
   onSuccess,
   onCancel,
 }: Props) {
-  const { message } = App.useApp()
+  const { message, modal } = App.useApp()
   const [form] = Form.useForm<FormValues>()
 
   const [customers, setCustomers] = useState<Customer[]>([])
@@ -85,6 +87,8 @@ export default function SalesOrderForm({
   const [loadingCustomers, setLoadingCustomers] = useState(false)
   const [loadingProducts, setLoadingProducts] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  // Chặn bấm hai lần trước khi trạng thái đang lưu kịp cập nhật (lập đơn xác nhận ngay là giữ chỗ tồn kho)
+  const submittingRef = useRef(false)
 
   // Credit check state
   const [creditInfo, setCreditInfo] = useState<CustomerCreditCheckResponse | null>(null)
@@ -361,6 +365,7 @@ export default function SalesOrderForm({
 
   // Submit form tạo / lưu đơn bán hàng
   const handleSubmit = async (targetStatus: OrderStatus) => {
+    if (submittingRef.current) return
     let values: FormValues
     try {
       values = await form.validateFields()
@@ -420,6 +425,8 @@ export default function SalesOrderForm({
       })),
     }
 
+    if (submittingRef.current) return
+    submittingRef.current = true
     setSubmitting(true)
     try {
       let result: SalesOrder
@@ -437,12 +444,23 @@ export default function SalesOrderForm({
           allowBackorder: payload.allowBackorder,
           items: payload.items,
         })
-        message.success(`Cập nhật đơn bán hàng ${result.soNumber} thành công!`)
+        if (initialOrder.status === 'BACKORDER' && result.status === 'CONFIRMED') {
+          message.success(`Đơn ${result.soNumber} đã đủ hàng, được giữ chỗ và chuyển sang Đã xác nhận.`)
+        } else if (result.status === 'BACKORDER') {
+          message.warning(
+            `Đã lưu đơn ${result.soNumber}, đơn vẫn Thiếu hàng${result.backorderReason ? `: ${result.backorderReason}` : ''}`,
+            8
+          )
+        } else {
+          message.success(`Cập nhật đơn bán hàng ${result.soNumber} thành công!`)
+        }
       } else {
         result = await salesApi.createSalesOrder(payload)
         if (result.status === 'BACKORDER') {
+          // Thiếu ATP hoặc không giữ đủ chỗ lúc xác nhận (đơn khác vừa giữ mất phần tồn): máy chủ lưu đơn ở BACKORDER
           message.warning(
-            `Đơn ${result.soNumber} đã được tạo và chuyển sang BACKORDER do thiếu tồn khả dụng ATP!`
+            `Đơn ${result.soNumber} đã được tạo nhưng chưa xác nhận, chuyển sang Thiếu hàng${result.backorderReason ? `: ${result.backorderReason}` : ''}`,
+            8
           )
         } else {
           message.success(`Tạo đơn bán hàng ${result.soNumber} thành công!`)
@@ -451,8 +469,25 @@ export default function SalesOrderForm({
 
       onSuccess?.(result)
     } catch (err) {
-      message.error(getApiErrorMessage(err, 'Lỗi khi lưu đơn bán hàng'))
+      const shortages = stockShortagesOf(err)
+      if (shortages.length > 0) {
+        // Lập đơn xác nhận ngay khi không cho phép Backorder: không giữ đủ chỗ thì đơn không được lưu
+        modal.error({
+          title: 'Đơn chưa được lưu: không đủ hàng để giữ chỗ',
+          width: 640,
+          content: (
+            <StockShortageNotice
+              message={errorMessageOf(err)}
+              shortages={shortages}
+              productName={(productId) => items.find((it) => it.productId === productId)?.productName}
+            />
+          ),
+        })
+      } else {
+        message.error(getApiErrorMessage(err, 'Lỗi khi lưu đơn bán hàng'))
+      }
     } finally {
+      submittingRef.current = false
       setSubmitting(false)
     }
   }
@@ -480,12 +515,12 @@ export default function SalesOrderForm({
             <Space align="center">
               <FileDoneOutlined className="text-xl text-blue-600" />
               <Title level={4} className="!m-0 text-slate-800">
-                {isEdit ? `Chỉnh sửa Đơn bán hàng: ${initialOrder?.soNumber}` : 'Lập Đơn Bán Hàng Mới (Sales Order)'}
+                {isEdit ? `Chỉnh sửa Đơn bán hàng: ${initialOrder?.soNumber}` : 'Lập Đơn Bán Hàng Mới'}
               </Title>
             </Space>
             <Space>
-              <Tag color="blue">FR14: Kiểm tra Hạn mức nợ</Tag>
-              <Tag color="cyan">FR15: Tồn khả dụng ATP</Tag>
+              <Tag color="blue">Kiểm tra hạn mức nợ</Tag>
+              <Tag color="cyan">Tồn khả dụng ATP</Tag>
             </Space>
           </div>
 
@@ -596,10 +631,10 @@ export default function SalesOrderForm({
                 valuePropName="checked"
                 label={
                   <span className="font-semibold text-slate-700">
-                    Cho phép chuyển Backorder
+                    Cho phép chuyển sang thiếu hàng
                   </span>
                 }
-                tooltip="Nếu thiếu hàng ATP, đơn sẽ chuyển sang trạng thái BACKORDER chờ nhập hàng bù thay vì báo lỗi chặn đơn"
+                tooltip="Nếu thiếu hàng ATP, đơn sẽ chuyển sang trạng thái thiếu hàng chờ nhập hàng bù thay vì báo lỗi chặn đơn"
               >
                 <Switch
                   checkedChildren="Cho phép"
@@ -672,7 +707,7 @@ export default function SalesOrderForm({
               <div className="text-xs text-gray-500 space-y-1">
                 <div>• Công thức tính: <Text code>Thành tiền = (Số lượng × Đơn giá - Chiết khấu) + VAT</Text></div>
                 <div>• Tồn khả dụng: <Text code>ATP = OnHand (Tồn thực tế) - Reserved (Đã giữ chỗ)</Text></div>
-                <div>• Khi duyệt đơn bán, số lượng hàng sẽ tự động được giữ chỗ (Soft Reservation).</div>
+                <div>• Khi duyệt đơn bán, số lượng hàng sẽ tự động được giữ chỗ.</div>
               </div>
             </Col>
 
@@ -722,7 +757,7 @@ export default function SalesOrderForm({
               onClick={() => handleSubmit('DRAFT')}
               loading={submitting}
             >
-              Lưu bản nháp (DRAFT)
+              Lưu bản nháp
             </Button>
 
             <Button
@@ -732,7 +767,7 @@ export default function SalesOrderForm({
               loading={submitting}
               className="bg-blue-600 hover:bg-blue-700"
             >
-              {isEdit ? 'Cập nhật đơn bán' : 'Tạo & Xác nhận đơn (CONFIRMED)'}
+              {isEdit ? 'Cập nhật đơn bán' : 'Tạo & Xác nhận đơn'}
             </Button>
           </div>
         </Card>

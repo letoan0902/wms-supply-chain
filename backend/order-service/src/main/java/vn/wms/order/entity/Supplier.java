@@ -6,10 +6,11 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import vn.wms.common.persistence.AuditableEntity;
+import vn.wms.common.tenant.TenantEntity;
 
 import java.math.BigDecimal;
 
@@ -17,17 +18,18 @@ import java.math.BigDecimal;
  * Nhà cung cấp (Suppliers - FR09, WMS-08.1).
  */
 @Entity
-@Table(name = "suppliers")
+@Table(name = "suppliers", uniqueConstraints = @UniqueConstraint(
+        name = "uk_suppliers_company_code", columnNames = {"company_id", "code"}))
 @Getter
 @Setter
 @NoArgsConstructor
-public class Supplier extends AuditableEntity {
+public class Supplier extends TenantEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false, unique = true, length = 30)
+    @Column(nullable = false, length = 30)
     private String code;
 
     @Column(nullable = false, length = 150)

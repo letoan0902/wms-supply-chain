@@ -25,19 +25,25 @@ public interface SalesOrderItemRepository extends JpaRepository<SalesOrderItem, 
      * - [2]: String productName
      * - [3]: String uom
      * - [4]: BigDecimal totalQty (Tổng số lượng xuất)
+     *
+     * JPQL nên Hibernate tự thêm điều kiện doanh nghiệp (@TenantId của SalesOrderItem); không đổi sang native SQL.
+     *
+     * @param allWarehouses true thì bỏ qua {@code warehouseIds} (người xem có phạm vi mọi kho và không chọn kho)
+     * @param warehouseIds  các kho cần lọc, không được rỗng (truyền giá trị giữ chỗ khi {@code allWarehouses})
      */
     @Query("SELECT i.productId, i.skuCode, i.productName, i.uom, COALESCE(SUM(i.quantity), 0) " +
            "FROM SalesOrderItem i " +
            "WHERE i.salesOrder.status IN :statuses " +
            "  AND i.salesOrder.orderDate >= :fromOrderDate " +
            "  AND i.salesOrder.orderDate <= :toOrderDate " +
-           "  AND (:warehouseId IS NULL OR i.salesOrder.warehouseId = :warehouseId) " +
+           "  AND (:allWarehouses = true OR i.salesOrder.warehouseId IN :warehouseIds) " +
            "GROUP BY i.productId, i.skuCode, i.productName, i.uom " +
            "ORDER BY SUM(i.quantity) DESC")
     List<Object[]> findTopSoldProducts(
             @Param("fromOrderDate") LocalDate fromOrderDate,
             @Param("toOrderDate") LocalDate toOrderDate,
             @Param("statuses") Collection<OrderStatus> statuses,
-            @Param("warehouseId") Long warehouseId
+            @Param("allWarehouses") boolean allWarehouses,
+            @Param("warehouseIds") Collection<Long> warehouseIds
     );
 }

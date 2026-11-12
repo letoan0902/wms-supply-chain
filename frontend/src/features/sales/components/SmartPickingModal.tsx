@@ -60,9 +60,19 @@ export default function SmartPickingModal({
   const [barcodeInput, setBarcodeInput] = useState('')
   const [lastScannedSku, setLastScannedSku] = useState<string | null>(null)
   const barcodeInputRef = useRef<InputRef>(null)
+  const scanFeedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const scanFocusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Modal in phiếu
   const [isPrintModalOpen, setIsPrintModalOpen] = useState(false)
+
+  // Hủy toàn bộ timeout khi đóng modal hoặc unmount
+  useEffect(() => {
+    return () => {
+      if (scanFeedbackTimerRef.current) clearTimeout(scanFeedbackTimerRef.current)
+      if (scanFocusTimerRef.current) clearTimeout(scanFocusTimerRef.current)
+    }
+  }, [])
 
   // Focus ô quét mã vạch khi mở modal
   useEffect(() => {
@@ -70,7 +80,12 @@ export default function SmartPickingModal({
       const timer = setTimeout(() => {
         barcodeInputRef.current?.focus()
       }, 200)
-      return () => clearTimeout(timer)
+      return () => {
+        clearTimeout(timer)
+        if (scanFeedbackTimerRef.current) clearTimeout(scanFeedbackTimerRef.current)
+        if (scanFocusTimerRef.current) clearTimeout(scanFocusTimerRef.current)
+        setLastScannedSku(null)
+      }
     }
   }, [open])
 
@@ -210,10 +225,12 @@ export default function SmartPickingModal({
     )
 
     setLastScannedSku(target.skuCode)
-    setTimeout(() => setLastScannedSku(null), 1500)
+    if (scanFeedbackTimerRef.current) clearTimeout(scanFeedbackTimerRef.current)
+    scanFeedbackTimerRef.current = setTimeout(() => setLastScannedSku(null), 1500)
 
     setBarcodeInput('')
-    setTimeout(() => {
+    if (scanFocusTimerRef.current) clearTimeout(scanFocusTimerRef.current)
+    scanFocusTimerRef.current = setTimeout(() => {
       barcodeInputRef.current?.focus()
     }, 40)
   }
@@ -395,7 +412,7 @@ export default function SmartPickingModal({
       title={
         <div className="flex items-center gap-2 text-slate-800">
           <RocketOutlined className="text-orange-500 text-lg animate-pulse" />
-          <span>Lộ Trình Lấy Hàng Thông Minh (Smart Picking View - FR17)</span>
+          <span>Lộ Trình Lấy Hàng Thông Minh</span>
         </div>
       }
       width={1100}
@@ -485,10 +502,10 @@ export default function SmartPickingModal({
                     Ô quét mã vạch SKU / Barcode nhặt hàng nhanh (&lt; 100ms)
                   </span>
                   <Tag color="orange" className="text-[10px] m-0">
-                    Auto-Focus
+                    Tự động focus
                   </Tag>
                   <Tag color="blue" className="text-[10px] m-0">
-                    Sound BEEP
+                    Âm thanh bíp
                   </Tag>
                 </div>
                 <Input
@@ -561,7 +578,7 @@ export default function SmartPickingModal({
           <div className="flex justify-between items-center mb-3">
             <div className="font-semibold text-slate-800 flex items-center gap-2">
               <RocketOutlined className="text-orange-500" />
-              <span>Thứ tự các điểm dừng lấy hàng (Picking Route Steps)</span>
+              <span>Thứ tự các điểm dừng lấy hàng</span>
               <Badge count={items.length} style={{ backgroundColor: '#f97316' }} />
             </div>
             <Text type="secondary" className="text-xs">

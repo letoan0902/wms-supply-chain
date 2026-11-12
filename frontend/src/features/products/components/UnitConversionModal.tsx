@@ -25,6 +25,7 @@ import { useEffect, useState } from 'react'
 import * as productApi from '../productApi'
 import type { BreakdownResult, CreateUnitConversionPayload, Product, UnitConversion, Uom } from '../types'
 import { getApiErrorMessage } from '../../../services/api'
+import { useCan } from '../../auth/useCan'
 
 interface UnitConversionModalProps {
   open: boolean
@@ -48,6 +49,7 @@ export default function UnitConversionModal({
   onClose,
 }: UnitConversionModalProps) {
   const { message } = App.useApp()
+  const canWrite = useCan()('product.write')
   const [form] = Form.useForm<CreateConversionFormValues>()
 
   const [conversions, setConversions] = useState<UnitConversion[]>([])
@@ -217,7 +219,8 @@ export default function UnitConversionModal({
       ellipsis: true,
       render: (text?: string) => text || '-',
     },
-    {
+    // Vai trò chỉ được xem (bán hàng, kế toán) không có cột xóa và khối thêm quy đổi
+    ...(canWrite ? [{
       title: 'Thao tác',
       key: 'action',
       width: 80,
@@ -233,7 +236,7 @@ export default function UnitConversionModal({
           <Button type="text" danger icon={<DeleteOutlined />} size="small" />
         </Popconfirm>
       ),
-    },
+    }] : []),
   ]
 
   if (!product) return null
@@ -302,6 +305,7 @@ export default function UnitConversionModal({
                   bordered
                 />
 
+                {canWrite && (
                 <Card size="small" title="Thêm quy tắc quy đổi mới" className="bg-slate-50 border-slate-200">
                   <Form form={form} layout="vertical" onFinish={handleCreateConversion}>
                     <Row gutter={12}>
@@ -370,12 +374,13 @@ export default function UnitConversionModal({
                     </Row>
                   </Form>
                 </Card>
+                )}
               </div>
             ),
           },
           {
             key: 'simulator',
-            label: 'Công cụ tính thử tồn kho (FR06 Simulator)',
+            label: 'Công cụ tính thử tồn kho',
             children: (
               <div className="space-y-6">
                 <Card size="small" title="1. Quy đổi số lượng đóng gói về Đơn vị cơ sở">

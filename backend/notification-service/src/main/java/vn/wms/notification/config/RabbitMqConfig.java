@@ -62,6 +62,18 @@ public class RabbitMqConfig {
                 .with(WmsEvents.RoutingKeys.INVENTORY_ALL);
     }
 
+    /** Queue nhận yêu cầu gửi email tài khoản (auth.#) của auth-service, xem AccountEmailListener (WMS-23.6). */
+    @Bean
+    Queue notificationAuthEmailsQueue() {
+        return QueueBuilder.durable(WmsEvents.Queues.NOTIFICATION_AUTH_EMAILS).build();
+    }
+
+    @Bean
+    Binding notificationAuthEmailsBinding(Queue notificationAuthEmailsQueue, TopicExchange wmsEventsExchange) {
+        return BindingBuilder.bind(notificationAuthEmailsQueue).to(wmsEventsExchange)
+                .with(WmsEvents.RoutingKeys.AUTH_ALL);
+    }
+
     /**
      * Chuyển đổi JSON hai chiều. Dùng INFERRED để kiểu đích lấy từ tham số của phương thức @RabbitListener,
      * nhờ đó không phụ thuộc header __TypeId__ (tên class Java của service gửi, service nhận không có).

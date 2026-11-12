@@ -153,4 +153,16 @@ class UserContextTest {
                 .isInstanceOf(ApiException.class)
                 .hasMessageContaining("Tài khoản không có quyền thay đổi dữ liệu của kho ID: 1");
     }
+
+    @Test
+    void integrationRoleReadsEveryWarehouseOfItsCompanyButCannotWrite() {
+        // Vai trò của API key (WMS-25.1): không gán kho nào nhưng đọc được mọi kho, không ghi được kho nào
+        CurrentUser integration = new CurrentUser("apikey-12", Set.of(Roles.INTEGRATION), Set.of());
+
+        assertThat(UserContext.isGlobalReadScope(integration)).isTrue();
+        assertThat(UserContext.resolveAllowedWarehouses(integration, null)).isEmpty();
+        assertThat(UserContext.resolveAllowedWarehouses(integration, 5L)).containsExactly(5L);
+        assertThatThrownBy(() -> UserContext.requireWarehouseWriteAccess(integration, 5L))
+                .isInstanceOf(ApiException.class);
+    }
 }

@@ -1,0 +1,35 @@
+plugins {
+    id 'org.springframework.boot'
+}
+
+dependencies {
+    implementation project(':common')
+
+    // Web, bảo mật, Redis (bộ đếm lượt AI và bộ nhớ đệm thuê bao của PlanLimitChecker). Chưa có CSDL: không JPA, không Flyway.
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+
+    // Spring Cloud: đăng ký Eureka + cấu hình tập trung
+    implementation 'org.springframework.cloud:spring-cloud-starter-netflix-eureka-client'
+    implementation 'org.springframework.cloud:spring-cloud-starter-config'
+    // Bộ nhớ đệm cho Spring Cloud LoadBalancer (không có sẽ in cảnh báo khi khởi động)
+    implementation 'com.github.ben-manes.caffeine:caffeine'
+
+    // SDK chính thức của Anthropic để gọi Claude (không dùng Spring AI, xem docs/SAAS_SPEC.md mục WMS-24.1)
+    implementation "com.anthropic:anthropic-java:${anthropicJavaVersion}"
+
+    // Trích xuất tài liệu (WMS-24.2): đọc Excel (xlsx đọc kiểu luồng, xls qua HSSF) và CSV ngay trong service,
+    // chỉ hỏi Claude cách ghép cột nên rẻ và chính xác cho từng ô.
+    implementation "org.apache.poi:poi-ooxml:${apachePoiVersion}"
+    implementation "org.apache.commons:commons-csv:${commonsCsvVersion}"
+
+    // Tài liệu API: /swagger-ui.html
+    implementation "org.springdoc:springdoc-openapi-starter-webmvc-ui:${springdocVersion}"
+
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    // Header danh tính của gateway cho test MockMvc (vn.wms.common.test.GatewayHeaders)
+    testImplementation testFixtures(project(':common'))
+}

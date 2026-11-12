@@ -11,6 +11,7 @@ plugins {
 
 subprojects {
     apply plugin: 'java'
+    apply plugin: 'jacoco'
     apply plugin: 'io.spring.dependency-management'
 
     group = rootProject.group
@@ -56,6 +57,19 @@ subprojects {
         testLogging {
             events 'passed', 'skipped', 'failed'
             exceptionFormat 'full'
+        }
+        // Chạy test xong thì sinh báo cáo độ phủ (WMS-20.4).
+        finalizedBy tasks.named('jacocoTestReport')
+    }
+
+    // Độ phủ test bằng JaCoCo: mỗi module có build/reports/jacoco/test/html/index.html (xem bằng trình duyệt) và
+    // jacocoTestReport.xml, .csv để tổng hợp. Chỉ đo và báo cáo, không đặt ngưỡng làm hỏng build.
+    tasks.named('jacocoTestReport') {
+        dependsOn tasks.named('test')
+        reports {
+            xml.required = true
+            csv.required = true
+            html.required = true
         }
     }
 

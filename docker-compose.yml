@@ -12,7 +12,7 @@
 #
 # Thứ tự khởi động (depends_on kèm healthcheck):
 #   mysql / redis / rabbitmq (-> rabbitmq-init nạp topology RabbitMQ) -> config-server -> discovery-server
-#   -> auth / product / inventory / order / notification, api-gateway -> frontend
+#   -> auth / product / inventory / order / notification / ai, api-gateway -> frontend
 # ============================================================================
 
 name: wms-supply-chain
@@ -221,6 +221,10 @@ services:
       PAYOS_RETURN_URL: ${PAYOS_RETURN_URL:-http://localhost/payment/result}
       PAYOS_CANCEL_URL: ${PAYOS_CANCEL_URL:-http://localhost/payment/result}
       PAYOS_BASE_URL: ${PAYOS_BASE_URL:-https://api-merchant.payos.vn}
+      # Kích hoạt doanh nghiệp qua email (WMS-23.6): địa chỉ giao diện trong liên kết email và công tắc bắt buộc kích hoạt.
+      # Máy chưa có SMTP vẫn kích hoạt được: notification-service ghi liên kết ra log (docker compose logs notification-service).
+      APP_FRONTEND_URL: ${APP_FRONTEND_URL:-http://localhost}
+      REGISTRATION_REQUIRE_ACTIVATION: ${REGISTRATION_REQUIRE_ACTIVATION:-true}
     depends_on: *depends-on-core
     ports:
       - "127.0.0.1:8081:8081"
@@ -255,6 +259,9 @@ services:
       <<: [*backend-env, *db-credentials]
       DB_URL: jdbc:mysql://mysql:3306/inventory_db
       TENANT_DEFAULT_COMPANY_ID: ${TENANT_DEFAULT_COMPANY_ID:-1}
+      # Bộ nhớ đệm Redis cho tổng tồn và tồn khả dụng (WMS-19.1, docs/PERFORMANCE.md)
+      STOCK_CACHE_ENABLED: ${STOCK_CACHE_ENABLED:-true}
+      STOCK_CACHE_TTL: ${STOCK_CACHE_TTL:-60s}
     depends_on: *depends-on-core
     ports:
       - "127.0.0.1:8083:8083"
@@ -288,10 +295,12 @@ services:
     environment:
       <<: [*backend-env, *db-credentials]
       DB_URL: jdbc:mysql://mysql:3306/notification_db
-      MAIL_HOST: ${MAIL_HOST:-smtp.gmail.com}
+      # SMTP gửi email cảnh báo tồn kho (WMS-15.2). MAIL_HOST rỗng: không gửi, nội dung email được ghi vào log.
+      MAIL_HOST: ${MAIL_HOST:-}
       MAIL_PORT: ${MAIL_PORT:-587}
       MAIL_USERNAME: ${MAIL_USERNAME:-}
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:-}
       # Hub WebSocket /ws-wms (WMS-02.3, docs/MESSAGING.md mục 8). JWT_SECRET đã có trong x-backend-env.
       # GATEWAY_JWT_ENABLED=true thì frame STOMP CONNECT phải mang Bearer token hợp lệ (cùng công tắc với api-gateway).
       GATEWAY_JWT_ENABLED: ${GATEWAY_JWT_ENABLED:-false}
@@ -305,6 +314,37 @@ services:
     healthcheck:
       <<: *spring-healthcheck
       test: ["CMD-SHELL", "curl -fsS -o /dev/null http://127.0.0.1:8085/actuator/health || wget -q -O /dev/null http://127.0.0.1:8085/actuator/health || exit 1"]
+
+  # Gọi Claude qua SDK chính thức của Anthropic, đếm lượt AI theo gói (WMS-24.1). Chưa có CSDL: chỉ cần Redis.
+  ai-service:
+    <<: *common
+    build:
+      context: ./backend
+      dockerfile: ai-service/Dockerfile
+    environment:
+      <<: *backend-env
+      # Mặc định giả lập (không gọi Claude). Khóa ANTHROPIC_API_KEY chỉ đặt trong .env trên máy chủ, không commit;
+      # thiếu khóa thì service tự chạy giả lập dù AI_MOCK=false.
+      AI_MOCK: ${AI_MOCK:-true}
+      AI_MODEL: ${AI_MODEL:-claude-sonnet-5-5}
+      AI_EFFORT: ${AI_EFFORT:-low}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      # Tham số fallbacks: "default" (beta). Chỉ đặt false nếu API từ chối tham số này (xem deploy/README.md, Khóa AI).
+      AI_SERVER_FALLBACK: ${AI_SERVER_FALLBACK:-true}
+      # Doanh nghiệp mặc định cho máy phát triển, xem ghi chú ở product-service.
+      TENANT_DEFAULT_COMPANY_ID: ${TENANT_DEFAULT_COMPANY_ID:-1}
+    depends_on:
+      redis:
+        condition: service_healthy
+      config-server:
+        condition: service_healthy
+      discovery-server:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8086:8086"
+    healthcheck:
+      <<: *spring-healthcheck
+      test: ["CMD-SHELL", "curl -fsS -o /dev/null http://127.0.0.1:8086/actuator/health || wget -q -O /dev/null http://127.0.0.1:8086/actuator/health || exit 1"]
 
   # ==========================================================================
   # Giao diện web (Nginx phục vụ SPA và proxy /api/ tới api-gateway)

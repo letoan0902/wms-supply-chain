@@ -14,9 +14,10 @@ import vn.wms.auth.repository.RoleRepository;
 import vn.wms.auth.repository.UserRepository;
 import vn.wms.auth.subscription.dto.CompanyRegistrationResponse;
 import vn.wms.auth.subscription.dto.RegisterCompanyRequest;
-import vn.wms.auth.subscription.entity.Subscription;
 import vn.wms.common.exception.ApiException;
+import vn.wms.common.messaging.WmsEventPublisher;
 
+import java.util.Map;
 import java.util.Set;
 
 @Slf4j
@@ -30,6 +31,7 @@ public class CompanyRegistrationService {
     private final SubscriptionService subscriptionService;
     private final PasswordEncoder passwordEncoder;
     private final UserPlanLimitGuard userPlanLimitGuard;
+    private final WmsEventPublisher eventPublisher;
 
     @Transactional
     public CompanyRegistrationResponse register(RegisterCompanyRequest request) {
@@ -58,7 +60,7 @@ public class CompanyRegistrationService {
         company.setTaxCode(request.getTaxCode() != null && !request.getTaxCode().isBlank() ? request.getTaxCode().trim() : null);
         company.setPhone(request.getPhone() != null && !request.getPhone().isBlank() ? request.getPhone().trim() : null);
         company.setEmail(email);
-        company.setStatus(CompanyStatus.ACTIVE);
+        company.setStatus(CompanyStatus.PENDING);
         company.setCode("TMP" + System.currentTimeMillis() % 1000000000L); // Mã tạm thời duy nhất
         company = companyRepository.save(company);
 
@@ -66,7 +68,7 @@ public class CompanyRegistrationService {
         company.setCode(generatedCode);
         company = companyRepository.save(company);
 
-        // 4. Tạo tài khoản ADMIN đại diện
+        // 4. Tạo tài khoản ADMIN đại diện (chưa kích hoạt - enabled = false)
         Role adminRole = roleRepository.findByName("ADMIN")
                 .orElseThrow(() -> ApiException.badRequest("Không tìm thấy vai trò ADMIN"));
 
@@ -75,17 +77,35 @@ public class CompanyRegistrationService {
         adminUser.setEmail(email);
         adminUser.setFullName(request.getFullName().trim());
         adminUser.setPasswordHash(passwordEncoder.encode(request.getPassword()));
-        adminUser.setEnabled(true);
+        adminUser.setEnabled(false);
         adminUser.setCompany(company);
         adminUser.setRoles(Set.of(adminRole));
         adminUser = userRepository.save(adminUser);
 
-        // 5. Khởi tạo thuê bao dùng thử 30 ngày (TRIAL)
-        Subscription subscription = subscriptionService.startTrial(company);
-        // Tài khoản ADMIN đầu tiên không qua kiểm tra giới hạn, chỉ ghi lại mức sử dụng (WMS-23.2)
+        // 5. Khởi tạo thuê bao tạm (TRIAL)
+        vn.wms.auth.subscription.entity.Subscription subscription = subscriptionService.startTrial(company);
         userPlanLimitGuard.reportUsage(company.getId());
 
-        log.info("Đăng ký thành công doanh nghiệp {} (Mã: {}), Admin: {}", company.getName(), company.getCode(), adminUser.getUsername());
+        // 6. Phát sự kiện thông báo có doanh nghiệp đăng ký mới đến Admin toàn hệ thống
+        String notifSubject = "[Yêu cầu đăng ký mới] " + company.getName();
+        String notifContent = String.format(
+                "Doanh nghiệp mới đăng ký: %s (Mã: %s). Người liên hệ: %s, Email: %s, SĐT: %s. Vui lòng vào màn hình Quản trị Doanh nghiệp để phê duyệt.",
+                company.getName(),
+                company.getCode(),
+                request.getFullName(),
+                email,
+                request.getPhone() != null ? request.getPhone() : "Chưa cung cấp"
+        );
+
+        eventPublisher.publishAfterCommit("alert.registration", Map.of(
+                "eventType", "COMPANY_REGISTRATION",
+                "recipient", "admin@wms.local",
+                "subject", notifSubject,
+                "content", notifContent
+        ));
+
+        log.info("Đã tiếp nhận yêu cầu đăng ký doanh nghiệp {} (Mã: {}), Admin: {} (Trạng thái: PENDING)",
+                company.getName(), company.getCode(), adminUser.getUsername());
 
         return CompanyRegistrationResponse.builder()
                 .company(CompanyRegistrationResponse.CompanyDto.builder()

@@ -26,7 +26,7 @@ export const SALES_STATUS_CONFIG: Record<OrderStatus, StatusConfigItem> = {
     icon: <CheckCircleOutlined />,
   },
   BACKORDER: {
-    label: 'Thiếu hàng (Backorder)',
+    label: 'Thiếu hàng',
     color: 'warning',
     icon: <WarningOutlined />,
   },

@@ -17,9 +17,12 @@ import {
 } from 'antd'
 import { useEffect, useState } from 'react'
 import { getApiErrorMessage } from '../../services/api'
+import ForbiddenResult from '../../components/ForbiddenResult'
+import { useCan } from '../auth/useCan'
 import { fetchWarehouses } from '../warehouses/warehouseApi'
 import type { Warehouse } from '../warehouses/types'
 import CreateTransferModal from './components/CreateTransferModal'
+import ReceiveTransferModal from './components/ReceiveTransferModal'
 import TransferDetailModal from './components/TransferDetailModal'
 import TransferMetricsCards from './components/TransferMetricsCards'
 import TransferTable from './components/TransferTable'
@@ -27,6 +30,7 @@ import { TRANSFER_STATUS_CONFIG } from './statusConfig'
 import * as transferApi from './transferApi'
 import type {
   CreateStockTransferPayload,
+  ReceiveStockTransferPayload,
   StockTransfer,
   StockTransferFilterParams,
   StockTransferStatus,
@@ -35,6 +39,10 @@ import type {
 
 export default function TransfersPage() {
   const { message } = App.useApp()
+  // Phân quyền theo bảng quyền dùng chung (features/auth/permissions.ts, khớp backend)
+  const can = useCan()
+  const canRead = can('transfer.read')
+  const canCreate = can('transfer.create')
 
   // State danh sách và phân trang
   const [transfers, setTransfers] = useState<StockTransfer[]>([])
@@ -59,8 +67,12 @@ export default function TransfersPage() {
   const [detailModalOpen, setDetailModalOpen] = useState<boolean>(false)
   const [selectedTransfer, setSelectedTransfer] = useState<StockTransfer | null>(null)
 
+  const [receivingTransfer, setReceivingTransfer] = useState<StockTransfer | null>(null)
+  const [submittingReceive, setSubmittingReceive] = useState<boolean>(false)
+
   // Nạp danh sách kho bãi phục vụ lọc và chọn trong form
   useEffect(() => {
+    if (!canRead) return
     let ignore = false
     fetchWarehouses({ active: true })
       .then((data) => {
@@ -72,10 +84,11 @@ export default function TransfersPage() {
     return () => {
       ignore = true
     }
-  }, [])
+  }, [canRead])
 
   // Nạp danh sách lệnh điều chuyển
   useEffect(() => {
+    if (!canRead) return
     let ignore = false
     const fetchTransfers = async () => {
       setLoading(true)
@@ -110,6 +123,7 @@ export default function TransfersPage() {
       ignore = true
     }
   }, [
+    canRead,
     page,
     pageSize,
     keyword,
@@ -171,6 +185,18 @@ export default function TransfersPage() {
     }
   }
 
+  // Mở modal xác nhận nhận hàng tại kho đích
+  const handleOpenReceive = async (transfer: StockTransfer) => {
+    setDetailModalOpen(false)
+    setSelectedTransfer(null)
+    try {
+      const detailed = await transferApi.fetchTransferById(transfer.id)
+      setReceivingTransfer(detailed)
+    } catch {
+      setReceivingTransfer(transfer)
+    }
+  }
+
   // Tạo mới lệnh điều chuyển
   const handleSubmitCreate = async (payload: CreateStockTransferPayload) => {
     setSubmittingTransfer(true)
@@ -207,10 +233,35 @@ export default function TransfersPage() {
   const handleDispatch = async (transfer: StockTransfer) => {
     try {
       await transferApi.dispatchTransfer(transfer.id)
-      message.success(`Đã duyệt xuất kho cho lệnh ${transfer.transferNumber}. Hàng đang được vận chuyển!`)
+      message.success(
+        `Đã duyệt xuất kho cho lệnh ${transfer.transferNumber}. Hàng đang được vận chuyển!`
+      )
       reloadData()
     } catch (err) {
       message.error(getApiErrorMessage(err, 'Không thể duyệt xuất kho'))
+    }
+  }
+
+  // Xác nhận nhận hàng tại kho đích và lưu biên bản thiếu/hỏng
+  const handleSubmitReceive = async (id: number, payload: ReceiveStockTransferPayload) => {
+    setSubmittingReceive(true)
+    try {
+      const updated = await transferApi.receiveTransfer(id, payload)
+      if (updated.status === 'PARTIAL_RECEIVED') {
+        message.warning(
+          `Đã xác nhận nhận một phần lệnh ${updated.transferNumber} và lưu biên bản sự cố.`
+        )
+      } else {
+        message.success(
+          `Đã xác nhận nhận đủ hàng lệnh ${updated.transferNumber} và cộng tồn kho đích!`
+        )
+      }
+      setReceivingTransfer(null)
+      reloadData()
+    } catch (err) {
+      message.error(getApiErrorMessage(err, 'Không thể xác nhận nhận hàng điều chuyển'))
+    } finally {
+      setSubmittingReceive(false)
     }
   }
 
@@ -248,6 +299,12 @@ export default function TransfersPage() {
     })
   }
 
+  if (!canRead) {
+    return (
+      <ForbiddenResult description="Điều chuyển hàng hóa dành cho Quản trị viên, Quản lý kho, Nhân viên kho và Kế toán." />
+    )
+  }
+
   return (
     <div className="p-6 max-w-7xl mx-auto space-y-6">
       {/* Tiêu đề trang & Nút hành động */}
@@ -268,14 +325,16 @@ export default function TransfersPage() {
           >
             Làm mới
           </Button>
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={handleOpenCreate}
-            className="shadow-sm"
-          >
-            Lập lệnh điều chuyển
-          </Button>
+          {canCreate && (
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={handleOpenCreate}
+              className="shadow-sm"
+            >
+              Lập lệnh điều chuyển
+            </Button>
+          )}
         </Space>
       </div>
 
@@ -376,6 +435,7 @@ export default function TransfersPage() {
         onViewDetail={handleViewDetail}
         onEdit={handleOpenEdit}
         onDispatch={handleDispatch}
+        onReceive={handleOpenReceive}
         onCancel={handleCancelTransfer}
       />
 
@@ -400,11 +460,24 @@ export default function TransfersPage() {
       <TransferDetailModal
         open={detailModalOpen}
         transfer={selectedTransfer}
+        onReceive={handleOpenReceive}
         onClose={() => {
           setDetailModalOpen(false)
           setSelectedTransfer(null)
         }}
       />
+
+      {/* Modal Xác nhận nhận hàng tại kho đích & Lập biên bản thiếu/hỏng */}
+      {receivingTransfer && (
+        <ReceiveTransferModal
+          key={receivingTransfer.id}
+          open={!!receivingTransfer}
+          transfer={receivingTransfer}
+          submitting={submittingReceive}
+          onClose={() => setReceivingTransfer(null)}
+          onSubmitReceive={handleSubmitReceive}
+        />
+      )}
     </div>
   )
 }

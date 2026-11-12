@@ -21,7 +21,7 @@ public class DashboardKpiController {
     private final DashboardKpiService dashboardKpiService;
 
     @GetMapping("/kpi-summary")
-    @PreAuthorize("hasAnyRole('ADMIN', 'ACCOUNTANT', 'WAREHOUSE_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'PURCHASING', 'SALES', 'ACCOUNTANT')")
     @Operation(summary = "Tổng hợp dữ liệu 8 thẻ KPI nhanh trên Executive Dashboard (WMS-16.1)")
     public ApiResponse<KpiSummaryResponse> getKpiSummary(
             @RequestParam(value = "warehouseId", required = false) Long warehouseId,

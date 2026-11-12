@@ -3,6 +3,7 @@ package vn.wms.inventory.controller;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -30,6 +31,7 @@ public class IncomingStockController {
 
     @GetMapping
     @Operation(summary = "Lấy danh sách hàng đang trên đường về kho theo kho và trạng thái")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'PURCHASING', 'SALES', 'ACCOUNTANT', 'INTEGRATION')")
     public ResponseEntity<ApiResponse<List<IncomingStockResponse>>> getIncomingStocks(
             @RequestParam Long warehouseId,
             @RequestParam(required = false, defaultValue = "INCOMING") String status) {
@@ -39,6 +41,7 @@ public class IncomingStockController {
 
     @GetMapping("/by-product/{productId}")
     @Operation(summary = "Tra cứu tổng số lượng hàng đang về của một SKU tại kho cụ thể")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'PURCHASING', 'SALES', 'ACCOUNTANT', 'INTEGRATION')")
     public ResponseEntity<ApiResponse<ProductIncomingSummaryResponse>> getProductIncomingSummary(
             @PathVariable Long productId,
             @RequestParam Long warehouseId) {
@@ -48,6 +51,7 @@ public class IncomingStockController {
 
     @GetMapping("/warehouses/{warehouseId}/summary")
     @Operation(summary = "Tổng hợp tổng lượng hàng đang trên đường về của toàn kho")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'PURCHASING', 'SALES', 'ACCOUNTANT', 'INTEGRATION')")
     public ResponseEntity<ApiResponse<Map<String, Object>>> getWarehouseIncomingSummary(
             @PathVariable Long warehouseId) {
         BigDecimal totalIncoming = incomingStockService.getTotalIncomingQuantityByWarehouse(warehouseId);

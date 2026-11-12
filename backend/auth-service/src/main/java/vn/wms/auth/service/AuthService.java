@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import vn.wms.auth.company.dto.CompanySummary;
 import vn.wms.auth.company.entity.Company;
+import vn.wms.auth.company.entity.CompanyStatus;
 import vn.wms.auth.company.repository.CompanyRepository;
 import vn.wms.auth.dto.auth.LoginRequest;
 import vn.wms.auth.dto.auth.LoginResponse;
@@ -37,6 +38,7 @@ import java.time.Duration;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -108,7 +110,7 @@ public class AuthService {
 
         // 3a. Kiểm tra tài khoản có bị vô hiệu hóa bởi Admin hay không
         if (!userLogin.isEnabled()) {
-            throw ApiException.unauthorized("Tài khoản đã bị khóa hoặc ngừng kích hoạt");
+            throw ApiException.unauthorized("Tài khoản đã bị khóa hoặc chưa được kích hoạt");
         }
 
         // 3b. Doanh nghiệp của tài khoản phải đang hoạt động (ACTIVE)
@@ -152,10 +154,17 @@ public class AuthService {
 
     /**
      * Trả doanh nghiệp của tài khoản nếu đang ACTIVE; doanh nghiệp chưa kích hoạt, bị tạm khóa
-     * hoặc không tồn tại thì từ chối với 403 COMPANY_INACTIVE.
+     * hoặc không tồn tại thì từ chối với 403 COMPANY_INACTIVE. Doanh nghiệp chưa kích hoạt qua email (PENDING,
+     * WMS-23.6) nhận thông báo riêng kèm {@code data.companyStatus = "PENDING"} để giao diện hiện nút gửi lại email.
      */
     private Company requireActiveCompany(User user) {
         Company company = user.getCompany();
+        if (company != null && company.getStatus() == CompanyStatus.PENDING) {
+            throw ApiException.withData(ErrorCode.COMPANY_INACTIVE,
+                    "Doanh nghiệp chưa được kích hoạt. Vui lòng mở email đăng ký và bấm liên kết kích hoạt; "
+                            + "nếu không thấy email, hãy yêu cầu gửi lại email kích hoạt.",
+                    Map.of("companyStatus", CompanyStatus.PENDING.name()));
+        }
         if (company == null || !company.isActive()) {
             throw new ApiException(ErrorCode.COMPANY_INACTIVE,
                     "Doanh nghiệp của tài khoản chưa được kích hoạt hoặc đang bị tạm khóa. Vui lòng liên hệ quản trị viên của doanh nghiệp.");
@@ -295,7 +304,7 @@ public class AuthService {
                 .orElseThrow(() -> ApiException.unauthorized("Người dùng không tồn tại"));
 
         if (!user.isEnabled()) {
-            throw ApiException.unauthorized("Tài khoản đã bị khóa hoặc ngừng kích hoạt");
+            throw ApiException.unauthorized("Tài khoản đã bị khóa hoặc chưa được kích hoạt");
         }
 
         // Doanh nghiệp đọc lại từ cơ sở dữ liệu, phải đang ACTIVE

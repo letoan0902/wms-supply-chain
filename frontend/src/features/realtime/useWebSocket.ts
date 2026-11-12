@@ -10,7 +10,7 @@ const DEFAULT_TOAST_SECONDS = 5
 
 /**
  * Nối WebSocket (SockJS + STOMP) nhận thông báo thời gian thực và hiện toast cho
- * LOW_STOCK, ORDER_CREATED, ORDER_DISPATCHED. INVENTORY_UPDATED và KPI_UPDATED chỉ cập nhật store.
+ * LOW_STOCK, STOCK_ALERT, ORDER_CREATED, ORDER_DISPATCHED. INVENTORY_UPDATED và KPI_UPDATED chỉ cập nhật store.
  *
  * Dùng một lần ở MainLayout (chỉ hiển thị sau khi đăng nhập). Kết nối được ngắt khi component
  * unmount hoặc khi đăng xuất. Trả về trạng thái kết nối hiện tại.
@@ -29,7 +29,7 @@ export function useWebSocket(): ConnectionStatus {
           type: isLowStock ? 'warning' : message.severity,
           message: message.title,
           description: message.message,
-          duration: isLowStock ? LOW_STOCK_TOAST_SECONDS : DEFAULT_TOAST_SECONDS,
+          duration: isLowStock || message.type === 'STOCK_ALERT' ? LOW_STOCK_TOAST_SECONDS : DEFAULT_TOAST_SECONDS,
           placement: 'topRight',
         })
       }),

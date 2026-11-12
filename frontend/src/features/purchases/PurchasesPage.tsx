@@ -33,10 +33,12 @@ import {
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { useEffect, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import * as XLSX from 'xlsx'
 import { getApiErrorMessage } from '../../services/api'
 import { formatCurrency, formatNumber } from '../../utils/format'
-import { getStoredUser } from '../../utils/storage'
+import ForbiddenResult from '../../components/ForbiddenResult'
+import { useCan } from '../auth/useCan'
 import * as supplierApi from '../suppliers/supplierApi'
 import type { Supplier } from '../suppliers/types'
 import * as warehouseApi from '../warehouses/warehouseApi'
@@ -47,6 +49,7 @@ import RejectPurchaseOrderModal from './components/RejectPurchaseOrderModal'
 import GoodsReceiptTable from './components/GoodsReceiptTable'
 import SmartGoodsReceiptForm from './components/SmartGoodsReceiptForm'
 import PurchaseBillsTable from './components/PurchaseBillsTable'
+import { readPurchasePrefill, type PurchaseOrderPrefill } from './purchaseDraft'
 import * as purchasesApi from './purchasesApi'
 import { STATUS_CONFIG } from './statusConfig'
 import type {
@@ -61,21 +64,18 @@ const { Search } = Input
 
 export default function PurchasesPage() {
   const { message } = App.useApp()
-  const currentUser = getStoredUser()
-  const canApprove =
-    currentUser?.roles?.some((r) =>
-      ['ADMIN', 'WAREHOUSE_MANAGER', 'PURCHASING'].includes(r)
-    ) ?? false
-
-  const canCancel =
-    currentUser?.roles?.some((r) =>
-      ['ADMIN', 'PURCHASING'].includes(r)
-    ) ?? false
-
-  const canViewBills =
-    currentUser?.roles?.some((r) =>
-      ['ADMIN', 'PURCHASING', 'ACCOUNTANT', 'WAREHOUSE_MANAGER'].includes(r)
-    ) ?? false
+  // Phân quyền theo bảng quyền dùng chung (features/auth/permissions.ts, khớp backend)
+  const can = useCan()
+  const canRead = can('purchaseOrder.read')
+  const canApprove = can('purchaseOrder.approve')
+  // Lập, sửa, hủy đơn mua: ADMIN, Mua hàng
+  const canCancel = can('purchaseOrder.write')
+  const canCreatePo = can('purchaseOrder.write')
+  // Lập phiếu nhập kho: ADMIN, Quản lý kho, Nhân viên kho
+  const canCreateGrn = can('goodsReceipt.create')
+  const canViewBills = can('purchaseBill.read')
+  // Vai trò không phải ADMIN, ACCOUNTANT chưa được gán kho thì không đọc được danh sách kho (403)
+  const canReadWarehouses = can('warehouse.read')
 
   // Tab active: 'list' | 'create' | 'grn' | 'create-grn' | 'bills'
   const [activeTab, setActiveTab] = useState<'list' | 'create' | 'grn' | 'create-grn' | 'bills'>('list')
@@ -122,14 +122,35 @@ export default function PurchasesPage() {
   const [refreshKey, setRefreshKey] = useState(0)
   const reloadData = () => setRefreshKey((k) => k + 1)
 
+  // Mở form lập đơn đã điền sẵn khi được điều hướng tới kèm `state` (ví dụ "Tạo đơn mua nháp" từ cảnh báo tồn thấp).
+  // Mỗi lần điều hướng (location.key) chỉ áp một lần; sau đó xóa `state` khỏi lịch sử để tải lại trang không mở lại form.
+  const location = useLocation()
+  const navigate = useNavigate()
+  const incomingPrefill = readPurchasePrefill(location.state)
+  const [prefill, setPrefill] = useState<PurchaseOrderPrefill | null>(null)
+  const [appliedPrefillKey, setAppliedPrefillKey] = useState<string | null>(null)
+  if (incomingPrefill && canCreatePo && appliedPrefillKey !== location.key) {
+    setAppliedPrefillKey(location.key)
+    setPrefill(incomingPrefill)
+    setFormKey((k) => k + 1)
+    setActiveTab('create')
+  }
+  const hasIncomingPrefill = incomingPrefill !== null
+  useEffect(() => {
+    if (hasIncomingPrefill) {
+      navigate(`${location.pathname}${location.search}`, { replace: true, state: null })
+    }
+  }, [hasIncomingPrefill, navigate, location.pathname, location.search])
+
   // Tải danh mục NCC và Kho cho bộ lọc
   useEffect(() => {
+    if (!canRead) return
     let ignore = false
     const loadFilterData = async () => {
       try {
         const [supRes, whRes] = await Promise.all([
           supplierApi.fetchSuppliers({ active: true, size: 100 }),
-          warehouseApi.fetchWarehouses({ active: true }),
+          canReadWarehouses ? warehouseApi.fetchWarehouses({ active: true }) : Promise.resolve([]),
         ])
         if (!ignore) {
           setSuppliers(supRes.content || [])
@@ -143,10 +164,11 @@ export default function PurchasesPage() {
     return () => {
       ignore = true
     }
-  }, [])
+  }, [canRead, canReadWarehouses])
 
   // Tải danh sách đơn PO
   useEffect(() => {
+    if (!canRead) return
     let ignore = false
     const fetchOrders = async () => {
       setLoading(true)
@@ -184,6 +206,7 @@ export default function PurchasesPage() {
       ignore = true
     }
   }, [
+    canRead,
     keyword,
     selectedSupplierId,
     selectedWarehouseId,
@@ -197,6 +220,7 @@ export default function PurchasesPage() {
 
   // Tải tổng quan thống kê
   useEffect(() => {
+    if (!canRead) return
     let ignore = false
     const fetchSummary = async () => {
       setLoadingSummary(true)
@@ -218,11 +242,12 @@ export default function PurchasesPage() {
     return () => {
       ignore = true
     }
-  }, [refreshKey])
+  }, [canRead, refreshKey])
 
   // Khi lập đơn mua hàng thành công từ Tab tạo mới
   const handleCreateSuccess = (created: PurchaseOrder) => {
     reloadData()
+    setPrefill(null)
     setFormKey((k) => k + 1)
     setActiveTab('list')
     setSelectedOrder(created)
@@ -230,8 +255,15 @@ export default function PurchasesPage() {
   }
 
   const handleOpenCreateTab = () => {
+    setPrefill(null)
     setFormKey((k) => k + 1)
     setActiveTab('create')
+  }
+
+  // Rời tab lập đơn thì bỏ giá trị điền sẵn: lần sau mở tab là một đơn trống
+  const handleTabChange = (key: string) => {
+    if (key !== 'create') setPrefill(null)
+    setActiveTab(key as typeof activeTab)
   }
 
   const handleOpenCreateGrnTab = (poId?: number) => {
@@ -445,9 +477,10 @@ export default function PurchasesPage() {
               />
             </Tooltip>
 
-            {(r.status === 'APPROVED' || r.status === 'PARTIALLY_RECEIVED') && (
+            {canCreateGrn && (r.status === 'APPROVED' || r.status === 'PARTIALLY_RECEIVED') && (
               <Tooltip title="Lập phiếu nhập kho cho đơn này">
                 <Button
+                  data-write-action
                   size="small"
                   type="text"
                   icon={<BarcodeOutlined className="text-emerald-600" />}
@@ -542,6 +575,12 @@ export default function PurchasesPage() {
     { key: 'CANCELLED', label: `Đã hủy (${summary?.cancelledOrders ?? 0})` },
   ]
 
+  if (!canRead) {
+    return (
+      <ForbiddenResult description="Đơn mua hàng và phiếu nhập kho dành cho Quản trị viên, Quản lý kho, Nhân viên kho, Mua hàng và Kế toán." />
+    )
+  }
+
   return (
     <div className="space-y-6">
       {/* Header trang */}
@@ -574,23 +613,28 @@ export default function PurchasesPage() {
             Làm mới
           </Button>
 
-          <Button
-            type="primary"
-            icon={<BarcodeOutlined />}
-            onClick={() => handleOpenCreateGrnTab()}
-            className="bg-emerald-600 hover:bg-emerald-700 font-semibold"
-          >
-            Nhập kho thông minh
-          </Button>
+          {canCreateGrn && (
+            <Button
+              data-write-action
+              type="primary"
+              icon={<BarcodeOutlined />}
+              onClick={() => handleOpenCreateGrnTab()}
+              className="bg-emerald-600 hover:bg-emerald-700 font-semibold"
+            >
+              Nhập kho thông minh
+            </Button>
+          )}
 
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={handleOpenCreateTab}
-            className="bg-blue-600 font-semibold"
-          >
-            Lập đơn mua hàng mới
-          </Button>
+          {canCreatePo && (
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={handleOpenCreateTab}
+              className="bg-blue-600 font-semibold"
+            >
+              Lập đơn mua hàng mới
+            </Button>
+          )}
         </Space>
       </div>
 
@@ -607,7 +651,7 @@ export default function PurchasesPage() {
 
         <Col xs={12} sm={6}>
           <Card size="small" className="border-l-4 border-l-amber-500 shadow-2xs">
-            <div className="text-xs text-slate-500">Đơn chờ duyệt (PENDING)</div>
+            <div className="text-xs text-slate-500">Đơn chờ duyệt</div>
             <div className="text-xl font-semibold text-amber-600 mt-1 flex items-center gap-2 tabular-nums">
               <span>{formatNumber(summary?.pendingOrders ?? 0)}</span>
               {(summary?.pendingOrders ?? 0) > 0 && (
@@ -619,7 +663,7 @@ export default function PurchasesPage() {
 
         <Col xs={12} sm={6}>
           <Card size="small" className="border-l-4 border-l-green-500 shadow-2xs">
-            <div className="text-xs text-slate-500">Đã phê duyệt (APPROVED)</div>
+            <div className="text-xs text-slate-500">Đã phê duyệt</div>
             <div className="text-xl font-semibold text-green-600 mt-1 tabular-nums">
               {formatNumber(summary?.approvedOrders ?? 0)}
             </div>
@@ -640,14 +684,14 @@ export default function PurchasesPage() {
       <Tabs
         activeKey={activeTab}
         destroyInactiveTabPane
-        onChange={(k) => setActiveTab(k as typeof activeTab)}
+        onChange={handleTabChange}
         items={[
           {
             key: 'list',
             label: (
               <span className="flex items-center gap-1.5 px-1 font-medium">
                 <FileTextOutlined />
-                <span>Danh sách đơn mua hàng (PO List)</span>
+                <span>Danh sách đơn mua hàng</span>
               </span>
             ),
             children: (
@@ -807,7 +851,7 @@ export default function PurchasesPage() {
                 },
               ]
             : []),
-          {
+          ...(canCreatePo ? [{
             key: 'create',
             label: (
               <span className="flex items-center gap-1.5 px-1 text-blue-600 font-semibold">
@@ -819,13 +863,14 @@ export default function PurchasesPage() {
               <Card variant="borderless" className="shadow-2xs">
                 <PurchaseOrderForm
                   key={formKey}
+                  prefill={prefill}
                   onSuccess={handleCreateSuccess}
-                  onCancel={() => setActiveTab('list')}
+                  onCancel={() => handleTabChange('list')}
                 />
               </Card>
             ),
-          },
-          {
+          }] : []),
+          ...(canCreateGrn ? [{
             key: 'create-grn',
             label: (
               <span className="flex items-center gap-1.5 px-1 text-emerald-600 font-semibold">
@@ -846,7 +891,7 @@ export default function PurchasesPage() {
                 />
               </Card>
             ),
-          },
+          }] : []),
         ]}
       />
 
@@ -862,7 +907,7 @@ export default function PurchasesPage() {
           setSelectedOrder(updated)
           reloadData()
         }}
-        onOpenCreateGrn={handleOpenCreateGrnTab}
+        onOpenCreateGrn={canCreateGrn ? handleOpenCreateGrnTab : undefined}
         canApprove={canApprove}
         canCancel={canCancel}
       />

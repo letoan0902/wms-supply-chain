@@ -19,8 +19,13 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import vn.wms.common.api.ApiResponse;
+import vn.wms.common.api.ErrorCode;
 import vn.wms.common.api.PageResponse;
+import vn.wms.common.exception.ApiException;
 import vn.wms.order.dto.CreateCustomerRequest;
+import vn.wms.order.dto.bulk.BulkCreateCustomerRequest;
+import vn.wms.order.dto.bulk.BulkImportResponse;
+import vn.wms.order.service.PartnerBulkImportService;
 import vn.wms.order.dto.CustomerCreditCheckResponse;
 import vn.wms.order.dto.CustomerDebtSummaryResponse;
 import vn.wms.order.dto.CustomerResponse;
@@ -42,14 +47,16 @@ import java.net.URI;
 public class CustomerController {
 
     private final CustomerService customerService;
+    private final PartnerBulkImportService bulkImportService;
 
-    public CustomerController(CustomerService customerService) {
+    public CustomerController(CustomerService customerService, PartnerBulkImportService bulkImportService) {
         this.customerService = customerService;
+        this.bulkImportService = bulkImportService;
     }
 
     @GetMapping
     @Operation(summary = "Danh sách khách hàng có phân trang, tìm kiếm và lọc theo loại / trạng thái / vượt hạn mức")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SALES', 'ACCOUNTANT', 'WAREHOUSE_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SALES', 'ACCOUNTANT', 'WAREHOUSE_MANAGER', 'INTEGRATION')")
     public ApiResponse<PageResponse<CustomerResponse>> list(
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) CustomerType type,
@@ -62,28 +69,28 @@ public class CustomerController {
 
     @GetMapping("/summary")
     @Operation(summary = "Báo cáo tổng quan công nợ & tình hình khách hàng")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SALES', 'ACCOUNTANT', 'WAREHOUSE_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SALES', 'ACCOUNTANT', 'WAREHOUSE_MANAGER', 'INTEGRATION')")
     public ApiResponse<CustomerDebtSummaryResponse> getDebtSummary() {
         return ApiResponse.ok(customerService.getDebtSummary());
     }
 
     @GetMapping("/{id}")
     @Operation(summary = "Chi tiết hồ sơ khách hàng theo ID")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SALES', 'ACCOUNTANT', 'WAREHOUSE_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SALES', 'ACCOUNTANT', 'WAREHOUSE_MANAGER', 'INTEGRATION')")
     public ApiResponse<CustomerResponse> getById(@PathVariable Long id) {
         return ApiResponse.ok(customerService.getById(id));
     }
 
     @GetMapping("/code/{code}")
     @Operation(summary = "Chi tiết hồ sơ khách hàng theo Mã")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SALES', 'ACCOUNTANT', 'WAREHOUSE_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SALES', 'ACCOUNTANT', 'WAREHOUSE_MANAGER', 'INTEGRATION')")
     public ApiResponse<CustomerResponse> getByCode(@PathVariable String code) {
         return ApiResponse.ok(customerService.getByCode(code));
     }
 
     @GetMapping("/{id}/credit-check")
     @Operation(summary = "Kiểm tra hạn mức công nợ (Credit Check) trước khi tạo / duyệt đơn bán hàng (FR14)")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SALES', 'ACCOUNTANT', 'WAREHOUSE_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SALES', 'ACCOUNTANT', 'WAREHOUSE_MANAGER', 'INTEGRATION')")
     public ApiResponse<CustomerCreditCheckResponse> checkCredit(
             @PathVariable Long id,
             @RequestParam(required = false) BigDecimal orderAmount) {
@@ -98,6 +105,21 @@ public class CustomerController {
         return ResponseEntity
                 .created(URI.create("/api/orders/customers/" + created.id()))
                 .body(ApiResponse.ok(created));
+    }
+
+    /**
+     * Nhập hàng loạt khách hàng (WMS-22.4b). Cùng quyền với API tạo một khách hàng. Luôn trả 200 kèm kết quả
+     * từng dòng; chỉ body rỗng, danh sách rỗng hoặc quá 500 dòng mới trả 400 VALIDATION_ERROR.
+     */
+    @PostMapping("/bulk")
+    @Operation(summary = "Nhập hàng loạt khách hàng (tối đa 500 dòng, mã đã có thì bỏ qua)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SALES', 'ACCOUNTANT')")
+    public ApiResponse<BulkImportResponse> bulkCreate(
+            @Valid @RequestBody(required = false) BulkCreateCustomerRequest request) {
+        if (request == null) {
+            throw new ApiException(ErrorCode.VALIDATION_ERROR, "Danh sách khách hàng cần nhập không được để trống");
+        }
+        return ApiResponse.ok(bulkImportService.importCustomers(request.items()));
     }
 
     @PutMapping("/{id}")
@@ -119,7 +141,7 @@ public class CustomerController {
 
     @GetMapping("/{id}/transactions")
     @Operation(summary = "Lịch sử biến động công nợ của khách hàng")
-    @PreAuthorize("hasAnyRole('ADMIN', 'SALES', 'ACCOUNTANT', 'WAREHOUSE_MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'SALES', 'ACCOUNTANT', 'WAREHOUSE_MANAGER', 'INTEGRATION')")
     public ApiResponse<PageResponse<CustomerTransactionResponse>> listTransactions(
             @PathVariable Long id,
             @ParameterObject @PageableDefault(sort = "id", direction = Sort.Direction.DESC) Pageable pageable) {

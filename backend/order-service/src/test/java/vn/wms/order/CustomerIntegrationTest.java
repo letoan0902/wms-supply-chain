@@ -10,6 +10,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import vn.wms.common.tenant.TenantContext;
 import vn.wms.order.dto.CreateCustomerRequest;
 import vn.wms.order.dto.RecordCustomerTransactionRequest;
 import vn.wms.order.dto.UpdateCustomerRequest;
@@ -18,6 +19,7 @@ import vn.wms.order.entity.CustomerTransactionType;
 import vn.wms.order.entity.CustomerType;
 import vn.wms.order.repository.CustomerRepository;
 import vn.wms.order.repository.CustomerTransactionRepository;
+import vn.wms.order.support.TenantTestExecutionListener;
 import vn.wms.order.service.CustomerService;
 
 import java.math.BigDecimal;
@@ -398,12 +400,14 @@ class CustomerIntegrationTest {
                 final int index = i;
                 executor.submit(() -> {
                     try {
-                        customerService.recordTransaction(saved.getId(), new RecordCustomerTransactionRequest(
-                                CustomerTransactionType.SALES_INVOICE,
-                                amountPerThread,
-                                "SO-CONCUR-" + index,
-                                "Giao dịch bán hàng đồng thời " + index
-                        ));
+                        // Luồng mới không mang TenantContext: chạy dưới doanh nghiệp của test (docs/MULTI_TENANT.md mục 3.7)
+                        TenantContext.runAs(TenantTestExecutionListener.DEFAULT_TEST_COMPANY, () ->
+                                customerService.recordTransaction(saved.getId(), new RecordCustomerTransactionRequest(
+                                        CustomerTransactionType.SALES_INVOICE,
+                                        amountPerThread,
+                                        "SO-CONCUR-" + index,
+                                        "Giao dịch bán hàng đồng thời " + index
+                                )));
                     } finally {
                         latch.countDown();
                     }

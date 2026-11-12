@@ -21,6 +21,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.AntPathMatcher;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
+import vn.wms.gateway.apikey.ApiKeyAuthenticationGlobalFilter;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
@@ -40,6 +41,8 @@ import java.util.stream.Collectors;
  *       buộc người dùng đăng nhập lại và nhận token mới.</li>
  *   <li>Luôn gỡ các header X-User-*, X-Company-Id, X-Plan do client tự gửi để không ai giả mạo được danh tính
  *       hay doanh nghiệp. Service phía sau chỉ tin các header do gateway gắn.</li>
+ *   <li>Request đã được {@link ApiKeyAuthenticationGlobalFilter} xác thực bằng API key (header X-Api-Key, không có
+ *       Authorization) thì bỏ qua bộ lọc này.</li>
  * </ul>
  *
  * <p>TODO (Sprint 1): kiểm tra quyền theo vai trò ở mức route (ví dụ chỉ ADMIN được gọi API quản lý người dùng).
@@ -83,6 +86,10 @@ public class JwtAuthenticationGlobalFilter implements GlobalFilter, Ordered {
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+        if (Boolean.TRUE.equals(exchange.getAttribute(ApiKeyAuthenticationGlobalFilter.AUTHENTICATED_ATTRIBUTE))) {
+            // Đã xác thực bằng API key ở bộ lọc trước (WMS-25.1): header danh tính do gateway gắn, giữ nguyên
+            return chain.filter(exchange);
+        }
         ServerHttpRequest request = exchange.getRequest();
         ServerHttpRequest sanitized = request.mutate()
                 .headers(headers -> {

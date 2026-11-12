@@ -139,7 +139,7 @@ export default function SalesOrderItemsTable({
             {isShortage ? (
               <Tooltip title={`Tồn khả dụng (${atp}) không đủ cho số lượng đặt (${qty}). Đơn sẽ chuyển sang trạng thái BACKORDER.`}>
                 <Tag color="warning" icon={<WarningOutlined />} className="text-[11px] m-0">
-                  Thiếu {formatNumber(qty - atp)} (Backorder)
+                  Thiếu {formatNumber(qty - atp)}
                 </Tag>
               </Tooltip>
             ) : (

@@ -22,6 +22,7 @@ import type { ColumnsType } from 'antd/es/table'
 import * as XLSX from 'xlsx'
 import type { Category, Product } from '../types'
 import { formatCurrency, formatNumber } from '../../../utils/format'
+import { useCan } from '../../auth/useCan'
 
 interface ProductTableProps {
   products: Product[]
@@ -52,6 +53,7 @@ export default function ProductTable({
   onOpenConversions,
   onOpenBarcode,
 }: ProductTableProps) {
+  const can = useCan()
   const [keyword, setKeyword] = useState<string>('')
   const [selectedCategory, setSelectedCategory] = useState<number | undefined>(undefined)
   const [selectedActive, setSelectedActive] = useState<boolean | undefined>(undefined)
@@ -275,16 +277,19 @@ export default function ProductTable({
             />
           </Tooltip>
 
-          <Tooltip title="Chỉnh sửa thông tin">
-            <Button
-              type="text"
-              icon={<EditOutlined />}
-              size="small"
-              className="text-slate-500 hover:text-slate-900 hover:bg-slate-100"
-              onClick={() => onEdit(record)}
-            />
-          </Tooltip>
+          {can('product.write') && (
+            <Tooltip title="Chỉnh sửa thông tin">
+              <Button
+                type="text"
+                icon={<EditOutlined />}
+                size="small"
+                className="text-slate-500 hover:text-slate-900 hover:bg-slate-100"
+                onClick={() => onEdit(record)}
+              />
+            </Tooltip>
+          )}
 
+          {can('product.delete') && (
           <Popconfirm
             title="Ngưng hoạt động sản phẩm?"
             description="Mã hàng này sẽ chuyển sang trạng thái ngưng hoạt động."
@@ -303,6 +308,7 @@ export default function ProductTable({
               />
             </Tooltip>
           </Popconfirm>
+          )}
         </Space>
       ),
     },

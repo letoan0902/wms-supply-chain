@@ -7,8 +7,11 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.mail.MailSendException;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.transaction.AfterTransaction;
+import org.springframework.test.context.transaction.BeforeTransaction;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
+import vn.wms.common.tenant.TenantContext;
 import vn.wms.notification.entity.NotificationLog;
 import vn.wms.notification.entity.NotificationStatus;
 import vn.wms.notification.messaging.NotificationMessage;
@@ -42,6 +45,17 @@ class NotificationServiceApplicationTest {
     @MockBean
     private EmailService emailService;
 
+    /** Doanh nghiệp phải có trước khi transaction của test mở (Hibernate đọc doanh nghiệp lúc mở phiên). */
+    @BeforeTransaction
+    void setCompany() {
+        TenantContext.setCompanyId(1L);
+    }
+
+    @AfterTransaction
+    void clearCompany() {
+        TenantContext.clear();
+    }
+
     @Test
     void healthInfoReportsRabbitTopologyAndMailSettings() throws Exception {
         mockMvc.perform(get("/api/notifications/health-info"))
@@ -63,6 +77,7 @@ class NotificationServiceApplicationTest {
         assertThat(entry.getStatus()).isEqualTo(NotificationStatus.SENT);
         assertThat(entry.getCreatedBy()).isEqualTo("system");
         assertThat(entry.getErrorMessage()).isNull();
+        assertThat(entry.getCompanyId()).isEqualTo(1L);
     }
 
     @Test

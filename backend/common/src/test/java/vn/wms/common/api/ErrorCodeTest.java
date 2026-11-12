@@ -16,6 +16,8 @@ class ErrorCodeTest {
         assertThat(ErrorCode.PLAN_LIMIT_EXCEEDED.getHttpStatus()).isEqualTo(403);
         assertThat(ErrorCode.PAYMENT_INVALID.getHttpStatus()).isEqualTo(400);
         assertThat(ErrorCode.TOKEN_INVALID.getHttpStatus()).isEqualTo(400);
+        assertThat(ErrorCode.TOO_MANY_REQUESTS.getHttpStatus()).isEqualTo(429);
+        assertThat(ErrorCode.fromHttpStatus(429)).isEqualTo(ErrorCode.TOO_MANY_REQUESTS);
     }
 
     @Test

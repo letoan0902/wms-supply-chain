@@ -23,11 +23,17 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.mock;
 
-/** Kiểm tra JWT ở frame CONNECT và giới hạn SUBSCRIBE, SEND của hub WebSocket. */
+/**
+ * Kiểm tra JWT ở frame CONNECT, giới hạn SEND và quyền SUBSCRIBE kênh theo doanh nghiệp (WMS-22.4c): chỉ được vào
+ * {@code /topic/company/{companyId}/**} của doanh nghiệp trong claim {@code companyId} đã kiểm tra chữ ký.
+ */
 class StompAuthChannelInterceptorTest {
 
     private static final String SECRET = "unit-test-secret-key-that-is-at-least-32-bytes-long";
     private static final String OTHER_SECRET = "another-secret-key-that-is-also-at-least-32-bytes";
+
+    private static final long COMPANY_A = 1L;
+    private static final long COMPANY_B = 2L;
 
     private final MessageChannel channel = mock(MessageChannel.class);
 
@@ -37,10 +43,18 @@ class StompAuthChannelInterceptorTest {
     }
 
     private static String token(String secret, Instant expiresAt) {
+        return token(secret, expiresAt, COMPANY_A);
+    }
+
+    private static String token(String secret, Instant expiresAt, Long companyId) {
         SecretKey key = Keys.hmacShaKeyFor(secret.getBytes(StandardCharsets.UTF_8));
-        return Jwts.builder()
+        var builder = Jwts.builder()
                 .subject("manager01")
-                .claim("roles", List.of("WAREHOUSE_MANAGER"))
+                .claim("roles", List.of("WAREHOUSE_MANAGER"));
+        if (companyId != null) {
+            builder.claim("companyId", companyId);
+        }
+        return builder
                 .issuedAt(new Date())
                 .expiration(Date.from(expiresAt))
                 .signWith(key, Jwts.SIG.HS256)
@@ -124,6 +138,17 @@ class StompAuthChannelInterceptorTest {
         assertThat(user.getName()).isEqualTo("manager01");
         assertThat(((UsernamePasswordAuthenticationToken) user).getAuthorities())
                 .extracting(GrantedAuthority::getAuthority).containsExactly("WAREHOUSE_MANAGER");
+        assertThat(StompAuthChannelInterceptor.companyIdOf(user)).isEqualTo(COMPANY_A);
+    }
+
+    @Test
+    void whenEnabledTokenWithoutCompanyIsRejected() {
+        String legacy = token(SECRET, Instant.now().plusSeconds(600), null);
+
+        assertThatThrownBy(() -> interceptor(true).preSend(
+                frame(StompCommand.CONNECT, "Bearer " + legacy, null, null), channel))
+                .isInstanceOf(MessageDeliveryException.class)
+                .hasMessageContaining("companyId");
     }
 
     @Test
@@ -133,30 +158,86 @@ class StompAuthChannelInterceptorTest {
     }
 
     @Test
-    void subscribeIsLimitedToTopics() {
+    void subscribeIsLimitedToCompanyTopics() {
         StompAuthChannelInterceptor open = interceptor(false);
+        Principal userOfA = userOfCompany(COMPANY_A);
 
-        assertThat(open.preSend(frame(StompCommand.SUBSCRIBE, null, "/topic/alerts", null), channel)).isNotNull();
-        assertThatThrownBy(() -> open.preSend(frame(StompCommand.SUBSCRIBE, null, "/queue/secret", null), channel))
-                .isInstanceOf(MessageDeliveryException.class);
-        assertThatThrownBy(() -> open.preSend(frame(StompCommand.SUBSCRIBE, null, "/user/topic/alerts", null), channel))
-                .isInstanceOf(MessageDeliveryException.class);
+        for (String channelName : List.of("alerts", "orders", "inventory", "kpi")) {
+            assertThat(open.preSend(frame(StompCommand.SUBSCRIBE, null, "/topic/company/1/" + channelName, userOfA),
+                    channel)).isNotNull();
+        }
+        // Topic dùng chung cũ, đích ngoài /topic, kênh lạ và đường dẫn lách đều bị từ chối
+        for (String destination : List.of("/topic/alerts", "/queue/secret", "/user/topic/alerts",
+                "/topic/company/1/secret", "/topic/company/1/alerts/extra", "/topic/company/abc/alerts",
+                "/topic/company//alerts", "/topic/company/1/../2/alerts")) {
+            assertThatThrownBy(() -> open.preSend(frame(StompCommand.SUBSCRIBE, null, destination, userOfA), channel))
+                    .as(destination)
+                    .isInstanceOf(MessageDeliveryException.class);
+        }
     }
 
     @Test
-    void whenEnabledSubscribeRequiresAuthenticatedSession() {
+    void subscribeToOwnCompanyIsAllowedAndOtherCompanyIsRejected() {
         StompAuthChannelInterceptor secured = interceptor(true);
-        Principal user = UsernamePasswordAuthenticationToken.authenticated("manager01", null, List.of());
+        Message<?> connected = secured.preSend(frame(StompCommand.CONNECT,
+                "Bearer " + token(SECRET, Instant.now().plusSeconds(600), COMPANY_B), null, null), channel);
+        Principal userOfB = userOf(connected);
 
-        assertThatThrownBy(() -> secured.preSend(frame(StompCommand.SUBSCRIBE, null, "/topic/alerts", null), channel))
+        assertThat(secured.preSend(frame(StompCommand.SUBSCRIBE, null, "/topic/company/2/orders", userOfB), channel))
+                .isNotNull();
+        assertThatThrownBy(() -> secured.preSend(
+                frame(StompCommand.SUBSCRIBE, null, "/topic/company/1/orders", userOfB), channel))
+                .isInstanceOf(MessageDeliveryException.class)
+                .hasMessageContaining("doanh nghiệp khác");
+    }
+
+    @Test
+    void unauthenticatedSubscribeIsRejected() {
+        // Bật xác thực: phiên chưa CONNECT thành công
+        assertThatThrownBy(() -> interceptor(true).preSend(
+                frame(StompCommand.SUBSCRIBE, null, "/topic/company/1/alerts", null), channel))
+                .isInstanceOf(MessageDeliveryException.class)
+                .hasMessageContaining("chưa xác thực");
+        // Tắt xác thực nhưng không có doanh nghiệp mặc định: cũng không được vào kênh nào
+        assertThatThrownBy(() -> interceptor(false).preSend(
+                frame(StompCommand.SUBSCRIBE, null, "/topic/company/1/alerts", null), channel))
                 .isInstanceOf(MessageDeliveryException.class);
-        assertThat(secured.preSend(frame(StompCommand.SUBSCRIBE, null, "/topic/alerts", user), channel)).isNotNull();
+        // Principal không mang doanh nghiệp (không do interceptor gắn) cũng bị từ chối
+        Principal withoutCompany = UsernamePasswordAuthenticationToken.authenticated("manager01", null, List.of());
+        assertThatThrownBy(() -> interceptor(true).preSend(
+                frame(StompCommand.SUBSCRIBE, null, "/topic/company/1/alerts", withoutCompany), channel))
+                .isInstanceOf(MessageDeliveryException.class)
+                .hasMessageContaining("chưa xác định doanh nghiệp");
+    }
+
+    @Test
+    void whenDisabledSessionWithoutTokenUsesDevDefaultCompanyOnly() {
+        StompAuthChannelInterceptor dev = new StompAuthChannelInterceptor(
+                new WebSocketProperties(false, SECRET, List.of("http://localhost:5173")), COMPANY_A);
+
+        Principal anonymous = userOf(dev.preSend(frame(StompCommand.CONNECT, null, null, null), channel));
+        assertThat(StompAuthChannelInterceptor.companyIdOf(anonymous)).isEqualTo(COMPANY_A);
+        assertThat(dev.preSend(frame(StompCommand.SUBSCRIBE, null, "/topic/company/1/kpi", anonymous), channel))
+                .isNotNull();
+        assertThatThrownBy(() -> dev.preSend(frame(StompCommand.SUBSCRIBE, null, "/topic/company/2/kpi", anonymous),
+                channel)).isInstanceOf(MessageDeliveryException.class);
+
+        // Có token hợp lệ thì doanh nghiệp lấy từ token, không lấy doanh nghiệp mặc định
+        Principal userOfB = userOf(dev.preSend(frame(StompCommand.CONNECT,
+                "Bearer " + token(SECRET, Instant.now().plusSeconds(600), COMPANY_B), null, null), channel));
+        assertThat(StompAuthChannelInterceptor.companyIdOf(userOfB)).isEqualTo(COMPANY_B);
     }
 
     @Test
     void sendFromClientIsAlwaysRejected() {
-        assertThatThrownBy(() -> interceptor(false).preSend(frame(StompCommand.SEND, null, "/topic/alerts", null), channel))
+        assertThatThrownBy(() -> interceptor(false).preSend(
+                frame(StompCommand.SEND, null, "/topic/company/1/alerts", userOfCompany(COMPANY_A)), channel))
                 .isInstanceOf(MessageDeliveryException.class);
+    }
+
+    private static Principal userOfCompany(long companyId) {
+        return UsernamePasswordAuthenticationToken.authenticated(
+                new StompPrincipal("manager01", companyId), null, List.of());
     }
 
     @Test

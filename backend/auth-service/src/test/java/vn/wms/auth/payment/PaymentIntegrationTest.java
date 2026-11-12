@@ -79,6 +79,7 @@ class PaymentIntegrationTest extends BaseIntegrationTest {
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         long companyId = objectMapper.readTree(reg).path("data").path("company").path("id").asLong();
+        activateCompanyByEmail("pay_" + suffix + "@wms.vn");
         return new Tenant(companyId, loginAndGetToken("pay_" + suffix, DEFAULT_PASSWORD));
     }
 

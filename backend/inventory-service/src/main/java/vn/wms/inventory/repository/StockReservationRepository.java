@@ -11,6 +11,9 @@ public interface StockReservationRepository extends JpaRepository<StockReservati
 
     boolean existsByMessageId(String messageId);
 
+    /** Đơn đã từng có bản ghi giữ chỗ (mọi trạng thái), dùng để listener order.created không giữ lại lần hai (WMS-20.4). */
+    boolean existsByOrderId(Long orderId);
+
     List<StockReservation> findByOrderIdAndStatus(Long orderId, String status);
 
     List<StockReservation> findByProductIdAndStatus(Long productId, String status);

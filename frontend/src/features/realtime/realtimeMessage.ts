@@ -1,11 +1,20 @@
 import type { RealtimeMessage, RealtimeMessageType, RealtimeSeverity } from './types'
 
-/** Các topic STOMP mà client đăng ký, theo hợp đồng với notification-service. */
-export const REALTIME_TOPICS = ['/topic/alerts', '/topic/orders', '/topic/inventory', '/topic/kpi'] as const
+/** Các kênh STOMP mà client đăng ký, theo hợp đồng với notification-service. */
+export const REALTIME_CHANNELS = ['alerts', 'orders', 'inventory', 'kpi'] as const
+
+/**
+ * Topic của doanh nghiệp đang đăng nhập: `/topic/company/{companyId}/alerts`, `/orders`, `/inventory`, `/kpi`.
+ * Máy chủ chỉ cho đăng ký kênh của đúng doanh nghiệp trong token gửi ở frame CONNECT.
+ */
+export function realtimeTopics(companyId: number): string[] {
+  return REALTIME_CHANNELS.map((channel) => `/topic/company/${companyId}/${channel}`)
+}
 
 /** Tiêu đề và mức độ mặc định theo loại tin, chỉ dùng khi backend gửi thiếu trường. */
 const MESSAGE_DEFAULTS: Record<RealtimeMessageType, { title: string; severity: RealtimeSeverity }> = {
   LOW_STOCK: { title: 'Cảnh báo tồn kho thấp', severity: 'warning' },
+  STOCK_ALERT: { title: 'Cảnh báo tồn kho', severity: 'warning' },
   ORDER_CREATED: { title: 'Đơn hàng mới', severity: 'info' },
   ORDER_DISPATCHED: { title: 'Đơn hàng đã xuất kho', severity: 'success' },
   INVENTORY_UPDATED: { title: 'Cập nhật tồn kho', severity: 'info' },

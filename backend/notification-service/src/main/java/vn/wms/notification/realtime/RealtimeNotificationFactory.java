@@ -7,6 +7,8 @@ import vn.wms.common.messaging.event.LowStockAlertEvent;
 import vn.wms.common.messaging.event.OrderCreatedEvent;
 import vn.wms.common.messaging.event.OrderDispatchedEvent;
 import vn.wms.common.messaging.event.OrderType;
+import vn.wms.common.messaging.event.StockAlertSummaryEvent;
+import vn.wms.notification.stockalert.StockAlertTexts;
 
 import java.math.BigDecimal;
 import java.text.DecimalFormat;
@@ -38,7 +40,7 @@ public class RealtimeNotificationFactory {
         this.clock = clock;
     }
 
-    /** Cảnh báo tồn kho thấp, gửi lên {@code /topic/alerts}. */
+    /** Cảnh báo tồn kho thấp, gửi lên kênh {@code alerts} của doanh nghiệp. */
     public RealtimeNotification lowStock(LowStockAlertEvent event, String messageId, Instant messageTimestamp) {
         String product = joinNonBlank(event.skuCode(), event.productName());
         String quantity = quantity(event.quantityOnHand());
@@ -51,7 +53,17 @@ public class RealtimeNotificationFactory {
                 "Cảnh báo tồn kho thấp", text, occurredAt(event.detectedAt(), messageTimestamp), event);
     }
 
-    /** Đơn mua hoặc đơn bán mới, gửi lên {@code /topic/orders}. */
+    /**
+     * Bản tổng hợp cảnh báo tồn kho hằng ngày của một kho (WMS-15.2), gửi lên kênh {@code alerts} của doanh nghiệp.
+     * Payload là nguyên {@link StockAlertSummaryEvent} (loại, kho, số dòng, các dòng nghiêm trọng nhất).
+     */
+    public RealtimeNotification stockAlert(StockAlertSummaryEvent event, String messageId, Instant messageTimestamp) {
+        return new RealtimeNotification(idOf(messageId), RealtimeEventType.STOCK_ALERT,
+                StockAlertTexts.severity(event.severity()), StockAlertTexts.title(event.kind()),
+                StockAlertTexts.summaryLine(event), occurredAt(event.detectedAt(), messageTimestamp), event);
+    }
+
+    /** Đơn mua hoặc đơn bán mới, gửi lên kênh {@code orders} của doanh nghiệp. */
     public RealtimeNotification orderCreated(OrderCreatedEvent event, String messageId, Instant messageTimestamp) {
         String title = byOrderType(event.orderType(), "Đơn mua hàng mới", "Đơn bán hàng mới", "Đơn hàng mới");
         List<String> parts = new ArrayList<>();
@@ -66,7 +78,7 @@ public class RealtimeNotificationFactory {
                 title, String.join(", ", parts), occurredAt(event.createdAt(), messageTimestamp), event);
     }
 
-    /** Đơn đã được kho xử lý xong (xuất kho với đơn bán, nhập kho với đơn mua), gửi lên {@code /topic/orders}. */
+    /** Đơn đã được kho xử lý xong (xuất kho với đơn bán, nhập kho với đơn mua), gửi lên kênh {@code orders} của doanh nghiệp. */
     public RealtimeNotification orderDispatched(OrderDispatchedEvent event, String messageId, Instant messageTimestamp) {
         String title = byOrderType(event.orderType(), "Đơn mua hàng đã nhập kho", "Đơn bán hàng đã xuất kho",
                 "Đơn hàng đã được kho xử lý xong");
@@ -83,7 +95,7 @@ public class RealtimeNotificationFactory {
                 title, String.join(", ", parts), occurredAt(event.dispatchedAt(), messageTimestamp), event);
     }
 
-    /** Tồn kho thay đổi, gửi lên {@code /topic/inventory}. */
+    /** Tồn kho thay đổi, gửi lên kênh {@code inventory} của doanh nghiệp. */
     public RealtimeNotification inventoryUpdated(InventoryUpdatedEvent event, String messageId, Instant messageTimestamp) {
         String sku = StringUtils.hasText(event.skuCode()) ? event.skuCode() : "Sản phẩm #" + event.productId();
         StringBuilder text = new StringBuilder(sku)
@@ -104,7 +116,7 @@ public class RealtimeNotificationFactory {
                 "Tồn kho thay đổi", text.toString(), occurredAt(event.updatedAt(), messageTimestamp), event);
     }
 
-    /** Snapshot KPI sau mỗi lần tăng, gửi lên {@code /topic/kpi}. Id luôn mới vì không gắn với một sự kiện cụ thể. */
+    /** Snapshot KPI sau mỗi lần tăng, gửi lên kênh {@code kpi} của doanh nghiệp. Id luôn mới vì không gắn với một sự kiện cụ thể. */
     public RealtimeNotification kpiUpdated(KpiSnapshot snapshot) {
         String text = "Hôm nay: " + snapshot.purchaseOrders() + " đơn mua, " + snapshot.salesOrders() + " đơn bán, "
                 + snapshot.dispatchedOrders() + " đơn đã xử lý xong, " + snapshot.lowStockAlerts()

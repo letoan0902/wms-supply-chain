@@ -7,6 +7,7 @@ import jakarta.validation.Valid;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -34,6 +35,7 @@ public class BarcodeController {
 
     @GetMapping("/barcodes/generate")
     @Operation(summary = "Sinh mã vạch / QR Code tùy ý dạng JSON kèm Base64 Data URI")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'PURCHASING', 'SALES', 'ACCOUNTANT', 'INTEGRATION')")
     public ApiResponse<BarcodeResponse> generateGenericBarcode(
             @Parameter(description = "Nội dung cần mã hóa (SKU, mã phiếu, mã vị trí...)")
             @RequestParam String text,
@@ -50,6 +52,7 @@ public class BarcodeController {
 
     @GetMapping(value = "/barcodes/generate/image", produces = MediaType.IMAGE_PNG_VALUE)
     @Operation(summary = "Sinh mã vạch / QR Code tùy ý trả về trực tiếp file ảnh PNG")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'PURCHASING', 'SALES', 'ACCOUNTANT', 'INTEGRATION')")
     public ResponseEntity<byte[]> generateGenericBarcodeImage(
             @Parameter(description = "Nội dung cần mã hóa")
             @RequestParam String text,
@@ -74,6 +77,7 @@ public class BarcodeController {
 
     @GetMapping("/{id}/barcode")
     @Operation(summary = "Lấy ảnh mã vạch / QR Code của sản phẩm theo ID dạng JSON Base64")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'PURCHASING', 'SALES', 'ACCOUNTANT', 'INTEGRATION')")
     public ApiResponse<BarcodeResponse> getProductBarcode(
             @Parameter(description = "ID sản phẩm") @PathVariable Long id,
             @Parameter(description = "Loại mã (CODE_128, EAN_13, QR_CODE; mặc định CODE_128)")
@@ -89,6 +93,7 @@ public class BarcodeController {
 
     @GetMapping(value = "/{id}/barcode/image", produces = MediaType.IMAGE_PNG_VALUE)
     @Operation(summary = "Lấy trực tiếp file ảnh PNG mã vạch / QR Code của sản phẩm theo ID")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'PURCHASING', 'SALES', 'ACCOUNTANT', 'INTEGRATION')")
     public ResponseEntity<byte[]> getProductBarcodeImage(
             @Parameter(description = "ID sản phẩm") @PathVariable Long id,
             @Parameter(description = "Loại mã (CODE_128, EAN_13, QR_CODE)")
@@ -110,6 +115,7 @@ public class BarcodeController {
 
     @PostMapping("/{id}/barcode/batch")
     @Operation(summary = "Tạo tem nhãn Barcode / QR Code kết hợp thông tin SKU, Lô hàng & Hạn sử dụng (FR07)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF')")
     public ApiResponse<BatchBarcodeResponse> generateBatchBarcode(
             @Parameter(description = "ID sản phẩm") @PathVariable Long id,
             @Valid @RequestBody BatchBarcodeRequest request) {

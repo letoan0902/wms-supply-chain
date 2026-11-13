@@ -113,7 +113,13 @@ app:
       - /ws-wms/**
   mail:
     # Địa chỉ người gửi; để trống thì dùng MAIL_USERNAME, không có nữa thì no-reply@wms.local.
+    # Gửi qua Brevo thì MAIL_FROM phải là sender đã xác minh trong tài khoản Brevo.
     from: ${MAIL_FROM:}
+    from-name: ${MAIL_FROM_NAME:WMS Supply Chain}
+    # Khóa API v3 của Brevo (xkeysib-...). Có khóa thì gửi qua API Brevo thay cho SMTP; rỗng thì dùng SMTP hoặc ghi log.
+    brevo:
+      api-key: ${BREVO_API_KEY:}
+      timeout: ${BREVO_TIMEOUT:10s}
   rabbitmq:
     exchange: ${NOTIFICATION_EXCHANGE:wms.events}
     queue: ${NOTIFICATION_QUEUE:notification.alerts}

@@ -20,7 +20,7 @@ class RabbitMqConfigTest {
 
     private final RabbitMqConfig config = new RabbitMqConfig();
     private final NotificationProperties properties = new NotificationProperties(
-            new NotificationProperties.Mail("no-reply@wms.local"),
+            new NotificationProperties.Mail("no-reply@wms.local", "WMS Supply Chain"),
             new NotificationProperties.Rabbitmq("wms.events", "notification.alerts", "alert.#"));
 
     @Test

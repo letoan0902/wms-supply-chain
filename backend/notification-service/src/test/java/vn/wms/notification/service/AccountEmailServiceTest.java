@@ -51,7 +51,7 @@ class AccountEmailServiceTest {
     @SuppressWarnings("unchecked")
     private final ValueOperations<String, String> valueOps = mock(ValueOperations.class);
     private final EmailService emailService = new EmailService(providerOf(mailSender),
-            new NotificationProperties(new NotificationProperties.Mail("no-reply@wms.local"),
+            new NotificationProperties(new NotificationProperties.Mail("no-reply@wms.local", "WMS Supply Chain"),
                     new NotificationProperties.Rabbitmq("wms.events", "notification.alerts", "alert.#")),
             "smtp.example.test", "mailer");
 

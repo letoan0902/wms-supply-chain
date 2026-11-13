@@ -419,8 +419,12 @@ câu hỏi hay phản hồi thô: `docker compose logs ai-service | grep Claude`
 Từ WMS-23.6 doanh nghiệp mới đăng ký ở trạng thái chờ kích hoạt và chỉ đăng nhập được sau khi bấm liên kết trong email;
 quên mật khẩu cũng nhận liên kết qua email. Trên máy chủ cần:
 
-1. Cấu hình SMTP trong `.env` (`MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`). Chưa có tài khoản SMTP thì
-   notification-service không gửi mà ghi liên kết ra log: `docker compose logs notification-service | grep "liên kết"`.
+1. Cấu hình cách gửi email trong `.env`, một trong hai:
+   - API Brevo: `BREVO_API_KEY` (khóa API v3 dạng `xkeysib-...`) và `MAIL_FROM` là sender đã xác minh trong Brevo.
+   - SMTP: `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`.
+
+   Có `BREVO_API_KEY` thì SMTP không được dùng. Chưa cấu hình cả hai thì notification-service không gửi mà ghi liên kết
+   ra log: `docker compose logs notification-service | grep "liên kết"`. Cách chọn và kiểm tra: [docs/OPERATIONS.md](../docs/OPERATIONS.md) mục 8.4.
 2. `APP_FRONTEND_URL` để trống thì liên kết trỏ về `https://<DOMAIN>`; `REGISTRATION_REQUIRE_ACTIVATION` để trống (luôn
    bắt buộc kích hoạt). Chỉ máy phát triển không có mail mới đặt `REGISTRATION_REQUIRE_ACTIVATION=false`.
 

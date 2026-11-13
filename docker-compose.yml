@@ -301,6 +301,9 @@ services:
       MAIL_USERNAME: ${MAIL_USERNAME:-}
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
       MAIL_FROM: ${MAIL_FROM:-}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-WMS Supply Chain}
+      # Khóa API Brevo: có thì gửi qua API Brevo thay cho SMTP, MAIL_FROM phải là sender đã xác minh trong Brevo.
+      BREVO_API_KEY: ${BREVO_API_KEY:-}
       # Hub WebSocket /ws-wms (WMS-02.3, docs/MESSAGING.md mục 8). JWT_SECRET đã có trong x-backend-env.
       # GATEWAY_JWT_ENABLED=true thì frame STOMP CONNECT phải mang Bearer token hợp lệ (cùng công tắc với api-gateway).
       GATEWAY_JWT_ENABLED: ${GATEWAY_JWT_ENABLED:-false}

@@ -12,8 +12,13 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 @ConfigurationProperties(prefix = "app")
 public record NotificationProperties(@DefaultValue Mail mail, @DefaultValue Rabbitmq rabbitmq) {
 
-    /** Địa chỉ người gửi (biến MAIL_FROM). */
-    public record Mail(@DefaultValue("no-reply@wms.local") String from) {
+    /**
+     * Người gửi email.
+     *
+     * @param from     địa chỉ (biến MAIL_FROM); gửi qua Brevo thì phải là sender đã xác minh
+     * @param fromName tên hiển thị (biến MAIL_FROM_NAME), dùng khi gửi qua Brevo
+     */
+    public record Mail(@DefaultValue("no-reply@wms.local") String from, @DefaultValue("WMS Supply Chain") String fromName) {
     }
 
     /**

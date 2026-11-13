@@ -149,6 +149,8 @@ export const CAPABILITIES = {
   'apiKey.manage': { roles: ['ADMIN'] },
   /** Thanh toán, gia hạn, hạ gói, xem lịch sử thanh toán */
   'subscription.pay': { roles: ['ADMIN'] },
+  /** Quản lý danh sách doanh nghiệp và phê duyệt SaaS */
+  'company.manage': { roles: ['ADMIN'] },
   /** Sửa thông tin doanh nghiệp */
   'company.update': { roles: ['ADMIN'] },
 } as const satisfies Record<string, CapabilityRule>

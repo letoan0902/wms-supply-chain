@@ -55,6 +55,7 @@ export const navigationItems: NavigationItem[] = [
   { path: '/reports', label: 'Báo cáo', icon: <BarChartOutlined /> },
   { path: '/reports/lot-trace', label: 'Truy vết theo lô', icon: <ApartmentOutlined /> },
   { path: '/users', label: 'Người dùng', icon: <TeamOutlined /> },
+  { path: '/companies', label: 'Doanh nghiệp', icon: <ApartmentOutlined />, anyOf: ['company.manage'] },
   { path: '/subscription', label: 'Gói dịch vụ', icon: <CreditCardOutlined /> },
   { path: '/settings/api-keys', label: 'API key', icon: <ApiOutlined /> },
 ]

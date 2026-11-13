@@ -121,6 +121,9 @@ export const router = createBrowserRouter([
           { path: 'stocktakes/:id/count', Component: lazy(() => import('../features/stocktakes/BlindCountPage')) },
           // Quản lý Người dùng & Phân quyền RBAC (FR01, FR02 - Sprint 2)
           { path: 'users', Component: lazy(() => import('../features/users/UsersPage')) },
+          // Quản lý Doanh nghiệp khách hàng & Phê duyệt SaaS (Admin nền tảng)
+          { path: 'companies', Component: lazy(() => import('../features/companies/CompaniesPage')) },
+          { path: 'admin/companies', Component: lazy(() => import('../features/companies/CompaniesPage')) },
           // Báo cáo kho: Xuất - Nhập - Tồn và thẻ kho (WMS-17.4)
           { path: 'reports', Component: lazy(() => import('../features/reports/ReportsPage')) },
           // Truy vết nguồn gốc theo số lô (WMS-17.5)

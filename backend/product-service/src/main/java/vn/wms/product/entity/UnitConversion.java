@@ -12,7 +12,7 @@ import jakarta.persistence.Table;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
-import vn.wms.common.persistence.AuditableEntity;
+import vn.wms.common.tenant.TenantEntity;
 
 import java.math.BigDecimal;
 
@@ -22,13 +22,15 @@ import java.math.BigDecimal;
  * Ví dụ: Với sản phẩm Bia Tiger:
  * 1 Thùng (fromUom) = 4 Lốc (toUom) với conversionFactor = 4.0
  * 1 Lốc (fromUom) = 6 Lon (toUom) với conversionFactor = 6.0
+ * <p>
+ * Thuộc cùng doanh nghiệp với sản phẩm (cột company_id).
  */
 @Entity
 @Table(name = "unit_conversions")
 @Getter
 @Setter
 @NoArgsConstructor
-public class UnitConversion extends AuditableEntity {
+public class UnitConversion extends TenantEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

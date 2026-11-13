@@ -48,7 +48,7 @@ export default function HeroSection({ onExplorePricing, onExploreFeatures }: Her
 
             {/* Action Buttons */}
             <div className="mt-8 flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4">
-              <Link to="/login" className="w-full sm:w-auto">
+              <Link to="/register" className="w-full sm:w-auto">
                 <Button
                   type="primary"
                   size="large"

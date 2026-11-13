@@ -107,6 +107,9 @@ jobs:
           - service: inventory-service
             context: backend
             dockerfile: backend/inventory-service/Dockerfile
+          - service: ai-service
+            context: backend
+            dockerfile: backend/ai-service/Dockerfile
           - service: frontend
             context: frontend
             dockerfile: frontend/Dockerfile
@@ -128,7 +131,7 @@ jobs:
           cache-to: type=gha,mode=max,scope=${{ matrix.service }}
 
   # --------------------------------------------------------------------------
-  # Publish: khi merge (push) vào develop hoặc main, build và đẩy image của toàn bộ 9 service lên GHCR.
+  # Publish: khi merge (push) vào develop hoặc main, build và đẩy image của toàn bộ 10 service lên GHCR.
   # Tên image: ghcr.io/<owner>/wms-supply-chain/<service>. Thẻ: develop -> :develop, main -> :latest,
   # luôn kèm :sha-<7 ký tự commit> để truy vết. Đăng nhập bằng GITHUB_TOKEN (quyền packages: write), không cần secret riêng.
   # --------------------------------------------------------------------------
@@ -153,6 +156,7 @@ jobs:
           - { service: inventory-service, context: backend, dockerfile: backend/inventory-service/Dockerfile }
           - { service: order-service, context: backend, dockerfile: backend/order-service/Dockerfile }
           - { service: notification-service, context: backend, dockerfile: backend/notification-service/Dockerfile }
+          - { service: ai-service, context: backend, dockerfile: backend/ai-service/Dockerfile }
           - { service: frontend, context: frontend, dockerfile: frontend/Dockerfile }
     steps:
       - name: Lấy mã nguồn

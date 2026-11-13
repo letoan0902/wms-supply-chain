@@ -40,4 +40,10 @@ public class RabbitMqConfig {
         return BindingBuilder.bind(inventoryOrderEventsQueue).to(wmsEventsExchange)
                 .with(WmsEvents.RoutingKeys.ORDER_DISPATCHED);
     }
+
+    @Bean
+    Binding inventoryOrderReceivedBinding(Queue inventoryOrderEventsQueue, TopicExchange wmsEventsExchange) {
+        return BindingBuilder.bind(inventoryOrderEventsQueue).to(wmsEventsExchange)
+                .with(WmsEvents.RoutingKeys.ORDER_RECEIVED);
+    }
 }

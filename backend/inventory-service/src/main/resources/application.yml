@@ -16,6 +16,11 @@ spring:
     url: "${DB_URL:jdbc:mysql://localhost:3306/inventory_db?createDatabaseIfNotExist=true}"
     username: ${DB_USERNAME:root}
     password: ${DB_PASSWORD:change_me}
+    hikari:
+      # Nhận giữ chỗ, trừ tồn và kiểm tra ô kệ từ order-service dưới khóa bi quan, báo cáo tồn gọi product-service trong
+      # transaction chỉ đọc: cần nhiều kết nối hơn mặc định 10 (docs/PERFORMANCE.md mục 5.3). Cộng mọi nhóm của mọi
+      # service phải nhỏ hơn max_connections của MySQL (151).
+      maximum-pool-size: ${DB_POOL_SIZE:20}
   jpa:
     open-in-view: false
     hibernate:
@@ -25,6 +30,8 @@ spring:
       hibernate:
         jdbc:
           time_zone: UTC
+        # Nạp quan hệ lazy theo lô (một câu IN cho cả trang) thay vì một câu cho mỗi bản ghi (WMS-19.3, docs/PERFORMANCE.md)
+        default_batch_fetch_size: 50
   flyway:
     enabled: true
     locations: classpath:db/migration
@@ -32,6 +39,9 @@ spring:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
+      # Redis chỉ là bộ nhớ đệm (WMS-19.1) và bộ đếm gói: lỗi thì đọc cơ sở dữ liệu, nên không chờ lâu.
+      timeout: ${REDIS_TIMEOUT:2s}
+      connect-timeout: ${REDIS_CONNECT_TIMEOUT:2s}
       repositories:
         enabled: false
     web:
@@ -57,6 +67,16 @@ spring:
         enabled: true
         max-attempts: 3
         initial-interval: 500ms
+  cloud:
+    openfeign:
+      client:
+        config:
+          # Gọi product-service, auth-service. Báo cáo tồn gọi product-service trong transaction chỉ đọc (giữ một kết
+          # nối): thời gian chờ mặc định của Feign (kết nối 10 giây, đọc 60 giây) dài hơn cả 30 giây chờ kết nối của
+          # Hikari, nên đặt ngắn để service chậm không giữ kết nối lâu (docs/PERFORMANCE.md mục 5.3).
+          default:
+            connect-timeout: 2000
+            read-timeout: 5000
 
 eureka:
   client:
@@ -82,6 +102,34 @@ springdoc:
     path: /swagger-ui.html
   api-docs:
     path: /v3/api-docs
+
+app:
+  tenant:
+    required: true
+    default-company-id: ${TENANT_DEFAULT_COMPANY_ID:}
+  # Cảnh báo tồn kho (WMS-15.1, gói vn.wms.inventory.alert). Ngưỡng cận hạn 30 ngày và giờ chạy 00:00 theo tài liệu
+  # yêu cầu; ngưỡng hàng tồn lâu 90 ngày là mặc định của nhóm. Xem docs/MESSAGING.md mục cảnh báo tồn kho.
+  alerts:
+    enabled: ${ALERT_SCAN_ENABLED:true}
+    cron: "${ALERT_SCAN_CRON:0 0 0 * * *}"
+    zone: ${ALERT_SCAN_ZONE:Asia/Ho_Chi_Minh}
+    near-expiry-days: ${ALERT_NEAR_EXPIRY_DAYS:30}
+    dead-stock-days: ${ALERT_DEAD_STOCK_DAYS:90}
+    top-items: 10
+    # Loại cảnh báo được gửi email tới quản lý kho và admin (WMS-15.2); hàng tồn lâu chỉ lên chuông thông báo.
+    email-kinds: ${ALERT_EMAIL_KINDS:LOW_STOCK,NEAR_EXPIRY,EXPIRED}
+
+  # Bộ nhớ đệm Redis cho tổng tồn và tồn khả dụng (WMS-19.1, docs/PERFORMANCE.md).
+  stock-cache:
+    enabled: ${STOCK_CACHE_ENABLED:true}
+    ttl: ${STOCK_CACHE_TTL:60s}
+    retry-after: ${STOCK_CACHE_RETRY_AFTER:30s}
+
+  # Danh tính từ header của api-gateway (docs/SECURITY.md, WMS-20.3). true (máy phát triển, gateway tắt kiểm tra JWT):
+  # request không có X-User-Name được coi là nhà phát triển đủ vai trò. Máy chủ đặt SECURITY_ALLOW_ANONYMOUS=false
+  # (deploy/docker-compose.prod.yml): request thiếu danh tính nhận 401 ngay tại service.
+  security:
+    allow-anonymous-without-gateway: ${SECURITY_ALLOW_ANONYMOUS:true}
 ---
 # Nạp cấu hình tập trung từ Config Server. Tiền tố optional nghĩa là Config Server chưa chạy thì service vẫn
 # khởi động bằng cấu hình cục bộ ở trên. Tài liệu này bị bỏ qua khi chạy test (profile test) để test không gọi mạng.

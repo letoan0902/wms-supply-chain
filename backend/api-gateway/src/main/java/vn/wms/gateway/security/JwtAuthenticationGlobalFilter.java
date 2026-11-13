@@ -21,6 +21,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.AntPathMatcher;
 import org.springframework.web.server.ServerWebExchange;
 import reactor.core.publisher.Mono;
+import vn.wms.gateway.apikey.ApiKeyAuthenticationGlobalFilter;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
@@ -34,8 +35,14 @@ import java.util.stream.Collectors;
  *   <li>Khi gateway.jwt.enabled=false (mặc định của giai đoạn khởi tạo): chỉ chuyển tiếp request.</li>
  *   <li>Khi bật: yêu cầu header Authorization dạng Bearer có token hợp lệ (chữ ký HS256 và chưa hết hạn),
  *       trừ các đường dẫn công khai và request preflight CORS (OPTIONS). Sai hoặc thiếu token trả 401.</li>
- *   <li>Token hợp lệ: gateway thêm header X-User-Name và X-User-Roles để service phía sau biết người gọi.</li>
- *   <li>Luôn gỡ hai header X-User-* do client tự gửi để không ai giả mạo được danh tính.</li>
+ *   <li>Token hợp lệ: gateway thêm header X-User-Name, X-User-Roles, X-User-Warehouse-Ids để service phía sau
+ *       biết người gọi, và X-Company-Id (lấy từ claim companyId) để service lọc dữ liệu theo doanh nghiệp.</li>
+ *   <li>Token hợp lệ nhưng không có claim companyId: trả 401 khi gateway.jwt.require-company=true, để giao diện
+ *       buộc người dùng đăng nhập lại và nhận token mới.</li>
+ *   <li>Luôn gỡ các header X-User-*, X-Company-Id, X-Plan do client tự gửi để không ai giả mạo được danh tính
+ *       hay doanh nghiệp. Service phía sau chỉ tin các header do gateway gắn.</li>
+ *   <li>Request đã được {@link ApiKeyAuthenticationGlobalFilter} xác thực bằng API key (header X-Api-Key, không có
+ *       Authorization) thì bỏ qua bộ lọc này.</li>
  * </ul>
  *
  * <p>TODO (Sprint 1): kiểm tra quyền theo vai trò ở mức route (ví dụ chỉ ADMIN được gọi API quản lý người dùng).
@@ -46,6 +53,11 @@ public class JwtAuthenticationGlobalFilter implements GlobalFilter, Ordered {
     static final String HEADER_USER_NAME = "X-User-Name";
     static final String HEADER_USER_ROLES = "X-User-Roles";
     static final String HEADER_USER_WAREHOUSE_IDS = "X-User-Warehouse-Ids";
+    /** ID doanh nghiệp của người gọi, module common (TenantFilter) đọc header này ở mỗi service. */
+    static final String HEADER_COMPANY_ID = "X-Company-Id";
+    /** Gói dịch vụ: bộ lọc này gỡ giá trị client tự gửi, SubscriptionGlobalFilter gắn lại từ Redis. */
+    static final String HEADER_PLAN = "X-Plan";
+    static final String CLAIM_COMPANY_ID = "companyId";
     private static final String BEARER_PREFIX = "Bearer ";
     private static final int MIN_SECRET_BYTES = 32;
 
@@ -74,12 +86,18 @@ public class JwtAuthenticationGlobalFilter implements GlobalFilter, Ordered {
 
     @Override
     public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+        if (Boolean.TRUE.equals(exchange.getAttribute(ApiKeyAuthenticationGlobalFilter.AUTHENTICATED_ATTRIBUTE))) {
+            // Đã xác thực bằng API key ở bộ lọc trước (WMS-25.1): header danh tính do gateway gắn, giữ nguyên
+            return chain.filter(exchange);
+        }
         ServerHttpRequest request = exchange.getRequest();
         ServerHttpRequest sanitized = request.mutate()
                 .headers(headers -> {
                     headers.remove(HEADER_USER_NAME);
                     headers.remove(HEADER_USER_ROLES);
                     headers.remove(HEADER_USER_WAREHOUSE_IDS);
+                    headers.remove(HEADER_COMPANY_ID);
+                    headers.remove(HEADER_PLAN);
                 })
                 .build();
 
@@ -91,7 +109,7 @@ public class JwtAuthenticationGlobalFilter implements GlobalFilter, Ordered {
 
         String authorization = request.getHeaders().getFirst(HttpHeaders.AUTHORIZATION);
         if (authorization == null || !authorization.startsWith(BEARER_PREFIX)) {
-            return reject(exchange, "Thiếu token xác thực (header Authorization dạng Bearer)");
+            return reject(exchange, "Chưa xác thực, vui lòng đăng nhập để xem thông tin");
         }
 
         try {
@@ -100,15 +118,22 @@ public class JwtAuthenticationGlobalFilter implements GlobalFilter, Ordered {
                     .build()
                     .parseSignedClaims(authorization.substring(BEARER_PREFIX.length()))
                     .getPayload();
-            ServerHttpRequest authenticated = sanitized.mutate()
+            Long companyId = companyIdOf(claims);
+            if (companyId == null && properties.requireCompany()) {
+                log.debug("Từ chối token của {} vì không có claim companyId", claims.getSubject());
+                return reject(exchange, "Phiên đăng nhập không còn hợp lệ, vui lòng đăng nhập lại");
+            }
+            ServerHttpRequest.Builder authenticated = sanitized.mutate()
                     .header(HEADER_USER_NAME, claims.getSubject())
                     .header(HEADER_USER_ROLES, rolesOf(claims))
-                    .header(HEADER_USER_WAREHOUSE_IDS, warehouseIdsOf(claims))
-                    .build();
-            return chain.filter(exchange.mutate().request(authenticated).build());
+                    .header(HEADER_USER_WAREHOUSE_IDS, warehouseIdsOf(claims));
+            if (companyId != null) {
+                authenticated.header(HEADER_COMPANY_ID, String.valueOf(companyId));
+            }
+            return chain.filter(exchange.mutate().request(authenticated.build()).build());
         } catch (JwtException | IllegalArgumentException ex) {
             log.debug("Từ chối token không hợp lệ: {}", ex.getMessage());
-            return reject(exchange, "Token không hợp lệ hoặc đã hết hạn");
+            return reject(exchange, "Token không hợp lệ, vui lòng kiểm tra lại");
         }
     }
 
@@ -136,6 +161,22 @@ public class JwtAuthenticationGlobalFilter implements GlobalFilter, Ordered {
             return "";
         }
         return warehouseIds.stream().map(String::valueOf).collect(Collectors.joining(","));
+    }
+
+    /**
+     * Đọc claim companyId. Chấp nhận số hoặc chuỗi số; thiếu, không phải số hoặc không dương thì coi như không có.
+     */
+    static Long companyIdOf(Claims claims) {
+        Object value = claims.get(CLAIM_COMPANY_ID);
+        if (value == null) {
+            return null;
+        }
+        try {
+            long id = value instanceof Number number ? number.longValue() : Long.parseLong(value.toString().trim());
+            return id > 0 ? id : null;
+        } catch (NumberFormatException ex) {
+            return null;
+        }
     }
 
     /** Thân phản hồi lỗi cùng khung với ApiResponse của module common (success, code, message). */

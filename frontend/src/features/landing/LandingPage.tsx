@@ -27,7 +27,7 @@ export default function LandingPage() {
     }
   }
 
-  // Nếu người dùng vào route /pricing hoặc có hash #pricing, tự động cuộn đến section tương ứng
+  // Nếu người dùng vào route /pricing hoặc có hash #pricing / #trial-register, tự động cuộn đến section tương ứng
   useEffect(() => {
     if (location.pathname === '/pricing' || location.hash === '#pricing') {
       setTimeout(() => scrollToSection('pricing'), 150)
@@ -64,7 +64,7 @@ export default function LandingPage() {
         {/* Customer Stories */}
         <TestimonialsSection />
 
-        {/* Frequently Asked Questions */}
+        {/* Câu hỏi thường gặp và lời mời đăng ký dùng thử (dẫn sang trang /register) */}
         <FaqSection />
       </main>
 
@@ -73,4 +73,3 @@ export default function LandingPage() {
     </div>
   )
 }
-

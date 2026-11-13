@@ -21,5 +21,8 @@ public interface WarehouseRepository extends JpaRepository<Warehouse, Long> {
 
     List<Warehouse> findByActiveTrueOrderByCodeAsc();
 
+    /** Số kho đang hoạt động của doanh nghiệp hiện tại (Hibernate tự lọc theo company_id), dùng cho giới hạn gói. */
+    long countByActiveTrue();
+
     List<Warehouse> findByNameContainingIgnoreCaseOrCodeContainingIgnoreCaseOrderByCodeAsc(String name, String code);
 }

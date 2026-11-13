@@ -8,6 +8,7 @@ import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMock
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.TestExecutionListeners;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
 import vn.wms.product.dto.CreateProductRequest;
@@ -30,11 +31,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/** Khởi động context thật với H2; mỗi test chạy trong transaction và tự rollback. */
+/**
+ * Khởi động context thật với H2; mỗi test chạy trong transaction và tự rollback. Dữ liệu và request thuộc doanh
+ * nghiệp 1 ({@link DefaultCompanyTestExecutionListener} và {@code app.tenant.default-company-id} của profile test).
+ */
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 @Transactional
+@TestExecutionListeners(listeners = DefaultCompanyTestExecutionListener.class,
+        mergeMode = TestExecutionListeners.MergeMode.MERGE_WITH_DEFAULTS)
 class ProductServiceApplicationTest {
 
     @Autowired
@@ -101,6 +107,8 @@ class ProductServiceApplicationTest {
         assertThat(product.getUpdatedAt()).isNotNull();
         assertThat(product.getCreatedBy()).isEqualTo("system");
         assertThat(product.getUpdatedBy()).isEqualTo("system");
+        // Doanh nghiệp do Hibernate gán từ TenantContext, không có setter
+        assertThat(product.getCompanyId()).isEqualTo(1L);
 
         mockMvc.perform(get("/api/products").param("page", "0").param("size", "10"))
                 .andExpect(status().isOk())

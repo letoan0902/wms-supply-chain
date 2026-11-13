@@ -12,9 +12,14 @@ import org.springframework.mock.web.server.MockServerWebExchange;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import reactor.core.publisher.Mono;
+import vn.wms.gateway.apikey.ApiKeyAuthenticationGlobalFilter;
+import vn.wms.gateway.apikey.ApiKeyProperties;
 import vn.wms.gateway.ratelimit.UserOrIpKeyResolver;
 import vn.wms.gateway.security.GatewayJwtProperties;
+import vn.wms.gateway.subscription.SubscriptionGlobalFilter;
+import vn.wms.gateway.subscription.SubscriptionProperties;
 
+import java.time.Duration;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -42,6 +47,18 @@ class ApiGatewayApplicationTest {
     @Autowired
     private GatewayJwtProperties jwtProperties;
 
+    @Autowired
+    private SubscriptionProperties subscriptionProperties;
+
+    @Autowired
+    private SubscriptionGlobalFilter subscriptionFilter;
+
+    @Autowired
+    private ApiKeyAuthenticationGlobalFilter apiKeyFilter;
+
+    @Autowired
+    private ApiKeyProperties apiKeyProperties;
+
     @Test
     void healthEndpointIsUp() {
         webTestClient.get().uri("/actuator/health")
@@ -52,11 +69,26 @@ class ApiGatewayApplicationTest {
 
     @Test
     void definesRoutesForAllBusinessServices() {
-        List<String> routeIds = routeLocator.getRoutes().map(route -> route.getId()).collectList().block();
+        List<String> routeIds = routeLocator.getRoutes().map(route -> route.getId())
+                .filter(id -> !id.startsWith("docs-")).collectList().block();
 
         assertThat(routeIds).containsExactlyInAnyOrder(
                 "auth-service", "product-service", "inventory-service", "order-service", "notification-service",
-                "notification-websocket");
+                "notification-websocket", "ai-service");
+    }
+
+    @Test
+    void aiRouteForwardsToAiServiceAndRequiresLogin() {
+        Route route = routeLocator.getRoutes().filter(candidate -> "ai-service".equals(candidate.getId()))
+                .blockFirst();
+
+        assertThat(route).isNotNull();
+        assertThat(route.getUri().toString()).isEqualTo("lb://ai-service");
+        for (String path : List.of("/api/ai/health", "/api/ai/usage", "/api/ai/ask")) {
+            MockServerWebExchange exchange = MockServerWebExchange.from(MockServerHttpRequest.get(path));
+            assertThat(Mono.from(route.getPredicate().apply(exchange)).block()).as(path).isTrue();
+        }
+        assertThat(jwtProperties.publicPaths()).noneMatch(path -> path.startsWith("/api/ai"));
     }
 
     @Test
@@ -85,8 +117,39 @@ class ApiGatewayApplicationTest {
     }
 
     @Test
+    void exposesContentDispositionToFrontendForFileDownloads() {
+        // Frontend đọc tên file tải về (xuất Excel báo cáo kho) từ Content-Disposition nên header phải được CORS cho phép đọc
+        // Request này đi hết chuỗi filter (giới hạn tốc độ, thuê bao đọc Redis) rồi mới nhận 503 vì test không có
+        // inventory-service. Trên Windows lần nối Redis đầu tiên mất vài giây (thử ::1 rồi mới tới 127.0.0.1, hoặc
+        // không có Redis), vượt 5 giây chờ mặc định của WebTestClient, nên đặt thời gian chờ riêng.
+        webTestClient.mutate().responseTimeout(Duration.ofSeconds(30)).build()
+                .get().uri("/api/inventory/reports/in-out-balance/export")
+                .header("Origin", "http://localhost:5173")
+                .exchange()
+                .expectHeader().valueEquals("Access-Control-Expose-Headers", "Content-Disposition");
+    }
+
+    @Test
     void registersRateLimiterBeansFromConfiguration() {
         assertThat(keyResolver).isInstanceOf(UserOrIpKeyResolver.class);
         assertThat(rateLimiter).isNotNull();
+    }
+
+    @Test
+    void registersSubscriptionFilterWithWriteExceptionsFromConfiguration() {
+        assertThat(subscriptionFilter.getOrder()).isEqualTo(SubscriptionGlobalFilter.ORDER);
+        assertThat(subscriptionProperties.enabled()).isTrue();
+        assertThat(subscriptionProperties.writeAllowedPaths()).contains(
+                "/api/auth/login", "/api/auth/refresh", "/api/auth/logout", "/api/users/change-password",
+                "/api/auth/subscription/**", "/api/auth/payments/**", "/api/auth/api-keys/*");
+    }
+
+    @Test
+    void registersApiKeyFilterBeforeJwtWithReadOnlyScopeFromConfiguration() {
+        assertThat(apiKeyFilter.getOrder()).isEqualTo(ApiKeyAuthenticationGlobalFilter.ORDER).isLessThan(-100);
+        assertThat(apiKeyProperties.enabled()).isTrue();
+        assertThat(apiKeyProperties.rateLimitPerSecond()).isEqualTo(20);
+        assertThat(apiKeyProperties.allowedPaths())
+                .containsExactly("/api/products/**", "/api/inventory/**", "/api/orders/**");
     }
 }

@@ -21,6 +21,7 @@ import { getApiErrorMessage } from '../../../services/api'
 import { formatCurrency, formatNumber } from '../../../utils/format'
 import * as supplierApi from '../supplierApi'
 import type { Supplier, SupplierTransaction, SupplierTransactionType } from '../types'
+import { useCan } from '../../auth/useCan'
 
 const { Text } = Typography
 
@@ -68,6 +69,7 @@ export default function SupplierTransactionsModal({
   onOpenRecordModal,
 }: Props) {
   const { message } = App.useApp()
+  const canRecord = useCan()('supplier.transaction')
   const [transactions, setTransactions] = useState<SupplierTransaction[]>([])
   const [loading, setLoading] = useState(false)
   const [page, setPage] = useState(0)
@@ -156,7 +158,7 @@ export default function SupplierTransactionsModal({
       width: 140,
       render: (code: string | null) =>
         code ? (
-          <span className="font-mono text-xs font-semibold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded">
+          <span className="text-xs font-semibold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded">
             {code}
           </span>
         ) : (
@@ -172,7 +174,7 @@ export default function SupplierTransactionsModal({
       render: (val: number, record) => {
         const conf = TYPE_CONFIG[record.transactionType]
         return (
-          <span className={conf.textColor}>
+          <span className={`text-xs tabular-nums ${conf.textColor}`}>
             {conf.prefix} {formatCurrency(val)}
           </span>
         )
@@ -185,7 +187,9 @@ export default function SupplierTransactionsModal({
       align: 'right',
       width: 150,
       render: (val: number) => (
-        <span className="font-semibold text-slate-800">{formatCurrency(val)}</span>
+        <span className="text-xs font-medium text-slate-800 tabular-nums">
+          {formatCurrency(val)}
+        </span>
       ),
     },
     {
@@ -213,14 +217,18 @@ export default function SupplierTransactionsModal({
         <Button key="close" onClick={onClose}>
           Đóng
         </Button>,
-        <Button
-          key="record"
-          type="primary"
-          icon={<PlusOutlined />}
-          onClick={() => supplier && onOpenRecordModal(supplier)}
-        >
-          Ghi nhận giao dịch
-        </Button>,
+        ...(canRecord
+          ? [
+              <Button
+                key="record"
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={() => supplier && onOpenRecordModal(supplier)}
+              >
+                Ghi nhận giao dịch
+              </Button>,
+            ]
+          : []),
       ]}
       width={950}
       destroyOnClose
@@ -262,7 +270,7 @@ export default function SupplierTransactionsModal({
               </div>
 
               <div>
-                <div className="text-xs text-slate-500">Hạn mức nợ (Credit Limit):</div>
+                <div className="text-xs text-slate-500">Hạn mức nợ:</div>
                 <div className="text-base font-semibold text-slate-800">
                   {formatCurrency(creditLimit)}
                 </div>

@@ -25,6 +25,7 @@ import { useEffect, useState } from 'react'
 import * as productApi from '../productApi'
 import type { BreakdownResult, CreateUnitConversionPayload, Product, UnitConversion, Uom } from '../types'
 import { getApiErrorMessage } from '../../../services/api'
+import { useCan } from '../../auth/useCan'
 
 interface UnitConversionModalProps {
   open: boolean
@@ -48,6 +49,7 @@ export default function UnitConversionModal({
   onClose,
 }: UnitConversionModalProps) {
   const { message } = App.useApp()
+  const canWrite = useCan()('product.write')
   const [form] = Form.useForm<CreateConversionFormValues>()
 
   const [conversions, setConversions] = useState<UnitConversion[]>([])
@@ -187,7 +189,7 @@ export default function UnitConversionModal({
       key: 'conversionFactor',
       render: (_: unknown, record: UnitConversion) => (
         <span>
-          = <strong className="text-blue-600 font-mono text-base">{record.conversionFactor}</strong>{' '}
+          = <strong className="text-blue-600 font-semibold text-base tabular-nums">{record.conversionFactor}</strong>{' '}
           {record.toUomName} ({record.toUomCode})
         </span>
       ),
@@ -198,7 +200,7 @@ export default function UnitConversionModal({
       render: (_: unknown, record: UnitConversion) => {
         if (!record.factorToBase) return <span className="text-slate-400">-</span>
         return (
-          <Tag color="cyan" className="font-mono text-sm px-2 py-0.5">
+          <Tag color="cyan" className="text-sm px-2 py-0.5 tabular-nums">
             = {record.factorToBase} {product?.uomName || product?.uomCode}
           </Tag>
         )
@@ -208,7 +210,7 @@ export default function UnitConversionModal({
       title: 'Mã vạch bao bì',
       dataIndex: 'barcode',
       key: 'barcode',
-      render: (text?: string) => (text ? <span className="font-mono text-xs">{text}</span> : <span className="text-slate-400">Không</span>),
+      render: (text?: string) => (text ? <span className="text-xs tabular-nums">{text}</span> : <span className="text-slate-400">Không</span>),
     },
     {
       title: 'Mô tả',
@@ -217,7 +219,8 @@ export default function UnitConversionModal({
       ellipsis: true,
       render: (text?: string) => text || '-',
     },
-    {
+    // Vai trò chỉ được xem (bán hàng, kế toán) không có cột xóa và khối thêm quy đổi
+    ...(canWrite ? [{
       title: 'Thao tác',
       key: 'action',
       width: 80,
@@ -233,7 +236,7 @@ export default function UnitConversionModal({
           <Button type="text" danger icon={<DeleteOutlined />} size="small" />
         </Popconfirm>
       ),
-    },
+    }] : []),
   ]
 
   if (!product) return null
@@ -243,7 +246,7 @@ export default function UnitConversionModal({
       title={
         <div className="flex items-center gap-2">
           <span className="text-lg font-semibold">Cấu hình Quy đổi Đơn vị tính Đa cấp</span>
-          <Tag color="blue" className="font-mono">{product.sku}</Tag>
+          <Tag color="blue">{product.sku}</Tag>
         </div>
       }
       open={open}
@@ -302,6 +305,7 @@ export default function UnitConversionModal({
                   bordered
                 />
 
+                {canWrite && (
                 <Card size="small" title="Thêm quy tắc quy đổi mới" className="bg-slate-50 border-slate-200">
                   <Form form={form} layout="vertical" onFinish={handleCreateConversion}>
                     <Row gutter={12}>
@@ -370,12 +374,13 @@ export default function UnitConversionModal({
                     </Row>
                   </Form>
                 </Card>
+                )}
               </div>
             ),
           },
           {
             key: 'simulator',
-            label: 'Công cụ tính thử tồn kho (FR06 Simulator)',
+            label: 'Công cụ tính thử tồn kho',
             children: (
               <div className="space-y-6">
                 <Card size="small" title="1. Quy đổi số lượng đóng gói về Đơn vị cơ sở">
@@ -410,7 +415,7 @@ export default function UnitConversionModal({
                   {calcResult && (
                     <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg text-slate-800">
                       Kết quả: <strong>{calcQuantity}</strong> đơn vị vừa chọn ={' '}
-                      <span className="text-xl font-bold text-blue-700 font-mono">
+                      <span className="text-xl font-bold text-blue-700 tabular-nums">
                         {calcResult.baseQuantity}
                       </span>{' '}
                       <strong>{product.uomName || product.uomCode}</strong> (Hệ số quy đổi tích lũy: x{calcResult.conversionRate})

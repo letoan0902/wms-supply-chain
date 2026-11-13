@@ -1,13 +1,11 @@
 import {
   AppstoreOutlined,
-  CheckCircleOutlined,
   FileExcelOutlined,
   PlusOutlined,
   ReloadOutlined,
-  SafetyCertificateOutlined,
   TagsOutlined,
 } from '@ant-design/icons'
-import { App, Button, Card, Col, Row, Space, Typography } from 'antd'
+import { App, Button, Card, Col, Row, Space } from 'antd'
 import { useCallback, useEffect, useState } from 'react'
 import BarcodeModal from './components/BarcodeModal'
 import ExcelImportModal from './components/ExcelImportModal'
@@ -17,11 +15,12 @@ import UnitConversionModal from './components/UnitConversionModal'
 import * as productApi from './productApi'
 import type { Category, CreateProductPayload, Product, Uom, UpdateProductPayload } from './types'
 import { getApiErrorMessage } from '../../services/api'
-
-const { Title, Text } = Typography
+import { useCan } from '../auth/useCan'
+import AiImportButton from '../ai/components/AiImportButton'
 
 export default function ProductsPage() {
   const { message } = App.useApp()
+  const can = useCan()
 
   // State danh sách
   const [products, setProducts] = useState<Product[]>([])
@@ -140,10 +139,10 @@ export default function ProductsPage() {
     try {
       if (editingProduct) {
         await productApi.updateProduct(editingProduct.id, payload as UpdateProductPayload)
-        message.success('Cập nhật sản phẩm thành công!')
+        message.success('Cập nhật sản phẩm thành công')
       } else {
         await productApi.createProduct(payload as CreateProductPayload)
-        message.success('Thêm mới sản phẩm (SKU) thành công!')
+        message.success('Thêm mới sản phẩm (SKU) thành công')
       }
       setIsFormModalOpen(false)
       setEditingProduct(null)
@@ -160,109 +159,122 @@ export default function ProductsPage() {
   const handleDeleteProduct = async (id: number) => {
     try {
       await productApi.deleteProduct(id)
-      message.success('Đã chuyển sản phẩm sang trạng thái ngưng hoạt động (xóa mềm)')
+      message.success('Đã chuyển sản phẩm sang trạng thái ngưng hoạt động')
       loadProducts()
     } catch (err) {
       message.error(getApiErrorMessage(err, 'Không thể cập nhật trạng thái sản phẩm'))
     }
   }
 
-  // Thống kê nhanh
-  const activeCount = products.filter((p) => p.active).length
-  const lotManagedCount = products.filter((p) => p.manageByLot).length
+  const totalPages = Math.max(1, Math.ceil(total / pageSize))
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       {/* Tiêu đề & Nút thao tác đầu trang */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-1">
         <div>
-          <Title level={3} className="!mb-1">
-            Quản lý Danh mục Hàng hóa & Mã SKU
-          </Title>
-          <Text type="secondary">
-            Quản lý mã hàng (SKU), barcode, đơn vị tính quy đổi đa cấp (FR05, FR06) và in tem nhãn (FR07).
-          </Text>
+          <h1 className="text-lg font-semibold text-slate-900 m-0 leading-tight">
+            Danh mục Hàng hóa & Mã SKU
+          </h1>
+          <p className="text-xs text-slate-500 m-0 mt-1">
+            Quản lý mã định danh SKU, barcode, đơn vị tính quy đổi và định mức tồn kho an toàn.
+          </p>
         </div>
 
-        <Space>
-          <Button icon={<ReloadOutlined />} onClick={loadProducts}>
+        <Space size={8} className="shrink-0">
+          <Button
+            icon={<ReloadOutlined className="text-slate-500" />}
+            onClick={loadProducts}
+            className="text-xs"
+          >
             Làm mới
           </Button>
 
-          <Button
-            icon={<FileExcelOutlined className="text-emerald-600" />}
-            onClick={() => setIsImportModalOpen(true)}
-          >
-            Nhập Excel
-          </Button>
+          {can('product.write') && (
+            <Button
+              data-write-action
+              icon={<FileExcelOutlined className="text-slate-600" />}
+              onClick={() => setIsImportModalOpen(true)}
+              className="text-xs"
+            >
+              Nhập Excel
+            </Button>
+          )}
 
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={() => {
-              setEditingProduct(null)
-              setIsFormModalOpen(true)
-            }}
-          >
-            Thêm sản phẩm mới
-          </Button>
+          <AiImportButton dataType="PRODUCT" />
+
+          {can('product.write') && (
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => {
+                setEditingProduct(null)
+                setIsFormModalOpen(true)
+              }}
+              className="text-xs font-medium"
+            >
+              Thêm sản phẩm
+            </Button>
+          )}
         </Space>
       </div>
 
-      {/* Thẻ chỉ số tổng quan */}
-      <Row gutter={16}>
+      {/* Thẻ chỉ số tổng quan - Tinh gọn, không màu mè trang trí thừa */}
+      <Row gutter={[16, 16]}>
         <Col xs={24} sm={12} md={6}>
-          <Card size="small" className="border-slate-200 shadow-sm">
+          <Card size="small" className="border-slate-200/80 shadow-none">
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-xs text-slate-500 font-medium">Tổng số mã SKU</div>
-                <div className="text-2xl font-bold text-slate-900 mt-1">{total}</div>
+                <div className="text-2xl font-semibold text-slate-900 mt-1 tabular-nums">
+                  {total}
+                </div>
               </div>
-              <div className="w-10 h-10 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center text-xl">
-                <AppstoreOutlined />
-              </div>
+              <AppstoreOutlined className="text-slate-300 text-2xl" />
             </div>
           </Card>
         </Col>
 
         <Col xs={24} sm={12} md={6}>
-          <Card size="small" className="border-slate-200 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-xs text-slate-500 font-medium">Đang kinh doanh</div>
-                <div className="text-2xl font-bold text-emerald-600 mt-1">{activeCount}</div>
-              </div>
-              <div className="w-10 h-10 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center text-xl">
-                <CheckCircleOutlined />
-              </div>
-            </div>
-          </Card>
-        </Col>
-
-        <Col xs={24} sm={12} md={6}>
-          <Card size="small" className="border-slate-200 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <div className="text-xs text-slate-500 font-medium">Theo dõi theo Lô (Batch)</div>
-                <div className="text-2xl font-bold text-cyan-600 mt-1">{lotManagedCount}</div>
-              </div>
-              <div className="w-10 h-10 rounded-lg bg-cyan-50 text-cyan-600 flex items-center justify-center text-xl">
-                <SafetyCertificateOutlined />
-              </div>
-            </div>
-          </Card>
-        </Col>
-
-        <Col xs={24} sm={12} md={6}>
-          <Card size="small" className="border-slate-200 shadow-sm">
+          <Card size="small" className="border-slate-200/80 shadow-none">
             <div className="flex items-center justify-between">
               <div>
                 <div className="text-xs text-slate-500 font-medium">Nhóm ngành hàng</div>
-                <div className="text-2xl font-bold text-purple-600 mt-1">{categories.length}</div>
+                <div className="text-2xl font-semibold text-slate-900 mt-1 tabular-nums">
+                  {categories.length}
+                </div>
               </div>
-              <div className="w-10 h-10 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center text-xl">
-                <TagsOutlined />
+              <TagsOutlined className="text-slate-300 text-2xl" />
+            </div>
+          </Card>
+        </Col>
+
+        <Col xs={24} sm={12} md={6}>
+          <Card size="small" className="border-slate-200/80 shadow-none">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-xs text-slate-500 font-medium">Đơn vị đo lường</div>
+                <div className="text-2xl font-semibold text-slate-900 mt-1 tabular-nums">
+                  {uoms.length}
+                </div>
               </div>
+              <span className="text-slate-300 text-xl font-bold">UoM</span>
+            </div>
+          </Card>
+        </Col>
+
+        <Col xs={24} sm={12} md={6}>
+          <Card size="small" className="border-slate-200/80 shadow-none">
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-xs text-slate-500 font-medium">Phân trang hiển thị</div>
+                <div className="text-2xl font-semibold text-slate-900 mt-1 tabular-nums">
+                  {page + 1} <span className="text-sm font-normal text-slate-400">/ {totalPages}</span>
+                </div>
+              </div>
+              <span className="text-xs text-slate-400">
+                {products.length} mục
+              </span>
             </div>
           </Card>
         </Col>

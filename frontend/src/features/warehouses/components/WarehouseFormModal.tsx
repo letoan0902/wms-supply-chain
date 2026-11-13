@@ -67,7 +67,7 @@ export default function WarehouseFormModal({
       >
         <Form.Item
           name="code"
-          label="Mã kho (Warehouse Code)"
+          label="Mã kho"
           rules={[
             { required: !isEditing, message: 'Vui lòng nhập mã kho' },
             {
@@ -81,7 +81,7 @@ export default function WarehouseFormModal({
           <Input
             placeholder="vd: WH-HCM-01"
             disabled={isEditing}
-            className="uppercase font-mono"
+            className="uppercase"
           />
         </Form.Item>
 
@@ -125,7 +125,7 @@ export default function WarehouseFormModal({
         <div className="grid grid-cols-2 gap-4 items-center">
           <Form.Item
             name="capacity"
-            label="Sức chứa thiết kế (Vị trí / Pallet)"
+            label="Sức chứa thiết kế (Vị trí)"
             rules={[{ required: true, message: 'Vui lòng nhập sức chứa kho' }]}
           >
             <InputNumber min={0} className="w-full" placeholder="500" />

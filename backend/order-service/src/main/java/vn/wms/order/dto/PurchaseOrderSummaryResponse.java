@@ -12,6 +12,8 @@ public record PurchaseOrderSummaryResponse(
         long approvedOrders,
         long rejectedOrders,
         long cancelledOrders,
+        long partiallyReceivedOrders,
+        long completedOrders,
         BigDecimal totalApprovedAmount
 ) {
 }

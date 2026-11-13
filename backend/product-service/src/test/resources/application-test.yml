@@ -2,6 +2,15 @@
 # Import Config Server đã bị bỏ qua ở profile test (xem application.yml); đặt thêm spring.cloud.config.enabled=false
 # để Spring Cloud không đòi spring.config.import.
 spring:
+  # Khi bộ Docker của nhóm đang chạy ở máy (RabbitMQ cổng 5672, Redis cổng 6379 trên localhost), test không được ghi
+  # vào dữ liệu của hệ thống đó: Redis dùng database 15 thay cho database 0 của ứng dụng, RabbitMQ dùng một virtual
+  # host không tồn tại nên broker từ chối kết nối ngay và sự kiện của test không tới được các service đang chạy.
+  # Không trỏ sang cổng đóng: trên Windows mỗi lần nối vào cổng đóng của localhost mất khoảng 4 giây (đo ngày 12/11/2026).
+  data:
+    redis:
+      database: 15
+  rabbitmq:
+    virtual-host: wms-test-khong-ton-tai
   cloud:
     config:
       enabled: false
@@ -18,3 +27,13 @@ spring:
 eureka:
   client:
     enabled: false
+
+app:
+  # Test không có Redis: tắt kiểm tra giới hạn gói (WMS-23.2); test riêng bật lại với Redis giả lập.
+  plan-limit:
+    enabled: false
+  # Như môi trường phát triển: bắt buộc có doanh nghiệp, request không mang X-Company-Id thuộc doanh nghiệp 1.
+  # Test cách ly đặt lại default-company-id rỗng để kiểm tra trường hợp thiếu doanh nghiệp.
+  tenant:
+    required: true
+    default-company-id: 1

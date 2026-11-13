@@ -1,4 +1,4 @@
-import { Form, Input, Modal, Select, Switch, Typography } from 'antd'
+import { Form, Input, Modal, Select, Typography } from 'antd'
 import { useEffect } from 'react'
 import {
   ROLE_CONFIG,
@@ -37,12 +37,10 @@ export default function UserFormModal({
           email: editingUser.email,
           roles: editingUser.roles,
           warehouseIds: editingUser.warehouseIds || [],
-          enabled: editingUser.enabled,
         })
       } else {
         form.resetFields()
         form.setFieldsValue({
-          enabled: true,
           roles: ['WAREHOUSE_STAFF'],
           warehouseIds: [],
         })
@@ -61,7 +59,7 @@ export default function UserFormModal({
 
   return (
     <Modal
-      title={isEdit ? 'Chỉnh sửa tài khoản người dùng' : 'Tạo mới tài khoản người dùng'}
+      title={isEdit ? 'Chỉnh sửa tài khoản' : 'Tạo mới tài khoản'}
       open={open}
       onOk={handleOk}
       onCancel={onCancel}
@@ -69,9 +67,17 @@ export default function UserFormModal({
       okText={isEdit ? 'Lưu thay đổi' : 'Tạo tài khoản'}
       cancelText="Hủy"
       width={560}
+      style={{ top: 30 }}
+      styles={{
+        body: {
+          maxHeight: 'calc(100vh - 120px)',
+          overflowY: 'auto',
+          paddingRight: 6,
+        },
+      }}
       destroyOnClose
     >
-      <Form form={form} layout="vertical" className="mt-4">
+      <Form form={form} layout="vertical" className="mt-1">
         {/* Username */}
         <Form.Item
           label="Tên đăng nhập (Username)"
@@ -93,7 +99,7 @@ export default function UserFormModal({
           }
         >
           <Input
-            placeholder="VD: toanlp, staff_hn01..."
+            placeholder="VD: manager, staff_hn01..."
             disabled={isEdit}
             autoComplete="off"
           />
@@ -157,7 +163,7 @@ export default function UserFormModal({
           name="warehouseIds"
           extra={
             <Typography.Text type="secondary" className="text-xs">
-              Áp dụng cho Quản lý & Nhân viên kho. Người dùng chỉ xem và thao tác trên dữ liệu thuộc các kho này. Để trống nếu là Admin toàn cục.
+              Áp dụng cho Quản lý & Nhân viên kho
             </Typography.Text>
           }
         >
@@ -173,16 +179,7 @@ export default function UserFormModal({
         </Form.Item>
 
         {/* Status */}
-        <Form.Item
-          label="Trạng thái tài khoản"
-          name="enabled"
-          valuePropName="checked"
-        >
-          <Switch
-            checkedChildren="Hoạt động"
-            unCheckedChildren="Tạm khóa"
-          />
-        </Form.Item>
+
       </Form>
     </Modal>
   )

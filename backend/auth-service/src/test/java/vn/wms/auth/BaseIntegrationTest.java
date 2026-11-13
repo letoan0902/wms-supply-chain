@@ -2,25 +2,42 @@ package vn.wms.auth;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.junit.jupiter.api.BeforeEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.data.redis.core.HashOperations;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import vn.wms.auth.company.entity.Company;
+import vn.wms.auth.company.repository.CompanyRepository;
 import vn.wms.auth.entity.Role;
 import vn.wms.auth.entity.User;
 import vn.wms.auth.repository.RoleRepository;
 import vn.wms.auth.repository.UserRepository;
 import vn.wms.auth.security.JwtService;
+import vn.wms.auth.subscription.entity.Plan;
+import vn.wms.auth.subscription.repository.PlanRepository;
 import vn.wms.common.constant.Roles;
+import vn.wms.common.messaging.WmsEventPublisher;
+import vn.wms.common.messaging.event.AccountEmailKind;
+import vn.wms.common.messaging.event.AccountEmailRequestedEvent;
+import vn.wms.common.tenant.TenantContext;
 
+import java.math.BigDecimal;
+import java.time.Duration;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -28,17 +45,25 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.when;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
  * Lớp cấu hình tích hợp dùng chung cho các bộ kiểm thử của auth-service:
- * Thiết lập SpringBootTest, MockMvc, Mock Redis và dữ liệu khởi tạo (Roles, Admin, Staff, Manager).
+ * Thiết lập SpringBootTest, MockMvc, Mock Redis và dữ liệu khởi tạo (Roles, hai doanh nghiệp mẫu,
+ * Admin, Staff, Manager thuộc Công ty mẫu A và admin_b thuộc Công ty mẫu B).
+ *
+ * <p>Test chạy H2 và không chạy Flyway nên phải tự tạo hai doanh nghiệp (id 1 và 2, giống migration V4)
+ * trước khi tạo tài khoản.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
 @ActiveProfiles("test")
 public abstract class BaseIntegrationTest {
+
+    /** Mật khẩu của các tài khoản seed trong test (chỉ dùng cho H2 trong bộ nhớ). */
+    protected static final String DEFAULT_PASSWORD = "Demopassword";
 
     @Autowired
     protected MockMvc mockMvc;
@@ -56,21 +81,96 @@ public abstract class BaseIntegrationTest {
     protected RoleRepository roleRepository;
 
     @Autowired
+    protected PlanRepository planRepository;
+
+    @Autowired
     protected PasswordEncoder passwordEncoder;
+
+    @Autowired
+    protected CompanyRepository companyRepository;
+
+    @Autowired
+    protected JdbcTemplate jdbcTemplate;
+
+    @PersistenceContext
+    protected EntityManager entityManager;
+
+    /** Công ty mẫu A (id = 1): admin, staff, manager. */
+    protected Company companyA;
+
+    /** Công ty mẫu B (id = 2): admin_b. */
+    protected Company companyB;
 
     @MockBean(name = "redisTemplate")
     protected RedisTemplate<String, String> redisTemplate;
 
+    /**
+     * {@code PlanLimitChecker} của module common dùng {@link StringRedisTemplate}; giả lập dùng chung hai đối tượng
+     * thao tác bên dưới để bên ghi (auth-service) và bên đọc (checker) nhìn thấy cùng một dữ liệu.
+     */
+    @MockBean
+    protected StringRedisTemplate stringRedisTemplate;
+
     @MockBean
     protected ValueOperations<String, String> valueOperations;
 
+    @MockBean
+    protected HashOperations<String, Object, Object> hashOperations;
+
+    /**
+     * auth-service phát sự kiện yêu cầu gửi email tài khoản (WMS-23.6) qua {@link WmsEventPublisher}; test không có
+     * broker nên giả lập và ghi lại từng sự kiện kèm doanh nghiệp trong ngữ cảnh lúc phát (giống header
+     * {@code x-wms-company-id} mà bean thật gắn).
+     */
+    @MockBean
+    protected WmsEventPublisher eventPublisher;
+
+    /** Sự kiện đã phát trong test hiện tại. */
+    protected final List<PublishedEvent> publishedEvents = new ArrayList<>();
+
+    /** Một sự kiện đã phát: routing key, payload và doanh nghiệp gắn vào header. */
+    protected record PublishedEvent(String routingKey, Object payload, Long companyId) {
+    }
+
     protected final Map<String, String> mockRedisStore = new HashMap<>();
+    protected final Map<String, Map<String, String>> mockRedisHashMap = new HashMap<>();
 
     @BeforeEach
     void setUp() {
         mockRedisStore.clear();
+        mockRedisHashMap.clear();
+        publishedEvents.clear();
+
+        doAnswer(invocation -> {
+            publishedEvents.add(new PublishedEvent(invocation.getArgument(0), invocation.getArgument(1),
+                    TenantContext.getCompanyId()));
+            return null;
+        }).when(eventPublisher).publishAfterCommit(anyString(), any());
 
         when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(redisTemplate.opsForHash()).thenReturn(hashOperations);
+        when(stringRedisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(stringRedisTemplate.opsForHash()).thenReturn(hashOperations);
+
+        doAnswer(invocation -> {
+            String key = invocation.getArgument(0);
+            Map<String, String> m = invocation.getArgument(1);
+            mockRedisHashMap.computeIfAbsent(key, k -> new HashMap<>()).putAll(m);
+            return null;
+        }).when(hashOperations).putAll(anyString(), any());
+
+        doAnswer(invocation -> {
+            String key = invocation.getArgument(0);
+            mockRedisHashMap.computeIfAbsent(key, k -> new HashMap<>())
+                    .put(String.valueOf(invocation.getArgument(1, Object.class)),
+                            String.valueOf(invocation.getArgument(2, Object.class)));
+            return null;
+        }).when(hashOperations).put(anyString(), any(), any());
+
+        when(hashOperations.entries(anyString())).thenAnswer(invocation -> {
+            String key = invocation.getArgument(0);
+            return mockRedisHashMap.getOrDefault(key, Map.of());
+        });
 
         when(redisTemplate.hasKey(anyString())).thenAnswer(invocation -> {
             String key = invocation.getArgument(0);
@@ -94,6 +194,12 @@ public abstract class BaseIntegrationTest {
             return null;
         }).when(valueOperations).set(anyString(), anyString(), any());
 
+        // SET NX có hạn (giới hạn gửi lại email, WMS-23.6): bộ nhớ giả lập không tự hết hạn, test tự xóa khóa
+        when(valueOperations.setIfAbsent(anyString(), anyString(), any(Duration.class))).thenAnswer(invocation -> {
+            String key = invocation.getArgument(0);
+            return mockRedisStore.putIfAbsent(key, invocation.getArgument(1)) == null;
+        });
+
         when(valueOperations.increment(anyString())).thenAnswer(invocation -> {
             String key = invocation.getArgument(0);
             String current = mockRedisStore.get(key);
@@ -101,6 +207,32 @@ public abstract class BaseIntegrationTest {
             mockRedisStore.put(key, String.valueOf(count));
             return count;
         });
+
+        // Khởi tạo các gói dịch vụ chuẩn nếu chưa có
+        if (planRepository.findById("FREE").isEmpty()) {
+            planRepository.save(Plan.builder()
+                    .code("FREE").name("Khởi Đầu")
+                    .priceMonthly(BigDecimal.ZERO).priceYearly(BigDecimal.ZERO)
+                    .maxUsers(3).maxWarehouses(1).maxSkus(200).maxAiRequests(20)
+                    .apiAccess(false).trialDays(0)
+                    .build());
+        }
+        if (planRepository.findById("TRIAL").isEmpty()) {
+            planRepository.save(Plan.builder()
+                    .code("TRIAL").name("Dùng thử")
+                    .priceMonthly(BigDecimal.ZERO).priceYearly(BigDecimal.ZERO)
+                    .maxUsers(50).maxWarehouses(20).maxSkus(-1).maxAiRequests(500)
+                    .apiAccess(true).trialDays(30)
+                    .build());
+        }
+        if (planRepository.findById("PRO").isEmpty()) {
+            planRepository.save(Plan.builder()
+                    .code("PRO").name("Chuyên Nghiệp")
+                    .priceMonthly(new BigDecimal("499000.00")).priceYearly(new BigDecimal("4790000.00"))
+                    .maxUsers(50).maxWarehouses(20).maxSkus(-1).maxAiRequests(500)
+                    .apiAccess(true).trialDays(0)
+                    .build());
+        }
 
         // Khởi tạo các vai trò chuẩn của hệ thống
         for (String roleName : Roles.ALL) {
@@ -112,16 +244,22 @@ public abstract class BaseIntegrationTest {
             }
         }
 
+        // Hai doanh nghiệp mẫu với ID cố định như migration V4; MERGE đưa trạng thái về ACTIVE mỗi lần chạy
+        companyA = upsertCompany(1L, "CTY000001", "Công ty mẫu A");
+        companyB = upsertCompany(2L, "CTY000002", "Công ty mẫu B");
+        jdbcTemplate.execute("ALTER TABLE companies ALTER COLUMN id RESTART WITH (SELECT COALESCE(MAX(id), 0) + 1 FROM companies)");
+
         // Seed tài khoản admin
         if (userRepository.findByUsername("admin").isEmpty()) {
             User admin = new User();
             admin.setUsername("admin");
             admin.setEmail("admin@wms.vn");
-            admin.setPasswordHash(passwordEncoder.encode("Demopassword"));
+            admin.setPasswordHash(passwordEncoder.encode(DEFAULT_PASSWORD));
             admin.setFullName("Admin User");
             admin.setEnabled(true);
             admin.setRoles(new java.util.HashSet<>(Set.of(roleRepository.findByName(Roles.ADMIN).orElseThrow())));
             admin.setWarehouseIds(new java.util.HashSet<>(Set.of(1L, 2L)));
+            admin.setCompany(companyA);
             userRepository.save(admin);
         }
 
@@ -130,11 +268,12 @@ public abstract class BaseIntegrationTest {
             User staff = new User();
             staff.setUsername("staff");
             staff.setEmail("staff@wms.vn");
-            staff.setPasswordHash(passwordEncoder.encode("Demopassword"));
+            staff.setPasswordHash(passwordEncoder.encode(DEFAULT_PASSWORD));
             staff.setFullName("Staff User");
             staff.setEnabled(true);
             staff.setRoles(new java.util.HashSet<>(Set.of(roleRepository.findByName(Roles.WAREHOUSE_STAFF).orElseThrow())));
             staff.setWarehouseIds(new java.util.HashSet<>(Set.of(1L)));
+            staff.setCompany(companyA);
             userRepository.save(staff);
         }
 
@@ -143,13 +282,76 @@ public abstract class BaseIntegrationTest {
             User manager = new User();
             manager.setUsername("manager");
             manager.setEmail("manager@wms.vn");
-            manager.setPasswordHash(passwordEncoder.encode("Demopassword"));
+            manager.setPasswordHash(passwordEncoder.encode(DEFAULT_PASSWORD));
             manager.setFullName("Manager User");
             manager.setEnabled(true);
             manager.setRoles(new java.util.HashSet<>(Set.of(roleRepository.findByName(Roles.WAREHOUSE_MANAGER).orElseThrow())));
             manager.setWarehouseIds(new java.util.HashSet<>(Set.of(1L, 2L)));
+            manager.setCompany(companyA);
             userRepository.save(manager);
         }
+
+        // Seed tài khoản admin_b của Công ty mẫu B
+        if (userRepository.findByUsername("admin_b").isEmpty()) {
+            User adminB = new User();
+            adminB.setUsername("admin_b");
+            adminB.setEmail("admin_b@wms.local");
+            adminB.setPasswordHash(passwordEncoder.encode(DEFAULT_PASSWORD));
+            adminB.setFullName("Admin Company B");
+            adminB.setEnabled(true);
+            adminB.setRoles(new java.util.HashSet<>(Set.of(roleRepository.findByName(Roles.ADMIN).orElseThrow())));
+            adminB.setWarehouseIds(new java.util.HashSet<>(Set.of(3L)));
+            adminB.setCompany(companyB);
+            userRepository.save(adminB);
+        }
+    }
+
+    private Company upsertCompany(Long id, String code, String name) {
+        jdbcTemplate.update("MERGE INTO companies (id, code, name, status, created_at, updated_at, created_by, updated_by) "
+                + "KEY (id) VALUES (?, ?, ?, 'ACTIVE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'system', 'system')",
+                id, code, name);
+        return companyRepository.findById(id).orElseThrow();
+    }
+
+    /** Đổi trạng thái doanh nghiệp trực tiếp trong cơ sở dữ liệu (giống thao tác tay của tiêu chí nghiệm thu 4). */
+    protected void setCompanyStatus(Long companyId, String status) {
+        entityManager.flush();
+        jdbcTemplate.update("UPDATE companies SET status = ? WHERE id = ?", status, companyId);
+        // Bỏ bản sao Company trong bộ nhớ đệm của Hibernate để lần đọc sau lấy trạng thái mới từ cơ sở dữ liệu
+        entityManager.clear();
+    }
+
+    /** Các yêu cầu gửi email tài khoản loại {@code kind} tới {@code email}, theo thứ tự phát. */
+    protected List<AccountEmailRequestedEvent> accountEmailsTo(String email, AccountEmailKind kind) {
+        return publishedEvents.stream()
+                .map(PublishedEvent::payload)
+                .filter(AccountEmailRequestedEvent.class::isInstance)
+                .map(AccountEmailRequestedEvent.class::cast)
+                .filter(event -> event.kind() == kind && event.recipientEmail().equalsIgnoreCase(email))
+                .toList();
+    }
+
+    /** Mã trong liên kết của email loại {@code kind} gửi gần nhất tới {@code email}. */
+    protected String latestTokenSentTo(String email, AccountEmailKind kind) {
+        List<AccountEmailRequestedEvent> emails = accountEmailsTo(email, kind);
+        if (emails.isEmpty()) {
+            throw new AssertionError("Không có email " + kind + " nào gửi tới " + email);
+        }
+        String link = emails.get(emails.size() - 1).link();
+        return link.substring(link.indexOf("token=") + "token=".length());
+    }
+
+    /**
+     * Doanh nghiệp vừa đăng ký ở trạng thái PENDING (WMS-23.6): bấm liên kết kích hoạt trong email gửi tới
+     * {@code email} như người dùng thật, sau đó đăng nhập được.
+     */
+    protected void activateCompanyByEmail(String email) throws Exception {
+        mockMvc.perform(post("/api/auth/companies/activate")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(
+                                Map.of("token", latestTokenSentTo(email, AccountEmailKind.ACTIVATION)))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("ACTIVE"));
     }
 
     protected String loginJson(String username, String password) throws Exception {

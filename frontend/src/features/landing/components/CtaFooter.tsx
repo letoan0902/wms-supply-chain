@@ -1,7 +1,7 @@
 import {
   ArrowRightOutlined,
-  GithubOutlined,
-  TeamOutlined,
+  // GithubOutlined,
+  // TeamOutlined,
   ThunderboltOutlined,
 } from '@ant-design/icons'
 import { Button } from 'antd'
@@ -29,7 +29,7 @@ export default function CtaFooter({ onScrollTo }: CtaFooterProps) {
             dễ dàng gia hạn linh hoạt bằng quét mã VietQR PayOS.
           </p>
           <div className="mt-8 flex flex-col sm:flex-row items-center justify-center gap-4">
-            <Link to="/login" className="w-full sm:w-auto">
+            <Link to="/register" className="w-full sm:w-auto">
               <Button
                 type="primary"
                 size="large"
@@ -73,11 +73,11 @@ export default function CtaFooter({ onScrollTo }: CtaFooterProps) {
               dữ liệu tự động và thanh toán bảo mật PayOS.
             </p>
             <div className="mt-4 space-y-1.5 text-xs text-slate-400">
-              <div className="flex items-center gap-2">
+              {/* <div className="flex items-center gap-2">
                 <TeamOutlined className="text-blue-400" />
                 <span>Đồ án cuối môn của Nhóm 3</span>
-              </div>
-              <div className="flex items-center gap-2">
+              </div> */}
+              {/* <div className="flex items-center gap-2">
                 <GithubOutlined className="text-blue-400" />
                 <a
                   href="https://github.com/letoan0902/wms-supply-chain"
@@ -87,7 +87,7 @@ export default function CtaFooter({ onScrollTo }: CtaFooterProps) {
                 >
                   github.com/letoan0902/wms-supply-chain
                 </a>
-              </div>
+              </div> */}
             </div>
           </div>
 
@@ -185,6 +185,11 @@ export default function CtaFooter({ onScrollTo }: CtaFooterProps) {
                 </Link>
               </li>
               <li>
+                <Link to="/register" className="text-slate-400 hover:text-white transition-colors">
+                  Đăng ký doanh nghiệp
+                </Link>
+              </li>
+              <li>
                 <Link to="/forgot-password" className="text-slate-400 hover:text-white transition-colors">
                   Khôi phục mật khẩu
                 </Link>
@@ -209,4 +214,3 @@ export default function CtaFooter({ onScrollTo }: CtaFooterProps) {
     </footer>
   )
 }
-

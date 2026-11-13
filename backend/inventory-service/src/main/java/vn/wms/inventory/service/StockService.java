@@ -2,11 +2,13 @@ package vn.wms.inventory.service;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import vn.wms.inventory.cache.WarehouseStockFigures;
 import vn.wms.inventory.dto.BatchAtpResponse;
 import vn.wms.inventory.dto.StockAtpResponse;
 import vn.wms.inventory.repository.StockItemRepository;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -15,6 +17,10 @@ import java.util.Map;
 /**
  * Service quản lý tồn kho và tính toán Tồn khả dụng (ATP - Available To Promise) (FR15 - WMS-11.1).
  * Công thức: ATP = OnHand - Reserved
+ * Lô hàng bị khóa hoặc đã hết hạn sử dụng (expDate <= hôm nay) tự động bị loại khỏi phép tính ATP.
+ *
+ * <p>Các phương thức ở đây luôn đọc cơ sở dữ liệu. Nghiệp vụ cần quyết định theo tồn (lập, duyệt điều chuyển) gọi
+ * thẳng lớp này; API chỉ đọc dùng {@link StockReadService} có bộ nhớ đệm Redis (WMS-19.1).
  */
 @Service
 public class StockService {
@@ -34,11 +40,12 @@ public class StockService {
             return StockAtpResponse.of(null, warehouseId, BigDecimal.ZERO, BigDecimal.ZERO);
         }
 
+        LocalDate today = LocalDate.now();
         List<Object[]> results;
         if (warehouseId != null) {
-            results = stockItemRepository.getStockTotalsByProductIdAndWarehouseId(productId, warehouseId);
+            results = stockItemRepository.getStockTotalsByProductIdAndWarehouseId(productId, warehouseId, today);
         } else {
-            results = stockItemRepository.getStockTotalsByProductId(productId);
+            results = stockItemRepository.getStockTotalsByProductId(productId, today);
         }
 
         if (results == null || results.isEmpty() || results.get(0) == null) {
@@ -66,11 +73,12 @@ public class StockService {
             return new BatchAtpResponse(warehouseId, List.of());
         }
 
+        LocalDate today = LocalDate.now();
         List<Object[]> rawStats;
         if (warehouseId != null) {
-            rawStats = stockItemRepository.getBatchStockTotalsByProductIdsAndWarehouseId(distinctIds, warehouseId);
+            rawStats = stockItemRepository.getBatchStockTotalsByProductIdsAndWarehouseId(distinctIds, warehouseId, today);
         } else {
-            rawStats = stockItemRepository.getBatchStockTotalsByProductIds(distinctIds);
+            rawStats = stockItemRepository.getBatchStockTotalsByProductIds(distinctIds, today);
         }
 
         Map<Long, Object[]> statsMap = new HashMap<>();
@@ -89,5 +97,22 @@ public class StockService {
         }
 
         return new BatchAtpResponse(warehouseId, items);
+    }
+
+    /**
+     * Số tồn tổng hợp của một kho ({@code warehouseId = null}: mọi kho) cho KPI: tồn khả dụng, tổng tồn thực tế,
+     * số ô đang chứa hàng. Đọc thẳng cơ sở dữ liệu; API đọc đi qua {@link StockReadService} để dùng bộ nhớ đệm.
+     */
+    @Transactional(readOnly = true)
+    public WarehouseStockFigures warehouseStockFigures(Long warehouseId) {
+        LocalDate today = LocalDate.now();
+        BigDecimal availableQuantity = stockItemRepository.sumAvailableQuantity(warehouseId, today);
+        BigDecimal totalQuantity = warehouseId != null
+                ? stockItemRepository.sumQuantityByWarehouseId(warehouseId)
+                : stockItemRepository.sumTotalQuantity();
+        long occupiedLocations = warehouseId != null
+                ? stockItemRepository.countOccupiedLocationsByWarehouseId(warehouseId)
+                : stockItemRepository.countTotalOccupiedLocations();
+        return new WarehouseStockFigures(availableQuantity, totalQuantity, occupiedLocations);
     }
 }

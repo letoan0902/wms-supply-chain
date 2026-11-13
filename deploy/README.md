@@ -31,6 +31,7 @@ Các bản cập nhật về sau chỉ cần chạy lại `deploy/deploy.sh`.
                                 |  định tuyến qua Eureka
                                 v
      auth / product / inventory / order / notification  ->  MySQL, Redis, RabbitMQ
+     ai  ->  Redis; gọi Claude (api.anthropic.com) khi đã có khóa AI
 ```
 
 Chỉ cổng 22 (SSH), 80 và 443 nhận kết nối từ Internet. Mọi cổng còn lại (api-gateway 8080, MySQL, Redis, RabbitMQ, Eureka,
@@ -205,8 +206,13 @@ nano .env     # điền ACME_EMAIL, kiểm tra DOMAIN và CORS_ALLOWED_ORIGINS
 | `JWT_SECRET` | Có | Khóa ký JWT, tối thiểu 32 ký tự, dùng chung cho api-gateway và auth-service |
 | `CORS_ALLOWED_ORIGINS` | Không (mặc định `https://<DOMAIN>`) | Origin của giao diện. Sai giá trị thì đăng nhập bị gateway từ chối (403) |
 | `GATEWAY_JWT_ENABLED` | Không (mặc định `true`) | Gateway bắt buộc Bearer token hợp lệ cho mọi API trừ `/api/auth/login` |
+| `SECURITY_ALLOW_ANONYMOUS` | Không (mặc định `false` trên máy chủ) | product, inventory, order, notification, ai: `false` thì request không có danh tính do gateway gắn nhận 401 ngay tại service. Đặt `GATEWAY_JWT_ENABLED=false` để chẩn đoán thì mọi API nghiệp vụ cũng trả 401 trừ khi đặt tạm biến này `true`; xem [docs/SECURITY.md](../docs/SECURITY.md) |
 | `RATE_LIMIT_ENABLED`, `RATE_LIMIT_REPLENISH_RATE`, `RATE_LIMIT_BURST_CAPACITY` | Không | Giới hạn tốc độ tại gateway (mặc định bật, 20 request/giây, bùng nổ tối đa 40) |
-| `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD` | Không | SMTP gửi email cảnh báo tồn kho |
+| `GATEWAY_API_KEY_ENABLED`, `API_KEY_RATE_LIMIT_PER_SECOND` | Không | API key cho hệ thống ngoài qua header `X-Api-Key` (mặc định bật, mỗi key tối đa 20 request/giây, vượt thì 429); xem docs/SAAS_SPEC.md mục WMS-25.1 |
+| `STOCK_CACHE_ENABLED`, `STOCK_CACHE_TTL` | Không (mặc định `true`, `60s`) | Bộ nhớ đệm Redis cho tổng tồn và tồn khả dụng của inventory-service; số bị xóa ngay sau mỗi thay đổi tồn, TTL chỉ là lưới an toàn. Redis lỗi thì đọc thẳng cơ sở dữ liệu. Xem [docs/PERFORMANCE.md](../docs/PERFORMANCE.md) |
+| `SWAGGER_ENABLED` | Không (mặc định `false` trên máy chủ) | Tài liệu OpenAPI tổng hợp tại gateway (`/swagger-ui.html`, `/v3/api-docs/*`). Máy chủ mặc định tắt (trả 404). Bật tạm: thêm `SWAGGER_ENABLED=true` vào `.env` rồi `docker compose up -d api-gateway`, xem xong đặt lại `false` và chạy lại lệnh đó. Phát triển: mặc định bật |
+| `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM` | Không | SMTP gửi email cảnh báo tồn kho (hàng cận hạn, hết hạn, tồn thấp) tới quản lý kho và admin của doanh nghiệp. `MAIL_HOST` rỗng: service vẫn chạy, email không gửi mà tiêu đề, số người nhận và nội dung được ghi vào log của `notification-service` (`docker compose logs notification-service`), nhật ký có trạng thái `LOGGED`. `MAIL_PORT` rỗng là 587 (tự bật STARTTLS khi có tài khoản, 465 thì SSL). `MAIL_FROM` rỗng thì dùng `MAIL_USERNAME`. Với Gmail, `MAIL_PASSWORD` là Mật khẩu ứng dụng |
+| `ALERT_SCAN_ENABLED`, `ALERT_SCAN_CRON`, `ALERT_NEAR_EXPIRY_DAYS`, `ALERT_DEAD_STOCK_DAYS`, `ALERT_EMAIL_KINDS` | Không | Tác vụ quét cảnh báo tồn kho của inventory-service (mặc định bật, `0 0 0 * * *` giờ Việt Nam, 30 ngày, 90 ngày, `LOW_STOCK,NEAR_EXPIRY,EXPIRED`). Compose không truyền sẵn, muốn đổi thì thêm vào khối `environment` của inventory-service. Chi tiết ở mục 10 của [docs/MESSAGING.md](../docs/MESSAGING.md) |
 | `RABBITMQ_USERNAME`, `RABBITMQ_PASSWORD` | Nên đặt | Tài khoản RabbitMQ riêng cho các service và container `rabbitmq-init` (không dùng `guest`). Volume mới: broker tự tạo tài khoản này. Volume đã có dữ liệu: tạo trước bằng `rabbitmqctl` theo mục 6 của [docs/MESSAGING.md](../docs/MESSAGING.md) rồi mới ghi vào `.env` |
 | `COMPOSE_PATH_SEPARATOR`, `COMPOSE_FILE` | Nên giữ | Để lệnh `docker compose` trong thư mục này tự dùng cả hai file compose |
 
@@ -343,6 +349,82 @@ ssh -L 8761:127.0.0.1:8761 -L 15672:127.0.0.1:15672 root@wms.toanmarket.me
 ```
 
 Sau đó mở `http://localhost:8761` (Eureka) và `http://localhost:15672` (RabbitMQ, tài khoản `guest`/`guest`) trên máy cá nhân.
+
+### 8.3. Thanh toán PayOS
+
+Mặc định máy chủ chạy thanh toán giả lập (`PAYOS_MOCK=true`): nút thanh toán dẫn tới trang `/payment/mock` của hệ thống,
+không có tiền thật. Chuyển sang PayOS thật:
+
+1. Lấy ba khóa của kênh thanh toán ở my.payos.vn: Client ID, API Key, Checksum Key.
+2. Điền vào `.env` trên máy chủ (quyền `600`, không commit, không gửi qua chat), giữ `PAYOS_MOCK=true` ở bước này:
+
+   ```bash
+   PAYOS_CLIENT_ID=<client-id>
+   PAYOS_API_KEY=<api-key>
+   PAYOS_CHECKSUM_KEY=<checksum-key>
+   # Không bắt buộc, để trống thì dùng https://<DOMAIN>/payment/result
+   PAYOS_RETURN_URL=
+   PAYOS_CANCEL_URL=
+   ```
+
+3. Chạy `deploy/deploy.sh` (hoặc `docker compose up -d auth-service`) để auth-service nhận checksum key. Webhook kiểm tra
+   chữ ký bằng khóa này ngay cả khi còn giả lập, nên phải có khóa trước khi đăng ký webhook ở bước 4.
+4. Đăng ký địa chỉ webhook với PayOS. PayOS gửi thử một webhook mẫu (mã đơn `123`), auth-service trả `200` nếu chữ ký đúng:
+
+   ```bash
+   curl -sS -X POST https://api-merchant.payos.vn/confirm-webhook \
+     -H "x-client-id: <client-id>" \
+     -H "x-api-key: <api-key>" \
+     -H "Content-Type: application/json" \
+     -d '{"webhookUrl":"https://<DOMAIN>/api/auth/payments/payos/webhook"}'
+   ```
+
+   Gõ khóa trực tiếp vào lệnh sẽ lưu khóa trong lịch sử shell; có thể đọc từ `.env` thay vì gõ:
+   `set -a; . ./.env; set +a` rồi dùng `-H "x-client-id: $PAYOS_CLIENT_ID" -H "x-api-key: $PAYOS_API_KEY"`.
+   Phản hồi có `"code":"00"` là đăng ký thành công. Cũng có thể nhập địa chỉ webhook trong trang quản lý kênh ở my.payos.vn.
+5. Đặt `PAYOS_MOCK=false` trong `.env`, chạy lại `deploy/deploy.sh`. Log auth-service không còn dòng "PayOS chạy ở chế độ giả lập".
+6. Thử một giao dịch nhỏ: trang gói dịch vụ, chọn gói Chuyên Nghiệp, thanh toán, quay về thấy gói đã kích hoạt.
+
+Khi `PAYOS_MOCK=false` mà thiếu khóa, tạo thanh toán trả `503 SERVICE_UNAVAILABLE`. Webhook sai chữ ký trả `400 PAYMENT_INVALID`
+và được ghi log cảnh báo (không chứa khóa hay chữ ký): `docker compose logs auth-service | grep "webhook PayOS"`.
+
+### 8.4. Khóa AI
+
+ai-service (cổng 8086, WMS-24.1) mặc định chạy giả lập (`AI_MOCK=true`): trả câu trả lời mẫu, không gọi Claude, vẫn tính
+lượt AI để thử giới hạn gói. Chuyển sang Claude thật:
+
+1. Tech lead tạo khóa API trên Claude Console. Chỉ điền vào `.env` trên máy chủ (quyền `600`), không commit, không gửi qua
+   chat, không đặt ở máy cá nhân của thành viên khác:
+
+   ```bash
+   ANTHROPIC_API_KEY=<khóa>
+   AI_MOCK=false
+   # Không bắt buộc: để trống thì dùng claude-sonnet-5-5 và mức suy nghĩ low
+   AI_MODEL=
+   AI_EFFORT=
+   ```
+
+2. Chạy `deploy/deploy.sh` (hoặc `docker compose up -d ai-service`). Log khởi động có dòng "ai-service gọi Claude thật";
+   kiểm tra nhanh trên máy chủ: `curl -s -H 'X-Company-Id: 1' http://127.0.0.1:8086/api/ai/health` trả `"mode":"LIVE"`.
+3. Hết khóa học: xóa dòng `ANTHROPIC_API_KEY` khỏi `.env`, đặt lại `AI_MOCK=true`, chạy lại `docker compose up -d ai-service`,
+   rồi thu hồi khóa trên Claude Console.
+
+Đặt `AI_MOCK=false` mà thiếu khóa thì ai-service ghi một dòng cảnh báo và tự chạy giả lập. Claude không trả lời trong 60 giây,
+khóa sai hoặc nhà cung cấp quá tải thì API trả `503 SERVICE_UNAVAILABLE` và lượt đó không bị tính. Log không chứa khóa,
+câu hỏi hay phản hồi thô: `docker compose logs ai-service | grep Claude`. Nếu mọi câu hỏi đều trả 503 và log có
+`BadRequestException`, thử đặt `AI_SERVER_FALLBACK=false` trong `.env` (tắt tham số `fallbacks` đang ở dạng beta).
+
+### 8.5. Email kích hoạt doanh nghiệp và đặt lại mật khẩu
+
+Từ WMS-23.6 doanh nghiệp mới đăng ký ở trạng thái chờ kích hoạt và chỉ đăng nhập được sau khi bấm liên kết trong email;
+quên mật khẩu cũng nhận liên kết qua email. Trên máy chủ cần:
+
+1. Cấu hình SMTP trong `.env` (`MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`). Chưa có tài khoản SMTP thì
+   notification-service không gửi mà ghi liên kết ra log: `docker compose logs notification-service | grep "liên kết"`.
+2. `APP_FRONTEND_URL` để trống thì liên kết trỏ về `https://<DOMAIN>`; `REGISTRATION_REQUIRE_ACTIVATION` để trống (luôn
+   bắt buộc kích hoạt). Chỉ máy phát triển không có mail mới đặt `REGISTRATION_REQUIRE_ACTIVATION=false`.
+
+Chi tiết API và sự kiện: [docs/SAAS_SPEC.md](../docs/SAAS_SPEC.md) mục WMS-23.6, [docs/MESSAGING.md](../docs/MESSAGING.md) mục 8.7.
 
 ## 9. Sao lưu và khôi phục MySQL
 

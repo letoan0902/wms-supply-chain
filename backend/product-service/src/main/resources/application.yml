@@ -25,6 +25,8 @@ spring:
       hibernate:
         jdbc:
           time_zone: UTC
+        # Nạp quan hệ lazy theo lô (một câu IN cho cả trang) thay vì một câu cho mỗi bản ghi (WMS-19.3, docs/PERFORMANCE.md)
+        default_batch_fetch_size: 50
   flyway:
     enabled: true
     locations: classpath:db/migration
@@ -68,6 +70,20 @@ springdoc:
     path: /swagger-ui.html
   api-docs:
     path: /v3/api-docs
+
+# Tách dữ liệu theo doanh nghiệp (docs/MULTI_TENANT.md, WMS-22.4b): danh mục, đơn vị tính, hàng hóa, quy đổi đơn vị
+# kế thừa TenantEntity. Request tới API nghiệp vụ không có X-Company-Id nhận 403 COMPANY_REQUIRED. Doanh nghiệp mặc
+# định chỉ đặt ở máy phát triển (docker-compose.yml đặt 1); trên máy chủ biến này để rỗng.
+app:
+  tenant:
+    required: true
+    default-company-id: ${TENANT_DEFAULT_COMPANY_ID:}
+  # Danh tính từ header của api-gateway (docs/SECURITY.md, WMS-20.3). true (máy phát triển, gateway tắt kiểm tra JWT):
+  # request không có X-User-Name được coi là nhà phát triển đủ vai trò. Máy chủ đặt SECURITY_ALLOW_ANONYMOUS=false
+  # (deploy/docker-compose.prod.yml): request thiếu danh tính nhận 401 ngay tại service.
+  security:
+    allow-anonymous-without-gateway: ${SECURITY_ALLOW_ANONYMOUS:true}
+
 ---
 # Nạp cấu hình tập trung từ Config Server. Tiền tố optional nghĩa là Config Server chưa chạy thì service vẫn
 # khởi động bằng cấu hình cục bộ ở trên. Tài liệu này bị bỏ qua khi chạy test (profile test) để test không gọi mạng.

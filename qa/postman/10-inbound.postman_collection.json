@@ -1,0 +1,4811 @@
+{
+  "info": {
+    "_postman_id": "e45883a7-09a8-4747-a57e-db35f1651929",
+    "name": "WMS QA 10 - Luồng mua và nhập kho (WMS-20.1)",
+    "description": "Doanh nghiệp A: đơn vị tính, danh mục, hàng hóa (một mặt hàng quản lý theo lô và hạn dùng), kho, khu, vị trí, nhà cung cấp, đơn mua và duyệt, phiếu nhập từng phần và nhập đủ theo lô, tồn và lô sau nhập (tồn thực tế, hàng đang về), hóa đơn mua, thanh toán, công nợ nhà cung cấp; nộp trùng phiếu nhập không cộng tồn hai lần; kiểm tra dữ liệu và quyền ở từng bước. Chạy sau 00-setup với cùng runId.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "TC-IN-00 Đăng nhập",
+      "description": "Đăng nhập lại các tài khoản của A tạo ở 00-setup.",
+      "item": [
+        {
+          "name": "TC-IN-00.1 Kiểm tra runId của lượt chạy",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "const fromEnv = String(pm.environment.get('runId') || '').trim();",
+                  "if (!fromEnv) {",
+                  "  qa.stop('Phải truyền runId của lượt chạy 00-setup (--env-var runId=...)',",
+                  "    'Thiếu runId: chạy lại với cùng runId đã dùng cho 00-setup, ví dụ --env-var runId=<giá trị>. Xem qa/README.md.');",
+                  "} else {",
+                  "  qa.ok(200, 'runId = ' + fromEnv + '; API danh sách gói trả lời');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/api/auth/plans",
+            "description": "runId có giá trị (cùng runId đã dùng cho 00-setup); API công khai trả 200",
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "TC-IN-00.2 Đăng nhập ADMIN của công ty A",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "pm.variables.set('loginUser', qa.user('A', 'ADMIN'));",
+                  "pm.variables.set('loginPass', qa.password());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(200, 'Đăng nhập ADMIN của A thành công');",
+                  "const d = qa.data() || {};",
+                  "qa.test('Kết quả đăng nhập có accessToken và vai trò ADMIN', () => {",
+                  "  pm.expect(d.accessToken, qa.brief()).to.be.a('string');",
+                  "  pm.expect(d.roles).to.include('ADMIN');",
+                  "});",
+                  "if (d.accessToken) qa.set('tok_A_ADMIN', d.accessToken);",
+                  "if (d.company && d.company.id) {",
+                  "  const known = qa.get('A_companyId');",
+                  "  if (known) qa.test('Token thuộc đúng doanh nghiệp A', () => pm.expect(String(d.company.id)).to.eql(String(known)));",
+                  "  else qa.set('A_companyId', d.company.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/login",
+            "description": "200, có accessToken; roles chứa ADMIN; company.id đúng doanh nghiệp A",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{loginUser}}\",\n  \"password\": \"{{loginPass}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "TC-IN-00.3 Đăng nhập WAREHOUSE_MANAGER của công ty A",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "pm.variables.set('loginUser', qa.user('A', 'WAREHOUSE_MANAGER'));",
+                  "pm.variables.set('loginPass', qa.password());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(200, 'Đăng nhập WAREHOUSE_MANAGER của A thành công');",
+                  "const d = qa.data() || {};",
+                  "qa.test('Kết quả đăng nhập có accessToken và vai trò WAREHOUSE_MANAGER', () => {",
+                  "  pm.expect(d.accessToken, qa.brief()).to.be.a('string');",
+                  "  pm.expect(d.roles).to.include('WAREHOUSE_MANAGER');",
+                  "});",
+                  "if (d.accessToken) qa.set('tok_A_MANAGER', d.accessToken);",
+                  "if (d.company && d.company.id) {",
+                  "  const known = qa.get('A_companyId');",
+                  "  if (known) qa.test('Token thuộc đúng doanh nghiệp A', () => pm.expect(String(d.company.id)).to.eql(String(known)));",
+                  "  else qa.set('A_companyId', d.company.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/login",
+            "description": "200, có accessToken; roles chứa WAREHOUSE_MANAGER; company.id đúng doanh nghiệp A",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{loginUser}}\",\n  \"password\": \"{{loginPass}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "TC-IN-00.4 Đăng nhập WAREHOUSE_STAFF của công ty A",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "pm.variables.set('loginUser', qa.user('A', 'WAREHOUSE_STAFF'));",
+                  "pm.variables.set('loginPass', qa.password());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(200, 'Đăng nhập WAREHOUSE_STAFF của A thành công');",
+                  "const d = qa.data() || {};",
+                  "qa.test('Kết quả đăng nhập có accessToken và vai trò WAREHOUSE_STAFF', () => {",
+                  "  pm.expect(d.accessToken, qa.brief()).to.be.a('string');",
+                  "  pm.expect(d.roles).to.include('WAREHOUSE_STAFF');",
+                  "});",
+                  "if (d.accessToken) qa.set('tok_A_STAFF', d.accessToken);",
+                  "if (d.company && d.company.id) {",
+                  "  const known = qa.get('A_companyId');",
+                  "  if (known) qa.test('Token thuộc đúng doanh nghiệp A', () => pm.expect(String(d.company.id)).to.eql(String(known)));",
+                  "  else qa.set('A_companyId', d.company.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/login",
+            "description": "200, có accessToken; roles chứa WAREHOUSE_STAFF; company.id đúng doanh nghiệp A",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{loginUser}}\",\n  \"password\": \"{{loginPass}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "TC-IN-00.5 Đăng nhập PURCHASING của công ty A",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "pm.variables.set('loginUser', qa.user('A', 'PURCHASING'));",
+                  "pm.variables.set('loginPass', qa.password());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(200, 'Đăng nhập PURCHASING của A thành công');",
+                  "const d = qa.data() || {};",
+                  "qa.test('Kết quả đăng nhập có accessToken và vai trò PURCHASING', () => {",
+                  "  pm.expect(d.accessToken, qa.brief()).to.be.a('string');",
+                  "  pm.expect(d.roles).to.include('PURCHASING');",
+                  "});",
+                  "if (d.accessToken) qa.set('tok_A_PURCHASING', d.accessToken);",
+                  "if (d.company && d.company.id) {",
+                  "  const known = qa.get('A_companyId');",
+                  "  if (known) qa.test('Token thuộc đúng doanh nghiệp A', () => pm.expect(String(d.company.id)).to.eql(String(known)));",
+                  "  else qa.set('A_companyId', d.company.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/login",
+            "description": "200, có accessToken; roles chứa PURCHASING; company.id đúng doanh nghiệp A",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{loginUser}}\",\n  \"password\": \"{{loginPass}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "TC-IN-00.6 Đăng nhập SALES của công ty A",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "pm.variables.set('loginUser', qa.user('A', 'SALES'));",
+                  "pm.variables.set('loginPass', qa.password());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(200, 'Đăng nhập SALES của A thành công');",
+                  "const d = qa.data() || {};",
+                  "qa.test('Kết quả đăng nhập có accessToken và vai trò SALES', () => {",
+                  "  pm.expect(d.accessToken, qa.brief()).to.be.a('string');",
+                  "  pm.expect(d.roles).to.include('SALES');",
+                  "});",
+                  "if (d.accessToken) qa.set('tok_A_SALES', d.accessToken);",
+                  "if (d.company && d.company.id) {",
+                  "  const known = qa.get('A_companyId');",
+                  "  if (known) qa.test('Token thuộc đúng doanh nghiệp A', () => pm.expect(String(d.company.id)).to.eql(String(known)));",
+                  "  else qa.set('A_companyId', d.company.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/login",
+            "description": "200, có accessToken; roles chứa SALES; company.id đúng doanh nghiệp A",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{loginUser}}\",\n  \"password\": \"{{loginPass}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "TC-IN-00.7 Đăng nhập ACCOUNTANT của công ty A",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "pm.variables.set('loginUser', qa.user('A', 'ACCOUNTANT'));",
+                  "pm.variables.set('loginPass', qa.password());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(200, 'Đăng nhập ACCOUNTANT của A thành công');",
+                  "const d = qa.data() || {};",
+                  "qa.test('Kết quả đăng nhập có accessToken và vai trò ACCOUNTANT', () => {",
+                  "  pm.expect(d.accessToken, qa.brief()).to.be.a('string');",
+                  "  pm.expect(d.roles).to.include('ACCOUNTANT');",
+                  "});",
+                  "if (d.accessToken) qa.set('tok_A_ACCOUNTANT', d.accessToken);",
+                  "if (d.company && d.company.id) {",
+                  "  const known = qa.get('A_companyId');",
+                  "  if (known) qa.test('Token thuộc đúng doanh nghiệp A', () => pm.expect(String(d.company.id)).to.eql(String(known)));",
+                  "  else qa.set('A_companyId', d.company.id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/login",
+            "description": "200, có accessToken; roles chứa ACCOUNTANT; company.id đúng doanh nghiệp A",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{loginUser}}\",\n  \"password\": \"{{loginPass}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "TC-IN-01 Đơn vị tính và danh mục",
+      "description": "",
+      "item": [
+        {
+          "name": "TC-IN-01.1 Tạo đơn vị tính Cái",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"tok_A_ADMIN\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(201, 'Tạo đơn vị tính'); const d = qa.data() || {}; qa.test('Mã đơn vị tính viết hoa CAI', () => pm.expect(d.code).to.eql('CAI')); if (d.id) qa.set('in_uomCai', d.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_ADMIN}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/products/uoms",
+            "description": "201, code = CAI",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"CAI\",\n  \"name\": \"Cái\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-IN-01.2 Tạo đơn vị tính Thùng (Mua hàng)",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"tok_A_PURCHASING\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(201, 'Mua hàng tạo đơn vị tính'); const d = qa.data() || {}; if (d.id) qa.set('in_uomThung', d.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_PURCHASING}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/products/uoms",
+            "description": "201 (vai trò Mua hàng được tạo đơn vị tính)",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"THUNG\",\n  \"name\": \"Thùng\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-IN-01.3 Trùng mã đơn vị tính bị từ chối",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"tok_A_ADMIN\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.error(409, 'CONFLICT', 'Trùng mã đơn vị tính trong doanh nghiệp');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_ADMIN}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/products/uoms",
+            "description": "409 CONFLICT (mã chuẩn hóa thành CAI đã có)",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"CAI\",\n  \"name\": \"Cái trùng\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-IN-01.4 Mã đơn vị tính sai mẫu",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"tok_A_ADMIN\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.error(400, 'VALIDATION_ERROR', 'Mã đơn vị tính chỉ gồm chữ in hoa, số, gạch'); qa.test('Lỗi nằm ở trường code', () => pm.expect((qa.json() || {}).data).to.have.property('code'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_ADMIN}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/products/uoms",
+            "description": "400 VALIDATION_ERROR, data.code có lỗi",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"cai x\",\n  \"name\": \"Sai mẫu\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-IN-01.5 Bán hàng không được tạo đơn vị tính",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"tok_A_SALES\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.forbidden('Bán hàng tạo đơn vị tính');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_SALES}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/products/uoms",
+            "description": "403 FORBIDDEN",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"LOC\",\n  \"name\": \"Lốc\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-IN-01.6 Tạo danh mục Sữa",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"tok_A_ADMIN\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(201, 'Tạo danh mục'); const d = qa.data() || {}; qa.test('Mã danh mục QA-SUA', () => pm.expect(d.code).to.eql('QA-SUA')); if (d.id) qa.set('in_cat', d.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_ADMIN}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/products/categories",
+            "description": "201, code = QA-SUA",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"QA-SUA\",\n  \"name\": \"Sữa và chế phẩm\",\n  \"description\": \"Danh mục kiểm thử\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-IN-01.7 Danh mục thiếu tên",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"tok_A_ADMIN\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.error(400, 'VALIDATION_ERROR', 'Danh mục bắt buộc có tên'); qa.test('Lỗi ở trường name', () => pm.expect((qa.json() || {}).data).to.have.property('name'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_ADMIN}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/products/categories",
+            "description": "400 VALIDATION_ERROR, data.name",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"QA-KHONGTEN\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-IN-01.8 Kế toán không được tạo danh mục",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"tok_A_ACCOUNTANT\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.forbidden('Kế toán tạo danh mục');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_ACCOUNTANT}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/products/categories",
+            "description": "403 FORBIDDEN",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"QA-KT\",\n  \"name\": \"Kế toán tạo\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-IN-01.9 Nhân viên kho xem danh sách đơn vị tính",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"tok_A_STAFF\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(200, 'Xem đơn vị tính'); const codes = qa.content().map((u) => u.code); qa.test('Có CAI và THUNG', () => pm.expect(codes).to.include.members(['CAI', 'THUNG']));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_STAFF}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/products/uoms",
+            "description": "200, có CAI và THUNG, chỉ của doanh nghiệp A (doanh nghiệp mới bắt đầu rỗng)"
+          }
+        }
+      ]
+    },
+    {
+      "name": "TC-IN-02 Hàng hóa",
+      "description": "",
+      "item": [
+        {
+          "name": "TC-IN-02.1 Tạo hàng hóa quản lý theo lô và hạn dùng",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_cat\",\"in_uomThung\",\"tok_A_PURCHASING\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(201, 'Tạo hàng hóa theo lô');",
+                  "const d = qa.data() || {};",
+                  "qa.test('Cờ quản lý lô và hạn dùng được lưu', () => { pm.expect(d.manageByLot).to.eql(true); pm.expect(d.manageByExpiration).to.eql(true); pm.expect(d.uomCode).to.eql('THUNG'); });",
+                  "if (d.id) { qa.set('in_prodLot', d.id); qa.set('in_prodLotName', d.name); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_PURCHASING}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/products",
+            "description": "201, manageByLot = true, manageByExpiration = true, uomCode = THUNG",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sku\": \"QA-SUA-01\",\n  \"name\": \"Sữa tươi QA thùng 48 hộp\",\n  \"description\": \"Hàng kiểm thử theo lô\",\n  \"categoryId\": {{in_cat}},\n  \"uomId\": {{in_uomThung}},\n  \"purchasePrice\": 150000,\n  \"sellingPrice\": 180000,\n  \"vatRate\": 8,\n  \"manageByLot\": true,\n  \"manageByExpiration\": true,\n  \"safetyStock\": 10,\n  \"reorderPoint\": 20,\n  \"maxStock\": 500\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-IN-02.2 Tạo hàng hóa không theo lô",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_uomCai\",\"tok_A_STAFF\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(201, 'Nhân viên kho tạo hàng hóa'); const d = qa.data() || {}; qa.test('Không quản lý theo lô', () => pm.expect(d.manageByLot).to.eql(false)); if (d.id) { qa.set('in_prodPlain', d.id); qa.set('in_prodPlainName', d.name); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_STAFF}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/products",
+            "description": "201 (nhân viên kho được thêm hàng hóa), manageByLot = false",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sku\": \"QA-PLAIN-01\",\n  \"name\": \"Khay nhựa QA\",\n  \"uomId\": {{in_uomCai}},\n  \"purchasePrice\": 20000,\n  \"sellingPrice\": 30000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-IN-02.3 Trùng SKU trong doanh nghiệp",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_uomCai\",\"tok_A_ADMIN\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.error(409, 'CONFLICT', 'SKU đã có (so khớp sau khi viết hoa)');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_ADMIN}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/products",
+            "description": "409 CONFLICT",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sku\": \"qa-sua-01\",\n  \"name\": \"Trùng\",\n  \"uomId\": {{in_uomCai}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-IN-02.4 SKU chứa ký tự không hợp lệ",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_uomCai\",\"tok_A_ADMIN\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.error(400, 'VALIDATION_ERROR', 'SKU chỉ gồm chữ, số, gạch'); qa.test('Lỗi ở trường sku', () => pm.expect((qa.json() || {}).data).to.have.property('sku'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_ADMIN}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/products",
+            "description": "400 VALIDATION_ERROR, data.sku",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sku\": \"QA SUA 02\",\n  \"name\": \"Sai SKU\",\n  \"uomId\": {{in_uomCai}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-IN-02.5 Hàng hóa thiếu đơn vị tính",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"tok_A_ADMIN\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.error(400, 'VALIDATION_ERROR', 'Đơn vị tính bắt buộc'); qa.test('Lỗi ở trường uomId', () => pm.expect((qa.json() || {}).data).to.have.property('uomId'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_ADMIN}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/products",
+            "description": "400 VALIDATION_ERROR, data.uomId",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sku\": \"QA-NOUOM\",\n  \"name\": \"Thiếu ĐVT\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-IN-02.6 Giá nhập âm",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_uomCai\",\"tok_A_ADMIN\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.error(400, 'VALIDATION_ERROR', 'Giá nhập không được âm');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_ADMIN}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/products",
+            "description": "400 VALIDATION_ERROR, data.purchasePrice",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sku\": \"QA-NEG\",\n  \"name\": \"Giá âm\",\n  \"uomId\": {{in_uomCai}},\n  \"purchasePrice\": -1\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-IN-02.7 Bán hàng không được tạo hàng hóa",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_uomCai\",\"tok_A_SALES\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.forbidden('Bán hàng tạo hàng hóa');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_SALES}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/products",
+            "description": "403 FORBIDDEN",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"sku\": \"QA-SALES\",\n  \"name\": \"Bán hàng tạo\",\n  \"uomId\": {{in_uomCai}}\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-IN-02.8 Nhân viên kho không được ngưng hàng hóa",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_prodPlain\",\"tok_A_STAFF\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.forbidden('Nhân viên kho ngưng hàng hóa');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_STAFF}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/products/{{in_prodPlain}}",
+            "description": "403 FORBIDDEN (chỉ ADMIN, Quản lý kho)"
+          }
+        },
+        {
+          "name": "TC-IN-02.9 Tra hàng hóa theo SKU",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"tok_A_SALES\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(200, 'Bán hàng xem hàng hóa'); const d = qa.data() || {}; qa.test('Đúng hàng hóa vừa tạo', () => { pm.expect(String(d.id)).to.eql(String(qa.get('in_prodLot'))); pm.expect(d.active).to.eql(true); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_SALES}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/products/sku/QA-SUA-01",
+            "description": "200, đúng ID vừa tạo, đang hoạt động"
+          }
+        }
+      ]
+    },
+    {
+      "name": "TC-IN-03 Kho, khu và vị trí",
+      "description": "",
+      "item": [
+        {
+          "name": "TC-IN-03.1 Tạo kho QA-WH1",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"tok_A_ADMIN\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(201, 'ADMIN tạo kho'); const d = qa.data() || {}; qa.test('Kho đang hoạt động, mã QA-WH1', () => { pm.expect(d.code).to.eql('QA-WH1'); pm.expect(d.active).to.eql(true); }); if (d.id) qa.set('in_wh', d.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_ADMIN}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/inventory/warehouses",
+            "description": "201, code = QA-WH1, active = true",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"QA-WH1\",\n  \"name\": \"Kho QA Hà Nội\",\n  \"address\": \"Hà Nội\",\n  \"managerName\": \"Quản lý QA\",\n  \"contactPhone\": \"0900000001\",\n  \"capacity\": 100,\n  \"active\": true\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-IN-03.2 Trùng mã kho",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"tok_A_ADMIN\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.error(409, 'CONFLICT', 'Mã kho đã tồn tại');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_ADMIN}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/inventory/warehouses",
+            "description": "409 CONFLICT",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"qa-wh1\",\n  \"name\": \"Kho trùng\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-IN-03.3 Mã kho sai mẫu",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"tok_A_ADMIN\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.error(400, 'VALIDATION_ERROR', 'Mã kho chỉ gồm chữ, số, gạch');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_ADMIN}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/inventory/warehouses",
+            "description": "400 VALIDATION_ERROR, data.code",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"QA WH\",\n  \"name\": \"Sai mã\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-IN-03.4 Quản lý kho không được tạo kho",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"tok_A_MANAGER\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.forbidden('Quản lý kho tạo kho');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_MANAGER}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/inventory/warehouses",
+            "description": "403 FORBIDDEN",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"QA-WHX\",\n  \"name\": \"Kho của quản lý\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-IN-03.5 Tạo hàng loạt vị trí khu A",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_wh\",\"tok_A_ADMIN\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(201, 'Tạo vị trí hàng loạt');",
+                  "const list = qa.content();",
+                  "const byCode = {}; list.forEach((l) => { byCode[l.code] = l.id; });",
+                  "qa.test('Có đúng ba vị trí theo mẫu Kho-Khu-Kệ-Ô', () => pm.expect(Object.keys(byCode)).to.have.members(['QA-WH1-A-R01-B01', 'QA-WH1-A-R01-B02', 'QA-WH1-A-R01-B03']));",
+                  "qa.set('in_locA1', byCode['QA-WH1-A-R01-B01']); qa.set('in_locA2', byCode['QA-WH1-A-R01-B02']); qa.set('in_locA3', byCode['QA-WH1-A-R01-B03']);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_ADMIN}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/inventory/locations/bulk",
+            "description": "201, ba vị trí QA-WH1-A-R01-B01 đến B03",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"warehouseId\": {{in_wh}},\n  \"zone\": \"A\",\n  \"rackPrefix\": \"R\",\n  \"rackFrom\": 1,\n  \"rackTo\": 1,\n  \"binPrefix\": \"B\",\n  \"binFrom\": 1,\n  \"binTo\": 3,\n  \"maxWeight\": 500\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-IN-03.6 Tạo vị trí khu B",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_wh\",\"tok_A_ADMIN\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(201, 'Tạo vị trí'); const d = qa.data() || {}; qa.test('Mã vị trí chuẩn hóa', () => { pm.expect(d.code).to.eql('QA-WH1-B-R01-B01'); pm.expect(d.status).to.eql('EMPTY'); }); if (d.id) qa.set('in_locB1', d.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_ADMIN}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/inventory/locations",
+            "description": "201, code = QA-WH1-B-R01-B01 (viết hoa), status EMPTY",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"warehouseId\": {{in_wh}},\n  \"zone\": \"b\",\n  \"rack\": \"r01\",\n  \"bin\": \"b01\",\n  \"maxWeight\": 300\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-IN-03.7 Trùng vị trí",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_wh\",\"tok_A_ADMIN\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.error(409, 'CONFLICT', 'Vị trí đã tồn tại');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_ADMIN}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/inventory/locations",
+            "description": "409 CONFLICT",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"warehouseId\": {{in_wh}},\n  \"zone\": \"B\",\n  \"rack\": \"R01\",\n  \"bin\": \"B01\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-IN-03.8 Vị trí thiếu khu",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_wh\",\"tok_A_ADMIN\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.error(400, 'VALIDATION_ERROR', 'Khu bắt buộc');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_ADMIN}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/inventory/locations",
+            "description": "400 VALIDATION_ERROR, data.zone",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"warehouseId\": {{in_wh}},\n  \"rack\": \"R01\",\n  \"bin\": \"B09\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-IN-03.9 Nhân viên kho không được tạo vị trí",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_wh\",\"tok_A_STAFF\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.forbidden('Nhân viên kho tạo vị trí');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_STAFF}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/inventory/locations",
+            "description": "403 FORBIDDEN",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"warehouseId\": {{in_wh}},\n  \"zone\": \"C\",\n  \"rack\": \"R01\",\n  \"bin\": \"B01\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-IN-03.10 Danh sách khu của kho",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_wh\",\"tok_A_ADMIN\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(200, 'Xem khu'); qa.test('Có khu A và B', () => pm.expect(qa.data()).to.have.members(['A', 'B']));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_ADMIN}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/inventory/locations/zones?warehouseId={{in_wh}}",
+            "description": "200, [A, B]"
+          }
+        },
+        {
+          "name": "TC-IN-03.11 Tra ID tài khoản WAREHOUSE_MANAGER của A",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "pm.variables.set('lookupUser', qa.user('A', 'WAREHOUSE_MANAGER'));",
+                  "qa.need([\"tok_A_ADMIN\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(200, 'ADMIN xem danh sách người dùng của doanh nghiệp mình');",
+                  "const u = qa.content().find((x) => x.username === qa.user('A', 'WAREHOUSE_MANAGER'));",
+                  "qa.test('Tìm thấy tài khoản WAREHOUSE_MANAGER', () => pm.expect(u, qa.brief()).to.be.an('object'));",
+                  "if (u) qa.set('uid_A_MANAGER', u.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_ADMIN}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/users?keyword={{lookupUser}}&size=5",
+            "description": "200, danh sách có đúng tài khoản WAREHOUSE_MANAGER vừa tạo"
+          }
+        },
+        {
+          "name": "TC-IN-03.12 Gán kho QA-WH1 cho WAREHOUSE_MANAGER",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"uid_A_MANAGER\",\"in_wh\",\"tok_A_ADMIN\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(200, 'ADMIN gán kho cho WAREHOUSE_MANAGER'); qa.test('Đã gán đúng kho', () => pm.expect((qa.data() || {}).warehouseIds.map(String)).to.include(String(qa.get('in_wh'))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_ADMIN}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/users/{{uid_A_MANAGER}}/warehouses",
+            "description": "200, warehouseIds = [QA-WH1]",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"warehouseIds\": [\n    {{in_wh}}\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-IN-03.13 Tra ID tài khoản WAREHOUSE_STAFF của A",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "pm.variables.set('lookupUser', qa.user('A', 'WAREHOUSE_STAFF'));",
+                  "qa.need([\"tok_A_ADMIN\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(200, 'ADMIN xem danh sách người dùng của doanh nghiệp mình');",
+                  "const u = qa.content().find((x) => x.username === qa.user('A', 'WAREHOUSE_STAFF'));",
+                  "qa.test('Tìm thấy tài khoản WAREHOUSE_STAFF', () => pm.expect(u, qa.brief()).to.be.an('object'));",
+                  "if (u) qa.set('uid_A_STAFF', u.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_ADMIN}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/users?keyword={{lookupUser}}&size=5",
+            "description": "200, danh sách có đúng tài khoản WAREHOUSE_STAFF vừa tạo"
+          }
+        },
+        {
+          "name": "TC-IN-03.14 Gán kho QA-WH1 cho WAREHOUSE_STAFF",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"uid_A_STAFF\",\"in_wh\",\"tok_A_ADMIN\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(200, 'ADMIN gán kho cho WAREHOUSE_STAFF'); qa.test('Đã gán đúng kho', () => pm.expect((qa.data() || {}).warehouseIds.map(String)).to.include(String(qa.get('in_wh'))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_ADMIN}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/users/{{uid_A_STAFF}}/warehouses",
+            "description": "200, warehouseIds = [QA-WH1]",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"warehouseIds\": [\n    {{in_wh}}\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-IN-03.15 Tra ID tài khoản PURCHASING của A",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "pm.variables.set('lookupUser', qa.user('A', 'PURCHASING'));",
+                  "qa.need([\"tok_A_ADMIN\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(200, 'ADMIN xem danh sách người dùng của doanh nghiệp mình');",
+                  "const u = qa.content().find((x) => x.username === qa.user('A', 'PURCHASING'));",
+                  "qa.test('Tìm thấy tài khoản PURCHASING', () => pm.expect(u, qa.brief()).to.be.an('object'));",
+                  "if (u) qa.set('uid_A_PURCHASING', u.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_ADMIN}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/users?keyword={{lookupUser}}&size=5",
+            "description": "200, danh sách có đúng tài khoản PURCHASING vừa tạo"
+          }
+        },
+        {
+          "name": "TC-IN-03.16 Gán kho QA-WH1 cho PURCHASING",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"uid_A_PURCHASING\",\"in_wh\",\"tok_A_ADMIN\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(200, 'ADMIN gán kho cho PURCHASING'); qa.test('Đã gán đúng kho', () => pm.expect((qa.data() || {}).warehouseIds.map(String)).to.include(String(qa.get('in_wh'))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_ADMIN}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/users/{{uid_A_PURCHASING}}/warehouses",
+            "description": "200, warehouseIds = [QA-WH1]",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"warehouseIds\": [\n    {{in_wh}}\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-IN-03.17 Tra ID tài khoản SALES của A",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "pm.variables.set('lookupUser', qa.user('A', 'SALES'));",
+                  "qa.need([\"tok_A_ADMIN\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(200, 'ADMIN xem danh sách người dùng của doanh nghiệp mình');",
+                  "const u = qa.content().find((x) => x.username === qa.user('A', 'SALES'));",
+                  "qa.test('Tìm thấy tài khoản SALES', () => pm.expect(u, qa.brief()).to.be.an('object'));",
+                  "if (u) qa.set('uid_A_SALES', u.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_ADMIN}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/users?keyword={{lookupUser}}&size=5",
+            "description": "200, danh sách có đúng tài khoản SALES vừa tạo"
+          }
+        },
+        {
+          "name": "TC-IN-03.18 Gán kho QA-WH1 cho SALES",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"uid_A_SALES\",\"in_wh\",\"tok_A_ADMIN\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(200, 'ADMIN gán kho cho SALES'); qa.test('Đã gán đúng kho', () => pm.expect((qa.data() || {}).warehouseIds.map(String)).to.include(String(qa.get('in_wh'))));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_ADMIN}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/users/{{uid_A_SALES}}/warehouses",
+            "description": "200, warehouseIds = [QA-WH1]",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"warehouseIds\": [\n    {{in_wh}}\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-IN-03.19 Đăng nhập WAREHOUSE_MANAGER của công ty A",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "pm.variables.set('loginUser', qa.user('A', 'WAREHOUSE_MANAGER'));",
+                  "pm.variables.set('loginPass', qa.password());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(200, 'Đăng nhập WAREHOUSE_MANAGER của A thành công');",
+                  "const d = qa.data() || {};",
+                  "qa.test('Kết quả đăng nhập có accessToken và vai trò WAREHOUSE_MANAGER', () => {",
+                  "  pm.expect(d.accessToken, qa.brief()).to.be.a('string');",
+                  "  pm.expect(d.roles).to.include('WAREHOUSE_MANAGER');",
+                  "});",
+                  "if (d.accessToken) qa.set('tok_A_MANAGER', d.accessToken);",
+                  "if (d.company && d.company.id) {",
+                  "  const known = qa.get('A_companyId');",
+                  "  if (known) qa.test('Token thuộc đúng doanh nghiệp A', () => pm.expect(String(d.company.id)).to.eql(String(known)));",
+                  "  else qa.set('A_companyId', d.company.id);",
+                  "}",
+                  "",
+                  "qa.test('Token mới mang kho được gán (đăng nhập lại sau khi gán kho)', () => pm.expect(d.accessToken).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/login",
+            "description": "200, có accessToken; roles chứa WAREHOUSE_MANAGER; company.id đúng doanh nghiệp A",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{loginUser}}\",\n  \"password\": \"{{loginPass}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "TC-IN-03.20 Đăng nhập WAREHOUSE_STAFF của công ty A",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "pm.variables.set('loginUser', qa.user('A', 'WAREHOUSE_STAFF'));",
+                  "pm.variables.set('loginPass', qa.password());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(200, 'Đăng nhập WAREHOUSE_STAFF của A thành công');",
+                  "const d = qa.data() || {};",
+                  "qa.test('Kết quả đăng nhập có accessToken và vai trò WAREHOUSE_STAFF', () => {",
+                  "  pm.expect(d.accessToken, qa.brief()).to.be.a('string');",
+                  "  pm.expect(d.roles).to.include('WAREHOUSE_STAFF');",
+                  "});",
+                  "if (d.accessToken) qa.set('tok_A_STAFF', d.accessToken);",
+                  "if (d.company && d.company.id) {",
+                  "  const known = qa.get('A_companyId');",
+                  "  if (known) qa.test('Token thuộc đúng doanh nghiệp A', () => pm.expect(String(d.company.id)).to.eql(String(known)));",
+                  "  else qa.set('A_companyId', d.company.id);",
+                  "}",
+                  "",
+                  "qa.test('Token mới mang kho được gán (đăng nhập lại sau khi gán kho)', () => pm.expect(d.accessToken).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/login",
+            "description": "200, có accessToken; roles chứa WAREHOUSE_STAFF; company.id đúng doanh nghiệp A",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{loginUser}}\",\n  \"password\": \"{{loginPass}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "TC-IN-03.21 Đăng nhập PURCHASING của công ty A",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "pm.variables.set('loginUser', qa.user('A', 'PURCHASING'));",
+                  "pm.variables.set('loginPass', qa.password());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(200, 'Đăng nhập PURCHASING của A thành công');",
+                  "const d = qa.data() || {};",
+                  "qa.test('Kết quả đăng nhập có accessToken và vai trò PURCHASING', () => {",
+                  "  pm.expect(d.accessToken, qa.brief()).to.be.a('string');",
+                  "  pm.expect(d.roles).to.include('PURCHASING');",
+                  "});",
+                  "if (d.accessToken) qa.set('tok_A_PURCHASING', d.accessToken);",
+                  "if (d.company && d.company.id) {",
+                  "  const known = qa.get('A_companyId');",
+                  "  if (known) qa.test('Token thuộc đúng doanh nghiệp A', () => pm.expect(String(d.company.id)).to.eql(String(known)));",
+                  "  else qa.set('A_companyId', d.company.id);",
+                  "}",
+                  "",
+                  "qa.test('Token mới mang kho được gán (đăng nhập lại sau khi gán kho)', () => pm.expect(d.accessToken).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/login",
+            "description": "200, có accessToken; roles chứa PURCHASING; company.id đúng doanh nghiệp A",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{loginUser}}\",\n  \"password\": \"{{loginPass}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        },
+        {
+          "name": "TC-IN-03.22 Đăng nhập SALES của công ty A",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "pm.variables.set('loginUser', qa.user('A', 'SALES'));",
+                  "pm.variables.set('loginPass', qa.password());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(200, 'Đăng nhập SALES của A thành công');",
+                  "const d = qa.data() || {};",
+                  "qa.test('Kết quả đăng nhập có accessToken và vai trò SALES', () => {",
+                  "  pm.expect(d.accessToken, qa.brief()).to.be.a('string');",
+                  "  pm.expect(d.roles).to.include('SALES');",
+                  "});",
+                  "if (d.accessToken) qa.set('tok_A_SALES', d.accessToken);",
+                  "if (d.company && d.company.id) {",
+                  "  const known = qa.get('A_companyId');",
+                  "  if (known) qa.test('Token thuộc đúng doanh nghiệp A', () => pm.expect(String(d.company.id)).to.eql(String(known)));",
+                  "  else qa.set('A_companyId', d.company.id);",
+                  "}",
+                  "",
+                  "qa.test('Token mới mang kho được gán (đăng nhập lại sau khi gán kho)', () => pm.expect(d.accessToken).to.be.a('string'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/auth/login",
+            "description": "200, có accessToken; roles chứa SALES; company.id đúng doanh nghiệp A",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"{{loginUser}}\",\n  \"password\": \"{{loginPass}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "auth": {
+              "type": "noauth"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "TC-IN-04 Nhà cung cấp",
+      "description": "",
+      "item": [
+        {
+          "name": "TC-IN-04.1 Mua hàng tạo nhà cung cấp",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"tok_A_PURCHASING\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(201, 'Tạo nhà cung cấp'); const d = qa.data() || {}; qa.test('Công nợ ban đầu bằng 0', () => qa.expectNum(d.currentDebt, 0, 'currentDebt')); if (d.id) { qa.set('in_sup', d.id); qa.set('in_supName', d.name); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_PURCHASING}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/orders/suppliers",
+            "description": "201, currentDebt = 0, active = true",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"NCC-QA-01\",\n  \"name\": \"Công ty Sữa QA\",\n  \"contactName\": \"Chị Lan\",\n  \"email\": \"ncc.qa01@qa.example.com\",\n  \"phone\": \"0911111111\",\n  \"address\": \"Bắc Ninh\",\n  \"bankAccount\": \"0123456789\",\n  \"bankName\": \"Ngân hàng QA\",\n  \"paymentTerms\": \"NET30\",\n  \"creditLimit\": 100000000,\n  \"initialDebt\": 0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-IN-04.2 Trùng mã nhà cung cấp",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"tok_A_ADMIN\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.error(409, 'CONFLICT', 'Mã nhà cung cấp đã có');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_ADMIN}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/orders/suppliers",
+            "description": "409 CONFLICT",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"ncc-qa-01\",\n  \"name\": \"Trùng mã\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-IN-04.3 Nhà cung cấp thiếu tên",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"tok_A_ADMIN\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.error(400, 'VALIDATION_ERROR', 'Tên nhà cung cấp bắt buộc');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_ADMIN}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/orders/suppliers",
+            "description": "400 VALIDATION_ERROR, data.name",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"NCC-QA-02\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-IN-04.4 Email nhà cung cấp sai định dạng",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"tok_A_ADMIN\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.error(400, 'VALIDATION_ERROR', 'Email phải đúng định dạng'); qa.test('Lỗi ở trường email', () => pm.expect((qa.json() || {}).data).to.have.property('email'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_ADMIN}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/orders/suppliers",
+            "description": "400 VALIDATION_ERROR, data.email",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"NCC-QA-03\",\n  \"name\": \"Email sai\",\n  \"email\": \"khong-phai-email\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-IN-04.5 Nhân viên kho không được tạo nhà cung cấp",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"tok_A_STAFF\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.forbidden('Nhân viên kho tạo nhà cung cấp');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_STAFF}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/orders/suppliers",
+            "description": "403 FORBIDDEN",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"NCC-QA-04\",\n  \"name\": \"Kho tạo\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-IN-04.6 Bán hàng không được xem nhà cung cấp",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_sup\",\"tok_A_SALES\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.forbidden('Bán hàng xem nhà cung cấp');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_SALES}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/orders/suppliers/{{in_sup}}",
+            "description": "403 FORBIDDEN"
+          }
+        }
+      ]
+    },
+    {
+      "name": "TC-IN-05 Đơn mua và duyệt",
+      "description": "",
+      "item": [
+        {
+          "name": "TC-IN-05.1 Mua hàng lập đơn mua hai dòng",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_sup\",\"in_wh\",\"in_prodLot\",\"in_prodPlain\",\"tok_A_PURCHASING\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(201, 'Lập đơn mua');",
+                  "const d = qa.data() || {};",
+                  "qa.test('Đơn mới ở trạng thái PENDING với số chứng từ tự sinh', () => { pm.expect(d.status).to.eql('PENDING'); pm.expect(d.poNumber).to.match(/^PO-\\d{8}-\\d{4}$/); });",
+                  "qa.test('Tự tính tiền dòng, thuế, tổng', () => {",
+                  "  qa.expectNum(d.subtotalAmount, 15800000, 'subtotalAmount'); qa.expectNum(d.taxAmount, 1200000, 'taxAmount'); qa.expectNum(d.totalAmount, 17000000, 'totalAmount');",
+                  "});",
+                  "if (d.id) {",
+                  "  qa.set('in_po', d.id); qa.set('in_poNumber', d.poNumber);",
+                  "  (d.items || []).forEach((i) => { if (String(i.productId) === String(qa.get('in_prodLot'))) qa.set('in_poiLot', i.id); else qa.set('in_poiPlain', i.id); });",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_PURCHASING}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/orders/purchase",
+            "description": "201, status PENDING, số PO-yyyyMMdd-NNNN, subtotal 15.800.000, thuế 1.200.000, tổng 17.000.000",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"supplierId\": {{in_sup}},\n  \"warehouseId\": {{in_wh}},\n  \"warehouseName\": \"Kho QA Hà Nội\",\n  \"expectedDate\": \"{{d_p5}}\",\n  \"note\": \"Đơn mua kiểm thử\",\n  \"items\": [\n    {\n      \"productId\": {{in_prodLot}},\n      \"skuCode\": \"QA-SUA-01\",\n      \"productName\": \"Sữa tươi QA thùng 48 hộp\",\n      \"uom\": \"Thùng\",\n      \"quantity\": 100,\n      \"unitPrice\": 150000,\n      \"taxRate\": 8\n    },\n    {\n      \"productId\": {{in_prodPlain}},\n      \"skuCode\": \"QA-PLAIN-01\",\n      \"productName\": \"Khay nhựa QA\",\n      \"uom\": \"Cái\",\n      \"quantity\": 40,\n      \"unitPrice\": 20000\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-IN-05.2 Đơn mua không có dòng hàng",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_sup\",\"in_wh\",\"tok_A_PURCHASING\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.error(400, 'VALIDATION_ERROR', 'Đơn mua phải có ít nhất một dòng'); qa.test('Lỗi ở trường items', () => pm.expect((qa.json() || {}).data).to.have.property('items'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_PURCHASING}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/orders/purchase",
+            "description": "400 VALIDATION_ERROR, data.items",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"supplierId\": {{in_sup}},\n  \"warehouseId\": {{in_wh}},\n  \"items\": []\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-IN-05.3 Dòng đơn mua số lượng bằng 0",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_sup\",\"in_wh\",\"in_prodPlain\",\"tok_A_PURCHASING\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.error(400, 'VALIDATION_ERROR', 'Số lượng phải lớn hơn 0'); qa.test('Lỗi ở items[0].quantity', () => pm.expect((qa.json() || {}).data).to.have.property('items[0].quantity'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_PURCHASING}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/orders/purchase",
+            "description": "400 VALIDATION_ERROR, data[\"items[0].quantity\"]",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"supplierId\": {{in_sup}},\n  \"warehouseId\": {{in_wh}},\n  \"items\": [\n    {\n      \"productId\": {{in_prodPlain}},\n      \"skuCode\": \"QA-PLAIN-01\",\n      \"productName\": \"Khay\",\n      \"quantity\": 0,\n      \"unitPrice\": 1000\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-IN-05.4 Đơn mua với nhà cung cấp không tồn tại",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_wh\",\"in_prodPlain\",\"tok_A_PURCHASING\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.notFound('Nhà cung cấp không tồn tại');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_PURCHASING}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/orders/purchase",
+            "description": "404 NOT_FOUND",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"supplierId\": 999999999,\n  \"warehouseId\": {{in_wh}},\n  \"items\": [\n    {\n      \"productId\": {{in_prodPlain}},\n      \"skuCode\": \"QA-PLAIN-01\",\n      \"productName\": \"Khay\",\n      \"quantity\": 1,\n      \"unitPrice\": 1000\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-IN-05.5 Quản lý kho không được lập đơn mua",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_sup\",\"in_wh\",\"in_prodPlain\",\"tok_A_MANAGER\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.forbidden('Quản lý kho lập đơn mua');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_MANAGER}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/orders/purchase",
+            "description": "403 FORBIDDEN",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"supplierId\": {{in_sup}},\n  \"warehouseId\": {{in_wh}},\n  \"items\": [\n    {\n      \"productId\": {{in_prodPlain}},\n      \"skuCode\": \"QA-PLAIN-01\",\n      \"productName\": \"Khay\",\n      \"quantity\": 1,\n      \"unitPrice\": 1000\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-IN-05.6 Chưa duyệt thì chưa được lập phiếu nhập",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_po\",\"in_poiPlain\",\"in_locB1\",\"tok_A_STAFF\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.error(400, 'BAD_REQUEST', 'Phiếu nhập cho đơn chưa duyệt');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_STAFF}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/orders/goods-receipt-notes",
+            "description": "400 BAD_REQUEST (đơn đang PENDING)",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"poId\": {{in_po}},\n  \"items\": [\n    {\n      \"poItemId\": {{in_poiPlain}},\n      \"acceptedQuantity\": 1,\n      \"locationId\": {{in_locB1}}\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-IN-05.7 Nhân viên kho không được duyệt đơn mua",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_po\",\"tok_A_STAFF\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.forbidden('Nhân viên kho duyệt đơn mua');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_STAFF}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/orders/purchase/{{in_po}}/approve",
+            "description": "403 FORBIDDEN"
+          }
+        },
+        {
+          "name": "TC-IN-05.8 Bán hàng không được duyệt đơn mua",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_po\",\"tok_A_SALES\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.forbidden('Bán hàng duyệt đơn mua');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_SALES}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/orders/purchase/{{in_po}}/approve",
+            "description": "403 FORBIDDEN"
+          }
+        },
+        {
+          "name": "TC-IN-05.9 Quản lý kho duyệt đơn mua",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_po\",\"tok_A_MANAGER\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(200, 'Duyệt đơn mua'); const d = qa.data() || {}; qa.test('Đơn chuyển APPROVED, ghi người duyệt', () => { pm.expect(d.status).to.eql('APPROVED'); pm.expect(d.approvedBy).to.eql(qa.user('A', 'WAREHOUSE_MANAGER')); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_MANAGER}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/orders/purchase/{{in_po}}/approve",
+            "description": "200, status APPROVED, approvedBy = tài khoản quản lý kho"
+          }
+        },
+        {
+          "name": "TC-IN-05.10 Duyệt lại đơn đã duyệt",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_po\",\"tok_A_ADMIN\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.error(400, 'BAD_REQUEST', 'Đơn đã duyệt không duyệt lại');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_ADMIN}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/orders/purchase/{{in_po}}/approve",
+            "description": "400 BAD_REQUEST"
+          }
+        },
+        {
+          "name": "TC-IN-05.11 Hàng đang về tăng sau khi duyệt",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_prodLot\",\"in_wh\",\"tok_A_PURCHASING\"]);",
+                  "qa.pollDelay();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.poll('Incoming của hàng theo lô bằng 100 sau khi duyệt', () => pm.response.code === 200 && qa.near((qa.data() || {}).incomingQuantity, 100));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_PURCHASING}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/inventory/incoming-stocks/by-product/{{in_prodLot}}?warehouseId={{in_wh}}",
+            "description": "200, incomingQuantity = 100 (sự kiện duyệt đơn tăng Incoming)"
+          }
+        },
+        {
+          "name": "TC-IN-05.12 Danh sách hàng đang về của kho",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_wh\",\"tok_A_STAFF\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(200, 'Xem hàng đang về'); const rows = qa.content().filter((r) => r.orderNumber === qa.get('in_poNumber')); qa.test('Hai dòng hàng đang về của đơn', () => { pm.expect(rows.length).to.eql(2); rows.forEach((r) => pm.expect(r.status).to.eql('INCOMING')); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_STAFF}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/inventory/incoming-stocks?warehouseId={{in_wh}}",
+            "description": "200, có hai dòng của đơn mua, trạng thái INCOMING"
+          }
+        }
+      ]
+    },
+    {
+      "name": "TC-IN-06 Nhập kho từng phần theo lô",
+      "description": "",
+      "item": [
+        {
+          "name": "TC-IN-06.1 Nhân viên kho nhập 60 thùng lô LOT-A1 và từ chối 5",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_po\",\"in_poiLot\",\"in_locA1\",\"tok_A_STAFF\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(201, 'Lập phiếu nhập từng phần');",
+                  "const d = qa.data() || {};",
+                  "qa.test('Phiếu nhập ghi đúng số đạt, số từ chối, thành tiền', () => {",
+                  "  pm.expect(String(d.status)).to.eql('COMPLETED');",
+                  "  qa.expectNum(d.totalAcceptedQuantity, 60, 'accepted'); qa.expectNum(d.totalRejectedQuantity, 5, 'rejected'); qa.expectNum(d.totalAmount, 9000000, 'totalAmount');",
+                  "  pm.expect(d.grnNumber).to.match(/^GRN-\\d{8}-\\d{4}$/);",
+                  "});",
+                  "if (d.id) { qa.set('in_grn1', d.id); qa.set('in_grn1Number', d.grnNumber); }"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_STAFF}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/orders/goods-receipt-notes",
+            "description": "201, status COMPLETED, totalAcceptedQuantity 60, totalRejectedQuantity 5, totalAmount 9.000.000",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"poId\": {{in_po}},\n  \"note\": \"Nhập lần 1\",\n  \"items\": [\n    {\n      \"poItemId\": {{in_poiLot}},\n      \"acceptedQuantity\": 60,\n      \"rejectedQuantity\": 5,\n      \"rejectedReason\": \"Móp méo\",\n      \"batchNumber\": \"LOT-A1\",\n      \"mfgDate\": \"{{d_m10}}\",\n      \"expDate\": \"{{d_p180}}\",\n      \"locationId\": {{in_locA1}}\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-IN-06.2 Đơn mua chuyển nhập dở dang",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_po\",\"tok_A_PURCHASING\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(200, 'Xem đơn mua'); qa.test('Đơn ở trạng thái PARTIALLY_RECEIVED', () => pm.expect((qa.data() || {}).status).to.eql('PARTIALLY_RECEIVED'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_PURCHASING}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/orders/purchase/{{in_po}}",
+            "description": "200, status PARTIALLY_RECEIVED"
+          }
+        },
+        {
+          "name": "TC-IN-06.3 Nhập vượt số còn lại",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_po\",\"in_poiLot\",\"in_locA2\",\"tok_A_STAFF\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.error(400, 'BAD_REQUEST', 'Số đạt vượt số còn phải nhập');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_STAFF}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/orders/goods-receipt-notes",
+            "description": "400 BAD_REQUEST (còn lại 40)",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"poId\": {{in_po}},\n  \"items\": [\n    {\n      \"poItemId\": {{in_poiLot}},\n      \"acceptedQuantity\": 45,\n      \"batchNumber\": \"LOT-X\",\n      \"expDate\": \"{{d_p180}}\",\n      \"locationId\": {{in_locA2}}\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-IN-06.4 Nhập lô đã hết hạn",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_po\",\"in_poiLot\",\"in_locA2\",\"tok_A_STAFF\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.error(400, 'BAD_REQUEST', 'Không nhận lô hết hạn vào hàng đạt');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_STAFF}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/orders/goods-receipt-notes",
+            "description": "400 BAD_REQUEST (hạn dùng không sau ngày nhận)",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"poId\": {{in_po}},\n  \"items\": [\n    {\n      \"poItemId\": {{in_poiLot}},\n      \"acceptedQuantity\": 1,\n      \"batchNumber\": \"LOT-HET\",\n      \"mfgDate\": \"{{d_m40}}\",\n      \"expDate\": \"{{d_today}}\",\n      \"locationId\": {{in_locA2}}\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-IN-06.5 Hạn dùng trước ngày sản xuất",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_po\",\"in_poiLot\",\"in_locA2\",\"tok_A_STAFF\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.error(400, 'BAD_REQUEST', 'Hạn dùng phải sau ngày sản xuất');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_STAFF}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/orders/goods-receipt-notes",
+            "description": "400 BAD_REQUEST",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"poId\": {{in_po}},\n  \"items\": [\n    {\n      \"poItemId\": {{in_poiLot}},\n      \"acceptedQuantity\": 1,\n      \"batchNumber\": \"LOT-SAI\",\n      \"mfgDate\": \"{{d_p180}}\",\n      \"expDate\": \"{{d_p90}}\",\n      \"locationId\": {{in_locA2}}\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-IN-06.6 Phiếu nhập thiếu đơn mua",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_poiLot\",\"tok_A_STAFF\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.error(400, 'VALIDATION_ERROR', 'poId bắt buộc'); qa.test('Lỗi ở trường poId', () => pm.expect((qa.json() || {}).data).to.have.property('poId'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_STAFF}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/orders/goods-receipt-notes",
+            "description": "400 VALIDATION_ERROR, data.poId",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"poItemId\": {{in_poiLot}},\n      \"acceptedQuantity\": 1\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-IN-06.7 Dòng không thuộc đơn mua",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_po\",\"tok_A_STAFF\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.error(400, 'BAD_REQUEST', 'poItemId phải thuộc đơn');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_STAFF}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/orders/goods-receipt-notes",
+            "description": "400 BAD_REQUEST",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"poId\": {{in_po}},\n  \"items\": [\n    {\n      \"poItemId\": 999999999,\n      \"acceptedQuantity\": 1\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-IN-06.8 Mua hàng không được lập phiếu nhập",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_po\",\"in_poiPlain\",\"in_locB1\",\"tok_A_PURCHASING\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.forbidden('Mua hàng lập phiếu nhập');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_PURCHASING}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/orders/goods-receipt-notes",
+            "description": "403 FORBIDDEN",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"poId\": {{in_po}},\n  \"items\": [\n    {\n      \"poItemId\": {{in_poiPlain}},\n      \"acceptedQuantity\": 1,\n      \"locationId\": {{in_locB1}}\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-IN-06.9 Tồn thực tế tăng 60 sau phiếu nhập",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_prodLot\",\"in_wh\",\"tok_A_STAFF\"]);",
+                  "qa.pollDelay();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.poll('Tồn thực tế 60, chưa giữ chỗ', () => { const d = qa.data() || {}; return qa.near(d.onHandQuantity, 60) && qa.near(d.reservedQuantity, 0) && qa.near(d.atpQuantity, 60); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_STAFF}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/inventory/stock/atp?productId={{in_prodLot}}&warehouseId={{in_wh}}",
+            "description": "200, onHandQuantity 60, reservedQuantity 0, atpQuantity 60"
+          }
+        },
+        {
+          "name": "TC-IN-06.10 Hàng đang về giảm còn 40",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_prodLot\",\"in_wh\",\"tok_A_PURCHASING\"]);",
+                  "qa.pollDelay();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.poll('Incoming còn 40 sau khi nhận 60', () => qa.near((qa.data() || {}).incomingQuantity, 40));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_PURCHASING}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/inventory/incoming-stocks/by-product/{{in_prodLot}}?warehouseId={{in_wh}}",
+            "description": "200, incomingQuantity 40"
+          }
+        },
+        {
+          "name": "TC-IN-06.11 Lô LOT-A1 nằm đúng vị trí với đủ hạn dùng",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_prodLot\",\"in_wh\",\"tok_A_MANAGER\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(200, 'Xem lô');",
+                  "const lots = qa.content().filter((l) => l.lotNo === 'LOT-A1');",
+                  "qa.test('Lô LOT-A1 số lượng 60 ở QA-WH1-A-R01-B01', () => {",
+                  "  pm.expect(lots.length, qa.brief()).to.eql(1);",
+                  "  qa.expectNum(lots[0].quantity, 60, 'quantity');",
+                  "  pm.expect(lots[0].binLocationCode).to.eql('QA-WH1-A-R01-B01');",
+                  "  pm.expect(lots[0].expDate).to.eql(qa.get('d_p180'));",
+                  "  pm.expect(lots[0].mfgDate).to.eql(qa.get('d_m10'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_MANAGER}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/inventory/lots?productId={{in_prodLot}}&warehouseId={{in_wh}}&size=50",
+            "description": "200, một lô LOT-A1 số lượng 60 tại QA-WH1-A-R01-B01, expDate đúng"
+          }
+        },
+        {
+          "name": "TC-IN-06.12 Xác nhận lại phiếu nhập đã hoàn tất",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_grn1\",\"tok_A_STAFF\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.error(400, 'BAD_REQUEST', 'Bấm xác nhận lần hai bị từ chối');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_STAFF}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/orders/goods-receipt-notes/{{in_grn1}}/confirm",
+            "description": "400 BAD_REQUEST (đã xác nhận), không phát sự kiện nhập lần hai"
+          }
+        },
+        {
+          "name": "TC-IN-06.13 Tồn không tăng thêm sau khi bấm lại",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_prodLot\",\"in_wh\",\"tok_A_STAFF\"]);",
+                  "setTimeout(() => {}, 4000);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(200, 'Đọc tồn'); qa.test('Tồn vẫn 60 (không cộng hai lần)', () => qa.expectNum((qa.data() || {}).onHandQuantity, 60, 'onHand'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_STAFF}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/inventory/stock/atp?productId={{in_prodLot}}&warehouseId={{in_wh}}",
+            "description": "200, onHandQuantity vẫn 60"
+          }
+        }
+      ]
+    },
+    {
+      "name": "TC-IN-07 Nhập đủ và nộp trùng phiếu",
+      "description": "",
+      "item": [
+        {
+          "name": "TC-IN-07.1 Nhập nốt 40 thùng lô LOT-A2 và 40 khay",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_po\",\"in_poiLot\",\"in_locA2\",\"in_poiPlain\",\"in_locB1\",\"tok_A_MANAGER\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(201, 'Lập phiếu nhập đủ'); const d = qa.data() || {}; qa.test('Số đạt 80, thành tiền 6.800.000', () => { qa.expectNum(d.totalAcceptedQuantity, 80, 'accepted'); qa.expectNum(d.totalAmount, 6800000, 'totalAmount'); }); if (d.id) qa.set('in_grn2', d.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_MANAGER}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/orders/goods-receipt-notes",
+            "description": "201, totalAcceptedQuantity 80, totalAmount 6.800.000",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"poId\": {{in_po}},\n  \"note\": \"Nhập đủ\",\n  \"items\": [\n    {\n      \"poItemId\": {{in_poiLot}},\n      \"acceptedQuantity\": 40,\n      \"batchNumber\": \"LOT-A2\",\n      \"mfgDate\": \"{{d_m10}}\",\n      \"expDate\": \"{{d_p365}}\",\n      \"locationId\": {{in_locA2}}\n    },\n    {\n      \"poItemId\": {{in_poiPlain}},\n      \"acceptedQuantity\": 40,\n      \"locationId\": {{in_locB1}}\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-IN-07.2 Nộp trùng phiếu nhập vừa gửi",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_po\",\"in_poiLot\",\"in_locA2\",\"in_poiPlain\",\"in_locB1\",\"tok_A_MANAGER\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.error(400, 'BAD_REQUEST', 'Phiếu nhập trùng bị từ chối');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_MANAGER}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/orders/goods-receipt-notes",
+            "description": "400 BAD_REQUEST (đơn đã COMPLETED), không sinh phiếu thứ hai",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"poId\": {{in_po}},\n  \"note\": \"Nhập đủ\",\n  \"items\": [\n    {\n      \"poItemId\": {{in_poiLot}},\n      \"acceptedQuantity\": 40,\n      \"batchNumber\": \"LOT-A2\",\n      \"mfgDate\": \"{{d_m10}}\",\n      \"expDate\": \"{{d_p365}}\",\n      \"locationId\": {{in_locA2}}\n    },\n    {\n      \"poItemId\": {{in_poiPlain}},\n      \"acceptedQuantity\": 40,\n      \"locationId\": {{in_locB1}}\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-IN-07.3 Đơn mua hoàn tất",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_po\",\"tok_A_PURCHASING\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(200, 'Xem tiến độ nhập');",
+                  "const d = qa.data() || {};",
+                  "qa.test('Đơn nhập đủ và đóng', () => {",
+                  "  pm.expect(String(d.status)).to.eql('COMPLETED');",
+                  "  qa.expectNum(d.totalReceivedQuantity, 140, 'totalReceived'); qa.expectNum(d.totalRemainingQuantity, 0, 'totalRemaining');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_PURCHASING}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/orders/goods-receipt-notes/po/{{in_po}}/progress",
+            "description": "200, status COMPLETED, isFullyReceived true, totalReceivedQuantity 140, totalRemainingQuantity 0"
+          }
+        },
+        {
+          "name": "TC-IN-07.4 Chỉ có hai phiếu nhập cho đơn",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_po\",\"tok_A_ACCOUNTANT\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(200, 'Xem phiếu nhập theo đơn'); qa.test('Hai phiếu nhập', () => pm.expect(qa.content().length).to.eql(2));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_ACCOUNTANT}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/orders/goods-receipt-notes/po/{{in_po}}",
+            "description": "200, đúng hai phiếu"
+          }
+        },
+        {
+          "name": "TC-IN-07.5 Tồn hàng theo lô bằng 100",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_prodLot\",\"in_wh\",\"tok_A_STAFF\"]);",
+                  "qa.pollDelay();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.poll('Tồn hàng theo lô 100 sau hai phiếu nhập', () => qa.near((qa.data() || {}).onHandQuantity, 100));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_STAFF}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/inventory/stock/atp?productId={{in_prodLot}}&warehouseId={{in_wh}}",
+            "description": "200, onHandQuantity 100"
+          }
+        },
+        {
+          "name": "TC-IN-07.6 Tồn hàng không theo lô bằng 40",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_prodPlain\",\"in_wh\",\"tok_A_STAFF\"]);",
+                  "qa.pollDelay();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.poll('Tồn khay 40', () => qa.near((qa.data() || {}).onHandQuantity, 40));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_STAFF}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/inventory/stock/atp?productId={{in_prodPlain}}&warehouseId={{in_wh}}",
+            "description": "200, onHandQuantity 40"
+          }
+        },
+        {
+          "name": "TC-IN-07.7 Tồn không tăng thêm sau khi nộp trùng",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_prodLot\",\"in_wh\",\"tok_A_STAFF\"]);",
+                  "setTimeout(() => {}, 4000);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(200, 'Đọc tồn'); qa.test('Tồn vẫn 100', () => qa.expectNum((qa.data() || {}).onHandQuantity, 100, 'onHand'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_STAFF}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/inventory/stock/atp?productId={{in_prodLot}}&warehouseId={{in_wh}}",
+            "description": "200, onHandQuantity vẫn 100"
+          }
+        },
+        {
+          "name": "TC-IN-07.8 Hai lô với tổng 100",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_prodLot\",\"in_wh\",\"tok_A_ACCOUNTANT\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(200, 'Xem lô');",
+                  "const lots = qa.content();",
+                  "const q = {}; lots.forEach((l) => { q[l.lotNo] = qa.num(l.quantity); });",
+                  "qa.test('LOT-A1 60, LOT-A2 40', () => { qa.expectNum(q['LOT-A1'], 60, 'LOT-A1'); qa.expectNum(q['LOT-A2'], 40, 'LOT-A2'); });",
+                  "qa.test('Lô hết hạn sớm đứng trước', () => pm.expect(lots.map((l) => l.lotNo).filter((n) => n === 'LOT-A1' || n === 'LOT-A2')).to.eql(['LOT-A1', 'LOT-A2']));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_ACCOUNTANT}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/inventory/lots?productId={{in_prodLot}}&warehouseId={{in_wh}}&size=50",
+            "description": "200, LOT-A1 = 60 và LOT-A2 = 40, sắp theo hạn dùng tăng dần"
+          }
+        },
+        {
+          "name": "TC-IN-07.9 Hàng đang về về 0",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_prodLot\",\"in_wh\",\"tok_A_PURCHASING\"]);",
+                  "qa.pollDelay();"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.poll('Incoming về 0 khi nhập đủ', () => qa.near((qa.data() || {}).incomingQuantity, 0));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_PURCHASING}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/inventory/incoming-stocks/by-product/{{in_prodLot}}?warehouseId={{in_wh}}",
+            "description": "200, incomingQuantity 0"
+          }
+        },
+        {
+          "name": "TC-IN-07.10 Không lập phiếu nhập cho đơn đã hoàn tất",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_po\",\"in_poiPlain\",\"tok_A_STAFF\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.error(400, 'BAD_REQUEST', 'Đơn COMPLETED không nhận thêm');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_STAFF}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/orders/goods-receipt-notes",
+            "description": "400 BAD_REQUEST",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"poId\": {{in_po}},\n  \"items\": [\n    {\n      \"poItemId\": {{in_poiPlain}},\n      \"acceptedQuantity\": 0,\n      \"rejectedQuantity\": 1\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-IN-07.11 Vị trí đã có hàng",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_wh\",\"tok_A_MANAGER\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(200, 'Xem vị trí');",
+                  "const byCode = {}; qa.content().forEach((l) => { byCode[l.code] = l; });",
+                  "qa.test('Số lượng tại vị trí khớp phiếu nhập', () => {",
+                  "  qa.expectNum((byCode['QA-WH1-A-R01-B01'] || {}).totalQuantity, 60, 'B01');",
+                  "  qa.expectNum((byCode['QA-WH1-A-R01-B02'] || {}).totalQuantity, 40, 'B02');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_MANAGER}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/inventory/locations?warehouseId={{in_wh}}&zone=A",
+            "description": "200, A-R01-B01 có 60, A-R01-B02 có 40"
+          }
+        }
+      ]
+    },
+    {
+      "name": "TC-IN-08 Hóa đơn mua, thanh toán và công nợ nhà cung cấp",
+      "description": "",
+      "item": [
+        {
+          "name": "TC-IN-08.1 Hai hóa đơn mua tự sinh từ phiếu nhập",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_po\",\"tok_A_ACCOUNTANT\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(200, 'Kế toán xem hóa đơn theo đơn mua');",
+                  "const bills = qa.content();",
+                  "const b1 = bills.find((b) => String(b.grnId) === String(qa.get('in_grn1')));",
+                  "const b2 = bills.find((b) => String(b.grnId) === String(qa.get('in_grn2')));",
+                  "qa.test('Mỗi phiếu nhập một hóa đơn, chưa thanh toán', () => {",
+                  "  pm.expect(bills.length).to.eql(2);",
+                  "  qa.expectNum(b1 && b1.totalAmount, 9000000, 'hóa đơn GRN 1'); qa.expectNum(b2 && b2.totalAmount, 6800000, 'hóa đơn GRN 2');",
+                  "  pm.expect(String(b1.status)).to.eql('UNPAID'); qa.expectNum(b1.remainingAmount, 9000000, 'remaining');",
+                  "});",
+                  "if (b1) qa.set('in_bill1', b1.id);",
+                  "if (b2) qa.set('in_bill2', b2.id);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_ACCOUNTANT}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/orders/purchase-bills/po/{{in_po}}",
+            "description": "200, hai hóa đơn UNPAID: 9.000.000 (GRN 1) và 6.800.000 (GRN 2)"
+          }
+        },
+        {
+          "name": "TC-IN-08.2 Công nợ nhà cung cấp tăng theo hóa đơn",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_sup\",\"tok_A_ACCOUNTANT\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(200, 'Xem nhà cung cấp'); qa.test('Công nợ bằng tổng hai hóa đơn', () => qa.expectNum((qa.data() || {}).currentDebt, 15800000, 'currentDebt'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_ACCOUNTANT}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/orders/suppliers/{{in_sup}}",
+            "description": "200, currentDebt 15.800.000"
+          }
+        },
+        {
+          "name": "TC-IN-08.3 Lịch sử công nợ có hai hóa đơn",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_sup\",\"tok_A_PURCHASING\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(200, 'Xem giao dịch công nợ'); const tx = qa.content(); qa.test('Hai giao dịch hóa đơn mua', () => { pm.expect(tx.filter((t) => t.transactionType === 'PURCHASE_INVOICE').length).to.eql(2); qa.expectNum(tx[0].balanceAfter, 15800000, 'balanceAfter'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_PURCHASING}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/orders/suppliers/{{in_sup}}/transactions",
+            "description": "200, hai giao dịch PURCHASE_INVOICE, balanceAfter mới nhất 15.800.000"
+          }
+        },
+        {
+          "name": "TC-IN-08.4 Kế toán trả một phần hóa đơn 1",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_bill1\",\"tok_A_ACCOUNTANT\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(200, 'Ghi thanh toán'); const d = qa.data() || {}; qa.test('Hóa đơn trả một phần', () => { pm.expect(String(d.status)).to.eql('PARTIALLY_PAID'); qa.expectNum(d.paidAmount, 5000000, 'paid'); qa.expectNum(d.remainingAmount, 4000000, 'remaining'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_ACCOUNTANT}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/orders/purchase-bills/{{in_bill1}}/payments",
+            "description": "200, status PARTIALLY_PAID, paidAmount 5.000.000, remainingAmount 4.000.000",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 5000000,\n  \"paymentMethod\": \"BANK_TRANSFER\",\n  \"referenceCode\": \"UNC-QA-01\",\n  \"note\": \"Trả đợt 1\",\n  \"paymentDate\": \"{{d_today}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-IN-08.5 Trả vượt số còn nợ",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_bill1\",\"tok_A_ACCOUNTANT\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.error(400, 'BAD_REQUEST', 'Không trả vượt số còn nợ');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_ACCOUNTANT}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/orders/purchase-bills/{{in_bill1}}/payments",
+            "description": "400 BAD_REQUEST",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 5000000,\n  \"paymentMethod\": \"BANK_TRANSFER\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-IN-08.6 Số tiền thanh toán bằng 0",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_bill1\",\"tok_A_ACCOUNTANT\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.error(400, 'VALIDATION_ERROR', 'Số tiền phải lớn hơn 0');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_ACCOUNTANT}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/orders/purchase-bills/{{in_bill1}}/payments",
+            "description": "400 VALIDATION_ERROR, data.amount",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 0\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-IN-08.7 Mua hàng không được ghi thanh toán",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_bill1\",\"tok_A_PURCHASING\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.forbidden('Mua hàng ghi thanh toán');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_PURCHASING}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/orders/purchase-bills/{{in_bill1}}/payments",
+            "description": "403 FORBIDDEN",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 1000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-IN-08.8 Nhân viên kho không được xem hóa đơn mua",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_bill1\",\"tok_A_STAFF\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.forbidden('Nhân viên kho xem hóa đơn mua');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_STAFF}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/orders/purchase-bills/{{in_bill1}}",
+            "description": "403 FORBIDDEN"
+          }
+        },
+        {
+          "name": "TC-IN-08.9 Trả nốt hóa đơn 1",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_bill1\",\"tok_A_ADMIN\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(200, 'Trả đủ hóa đơn'); const d = qa.data() || {}; qa.test('Hóa đơn chuyển PAID', () => { pm.expect(String(d.status)).to.eql('PAID'); qa.expectNum(d.remainingAmount, 0, 'remaining'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_ADMIN}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/orders/purchase-bills/{{in_bill1}}/payments",
+            "description": "200, status PAID, remainingAmount 0",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 4000000,\n  \"paymentMethod\": \"CASH\",\n  \"referenceCode\": \"PC-QA-02\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-IN-08.10 Không thanh toán thêm hóa đơn đã trả đủ",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_bill1\",\"tok_A_ACCOUNTANT\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.error(400, 'BAD_REQUEST', 'Hóa đơn PAID không nhận thanh toán');"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_ACCOUNTANT}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/api/orders/purchase-bills/{{in_bill1}}/payments",
+            "description": "400 BAD_REQUEST",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"amount\": 1000\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "TC-IN-08.11 Công nợ còn lại bằng hóa đơn 2",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_sup\",\"tok_A_PURCHASING\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(200, 'Xem nhà cung cấp'); qa.test('Công nợ giảm đúng số đã trả', () => qa.expectNum((qa.data() || {}).currentDebt, 6800000, 'currentDebt'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_PURCHASING}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/orders/suppliers/{{in_sup}}",
+            "description": "200, currentDebt 6.800.000"
+          }
+        },
+        {
+          "name": "TC-IN-08.12 Tổng công nợ phải trả của doanh nghiệp",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"tok_A_ACCOUNTANT\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(200, 'Xem tổng công nợ'); qa.test('Tổng công nợ phải trả 6.800.000', () => qa.expectNum((qa.data() || {}).totalDebt, 6800000, 'totalDebt'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_ACCOUNTANT}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/orders/suppliers/summary",
+            "description": "200, totalDebt 6.800.000 (bằng tổng nợ các nhà cung cấp của A)"
+          }
+        },
+        {
+          "name": "TC-IN-08.13 Báo cáo nhập của kho QA-WH1",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.need([\"in_wh\",\"tok_A_ACCOUNTANT\"]);"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const qa = eval(pm.collectionVariables.get('qaLib'));",
+                  "qa.ok(200, 'Xem báo cáo xuất nhập tồn');",
+                  "const t = (qa.data() || {}).totals || {};",
+                  "qa.test('Sổ kho ghi đúng hai phiếu nhập', () => {",
+                  "  qa.expectNum(t.openingQuantity, 0, 'opening'); qa.expectNum(t.quantityIn, 140, 'in'); qa.expectNum(t.quantityOut, 0, 'out'); qa.expectNum(t.closingQuantity, 140, 'closing');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{tok_A_ACCOUNTANT}}"
+              }
+            ],
+            "url": "{{baseUrl}}/api/inventory/reports/in-out-balance?warehouseId={{in_wh}}&fromDate={{d_m10}}&toDate={{d_today}}&groupBy=PRODUCT_WAREHOUSE",
+            "description": "200, totals: openingQuantity 0, quantityIn 140, quantityOut 0, closingQuantity 140"
+          }
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const qa = eval(pm.collectionVariables.get('qaLib'));",
+          "if (!qa.runId()) {",
+          "  const gen = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);",
+          "  pm.collectionVariables.set('runId', gen);",
+          "  console.log('runId tự sinh cho lượt chạy này: ' + gen);",
+          "}",
+          "[['d_today', 0], ['d_m60', -60], ['d_m40', -40], ['d_m10', -10], ['d_m1', -1], ['d_p5', 5], ['d_p20', 20],",
+          " ['d_p30', 30], ['d_p90', 90], ['d_p180', 180], ['d_p200', 200], ['d_p365', 365]]",
+          "  .forEach(([k, d]) => pm.collectionVariables.set(k, qa.day(d)));"
+        ]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.test('Không có lỗi máy chủ (HTTP 5xx)', () => pm.expect(pm.response.code, 'HTTP ' + pm.response.code + ' ' + pm.response.text().slice(0, 300)).to.be.below(500));"
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "qaLib",
+      "value": "(function qaLibFactory() {\n  const qa = {};\n  const ROLE = {\n    ADMIN: 'admin', WAREHOUSE_MANAGER: 'manager', WAREHOUSE_STAFF: 'staff',\n    PURCHASING: 'purchasing', SALES: 'sales', ACCOUNTANT: 'accountant'\n  };\n  qa.setNext = (name) => {\n    if (pm.execution && typeof pm.execution.setNextRequest === 'function') {\n      pm.execution.setNextRequest(name);\n    } else {\n      postman.setNextRequest(name);\n    }\n  };\n  qa.get = (k) => {\n    const v = pm.collectionVariables.get(k);\n    if (v !== undefined && v !== null && v !== '') return v;\n    return pm.environment.get(k);\n  };\n  qa.set = (k, v) => pm.collectionVariables.set(k, (v !== null && typeof v === 'object') ? JSON.stringify(v) : v);\n  qa.unset = (k) => pm.collectionVariables.unset(k);\n  qa.runId = () => String(pm.environment.get('runId') || pm.collectionVariables.get('runId') || '')\n    .toLowerCase().replace(/[^a-z0-9]/g, '');\n  qa.user = (company, role) => 'qa_' + qa.runId() + '_' + company.toLowerCase() + '_' + (ROLE[role] || role.toLowerCase());\n  qa.email = (company, role) => qa.user(company, role) + '@qa.example.com';\n  // Mật khẩu kiểm thử giả, suy ra từ runId để collection sau đăng nhập lại được (quy tắc API: 6 đến 72 ký tự).\n  qa.password = () => 'QaTest-' + qa.runId() + '-Mk';\n  // Ngày theo giờ Việt Nam (máy chủ chạy TZ=Asia/Ho_Chi_Minh), dạng yyyy-MM-dd.\n  qa.day = (offset) => new Date(Date.now() + 7 * 3600 * 1000 + offset * 86400000).toISOString().slice(0, 10);\n  qa.json = () => { try { return pm.response.json(); } catch (e) { return null; } };\n  qa.data = () => { const b = qa.json(); return b ? b.data : undefined; };\n  qa.content = () => {\n    const d = qa.data();\n    if (Array.isArray(d)) return d;\n    return d && Array.isArray(d.content) ? d.content : [];\n  };\n  qa.brief = () => {\n    let t = '';\n    try { t = pm.response.text(); } catch (e) { t = ''; }\n    return 'HTTP ' + pm.response.code + ': ' + t.slice(0, 500);\n  };\n  qa.num = (x) => (x === null || x === undefined || x === '') ? NaN : Number(x);\n  qa.near = (a, b) => Math.abs(qa.num(a) - qa.num(b)) < 0.0005;\n  qa.expectNum = (actual, expected, what) =>\n    pm.expect(qa.near(actual, expected), what + ': nhận ' + actual + ', cần ' + expected).to.equal(true);\n  qa.test = (label, fn) => pm.test(label, fn);\n  qa.status = (code, label) => pm.test(label + ': HTTP ' + code, () => {\n    pm.expect(pm.response.code, qa.brief()).to.eql(code);\n  });\n  qa.ok = (code, label) => pm.test(label + ': HTTP ' + code + ', success = true', () => {\n    pm.expect(pm.response.code, qa.brief()).to.eql(code);\n    const b = qa.json();\n    pm.expect(b && b.success, qa.brief()).to.eql(true);\n  });\n  qa.error = (status, code, label) => pm.test(label + ': HTTP ' + status + ', mã ' + code, () => {\n    pm.expect(pm.response.code, qa.brief()).to.eql(status);\n    const b = qa.json();\n    pm.expect(b && b.code, qa.brief()).to.eql(code);\n  });\n  qa.notFound = (label) => qa.error(404, 'NOT_FOUND', label);\n  qa.forbidden = (label) => qa.error(403, 'FORBIDDEN', label);\n  qa.planLimit = (limit, current, max, plan, label) =>\n    pm.test(label + ': HTTP 403 PLAN_LIMIT_EXCEEDED, data = {limit: ' + limit + ', current: ' + current\n      + ', max: ' + max + ', plan: ' + plan + '}', () => {\n      pm.expect(pm.response.code, qa.brief()).to.eql(403);\n      const b = qa.json();\n      pm.expect(b && b.code, qa.brief()).to.eql('PLAN_LIMIT_EXCEEDED');\n      pm.expect(b.data, 'thiếu data').to.be.an('object');\n      pm.expect(b.data.limit).to.eql(limit);\n      qa.expectNum(b.data.current, current, 'data.current');\n      qa.expectNum(b.data.max, max, 'data.max');\n      pm.expect(b.data.plan).to.eql(plan);\n    });\n  // Hỏi lại chính request này (tối đa pollMax lần, cách nhau pollDelayMs) cho tới khi cond() đúng.\n  // Chỉ ghi kết quả test ở lần cuối, nên các lần chờ không bị tính là lỗi.\n  qa.poll = (label, cond, assertFn) => {\n    const key = 'poll_' + pm.info.requestName;\n    const n = Number(pm.collectionVariables.get(key) || 0);\n    const max = Number(pm.environment.get('pollMax') || 20);\n    let ok = false;\n    try { ok = !!cond(); } catch (e) { ok = false; }\n    if (!ok && n < max) {\n      pm.collectionVariables.set(key, n + 1);\n      qa.setNext(pm.info.requestName);\n      return false;\n    }\n    pm.collectionVariables.unset(key);\n    pm.test(label, assertFn || (() => {\n      pm.expect(ok, 'Hết thời gian chờ (' + (n + 1) + ' lần): ' + qa.brief()).to.equal(true);\n    }));\n    return ok;\n  };\n  qa.pollDelay = () => {\n    const n = Number(pm.collectionVariables.get('poll_' + pm.info.requestName) || 0);\n    if (n > 0) setTimeout(() => {}, Number(pm.environment.get('pollDelayMs') || 1500));\n  };\n  qa.stop = (label, msg) => {\n    pm.test(label, () => pm.expect.fail(msg));\n    qa.setNext(null);\n  };\n  qa.need = (keys) => {\n    const missing = keys.filter((k) => {\n      const v = qa.get(k);\n      return v === undefined || v === null || v === '';\n    });\n    if (missing.length) {\n      pm.test('Thiếu dữ liệu tiền đề (' + missing.join(', ') + '), bỏ qua request', () =>\n        pm.expect.fail('Bước trước chưa tạo được: ' + missing.join(', ')));\n      if (pm.execution && typeof pm.execution.skipRequest === 'function') pm.execution.skipRequest();\n    }\n    return missing.length === 0;\n  };\n  return qa;\n})()",
+      "type": "string"
+    }
+  ]
+}

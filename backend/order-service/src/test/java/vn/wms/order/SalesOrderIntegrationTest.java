@@ -12,9 +12,13 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
+import vn.wms.common.test.GatewayHeaders;
 import vn.wms.order.client.AtpResponse;
 import vn.wms.order.client.InventoryGateway;
+import vn.wms.order.client.ReserveOrderRequest;
+import vn.wms.order.client.StockShortageException;
 import vn.wms.order.client.WarehouseSummary;
+import org.mockito.ArgumentCaptor;
 import vn.wms.order.dto.AtpCheckRequest;
 import vn.wms.order.dto.CreateSalesOrderRequest;
 import vn.wms.order.dto.SalesOrderItemRequest;
@@ -34,7 +38,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.startsWith;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -334,7 +341,7 @@ class SalesOrderIntegrationTest {
 
         // Xác nhận đơn: DRAFT -> CONFIRMED
         mockMvc.perform(post("/api/orders/sales/{id}/confirm", orderId)
-                        .header("X-User-Name", "manager"))
+                        .with(GatewayHeaders.asUser("manager", 1L, List.of("WAREHOUSE_MANAGER"), List.of())))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status", is("CONFIRMED")))
                 .andExpect(jsonPath("$.data.confirmedBy", is("manager")));
@@ -461,5 +468,73 @@ class SalesOrderIntegrationTest {
                         .content(objectMapper.writeValueAsString(request)))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.success", is(false)));
+    }
+
+    private CreateSalesOrderRequest orderRequest(Long productId, String sku, String quantity, OrderStatus status,
+                                                 boolean allowBackorder) {
+        SalesOrderItemRequest item = new SalesOrderItemRequest(productId, sku, "Sản phẩm giữ chỗ", "Cái",
+                new BigDecimal(quantity), new BigDecimal("10000.00"), BigDecimal.ZERO, null, BigDecimal.ZERO, null, null);
+        return new CreateSalesOrderRequest(null, sampleCustomer.getId(), 1L, "Kho Tổng Hà Nội", "Hà Nội", "Người nhận",
+                "0987654321", LocalDate.now(), null, null, status, allowBackorder, List.of(item));
+    }
+
+    private static final String SHORTAGE = "Không đủ tồn khả dụng để giữ chỗ cho đơn SO-X: SKU SKU-RACE thiếu 3 (yêu cầu 10, giữ được 7)";
+
+    @Test
+    @DisplayName("WMS-20.4: xác nhận đơn giữ chỗ đồng bộ đúng dòng hàng; inventory-service không giữ đủ (đơn khác vừa giữ mất) thì 400, đơn vẫn DRAFT")
+    void confirmReservesSynchronouslyAndRejectsWhenInventoryCannotReserve() throws Exception {
+        String created = mockMvc.perform(post("/api/orders/sales")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(orderRequest(701L, "SKU-RACE", "10.000", OrderStatus.DRAFT, true))))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        Long orderId = objectMapper.readTree(created).path("data").path("id").asLong();
+        verify(inventoryGateway, never()).reserveForOrder(any());
+
+        // ATP đọc được vẫn đủ (90) nhưng lúc giữ chỗ đơn khác đã giữ mất
+        when(inventoryGateway.reserveForOrder(any())).thenThrow(new StockShortageException(SHORTAGE, null));
+        mockMvc.perform(post("/api/orders/sales/{id}/confirm", orderId))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message", containsString("Không thể xác nhận đơn do thiếu tồn khả dụng")))
+                .andExpect(jsonPath("$.message", containsString("SKU-RACE thiếu 3")));
+        assertThat(salesOrderRepository.findById(orderId).orElseThrow().getStatus()).isEqualTo(OrderStatus.DRAFT);
+
+        ArgumentCaptor<ReserveOrderRequest> sent = ArgumentCaptor.forClass(ReserveOrderRequest.class);
+        verify(inventoryGateway).reserveForOrder(sent.capture());
+        assertThat(sent.getValue().orderId()).isEqualTo(orderId);
+        assertThat(sent.getValue().warehouseId()).isEqualTo(1L);
+        assertThat(sent.getValue().items()).containsExactly(
+                new ReserveOrderRequest.Item(701L, "SKU-RACE", new BigDecimal("10.000")));
+
+        // Hàng về, giữ được: xác nhận thành công
+        org.mockito.Mockito.reset(inventoryGateway);
+        when(inventoryGateway.getAtp(anyLong(), anyLong()))
+                .thenReturn(new AtpResponse(1L, 1L, new BigDecimal("100.000"), BigDecimal.ZERO, new BigDecimal("100.000")));
+        mockMvc.perform(post("/api/orders/sales/{id}/confirm", orderId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status", is("CONFIRMED")));
+        verify(inventoryGateway).reserveForOrder(any());
+    }
+
+    @Test
+    @DisplayName("WMS-20.4: lập đơn xác nhận ngay mà không giữ đủ chỗ: cho phép BACKORDER thì BACKORDER kèm lý do, không thì 400 và không lưu đơn")
+    void createConfirmedOrderFollowsBackorderRuleWhenReservationFails() throws Exception {
+        when(inventoryGateway.reserveForOrder(any())).thenThrow(new StockShortageException(SHORTAGE, null));
+
+        mockMvc.perform(post("/api/orders/sales")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(orderRequest(702L, "SKU-RACE", "10.000", OrderStatus.CONFIRMED, true))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.status", is("BACKORDER")))
+                .andExpect(jsonPath("$.data.backorderReason", containsString("SKU-RACE thiếu 3")))
+                .andExpect(jsonPath("$.data.confirmedBy").doesNotExist());
+
+        // Lỗi ném ra trong transaction của lập đơn nên đơn vừa ghi bị rollback (test này chạy trong transaction của
+        // test nên chỉ kiểm tra phản hồi)
+        mockMvc.perform(post("/api/orders/sales")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(orderRequest(703L, "SKU-RACE", "10.000", OrderStatus.CONFIRMED, false))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message", containsString("không cho phép chuyển sang BACKORDER")));
     }
 }

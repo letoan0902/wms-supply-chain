@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -31,18 +32,21 @@ public class CategoryController {
 
     @GetMapping
     @Operation(summary = "Lấy danh sách tất cả các danh mục ngành hàng")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'PURCHASING', 'SALES', 'ACCOUNTANT', 'INTEGRATION')")
     public ApiResponse<List<CategoryResponse>> listAll() {
         return ApiResponse.ok(categoryService.listAll());
     }
 
     @GetMapping("/{id}")
     @Operation(summary = "Xem thông tin danh mục theo ID")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'PURCHASING', 'SALES', 'ACCOUNTANT', 'INTEGRATION')")
     public ApiResponse<CategoryResponse> getById(@PathVariable Long id) {
         return ApiResponse.ok(categoryService.getById(id));
     }
 
     @PostMapping
     @Operation(summary = "Tạo mới danh mục ngành hàng")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'PURCHASING')")
     public ResponseEntity<ApiResponse<CategoryResponse>> create(@Valid @RequestBody CreateCategoryRequest request) {
         CategoryResponse created = categoryService.create(request);
         return ResponseEntity.created(URI.create("/api/products/categories/" + created.id()))

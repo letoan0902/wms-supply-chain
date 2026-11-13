@@ -66,13 +66,13 @@ export default function Navbar({ onScrollTo }: NavbarProps) {
               Đăng nhập
             </Button>
           </Link>
-          <button
-            onClick={() => handleNavClick('pricing')}
-            className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:bg-blue-700 hover:shadow"
+          <Link
+            to="/register"
+            className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold !text-white shadow-sm transition-all hover:bg-blue-700 hover:shadow"
           >
             Dùng thử 30 ngày
             <ArrowRightOutlined className="text-xs" />
-          </button>
+          </Link>
         </div>
 
         {/* Mobile Hamburger Button */}
@@ -107,12 +107,12 @@ export default function Navbar({ onScrollTo }: NavbarProps) {
                   Đăng nhập
                 </Button>
               </Link>
-              <button
-                onClick={() => handleNavClick('pricing')}
-                className="w-full rounded-lg bg-blue-600 py-2.5 text-center text-sm font-semibold text-white shadow hover:bg-blue-700"
+              <Link
+                to="/register"
+                className="w-full rounded-lg bg-blue-600 py-2.5 text-center text-sm font-semibold !text-white shadow hover:bg-blue-700"
               >
                 Dùng thử 30 ngày miễn phí
-              </button>
+              </Link>
             </div>
           </div>
         </div>

@@ -1,4 +1,5 @@
 import {
+  BarcodeOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
   ExclamationCircleOutlined,
@@ -32,6 +33,7 @@ interface Props {
   order: PurchaseOrder | null
   onClose: () => void
   onOrderUpdated?: (updated: PurchaseOrder) => void
+  onOpenCreateGrn?: (poId: number) => void
   canApprove?: boolean
   canCancel?: boolean
 }
@@ -41,6 +43,7 @@ export default function PurchaseOrderDetailModal({
   order,
   onClose,
   onOrderUpdated,
+  onOpenCreateGrn,
   canApprove = false,
   canCancel = false,
 }: Props) {
@@ -202,6 +205,21 @@ export default function PurchaseOrderDetailModal({
             <Space>
               <Button onClick={onClose}>Đóng</Button>
 
+              {onOpenCreateGrn && (order.status === 'APPROVED' || order.status === 'PARTIALLY_RECEIVED') && (
+                <Button
+                  data-write-action
+                  type="primary"
+                  icon={<BarcodeOutlined />}
+                  onClick={() => {
+                    onClose()
+                    onOpenCreateGrn(order.id)
+                  }}
+                  className="bg-emerald-600 hover:bg-emerald-700 font-semibold"
+                >
+                  Lập phiếu nhập kho
+                </Button>
+              )}
+
               {isCancellable && canCancel && (
                 <Popconfirm
                   title="Xác nhận hủy đơn mua hàng?"
@@ -339,7 +357,7 @@ export default function PurchaseOrderDetailModal({
           <div className="flex justify-end pt-2">
             <div className="w-full sm:w-80 bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-1.5 text-xs">
               <div className="flex justify-between">
-                <span className="text-slate-500">Tiền hàng (Subtotal):</span>
+                <span className="text-slate-500">Tiền hàng:</span>
                 <span className="font-medium">{formatCurrency(order.subtotalAmount)}</span>
               </div>
               <div className="flex justify-between">

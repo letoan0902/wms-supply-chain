@@ -1,7 +1,7 @@
 package vn.wms.order.entity;
 
 /**
- * Trạng thái của đơn mua hàng (PO) và đơn bán hàng (SO) (WMS-09.1 - FR10).
+ * Trạng thái của đơn mua hàng (PO) và đơn bán hàng (SO) (WMS-09.1 - FR10, WMS-10.1 - FR11).
  */
 public enum OrderStatus {
     /** Nháp, còn chỉnh sửa được. */
@@ -14,6 +14,8 @@ public enum OrderStatus {
     REJECTED,
     /** Đã xác nhận. */
     CONFIRMED,
+    /** Đang nhập kho từng phần (Partial Receipt - FR11, WMS-10.1). */
+    PARTIALLY_RECEIVED,
     /** Thiếu hàng / Chờ nhập bù tồn kho (WMS-11.1 - FR15). */
     BACKORDER,
     /** Đã hoàn tất nhập/xuất hàng. */

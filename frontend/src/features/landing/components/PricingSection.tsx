@@ -13,6 +13,13 @@ interface PricingSectionProps {
   onScrollToComparison?: () => void
 }
 
+/** Trang đăng ký kèm gói khách chọn trên bảng giá (trang đăng ký giải thích gói đó bắt đầu thế nào). */
+function registerPathFor(plan: PricingPlan): string {
+  if (plan.tier === 'free') return '/register?plan=free'
+  if (plan.tier === 'pro') return '/register?plan=pro'
+  return '/register'
+}
+
 export default function PricingSection({ onScrollToComparison }: PricingSectionProps) {
   const [billingCycle, setBillingCycle] = useState<BillingCycle>('monthly')
   const [enterpriseModalOpen, setEnterpriseModalOpen] = useState(false)
@@ -222,7 +229,7 @@ export default function PricingSection({ onScrollToComparison }: PricingSectionP
                       {plan.ctaText}
                     </Button>
                   ) : (
-                    <Link to="/login" className="block w-full">
+                    <Link to={registerPathFor(plan)} className="block w-full">
                       <Button
                         type={isPro ? 'primary' : 'default'}
                         size="large"
@@ -290,7 +297,7 @@ export default function PricingSection({ onScrollToComparison }: PricingSectionP
           <Button key="close" onClick={() => setEnterpriseModalOpen(false)}>
             Đóng
           </Button>,
-          <Link key="login" to="/login">
+          <Link key="register" to="/register">
             <Button type="primary" className="bg-blue-600">
               Đăng ký tài khoản trước
             </Button>

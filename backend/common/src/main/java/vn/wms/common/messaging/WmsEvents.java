@@ -44,14 +44,45 @@ public final class WmsEvents {
         /** order-service: đơn hàng đã xuất kho (GDN xác nhận). */
         public static final String ORDER_DISPATCHED = "order.dispatched";
 
+        /** order-service: hàng đã nhập kho (GRN xác nhận, hoàn tất hoặc từng phần - WMS-10.3). */
+        public static final String ORDER_RECEIVED = "order.received";
+
         /** inventory-service: tồn kho thay đổi (nhập, xuất, điều chỉnh). */
         public static final String INVENTORY_UPDATED = "inventory.updated";
 
         /** inventory-service: tồn kho chạm ngưỡng an toàn, cần cảnh báo. */
         public static final String ALERT_LOW_STOCK = "alert.low-stock";
 
+        /**
+         * inventory-service: bản tổng hợp cảnh báo tồn kho của một kho cho một loại cảnh báo (hàng cận hạn, hết hạn,
+         * tồn lâu, tồn thấp) do tác vụ quét hằng ngày phát (WMS-15.1). Payload
+         * {@link vn.wms.common.messaging.event.StockAlertSummaryEvent}.
+         */
+        public static final String ALERT_STOCK_SUMMARY = "alert.stock-summary";
+
+        /**
+         * inventory-service: yêu cầu gửi MỘT email cảnh báo tồn kho cho MỘT người nhận (quản lý kho, admin của doanh
+         * nghiệp) cho một loại cảnh báo trong ngày (WMS-15.2). Payload
+         * {@link vn.wms.common.messaging.event.StockAlertDigestEvent}.
+         */
+        public static final String ALERT_STOCK_DIGEST = "alert.stock-digest";
+
+        /**
+         * auth-service: doanh nghiệp vừa đăng ký hoặc xin gửi lại liên kết kích hoạt; notification-service gửi email
+         * chứa liên kết (WMS-23.6). Payload {@code AccountEmailRequestedEvent} với {@code kind = ACTIVATION}.
+         */
+        public static final String AUTH_ACTIVATION_REQUESTED = "auth.activation-requested";
+
+        /**
+         * auth-service: người dùng quên mật khẩu; notification-service gửi email chứa liên kết đặt lại (WMS-23.6).
+         * Payload {@code AccountEmailRequestedEvent} với {@code kind = PASSWORD_RESET}.
+         */
+        public static final String AUTH_PASSWORD_RESET_REQUESTED = "auth.password-reset-requested";
+
         /** Danh sách mọi routing key sự kiện, dùng cho test và tài liệu. */
-        public static final List<String> ALL = List.of(ORDER_CREATED, ORDER_DISPATCHED, INVENTORY_UPDATED, ALERT_LOW_STOCK);
+        public static final List<String> ALL = List.of(ORDER_CREATED, ORDER_DISPATCHED, ORDER_RECEIVED, INVENTORY_UPDATED,
+                ALERT_LOW_STOCK, ALERT_STOCK_SUMMARY, ALERT_STOCK_DIGEST, AUTH_ACTIVATION_REQUESTED,
+                AUTH_PASSWORD_RESET_REQUESTED);
 
         /** Mẫu binding: mọi sự kiện của domain đơn hàng. */
         public static final String ORDER_ALL = "order.#";
@@ -61,6 +92,9 @@ public final class WmsEvents {
 
         /** Mẫu binding: mọi cảnh báo. */
         public static final String ALERT_ALL = "alert.#";
+
+        /** Mẫu binding: mọi yêu cầu gửi email tài khoản của auth-service (kích hoạt, đặt lại mật khẩu). */
+        public static final String AUTH_ALL = "auth.#";
 
         private RoutingKeys() {
         }
@@ -81,9 +115,13 @@ public final class WmsEvents {
         /** notification-service nhận cảnh báo (alert.#): đẩy WebSocket (alert.low-stock) và gửi email. */
         public static final String NOTIFICATION_ALERTS = "notification.alerts";
 
+        /** notification-service nhận yêu cầu gửi email tài khoản (auth.#): kích hoạt doanh nghiệp, đặt lại mật khẩu. */
+        public static final String NOTIFICATION_AUTH_EMAILS = "notification.auth-emails";
+
         /** Danh sách mọi queue nghiệp vụ (không gồm queue dead-letter). */
         public static final List<String> ALL = List.of(
-                INVENTORY_ORDER_EVENTS, NOTIFICATION_ORDER_EVENTS, NOTIFICATION_INVENTORY_EVENTS, NOTIFICATION_ALERTS);
+                INVENTORY_ORDER_EVENTS, NOTIFICATION_ORDER_EVENTS, NOTIFICATION_INVENTORY_EVENTS, NOTIFICATION_ALERTS,
+                NOTIFICATION_AUTH_EMAILS);
 
         private Queues() {
         }

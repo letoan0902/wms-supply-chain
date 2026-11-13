@@ -24,9 +24,16 @@ import type {
 } from './types'
 import * as warehouseApi from './warehouseApi'
 import { getApiErrorMessage } from '../../services/api'
+import ForbiddenResult from '../../components/ForbiddenResult'
+import { useCan } from '../auth/useCan'
 
 export default function WarehousesPage() {
   const { message } = App.useApp()
+  const can = useCan()
+  // Vai trò ngoài ADMIN, ACCOUNTANT chưa được gán kho nào bị backend trả 403 khi đọc danh sách kho
+  const canReadWarehouses = can('warehouse.read')
+  // Vị trí ô kệ: chỉ ADMIN, Quản lý kho, Nhân viên kho (mua hàng, bán hàng, kế toán không được đọc)
+  const canReadLocations = can('location.read')
 
   const [activeTab, setActiveTab] = useState<'warehouses' | 'locations'>('warehouses')
   const [warehouses, setWarehouses] = useState<Warehouse[]>([])
@@ -84,7 +91,7 @@ export default function WarehousesPage() {
   // Nạp danh sách vị trí ô/kệ cho kho đang chọn
   const loadLocations = useCallback(async (warehouseId?: number) => {
     const targetId = warehouseId || selectedWarehouseId
-    if (!targetId) return
+    if (!targetId || !canReadLocations) return
 
     setLoadingLocations(true)
     try {
@@ -99,9 +106,10 @@ export default function WarehousesPage() {
     } finally {
       setLoadingLocations(false)
     }
-  }, [selectedWarehouseId, message])
+  }, [selectedWarehouseId, canReadLocations, message])
 
   useEffect(() => {
+    if (!canReadWarehouses) return
     let ignore = false
     const fetchData = async () => {
       setLoadingWarehouses(true)
@@ -133,10 +141,10 @@ export default function WarehousesPage() {
     return () => {
       ignore = true
     }
-  }, [message])
+  }, [canReadWarehouses, message])
 
   useEffect(() => {
-    if (!selectedWarehouseId) return
+    if (!selectedWarehouseId || !canReadLocations) return
     let ignore = false
     const fetchLocs = async () => {
       setLoadingLocations(true)
@@ -163,7 +171,7 @@ export default function WarehousesPage() {
     return () => {
       ignore = true
     }
-  }, [selectedWarehouseId, message])
+  }, [selectedWarehouseId, canReadLocations, message])
 
   // Handlers cho Kho hàng
   const handleOpenCreateWarehouse = () => {
@@ -283,27 +291,37 @@ export default function WarehousesPage() {
     }
   }
 
+  if (!canReadWarehouses) {
+    return (
+      <ForbiddenResult description="Tài khoản chưa được gán kho nào nên không xem được danh mục kho." />
+    )
+  }
+
+  // Kho mà người dùng được tạo, xóa vị trí ô kệ (hộp thoại tạo vị trí chỉ cho chọn các kho này)
+  const writableLocationWarehouses = warehouses.filter((w) => can('location.write', w.id))
+
   return (
     <div className="space-y-6">
       {/* Tiêu đề trang và nút làm mới */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h1 className="text-xl font-bold text-gray-900 tracking-tight">
-            Quản Lý Đa Kho & Sơ Đồ Vị Trí Ô/Kệ
+          <h1 className="text-xl font-semibold text-slate-900 tracking-tight">
+            Kho và vị trí
           </h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Thiết kế danh mục đa kho, giám sát dung tích sức chứa, cấu trúc vị trí 4 cấp và in tem mã vạch giá kệ.
+          <p className="text-sm text-slate-500 mt-1">
+            Quản lý hệ thống kho bãi, theo dõi sức chứa định mức và sơ đồ vị trí lưu trữ.
           </p>
         </div>
 
         <Button
-          icon={<ReloadOutlined />}
+          icon={<ReloadOutlined className="text-slate-500" />}
           onClick={() => {
             loadWarehouses()
             loadSummary()
             if (selectedWarehouseId) loadLocations(selectedWarehouseId)
           }}
           loading={loadingWarehouses || loadingSummary}
+          className="text-slate-700"
         >
           Làm mới dữ liệu
         </Button>
@@ -320,8 +338,8 @@ export default function WarehousesPage() {
           {
             key: 'warehouses',
             label: (
-              <span className="flex items-center gap-1.5 font-medium px-1">
-                <ShopOutlined /> Danh mục Đa Kho & Năng lực Chứa
+              <span className="flex items-center gap-1.5 font-medium px-1 text-slate-700">
+                <ShopOutlined /> Danh mục kho
               </span>
             ),
             children: (
@@ -337,11 +355,11 @@ export default function WarehousesPage() {
               />
             ),
           },
-          {
+          ...(canReadLocations ? [{
             key: 'locations',
             label: (
-              <span className="flex items-center gap-1.5 font-medium px-1">
-                <ApartmentOutlined /> Sơ đồ Vị trí Ô/Kệ & In Tem Mã Vạch
+              <span className="flex items-center gap-1.5 font-medium px-1 text-slate-700">
+                <ApartmentOutlined /> Sơ đồ vị trí ô/kệ
               </span>
             ),
             children: (
@@ -358,7 +376,7 @@ export default function WarehousesPage() {
                 onDeleteLocation={handleDeleteLocation}
               />
             ),
-          },
+          }] : []),
         ]}
       />
 
@@ -373,7 +391,7 @@ export default function WarehousesPage() {
 
       <BulkCreateBinModal
         open={isBulkModalOpen}
-        warehouses={warehouses}
+        warehouses={writableLocationWarehouses}
         initialWarehouseId={selectedWarehouseId}
         loading={submittingLocation}
         onClose={() => setIsBulkModalOpen(false)}
@@ -382,7 +400,7 @@ export default function WarehousesPage() {
 
       <SingleBinModal
         open={isSingleBinModalOpen}
-        warehouses={warehouses}
+        warehouses={writableLocationWarehouses}
         initialWarehouseId={selectedWarehouseId}
         loading={submittingLocation}
         onClose={() => setIsSingleBinModalOpen(false)}

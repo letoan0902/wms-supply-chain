@@ -170,6 +170,7 @@ export default function UserTable({
               <span>Chưa gán kho</span>
               <Tooltip title="Gán kho làm việc">
                 <Button
+                  data-write-action
                   type="link"
                   size="small"
                   className="p-0 h-auto text-xs"
@@ -274,6 +275,7 @@ export default function UserTable({
           </Tooltip>
           <Tooltip title="Phân quyền kho làm việc">
             <Button
+              data-write-action
               type="text"
               size="small"
               icon={<ApartmentOutlined />}

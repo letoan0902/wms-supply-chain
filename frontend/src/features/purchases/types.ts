@@ -7,6 +7,7 @@ export type OrderStatus =
   | 'PENDING'
   | 'CONFIRMED'
   | 'APPROVED'
+  | 'PARTIALLY_RECEIVED'
   | 'REJECTED'
   | 'CANCELLED'
   | 'COMPLETED'

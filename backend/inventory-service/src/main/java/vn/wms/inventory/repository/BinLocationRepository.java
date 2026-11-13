@@ -19,6 +19,8 @@ public interface BinLocationRepository extends JpaRepository<BinLocation, Long> 
 
     Optional<BinLocation> findByCode(String code);
 
+    Optional<BinLocation> findByWarehouseIdAndCode(Long warehouseId, String code);
+
     boolean existsByCode(String code);
 
     boolean existsByCodeAndIdNot(String code, Long id);
@@ -36,6 +38,9 @@ public interface BinLocationRepository extends JpaRepository<BinLocation, Long> 
     long countByWarehouseIdAndStatus(Long warehouseId, String status);
 
     long countByStatus(String status);
+
+    @Query("SELECT COUNT(b) FROM BinLocation b WHERE b.active = true AND (:warehouseId IS NULL OR b.warehouse.id = :warehouseId)")
+    long countActiveLocations(@Param("warehouseId") Long warehouseId);
 
     @Query("SELECT DISTINCT b.zone FROM BinLocation b WHERE b.warehouse.id = :warehouseId ORDER BY b.zone ASC")
     List<String> findDistinctZonesByWarehouseId(@Param("warehouseId") Long warehouseId);

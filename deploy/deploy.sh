@@ -283,7 +283,7 @@ build_images() {
     log "Bỏ qua bước build theo tham số --no-build."
     return 0
   fi
-  log "Build image với --pull. Lần đầu mất khá lâu vì phải biên dịch 8 service Java và frontend."
+  log "Build image với --pull. Lần đầu mất khá lâu vì phải biên dịch 9 service Java và frontend."
   compose build --pull
 }
 
@@ -367,7 +367,7 @@ warm_up() {
     log "  POST /api/auth/login (JSON rỗng) lần $i: HTTP ${result:-000}"
   done
   # GET không token tới các route còn lại: gateway trả 401 nhưng bộ lọc JWT và rate limiter đã được làm nóng.
-  for path in /api/products /api/inventory/warehouses /api/orders /api/notifications; do
+  for path in /api/products /api/inventory/warehouses /api/orders /api/notifications /api/ai/health; do
     result="$(curl -s -o /dev/null -w '%{http_code} sau %{time_total}s' --max-time 30 "$base$path" || true)"
     log "  GET $path (không token): HTTP ${result:-000}"
   done

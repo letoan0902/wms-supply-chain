@@ -69,13 +69,19 @@ class WmsEventsDefinitionsTest {
     @Test
     void businessQueuesAreBoundToEventExchangeWithExpectedKeys() {
         assertThat(bindingKeys(WmsEvents.EXCHANGE, WmsEvents.Queues.INVENTORY_ORDER_EVENTS))
-                .containsExactlyInAnyOrder(WmsEvents.RoutingKeys.ORDER_CREATED, WmsEvents.RoutingKeys.ORDER_DISPATCHED);
+                .containsExactlyInAnyOrder(
+                        WmsEvents.RoutingKeys.ORDER_CREATED,
+                        WmsEvents.RoutingKeys.ORDER_DISPATCHED,
+                        WmsEvents.RoutingKeys.ORDER_RECEIVED
+                );
         assertThat(bindingKeys(WmsEvents.EXCHANGE, WmsEvents.Queues.NOTIFICATION_ORDER_EVENTS))
                 .containsExactly(WmsEvents.RoutingKeys.ORDER_ALL);
         assertThat(bindingKeys(WmsEvents.EXCHANGE, WmsEvents.Queues.NOTIFICATION_INVENTORY_EVENTS))
                 .containsExactly(WmsEvents.RoutingKeys.INVENTORY_ALL);
         assertThat(bindingKeys(WmsEvents.EXCHANGE, WmsEvents.Queues.NOTIFICATION_ALERTS))
                 .containsExactly(WmsEvents.RoutingKeys.ALERT_ALL);
+        assertThat(bindingKeys(WmsEvents.EXCHANGE, WmsEvents.Queues.NOTIFICATION_AUTH_EMAILS))
+                .containsExactly(WmsEvents.RoutingKeys.AUTH_ALL);
         assertThat(bindingKeys(WmsEvents.DEAD_LETTER_EXCHANGE, WmsEvents.DEAD_LETTER_QUEUE)).containsExactly("#");
     }
 
@@ -96,6 +102,15 @@ class WmsEventsDefinitionsTest {
         assertThat(queuesReceiving(WmsEvents.RoutingKeys.INVENTORY_UPDATED))
                 .containsExactly(WmsEvents.Queues.NOTIFICATION_INVENTORY_EVENTS);
         assertThat(queuesReceiving(WmsEvents.RoutingKeys.ALERT_LOW_STOCK))
+                .containsExactly(WmsEvents.Queues.NOTIFICATION_ALERTS);
+        // Email tài khoản (WMS-23.6) chỉ tới queue riêng, không lẫn vào notification.alerts
+        assertThat(queuesReceiving(WmsEvents.RoutingKeys.AUTH_ACTIVATION_REQUESTED))
+                .containsExactly(WmsEvents.Queues.NOTIFICATION_AUTH_EMAILS);
+        assertThat(queuesReceiving(WmsEvents.RoutingKeys.AUTH_PASSWORD_RESET_REQUESTED))
+                .containsExactly(WmsEvents.Queues.NOTIFICATION_AUTH_EMAILS);
+        assertThat(queuesReceiving(WmsEvents.RoutingKeys.ALERT_STOCK_SUMMARY))
+                .containsExactly(WmsEvents.Queues.NOTIFICATION_ALERTS);
+        assertThat(queuesReceiving(WmsEvents.RoutingKeys.ALERT_STOCK_DIGEST))
                 .containsExactly(WmsEvents.Queues.NOTIFICATION_ALERTS);
     }
 
@@ -135,7 +150,7 @@ class WmsEventsDefinitionsTest {
         }
         assertThat(WmsEvents.DEAD_LETTER_QUEUE).matches(NAME_CONVENTION);
         for (String pattern : List.of(WmsEvents.RoutingKeys.ORDER_ALL, WmsEvents.RoutingKeys.INVENTORY_ALL,
-                WmsEvents.RoutingKeys.ALERT_ALL)) {
+                WmsEvents.RoutingKeys.ALERT_ALL, WmsEvents.RoutingKeys.AUTH_ALL)) {
             assertThat(pattern).matches("^[a-z]+\\.#$");
         }
     }

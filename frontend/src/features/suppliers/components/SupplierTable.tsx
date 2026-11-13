@@ -8,24 +8,21 @@ import {
   PhoneOutlined,
   SearchOutlined,
   UserOutlined,
-  WarningOutlined,
 } from '@ant-design/icons'
 import {
-  Badge,
   Button,
-  Card,
   Input,
   Popconfirm,
   Select,
   Space,
   Table,
-  Tag,
   Tooltip,
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { useState } from 'react'
 import { formatCurrency } from '../../../utils/format'
 import type { Supplier } from '../types'
+import { useCan } from '../../auth/useCan'
 
 interface Props {
   suppliers: Supplier[]
@@ -54,6 +51,7 @@ export default function SupplierTable({
   onViewTransactions,
   onRecordTransaction,
 }: Props) {
+  const can = useCan()
   const [keywordInput, setKeywordInput] = useState('')
   const [activeFilter, setActiveFilter] = useState<boolean | undefined>(undefined)
 
@@ -75,9 +73,9 @@ export default function SupplierTable({
       title: 'Mã NCC',
       dataIndex: 'code',
       key: 'code',
-      width: 140,
+      width: 130,
       render: (code: string) => (
-        <span className="font-mono font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded text-xs">
+        <span className="text-xs font-medium text-slate-800 bg-slate-100 px-2 py-0.5 rounded border border-slate-200/60 tabular-nums">
           {code}
         </span>
       ),
@@ -88,7 +86,7 @@ export default function SupplierTable({
       width: 250,
       render: (_, record) => (
         <div>
-          <div className="font-semibold text-slate-800 text-sm">{record.name}</div>
+          <div className="font-medium text-slate-900 text-sm">{record.name}</div>
           <div className="text-xs text-slate-400 mt-0.5">
             {record.taxCode ? `MST: ${record.taxCode}` : 'Chưa có MST'}
             {record.address && ` • ${record.address}`}
@@ -109,7 +107,7 @@ export default function SupplierTable({
             </div>
           )}
           {record.phone && (
-            <div className="text-slate-600 flex items-center gap-1 font-mono">
+            <div className="text-slate-600 flex items-center gap-1 tabular-nums">
               <PhoneOutlined className="text-slate-400" />
               <a href={`tel:${record.phone}`} className="hover:underline text-slate-700">
                 {record.phone}
@@ -135,9 +133,9 @@ export default function SupplierTable({
       width: 120,
       render: (val: string | null) =>
         val ? (
-          <Tag color="cyan" className="font-mono text-xs">
+          <span className="text-xs text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded">
             {val}
-          </Tag>
+          </span>
         ) : (
           <span className="text-slate-400 text-xs italic">-</span>
         ),
@@ -147,32 +145,34 @@ export default function SupplierTable({
       dataIndex: 'creditLimit',
       key: 'creditLimit',
       align: 'right',
-      width: 150,
+      width: 140,
       render: (val: number) => (
-        <span className="font-medium text-slate-700">{formatCurrency(val)}</span>
+        <span className="text-xs font-medium text-slate-700 tabular-nums">
+          {formatCurrency(val)}
+        </span>
       ),
     },
     {
       title: 'Công nợ hiện tại',
       key: 'currentDebt',
       align: 'right',
-      width: 180,
+      width: 170,
       render: (_, record) => {
         const isOver = record.isOverCreditLimit
         const hasDebt = record.currentDebt > 0
         return (
           <div className="flex flex-col items-end">
             <span
-              className={`font-bold text-sm ${
-                isOver ? 'text-red-600' : hasDebt ? 'text-amber-600' : 'text-slate-400'
+              className={`text-xs font-semibold tabular-nums ${
+                isOver ? 'text-red-600' : hasDebt ? 'text-slate-900' : 'text-slate-400'
               }`}
             >
               {formatCurrency(record.currentDebt)}
             </span>
             {isOver && (
-              <Tag color="error" className="mt-1 m-0 text-[10px] flex items-center gap-1">
-                <WarningOutlined /> Vượt hạn mức
-              </Tag>
+              <span className="mt-0.5 text-[11px] text-red-600 font-medium inline-flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-red-500" /> Vượt hạn mức
+              </span>
             )}
           </div>
         )
@@ -182,49 +182,55 @@ export default function SupplierTable({
       title: 'Trạng thái',
       dataIndex: 'active',
       key: 'active',
-      width: 130,
-      render: (active: boolean) =>
-        active ? (
-          <Badge status="success" text={<span className="text-xs text-green-700">Hoạt động</span>} />
-        ) : (
-          <Badge status="default" text={<span className="text-xs text-slate-400">Tạm dừng</span>} />
-        ),
+      width: 120,
+      render: (active: boolean) => (
+        <span className="inline-flex items-center gap-1.5 text-xs text-slate-600">
+          <span className={`w-1.5 h-1.5 rounded-full ${active ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+          {active ? 'Hoạt động' : 'Tạm dừng'}
+        </span>
+      ),
     },
     {
       title: 'Thao tác',
       key: 'actions',
-      width: 180,
+      width: 160,
       fixed: 'right',
       render: (_, record) => (
-        <Space size="small">
-          <Tooltip title="Xem sổ chi tiết công nợ & giao dịch">
-            <Button
-              type="text"
-              size="small"
-              icon={<FileTextOutlined className="text-blue-600" />}
-              onClick={() => onViewTransactions(record)}
-            />
-          </Tooltip>
+        <Space size={2}>
+          {can('supplier.debt') && (
+            <Tooltip title="Xem sổ chi tiết công nợ & giao dịch">
+              <Button
+                type="text"
+                size="small"
+                icon={<FileTextOutlined className="text-slate-600" />}
+                onClick={() => onViewTransactions(record)}
+              />
+            </Tooltip>
+          )}
 
-          <Tooltip title="Ghi nhận giao dịch công nợ mới (Thanh toán / Hóa đơn)">
-            <Button
-              type="text"
-              size="small"
-              icon={<DollarOutlined className="text-amber-600" />}
-              onClick={() => onRecordTransaction(record)}
-            />
-          </Tooltip>
+          {can('supplier.transaction') && (
+            <Tooltip title="Ghi nhận giao dịch công nợ mới">
+              <Button
+                type="text"
+                size="small"
+                icon={<DollarOutlined className="text-slate-600" />}
+                onClick={() => onRecordTransaction(record)}
+              />
+            </Tooltip>
+          )}
 
-          <Tooltip title="Chỉnh sửa thông tin NCC">
-            <Button
-              type="text"
-              size="small"
-              icon={<EditOutlined className="text-slate-600" />}
-              onClick={() => onEdit(record)}
-            />
-          </Tooltip>
+          {can('supplier.write') && (
+            <Tooltip title="Chỉnh sửa thông tin NCC">
+              <Button
+                type="text"
+                size="small"
+                icon={<EditOutlined className="text-slate-600" />}
+                onClick={() => onEdit(record)}
+              />
+            </Tooltip>
+          )}
 
-          {record.active && (
+          {record.active && can('supplier.delete') && (
             <Tooltip title="Ngưng hoạt động nhà cung cấp này">
               <Popconfirm
                 title="Xác nhận ngưng hoạt động?"
@@ -249,7 +255,7 @@ export default function SupplierTable({
   ]
 
   return (
-    <Card variant="borderless" className="shadow-xs">
+    <div className="bg-white border border-slate-200/80 rounded-lg p-5">
       {/* Bộ lọc & Tìm kiếm */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
         <div className="flex flex-wrap items-center gap-2 flex-1">
@@ -304,6 +310,6 @@ export default function SupplierTable({
           onChange: (p, ps) => onPageChange(p - 1, ps),
         }}
       />
-    </Card>
+    </div>
   )
 }

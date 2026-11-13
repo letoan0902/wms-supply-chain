@@ -13,12 +13,13 @@ import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
-import vn.wms.common.persistence.AuditableEntity;
+import vn.wms.common.tenant.TenantEntity;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -30,17 +31,18 @@ import java.util.List;
  * Đơn mua hàng (Purchase Order - PO) gửi nhà cung cấp (FR10, WMS-09.1).
  */
 @Entity
-@Table(name = "purchase_orders")
+@Table(name = "purchase_orders", uniqueConstraints = @UniqueConstraint(
+        name = "uk_purchase_orders_company_number", columnNames = {"company_id", "po_number"}))
 @Getter
 @Setter
 @NoArgsConstructor
-public class PurchaseOrder extends AuditableEntity {
+public class PurchaseOrder extends TenantEntity {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "po_number", nullable = false, unique = true, length = 30)
+    @Column(name = "po_number", nullable = false, length = 30)
     private String poNumber;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)

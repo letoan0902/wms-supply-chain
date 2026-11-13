@@ -2,12 +2,14 @@ import {
   FileExcelOutlined,
   PlusOutlined,
   ReloadOutlined,
-  ShopOutlined,
 } from '@ant-design/icons'
-import { App, Button, Space, Typography } from 'antd'
+import { App, Button, Space } from 'antd'
 import { useEffect, useState } from 'react'
 import * as XLSX from 'xlsx'
 import { getApiErrorMessage } from '../../services/api'
+import ForbiddenResult from '../../components/ForbiddenResult'
+import { useCan } from '../auth/useCan'
+import AiImportButton from '../ai/components/AiImportButton'
 import RecordTransactionModal from './components/RecordTransactionModal'
 import SupplierFormModal from './components/SupplierFormModal'
 import SupplierMetricsCards from './components/SupplierMetricsCards'
@@ -22,10 +24,12 @@ import type {
   UpdateSupplierPayload,
 } from './types'
 
-const { Title, Text } = Typography
-
 export default function SuppliersPage() {
   const { message } = App.useApp()
+  const can = useCan()
+  const canRead = can('supplier.read')
+  // Tổng hợp công nợ: nhân viên kho chỉ xem danh sách nhà cung cấp, không xem công nợ
+  const canViewDebt = can('supplier.debt')
 
   // State danh sách
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
@@ -62,6 +66,7 @@ export default function SuppliersPage() {
 
   // Tải danh sách nhà cung cấp (tự động chạy khi filter, phân trang hoặc refreshKey thay đổi)
   useEffect(() => {
+    if (!canRead) return
     let ignore = false
     const fetchList = async () => {
       setLoading(true)
@@ -91,10 +96,11 @@ export default function SuppliersPage() {
     return () => {
       ignore = true
     }
-  }, [keyword, active, page, pageSize, refreshKey, message])
+  }, [canRead, keyword, active, page, pageSize, refreshKey, message])
 
   // Tải tóm tắt công nợ tổng thể
   useEffect(() => {
+    if (!canViewDebt) return
     let ignore = false
     const fetchSummary = async () => {
       setSummaryLoading(true)
@@ -116,7 +122,7 @@ export default function SuppliersPage() {
     return () => {
       ignore = true
     }
-  }, [refreshKey])
+  }, [canViewDebt, refreshKey])
 
   // Tìm kiếm
   const handleSearch = (newKeyword?: string, newActive?: boolean) => {
@@ -253,50 +259,60 @@ export default function SuppliersPage() {
     }
   }
 
+  if (!canRead) {
+    return (
+      <ForbiddenResult description="Danh mục nhà cung cấp dành cho Quản trị viên, Quản lý kho, Nhân viên kho, Mua hàng và Kế toán." />
+    )
+  }
+
   return (
     <div className="space-y-6">
       {/* Header trang */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <Title level={3} className="!mb-1 flex items-center gap-2 text-slate-800">
-            <ShopOutlined className="text-blue-600" />
-            <span>Quản lý Nhà cung cấp & Công nợ</span>
-          </Title>
-          <Text type="secondary" className="text-sm">
-            Hồ sơ đối tác cung ứng, điều khoản thanh toán và theo dõi công nợ phải trả (FR09 - WMS-08.3)
-          </Text>
+          <h1 className="text-xl font-semibold text-slate-900 tracking-tight">
+            Nhà cung cấp
+          </h1>
+          <p className="text-sm text-slate-500 mt-1">
+            Hồ sơ đối tác cung ứng, điều khoản thanh toán và theo dõi công nợ phải trả.
+          </p>
         </div>
 
         <Space wrap>
           <Button
-            icon={<FileExcelOutlined />}
+            icon={<FileExcelOutlined className="text-slate-500" />}
             onClick={handleExportExcel}
             loading={exporting}
-            className="hover:border-green-600 hover:text-green-600"
+            className="text-slate-700"
           >
             Xuất Excel
           </Button>
 
           <Button
-            icon={<ReloadOutlined />}
+            icon={<ReloadOutlined className="text-slate-500" />}
             onClick={reloadData}
             loading={loading || summaryLoading}
+            className="text-slate-700"
           >
             Làm mới
           </Button>
 
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={handleOpenCreateModal}
-          >
-            Thêm nhà cung cấp
-          </Button>
+          <AiImportButton dataType="SUPPLIER" />
+
+          {can('supplier.write') && (
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={handleOpenCreateModal}
+            >
+              Thêm nhà cung cấp
+            </Button>
+          )}
         </Space>
       </div>
 
       {/* 4 Cards Thống kê Tổng quan công nợ */}
-      <SupplierMetricsCards summary={summary} loading={summaryLoading} />
+      {canViewDebt && <SupplierMetricsCards summary={summary} loading={summaryLoading} />}
 
       {/* Bảng danh sách & Bộ lọc */}
       <SupplierTable

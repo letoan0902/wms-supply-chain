@@ -1,0 +1,113 @@
+# AI Service (cổng 8086): gọi Claude qua SDK chính thức của Anthropic, đếm lượt AI theo gói (WMS-24.1).
+# Chưa có CSDL: không khai báo datasource, không JPA, không Flyway. Redis giữ bộ đếm lượt AI và bộ nhớ đệm thuê bao.
+server:
+  port: ${SERVER_PORT:8086}
+  shutdown: graceful
+
+spring:
+  application:
+    name: ai-service
+  lifecycle:
+    timeout-per-shutdown-phase: 20s
+  autoconfigure:
+    exclude:
+      # Không dùng user in-memory mặc định của Spring Boot (tránh in "generated security password" ra log).
+      - org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      repositories:
+        enabled: false
+  # Trích xuất tài liệu (WMS-24.2): file tối đa 10 MB. File lớn hơn bị Spring từ chối trước khi vào controller,
+  # UploadExceptionHandler trả 400 với thông báo tiếng Việt. nginx của frontend nhận tối đa 11 MB cho /api/ai/.
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 11MB
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+  instance:
+    prefer-ip-address: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true
+      # Chỉ dùng cho dev; production đặt HEALTH_SHOW_DETAILS=never
+      show-details: ${HEALTH_SHOW_DETAILS:always}
+
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+  api-docs:
+    path: /v3/api-docs
+
+app:
+  # Tách dữ liệu theo doanh nghiệp từ ngày đầu (docs/MULTI_TENANT.md): request không xác định được doanh nghiệp nhận
+  # 403 COMPANY_REQUIRED. Doanh nghiệp mặc định chỉ đặt ở máy phát triển, máy chủ để rỗng.
+  tenant:
+    required: true
+    default-company-id: ${TENANT_DEFAULT_COMPANY_ID:}
+  # Danh tính từ header của api-gateway (docs/SECURITY.md, WMS-20.3). true (máy phát triển, gateway tắt kiểm tra JWT):
+  # request không có X-User-Name được coi là nhà phát triển đủ vai trò. Máy chủ đặt SECURITY_ALLOW_ANONYMOUS=false
+  # (deploy/docker-compose.prod.yml): request thiếu danh tính nhận 401 ngay tại service.
+  security:
+    allow-anonymous-without-gateway: ${SECURITY_ALLOW_ANONYMOUS:true}
+  # Gọi Claude (xem vn.wms.ai.config.AiProperties). Khóa KHÔNG đặt ở đây: SDK đọc biến môi trường ANTHROPIC_API_KEY.
+  # AI_MOCK=true (mặc định) hoặc chưa có khóa: trả câu trả lời mẫu, không gọi Claude.
+  ai:
+    mock: ${AI_MOCK:true}
+    model: ${AI_MODEL:claude-sonnet-5-5}
+    # Mức suy nghĩ gửi qua output_config.effort: low, medium hoặc high.
+    effort: ${AI_EFFORT:low}
+    max-tokens: ${AI_MAX_TOKENS:4096}
+    # Quá thời gian chờ thì báo lỗi 503 và không trừ lượt (docs/SAAS_SPEC.md, WMS-24.1).
+    timeout: 60s
+    max-retries: 1
+    # fallbacks: "default" (beta server-side-fallback-2026-07-01). Đặt AI_SERVER_FALLBACK=false nếu API từ chối tham số này.
+    server-fallback: ${AI_SERVER_FALLBACK:true}
+    # Câu trả lời giả lập vẫn bị tính lượt để thử được giới hạn gói khi chưa có khóa.
+    mock-counts-usage: ${AI_MOCK_COUNTS_USAGE:true}
+    # Trích xuất tài liệu (WMS-24.2, xem vn.wms.ai.config.AiExtractionProperties). Excel, CSV đọc tại chỗ, Claude chỉ
+    # ghép cột (mapping-max-tokens); PDF, ảnh do Claude đọc cả bảng (max-tokens, gọi kiểu stream). Kết quả giữ trên
+    # Redis result-ttl để xem lại và bấm nhập. nginx của frontend chờ /api/ai/ tối đa 200 giây, lớn hơn timeout.
+    extraction:
+      max-tokens: 32000
+      mapping-max-tokens: 4096
+      timeout: 180s
+      result-ttl: 1h
+    # Trợ lý AI (WMS-24.4, xem vn.wms.ai.config.AiAssistantProperties): Claude gọi các công cụ CHỈ ĐỌC (tra hàng hóa,
+    # tồn theo SKU, tồn theo kho, danh sách kho, đơn mua, đơn bán) bằng danh tính người hỏi. timeout là tổng thời gian
+    # của một câu hỏi (mọi lần gọi Claude và tra cứu), nhỏ hơn 200 giây nginx chờ /api/ai/. Lịch sử hội thoại giữ trên
+    # Redis history-ttl kể từ câu hỏi gần nhất, tối đa max-exchanges lượt hỏi đáp.
+    assistant:
+      max-tokens: 2048
+      timeout: 90s
+      max-tool-rounds: 5
+      history-ttl: 1h
+      max-exchanges: 10
+      max-stored-answer-length: 4000
+      max-list-items: 20
+    # Tóm tắt số liệu điều hành cho dashboard (WMS-18.1, xem vn.wms.ai.config.AiSummaryProperties): lưu Redis
+    # cache-ttl theo doanh nghiệp, nhóm vai trò và kho để mở dashboard không tốn lượt AI mỗi lần.
+    summary:
+      cache-ttl: 30m
+      max-tokens: 1500
+      timeout: 60s
+---
+# Nạp cấu hình tập trung từ Config Server. Tiền tố optional nghĩa là Config Server chưa chạy thì service vẫn
+# khởi động bằng cấu hình cục bộ ở trên. Tài liệu này bị bỏ qua khi chạy test (profile test) để test không gọi mạng.
+spring:
+  config:
+    activate:
+      on-profile: "!test"
+    import: "optional:configserver:${CONFIG_SERVER_URL:http://localhost:8888}"

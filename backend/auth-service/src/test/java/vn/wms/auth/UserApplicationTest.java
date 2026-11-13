@@ -258,7 +258,7 @@ class UserApplicationTest extends BaseIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(loginJson("staff", "Demopassword")))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.message").value("Tài khoản đã bị khóa hoặc ngừng kích hoạt"));
+                .andExpect(jsonPath("$.message").value("Tài khoản đã bị khóa hoặc chưa được kích hoạt"));
 
         // 3. Admin mở khóa lại tài khoản (enabled = true)
         mockMvc.perform(patch("/api/auth/users/" + staff.getId() + "/status")
@@ -366,6 +366,7 @@ class UserApplicationTest extends BaseIntegrationTest {
         admin2.setPasswordHash(passwordEncoder.encode("Demopassword"));
         admin2.setEnabled(true);
         admin2.setRoles(new java.util.HashSet<>(Set.of(roleRepository.findByName(Roles.ADMIN).orElseThrow())));
+        admin2.setCompany(companyA);
         userRepository.save(admin2);
 
         String adminToken = loginAndGetToken("admin", "Demopassword");

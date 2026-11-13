@@ -18,12 +18,14 @@ import {
   Spin,
   Tabs,
   Tag,
+  Tooltip,
 } from 'antd'
 import dayjs from 'dayjs'
 import { useEffect, useState } from 'react'
 import * as productApi from '../productApi'
 import type { BarcodeData, BarcodeType, BatchBarcodeResult, Product } from '../types'
 import { getApiErrorMessage } from '../../../services/api'
+import { useCan } from '../../auth/useCan'
 
 interface BarcodeModalProps {
   open: boolean
@@ -40,6 +42,7 @@ interface BatchFormValues {
 export default function BarcodeModal({ open, product, onClose }: BarcodeModalProps) {
   const { message } = App.useApp()
   const [form] = Form.useForm<BatchFormValues>()
+  const canPrintBatch = useCan()('product.barcodeBatch')
 
   const [barcodeType, setBarcodeType] = useState<BarcodeType>('CODE_128')
   const [barcodeData, setBarcodeData] = useState<BarcodeData | null>(null)
@@ -167,7 +170,7 @@ export default function BarcodeModal({ open, product, onClose }: BarcodeModalPro
       title={
         <div className="flex items-center gap-2">
           <span className="text-lg font-semibold">In & Xem trước Tem Mã Vạch (ZXing)</span>
-          <Tag color="blue" className="font-mono">{product.sku}</Tag>
+          <Tag color="blue">{product.sku}</Tag>
         </div>
       }
       open={open}
@@ -251,7 +254,7 @@ export default function BarcodeModal({ open, product, onClose }: BarcodeModalPro
           },
           {
             key: 'batchBarcode',
-            label: '2. Tem nhãn Lô & Hạn dùng (FR07)',
+            label: '2. Tem nhãn Lô & Hạn dùng',
             children: (
               <div className="py-2">
                 <Form
@@ -296,15 +299,30 @@ export default function BarcodeModal({ open, product, onClose }: BarcodeModalPro
                   </Row>
 
                   <div className="flex justify-end mb-4">
-                    <Button type="primary" htmlType="submit" icon={<QrcodeOutlined />} loading={loadingBatch}>
-                      Tạo tem nhãn kết hợp
-                    </Button>
+                    <Tooltip
+                      title={
+                        canPrintBatch
+                          ? undefined
+                          : 'Chỉ Quản trị viên, Quản lý kho và Nhân viên kho được tạo tem nhãn theo lô.'
+                      }
+                    >
+                      <Button
+                        type="primary"
+                        htmlType="submit"
+                        icon={<QrcodeOutlined />}
+                        loading={loadingBatch}
+                        disabled={!canPrintBatch}
+                        data-write-action
+                      >
+                        Tạo tem nhãn kết hợp
+                      </Button>
+                    </Tooltip>
                   </div>
                 </Form>
 
                 {batchData && (
                   <div className="flex flex-col items-center p-4 bg-slate-50 border border-slate-200 rounded-lg">
-                    <div className="text-xs text-slate-500 mb-2 font-mono">
+                    <div className="text-xs text-slate-500 mb-2">
                       Nội dung mã hóa: {batchData.encodedContent}
                     </div>
                     <img src={batchData.base64Image} alt="batch barcode" className="max-h-36 object-contain" />

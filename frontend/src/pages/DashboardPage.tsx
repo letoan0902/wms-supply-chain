@@ -152,7 +152,14 @@ export default function DashboardPage() {
   // Đọc phiên một lần: getStoredUser() tạo mảng warehouseIds mới mỗi lần gọi, đưa vào dependency sẽ gọi lại API liên tục
   const [currentUser] = useState(() => getStoredUser())
   const roles = useMemo(() => currentUser?.roles ?? [], [currentUser])
-  const userWarehouseIds = useMemo(() => currentUser?.warehouseIds ?? [], [currentUser])
+  // Kho được gán lấy từ access token qua useCan() (kết quả đăng nhập lưu ở máy không có danh sách kho);
+  // so theo chuỗi để không gọi lại API mỗi lần useCan() tạo mảng mới
+  const can = useCan()
+  const userWarehouseIdsKey = can.warehouseIds.join(',')
+  const userWarehouseIds = useMemo(
+    () => (userWarehouseIdsKey ? userWarehouseIdsKey.split(',').map(Number) : []),
+    [userWarehouseIdsKey],
+  )
 
   // Phân quyền theo SRS Mục 2.5.1 & 2.5.2 (backend vẫn là nơi quyết định: che số tiền, lọc theo kho)
   const isAdmin = roles.includes('ADMIN')
@@ -162,7 +169,6 @@ export default function DashboardPage() {
   const isGlobalScope = isAdmin || isAccountant
   const canExportExcel = isAdmin || isAccountant
   const roleLabel = roles.map((r) => ROLE_CONFIG[r]?.label ?? r).join(', ')
-  const can = useCan()
   const canSeeAmounts = can('dashboard.amounts')
   const canSeeRecentTransactions = can('dashboard.recentTransactions')
 

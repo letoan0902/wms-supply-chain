@@ -20,8 +20,8 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { formatNumber } from '../../../utils/format'
 import { fetchProducts } from '../../products/productApi'
 import type { Product } from '../../products/types'
-import { fetchLocations } from '../../warehouses/warehouseApi'
-import type { BinLocation, Warehouse } from '../../warehouses/types'
+import { fetchLocations, fetchTransferDestinations } from '../../warehouses/warehouseApi'
+import type { BinLocation, Warehouse, WarehouseOption } from '../../warehouses/types'
 import { useCan } from '../../auth/useCan'
 import { checkStockAtp } from '../transferApi'
 import type {
@@ -69,6 +69,8 @@ export default function CreateTransferModal({
   const sourceWarehouseId = Form.useWatch('sourceWarehouseId', form)
 
   const [products, setProducts] = useState<Product[]>([])
+  // Kho đích: mọi kho đang hoạt động của doanh nghiệp (kho được gán chỉ giới hạn kho nguồn)
+  const [destinationWarehouses, setDestinationWarehouses] = useState<WarehouseOption[] | null>(null)
   const [sourceBins, setSourceBins] = useState<BinLocation[]>([])
   const [items, setItems] = useState<TransferFormItem[]>(() => {
     if (editingTransfer) {
@@ -127,6 +129,37 @@ export default function CreateTransferModal({
       ignore = true
     }
   }, [])
+
+  // Nạp danh sách kho đích (lỗi thì dùng danh sách kho đang có)
+  useEffect(() => {
+    let ignore = false
+    fetchTransferDestinations()
+      .then((data) => {
+        if (!ignore) {
+          setDestinationWarehouses(data)
+        }
+      })
+      .catch((err) => console.error('Lỗi khi nạp danh sách kho đích:', err))
+
+    return () => {
+      ignore = true
+    }
+  }, [])
+
+  const destinationOptions = useMemo(() => {
+    const options = (destinationWarehouses ?? warehouses).map((w) => ({
+      value: w.id,
+      label: `${w.name} (${w.code})`,
+    }))
+    // Lệnh đang sửa: vẫn hiện tên kho đích dù kho đó không còn trong danh sách
+    if (editingTransfer && !options.some((o) => o.value === editingTransfer.destinationWarehouseId)) {
+      options.push({
+        value: editingTransfer.destinationWarehouseId,
+        label: `${editingTransfer.destinationWarehouseName} (${editingTransfer.destinationWarehouseCode})`,
+      })
+    }
+    return options
+  }, [destinationWarehouses, warehouses, editingTransfer])
 
   // Nạp vị trí ô/kệ khi thay đổi kho nguồn
   useEffect(() => {
@@ -534,12 +567,7 @@ export default function CreateTransferModal({
             <Select
               placeholder="Chọn kho đích"
               disabled={!!editingTransfer}
-              options={warehouses
-                .filter((w) => w.id !== sourceWarehouseId)
-                .map((w) => ({
-                  value: w.id,
-                  label: `${w.name} (${w.code})`,
-                }))}
+              options={destinationOptions.filter((o) => o.value !== sourceWarehouseId)}
             />
           </Form.Item>
 

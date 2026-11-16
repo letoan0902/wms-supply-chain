@@ -9,6 +9,7 @@ import type {
   UpdateBinLocationPayload,
   UpdateWarehousePayload,
   Warehouse,
+  WarehouseOption,
   WarehouseSummary,
 } from './types'
 
@@ -18,6 +19,12 @@ import type {
 
 export async function fetchWarehouses(params?: { keyword?: string; active?: boolean }): Promise<Warehouse[]> {
   const res = await api.get<ApiResponse<Warehouse[]>>('/inventory/warehouses', { params })
+  return res.data.data
+}
+
+/** Mọi kho đang hoạt động của doanh nghiệp để chọn làm kho đích điều chuyển (không giới hạn theo kho được gán). */
+export async function fetchTransferDestinations(): Promise<WarehouseOption[]> {
+  const res = await api.get<ApiResponse<WarehouseOption[]>>('/inventory/warehouses/transfer-destinations')
   return res.data.data
 }
 

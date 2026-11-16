@@ -373,6 +373,13 @@ export default function SalesOrderForm({
       return
     }
 
+    // Đơn không phải bản nháp sẽ giữ hàng tại một kho cụ thể nên bắt buộc chọn kho xuất
+    if (targetStatus !== 'DRAFT' && !values.warehouseId) {
+      form.setFields([{ name: 'warehouseId', errors: ['Vui lòng chọn kho xuất hàng trước khi xác nhận đơn'] }])
+      message.error('Vui lòng chọn kho xuất hàng trước khi xác nhận đơn')
+      return
+    }
+
     // Validate danh sách hàng hóa
     if (!items || items.length === 0) {
       message.error('Đơn bán hàng phải có ít nhất 1 dòng mặt hàng')
@@ -576,7 +583,7 @@ export default function SalesOrderForm({
               >
                 <Select
                   allowClear
-                  placeholder="Chọn kho xuất (để trống: tính ATP toàn hệ thống)"
+                  placeholder="Chọn kho xuất (bắt buộc khi xác nhận đơn)"
                   onChange={handleWarehouseChange}
                   options={warehouses.map((w) => ({
                     value: w.id,

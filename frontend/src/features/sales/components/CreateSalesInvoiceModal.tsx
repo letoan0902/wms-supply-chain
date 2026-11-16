@@ -142,17 +142,20 @@ export default function CreateSalesInvoiceModal({
   const handleSubmit = async (values: FormValues) => {
     setLoading(true)
     try {
+      // "Thu tiền ngay" vẫn là hóa đơn bán: máy chủ ghi hóa đơn rồi phiếu thu cùng số tiền,
+      // công nợ khách giữ nguyên và đơn được tính là đã có hóa đơn.
       await customerApi.recordCustomerTransaction(values.customerId, {
-        type: values.type,
+        type: 'SALES_INVOICE',
         amount: values.amount,
         referenceCode: values.referenceCode.trim(),
         note: values.note?.trim(),
+        paidImmediately: values.type === 'PAYMENT',
       })
 
       const actionName =
         values.type === 'SALES_INVOICE'
           ? 'Tạo Hóa đơn bán (Ghi nợ phải thu - UNPAID)'
-          : 'Ghi nhận thanh toán'
+          : 'Tạo Hóa đơn bán và thu tiền ngay (PAID)'
 
       message.success(`${actionName} thành công cho mã chứng từ "${values.referenceCode}"!`)
       setCreditInfo(null)
@@ -325,20 +328,6 @@ export default function CreateSalesInvoiceModal({
                     min: 1,
                     message: 'Số tiền phải lớn hơn 0',
                   },
-                  ({ getFieldValue }) => ({
-                    validator(_, value) {
-                      const type = getFieldValue('type')
-                      const currentDebt = creditInfo?.currentDebt ?? 0
-                      if (type === 'PAYMENT' && currentDebt > 0 && value > currentDebt) {
-                        return Promise.reject(
-                          new Error(
-                            `Số tiền thanh toán (${formatCurrency(value)}) không được lớn hơn công nợ hiện tại (${formatCurrency(currentDebt)})`
-                          )
-                        )
-                      }
-                      return Promise.resolve()
-                    },
-                  }),
                 ]}
               >
                 <InputNumber

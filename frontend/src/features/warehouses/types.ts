@@ -18,6 +18,14 @@ export interface Warehouse {
   updatedAt: string
 }
 
+/** Kho đích chọn được khi lập lệnh điều chuyển: chỉ mã, tên, trạng thái. */
+export interface WarehouseOption {
+  id: number
+  code: string
+  name: string
+  active: boolean
+}
+
 export interface WarehouseSummary {
   totalWarehouses: number
   activeWarehouses: number

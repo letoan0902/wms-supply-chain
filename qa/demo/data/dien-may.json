@@ -1,0 +1,331 @@
+{
+  "key": "dien-may",
+  "emailDomain": "dienmaygiaphat.example",
+  "company": {
+    "name": "Công ty TNHH Điện Máy Gia Phát",
+    "taxCode": "0109662483",
+    "phone": "0243 991 5566",
+    "admin": { "username": "giaphat.admin", "fullName": "Đặng Minh Khôi" }
+  },
+  "users": [
+    { "username": "giaphat.quanlykho", "fullName": "Bạch Văn Hùng", "roles": ["WAREHOUSE_MANAGER"], "warehouses": "all" },
+    { "username": "giaphat.thukho", "fullName": "Mai Xuân Trường", "roles": ["WAREHOUSE_STAFF"], "warehouses": ["DM-HN"] },
+    { "username": "giaphat.muahang", "fullName": "La Thị Kim Oanh", "roles": ["PURCHASING"], "warehouses": "all" },
+    { "username": "giaphat.banhang1", "fullName": "Văn Đức Thắng", "roles": ["SALES"], "warehouses": "all" },
+    { "username": "giaphat.banhang2", "fullName": "Trầm Mỹ Duyên", "roles": ["SALES"], "warehouses": ["DM-HCM"] },
+    { "username": "giaphat.ketoan", "fullName": "Hứa Thị Lan Phương", "roles": ["ACCOUNTANT"], "warehouses": "all" }
+  ],
+  "uoms": [
+    { "code": "CAI", "name": "Cái" },
+    { "code": "CHIEC", "name": "Chiếc" },
+    { "code": "BO", "name": "Bộ" }
+  ],
+  "categories": [
+    { "code": "DM-TIVI", "name": "Tivi", "description": "Tivi thông minh, QLED các cỡ" },
+    { "code": "DM-TULANH", "name": "Tủ lạnh, tủ đông", "description": "Tủ lạnh Inverter, Side by Side, tủ đông" },
+    { "code": "DM-MAYGIAT", "name": "Máy giặt, máy sấy", "description": "Máy giặt cửa trên, cửa ngang, máy sấy" },
+    { "code": "DM-DIEUHOA", "name": "Điều hòa", "description": "Điều hòa một chiều, hai chiều Inverter" },
+    { "code": "DM-BEP", "name": "Gia dụng nhà bếp", "description": "Nồi cơm, nồi chiên, bếp từ, lò vi sóng, máy xay" },
+    { "code": "DM-QUAT", "name": "Quạt và thiết bị không khí", "description": "Quạt cây, quạt điều hòa, máy lọc không khí, máy hút ẩm" },
+    { "code": "DM-NUOC", "name": "Thiết bị nước", "description": "Bình nóng lạnh, máy lọc nước, cây nước nóng lạnh" }
+  ],
+  "warehouses": [
+    {
+      "code": "DM-HN", "name": "Kho Hà Nội - Thanh Trì", "address": "Km 9 đường Ngọc Hồi, xã Thanh Trì, Hà Nội",
+      "managerName": "Bạch Văn Hùng", "contactPhone": "0913 552 040", "capacity": 1200,
+      "locations": [
+        { "zone": "A", "racks": [1, 4], "bins": [1, 3], "maxWeight": 2000 },
+        { "zone": "B", "racks": [1, 3], "bins": [1, 4], "maxWeight": 800 },
+        { "zone": "C", "racks": [1, 1], "bins": [1, 2], "maxWeight": 1000 }
+      ]
+    },
+    {
+      "code": "DM-HCM", "name": "Kho Bình Tân", "address": "Số 25 đường số 7, KCN Tân Tạo, phường Tân Tạo, TP Hồ Chí Minh",
+      "managerName": "Phó Đức Toản", "contactPhone": "0908 667 315", "capacity": 1000,
+      "locations": [
+        { "zone": "A", "racks": [1, 4], "bins": [1, 3], "maxWeight": 2000 },
+        { "zone": "B", "racks": [1, 3], "bins": [1, 4], "maxWeight": 800 },
+        { "zone": "C", "racks": [1, 1], "bins": [1, 2], "maxWeight": 1000 }
+      ]
+    }
+  ],
+  "products": [
+    { "sku": "DM-001", "name": "Tivi thông minh Viora 43 inch Full HD", "category": "DM-TIVI", "uom": "CHIEC", "purchasePrice": 5200000, "sellingPrice": 6490000, "vatRate": 10, "safetyStock": 5, "reorderPoint": 10, "maxStock": 60 },
+    { "sku": "DM-002", "name": "Tivi thông minh Viora 50 inch 4K", "category": "DM-TIVI", "uom": "CHIEC", "purchasePrice": 7800000, "sellingPrice": 9690000, "vatRate": 10, "safetyStock": 5, "reorderPoint": 10, "maxStock": 50 },
+    { "sku": "DM-003", "name": "Tivi thông minh Viora 55 inch 4K", "category": "DM-TIVI", "uom": "CHIEC", "purchasePrice": 9600000, "sellingPrice": 11990000, "vatRate": 10, "safetyStock": 4, "reorderPoint": 8, "maxStock": 40 },
+    { "sku": "DM-004", "name": "Tivi QLED Viora 65 inch", "category": "DM-TIVI", "uom": "CHIEC", "purchasePrice": 15900000, "sellingPrice": 19490000, "vatRate": 10, "safetyStock": 2, "reorderPoint": 4, "maxStock": 20 },
+    { "sku": "DM-005", "name": "Tivi QLED Viora 75 inch", "category": "DM-TIVI", "uom": "CHIEC", "purchasePrice": 24500000, "sellingPrice": 29990000, "vatRate": 10, "safetyStock": 1, "reorderPoint": 2, "maxStock": 10 },
+    { "sku": "DM-006", "name": "Tủ lạnh Kelvo Inverter 180 lít", "category": "DM-TULANH", "uom": "CHIEC", "purchasePrice": 4900000, "sellingPrice": 5990000, "vatRate": 10, "safetyStock": 5, "reorderPoint": 10, "maxStock": 50 },
+    { "sku": "DM-007", "name": "Tủ lạnh Kelvo Inverter 256 lít", "category": "DM-TULANH", "uom": "CHIEC", "purchasePrice": 6700000, "sellingPrice": 8190000, "vatRate": 10, "safetyStock": 4, "reorderPoint": 8, "maxStock": 40 },
+    { "sku": "DM-008", "name": "Tủ lạnh Kelvo Inverter 360 lít ngăn đá dưới", "category": "DM-TULANH", "uom": "CHIEC", "purchasePrice": 9800000, "sellingPrice": 11890000, "vatRate": 10, "safetyStock": 3, "reorderPoint": 6, "maxStock": 30 },
+    { "sku": "DM-009", "name": "Tủ lạnh Side by Side Kelvo 520 lít", "category": "DM-TULANH", "uom": "CHIEC", "purchasePrice": 17500000, "sellingPrice": 21490000, "vatRate": 10, "safetyStock": 1, "reorderPoint": 3, "maxStock": 15 },
+    { "sku": "DM-010", "name": "Tủ đông Kelvo một ngăn 250 lít", "category": "DM-TULANH", "uom": "CHIEC", "purchasePrice": 5600000, "sellingPrice": 6890000, "vatRate": 10, "safetyStock": 2, "reorderPoint": 5, "maxStock": 25 },
+    { "sku": "DM-011", "name": "Máy giặt cửa trên Kelvo 9 kg", "category": "DM-MAYGIAT", "uom": "CHIEC", "purchasePrice": 4300000, "sellingPrice": 5290000, "vatRate": 10, "safetyStock": 4, "reorderPoint": 8, "maxStock": 50 },
+    { "sku": "DM-012", "name": "Máy giặt cửa ngang Kelvo Inverter 9 kg", "category": "DM-MAYGIAT", "uom": "CHIEC", "purchasePrice": 7200000, "sellingPrice": 8790000, "vatRate": 10, "safetyStock": 3, "reorderPoint": 6, "maxStock": 40 },
+    { "sku": "DM-013", "name": "Máy giặt cửa ngang Kelvo Inverter 11 kg", "category": "DM-MAYGIAT", "uom": "CHIEC", "purchasePrice": 9400000, "sellingPrice": 11490000, "vatRate": 10, "safetyStock": 2, "reorderPoint": 4, "maxStock": 25 },
+    { "sku": "DM-014", "name": "Máy sấy quần áo Kelvo 8 kg", "category": "DM-MAYGIAT", "uom": "CHIEC", "purchasePrice": 6500000, "sellingPrice": 7990000, "vatRate": 10, "safetyStock": 2, "reorderPoint": 4, "maxStock": 20 },
+    { "sku": "DM-015", "name": "Điều hòa Sao Bắc Inverter 9000 BTU", "category": "DM-DIEUHOA", "uom": "BO", "purchasePrice": 6100000, "sellingPrice": 7490000, "vatRate": 10, "safetyStock": 5, "reorderPoint": 10, "maxStock": 60 },
+    { "sku": "DM-016", "name": "Điều hòa Sao Bắc Inverter 12000 BTU", "category": "DM-DIEUHOA", "uom": "BO", "purchasePrice": 7600000, "sellingPrice": 9290000, "vatRate": 10, "safetyStock": 5, "reorderPoint": 10, "maxStock": 60 },
+    { "sku": "DM-017", "name": "Điều hòa Sao Bắc Inverter 18000 BTU", "category": "DM-DIEUHOA", "uom": "BO", "purchasePrice": 11800000, "sellingPrice": 14390000, "vatRate": 10, "safetyStock": 2, "reorderPoint": 5, "maxStock": 30 },
+    { "sku": "DM-018", "name": "Điều hòa Sao Bắc hai chiều 12000 BTU", "category": "DM-DIEUHOA", "uom": "BO", "purchasePrice": 9200000, "sellingPrice": 11190000, "vatRate": 10, "safetyStock": 2, "reorderPoint": 5, "maxStock": 30 },
+    { "sku": "DM-019", "name": "Nồi cơm điện Bếp Hồng 1,8 lít", "category": "DM-BEP", "uom": "CAI", "purchasePrice": 650000, "sellingPrice": 890000, "vatRate": 10, "safetyStock": 15, "reorderPoint": 30, "maxStock": 200 },
+    { "sku": "DM-020", "name": "Nồi chiên không dầu Bếp Hồng 6 lít", "category": "DM-BEP", "uom": "CAI", "purchasePrice": 1350000, "sellingPrice": 1790000, "vatRate": 10, "safetyStock": 8, "reorderPoint": 15, "maxStock": 120 },
+    { "sku": "DM-021", "name": "Bếp từ đôi Bếp Hồng", "category": "DM-BEP", "uom": "CAI", "purchasePrice": 3200000, "sellingPrice": 4190000, "vatRate": 10, "safetyStock": 5, "reorderPoint": 10, "maxStock": 60 },
+    { "sku": "DM-022", "name": "Lò vi sóng Bếp Hồng 25 lít", "category": "DM-BEP", "uom": "CAI", "purchasePrice": 1650000, "sellingPrice": 2190000, "vatRate": 10, "safetyStock": 5, "reorderPoint": 10, "maxStock": 80 },
+    { "sku": "DM-023", "name": "Máy xay sinh tố Bếp Hồng 1,5 lít", "category": "DM-BEP", "uom": "CAI", "purchasePrice": 520000, "sellingPrice": 750000, "vatRate": 10, "safetyStock": 10, "reorderPoint": 20, "maxStock": 150 },
+    { "sku": "DM-024", "name": "Ấm siêu tốc Bếp Hồng 1,7 lít", "category": "DM-BEP", "uom": "CAI", "purchasePrice": 210000, "sellingPrice": 320000, "vatRate": 10, "safetyStock": 10, "reorderPoint": 20, "maxStock": 200 },
+    { "sku": "DM-025", "name": "Máy hút bụi cầm tay Bếp Hồng", "category": "DM-BEP", "uom": "CAI", "purchasePrice": 1450000, "sellingPrice": 1990000, "vatRate": 10, "safetyStock": 5, "reorderPoint": 10, "maxStock": 60 },
+    { "sku": "DM-026", "name": "Quạt cây Gió Việt 5 cánh", "category": "DM-QUAT", "uom": "CAI", "purchasePrice": 520000, "sellingPrice": 720000, "vatRate": 10, "safetyStock": 8, "reorderPoint": 15, "maxStock": 150 },
+    { "sku": "DM-027", "name": "Quạt điều hòa Gió Việt 40 lít", "category": "DM-QUAT", "uom": "CAI", "purchasePrice": 2300000, "sellingPrice": 3090000, "vatRate": 10, "safetyStock": 4, "reorderPoint": 8, "maxStock": 50 },
+    { "sku": "DM-028", "name": "Máy lọc không khí Gió Việt 40 m2", "category": "DM-QUAT", "uom": "CAI", "purchasePrice": 2900000, "sellingPrice": 3790000, "vatRate": 10, "safetyStock": 3, "reorderPoint": 6, "maxStock": 40 },
+    { "sku": "DM-029", "name": "Máy hút ẩm Gió Việt 20 lít/ngày", "category": "DM-QUAT", "uom": "CAI", "purchasePrice": 3600000, "sellingPrice": 4690000, "vatRate": 10, "safetyStock": 3, "reorderPoint": 6, "maxStock": 40 },
+    { "sku": "DM-030", "name": "Bình nóng lạnh Aquena 20 lít", "category": "DM-NUOC", "uom": "CAI", "purchasePrice": 1850000, "sellingPrice": 2450000, "vatRate": 10, "safetyStock": 5, "reorderPoint": 10, "maxStock": 80 },
+    { "sku": "DM-031", "name": "Bình nóng lạnh Aquena 30 lít", "category": "DM-NUOC", "uom": "CAI", "purchasePrice": 2250000, "sellingPrice": 2950000, "vatRate": 10, "safetyStock": 5, "reorderPoint": 10, "maxStock": 60 },
+    { "sku": "DM-032", "name": "Máy lọc nước RO Aquena 10 lõi", "category": "DM-NUOC", "uom": "CAI", "purchasePrice": 4300000, "sellingPrice": 5690000, "vatRate": 10, "safetyStock": 3, "reorderPoint": 6, "maxStock": 40 },
+    { "sku": "DM-033", "name": "Máy lọc nước nóng lạnh Aquena", "category": "DM-NUOC", "uom": "CAI", "purchasePrice": 6200000, "sellingPrice": 7990000, "vatRate": 10, "safetyStock": 2, "reorderPoint": 4, "maxStock": 25 },
+    { "sku": "DM-034", "name": "Cây nước nóng lạnh Aquena", "category": "DM-NUOC", "uom": "CAI", "purchasePrice": 2600000, "sellingPrice": 3390000, "vatRate": 10, "safetyStock": 3, "reorderPoint": 6, "maxStock": 40 },
+    { "sku": "DM-035", "name": "Máy nước nóng năng lượng mặt trời Aquena 180 lít", "category": "DM-NUOC", "uom": "BO", "purchasePrice": 6800000, "sellingPrice": 8690000, "vatRate": 10, "safetyStock": 1, "reorderPoint": 3, "maxStock": 20 }
+  ],
+  "suppliers": [
+    { "code": "NCC-DM-01", "name": "Công ty TNHH Điện Tử Viora Việt Nam", "taxCode": "2300887412", "contactName": "Anh Kiều Văn Đông", "email": "b2b@viora-electronics.example", "phone": "0222 373 4410", "address": "KCN Yên Phong 2, xã Yên Phong, tỉnh Bắc Ninh", "bankAccount": "1020087766123", "bankName": "Ngân hàng Công Thương chi nhánh Bắc Ninh", "paymentTerms": "NET30", "creditLimit": 3000000000 },
+    { "code": "NCC-DM-02", "name": "Công ty CP Điện Lạnh Kelvo", "taxCode": "0201776534", "contactName": "Chị Đồng Thị Hải Yến", "email": "phanphoi@kelvo-appliance.example", "phone": "0225 383 7766", "address": "KCN Đình Vũ, phường Đông Hải, TP Hải Phòng", "bankAccount": "0031001885432", "bankName": "Ngân hàng Ngoại thương chi nhánh Hải Phòng", "paymentTerms": "NET45", "creditLimit": 2500000000, "initialDebt": 245000000 },
+    { "code": "NCC-DM-03", "name": "Công ty TNHH Điều Hòa Sao Bắc", "taxCode": "0901223457", "contactName": "Anh Lưu Văn Bắc", "email": "sales@saobac-aircon.example", "phone": "0221 394 2201", "address": "KCN Thăng Long II, xã Yên Mỹ, tỉnh Hưng Yên", "bankAccount": "2101000564738", "bankName": "Ngân hàng Ngoại thương chi nhánh Hưng Yên", "paymentTerms": "NET30", "creditLimit": 2000000000 },
+    { "code": "NCC-DM-04", "name": "Công ty CP Gia Dụng Bếp Hồng", "taxCode": "0315778842", "contactName": "Chị Thạch Ngọc Hồng", "email": "order@bephong-home.example", "phone": "0283 754 6612", "address": "Số 45 đường Tân Kỳ Tân Quý, phường Bình Hưng Hòa, TP Hồ Chí Minh", "bankAccount": "1903366442011", "bankName": "Ngân hàng Kỹ Thương chi nhánh Bình Tân", "paymentTerms": "NET30" },
+    { "code": "NCC-DM-05", "name": "Công ty TNHH Quạt Điện Gió Việt", "taxCode": "0106554219", "contactName": "Anh Ninh Văn Phong", "email": "kinhdoanh@gioviet-fan.example", "phone": "0243 685 2209", "address": "KCN Phú Nghĩa, xã Phú Nghĩa, Hà Nội", "bankAccount": "0011004567812", "bankName": "Ngân hàng Ngoại thương chi nhánh Hà Tây", "paymentTerms": "NET30" },
+    { "code": "NCC-DM-06", "name": "Công ty CP Thiết Bị Nước Aquena", "taxCode": "3702654188", "contactName": "Chị Âu Dương Thảo", "email": "sales@aquena-water.example", "phone": "0274 376 8812", "address": "KCN VSIP 1, phường Thuận An, TP Hồ Chí Minh", "bankAccount": "0651000227845", "bankName": "Ngân hàng Ngoại thương chi nhánh Bình Dương", "paymentTerms": "NET30", "initialDebt": 96000000 },
+    { "code": "NCC-DM-07", "name": "Công ty TNHH Phân Phối Điện Máy Đông Á", "taxCode": "0314992871", "contactName": "Anh Tiêu Gia Khang", "email": "order@donga-distribution.example", "phone": "0283 862 1450", "address": "Số 210 đường Hồng Bàng, phường Chợ Lớn, TP Hồ Chí Minh", "bankAccount": "0071000994512", "bankName": "Ngân hàng Ngoại thương chi nhánh Chợ Lớn", "paymentTerms": "NET15" },
+    { "code": "NCC-DM-08", "name": "Công ty CP Thương Mại Điện Máy Thái Hòa", "taxCode": "0401887245", "contactName": "Anh Hà Thái Hòa", "email": "thaihoa.trading@ncc-giaphat.example", "phone": "0236 382 4417", "address": "Số 15 đường Nguyễn Hữu Thọ, phường Hải Châu, TP Đà Nẵng", "bankAccount": "0041000776531", "bankName": "Ngân hàng Ngoại thương chi nhánh Đà Nẵng", "paymentTerms": "NET30" },
+    { "code": "NCC-DM-09", "name": "Công ty TNHH Phụ Kiện Lắp Đặt Minh Phát", "taxCode": "0108774512", "contactName": "Anh Giang Minh Phát", "email": "minhphat.phukien@ncc-giaphat.example", "phone": "0983 774 120", "address": "Số 6 phố Vọng, phường Bạch Mai, Hà Nội", "bankAccount": "2201006677420", "bankName": "Ngân hàng Quân đội chi nhánh Hai Bà Trưng", "paymentTerms": "COD" }
+  ],
+  "customers": [
+    { "code": "KH-DM-001", "name": "Đại lý Điện Máy Hoàng Long", "customerType": "WHOLESALE", "taxCode": "0105887214", "contactName": "Anh Hoàng Văn Long", "email": "hoanglong.dienmay@kh-giaphat.example", "phone": "0912 554 102", "address": "Số 120 đường Giải Phóng, phường Tương Mai, Hà Nội", "paymentTerms": "NET30", "creditLimit": 1000000000 },
+    { "code": "KH-DM-002", "name": "Siêu thị Điện Máy Phú Thịnh", "customerType": "WHOLESALE", "taxCode": "2300665417", "contactName": "Chị Vũ Thị Thịnh", "email": "phuthinh.dm@kh-giaphat.example", "phone": "0222 382 1104", "address": "Số 22 đường Trần Hưng Đạo, phường Kinh Bắc, tỉnh Bắc Ninh", "paymentTerms": "NET30", "creditLimit": 800000000, "initialDebt": 110000000 },
+    { "code": "KH-DM-003", "name": "Đại lý Điện Lạnh Quang Minh", "customerType": "WHOLESALE", "taxCode": "0107442856", "contactName": "Anh Đỗ Quang Minh", "email": "quangminh.dienlanh@kh-giaphat.example", "phone": "0983 210 447", "address": "Số 8 đường Quang Trung, phường Hà Đông, Hà Nội", "paymentTerms": "NET30", "creditLimit": 500000000, "initialDebt": 380000000, "notes": "Hay thanh toán chậm, cần theo dõi hạn mức" },
+    { "code": "KH-DM-004", "name": "Điện Máy Sài Gòn Xanh", "customerType": "WHOLESALE", "taxCode": "0316887412", "contactName": "Anh Lý Thành Công", "email": "saigonxanh.dm@kh-giaphat.example", "phone": "0283 991 5520", "address": "Số 450 đường Kinh Dương Vương, phường An Lạc, TP Hồ Chí Minh", "paymentTerms": "NET30", "creditLimit": 900000000 },
+    { "code": "KH-DM-005", "name": "Đại lý Điện Gia Dụng Thanh Bình", "customerType": "WHOLESALE", "contactName": "Chị Lê Thanh Bình", "email": "thanhbinh.giadung@kh-giaphat.example", "phone": "0904 663 218", "address": "Số 76 phố Minh Khai, phường Vĩnh Tuy, Hà Nội", "paymentTerms": "NET15", "creditLimit": 300000000 },
+    { "code": "KH-DM-006", "name": "Điện Máy Hải Phòng Phát Tài", "customerType": "WHOLESALE", "taxCode": "0201335478", "contactName": "Anh Phạm Phát Tài", "email": "phattai.hp@kh-giaphat.example", "phone": "0225 384 6620", "address": "Số 33 đường Lạch Tray, phường Gia Viên, TP Hải Phòng", "paymentTerms": "NET30", "creditLimit": 700000000 },
+    { "code": "KH-DM-007", "name": "Đại lý Điện Máy Tuấn Hưng", "customerType": "WHOLESALE", "taxCode": "0106998741", "contactName": "Anh Nguyễn Tuấn Hưng", "email": "tuanhung.dm@kh-giaphat.example", "phone": "0915 774 302", "address": "Số 15 đường Ngọc Hồi, xã Thanh Trì, Hà Nội", "paymentTerms": "NET30", "creditLimit": 300000000, "initialDebt": 270000000, "notes": "Đã dùng 90% hạn mức" },
+    { "code": "KH-DM-008", "name": "Cửa hàng Thiết Bị Nước Phương Đông", "customerType": "WHOLESALE", "contactName": "Chị Trần Phương Đông", "email": "phuongdong.tbn@kh-giaphat.example", "phone": "0909 554 187", "address": "Số 18 đường Lũy Bán Bích, phường Tân Phú, TP Hồ Chí Minh", "paymentTerms": "NET15", "creditLimit": 250000000 },
+    { "code": "KH-DM-009", "name": "Đại lý Điện Máy Hưng Yên Thịnh Vượng", "customerType": "WHOLESALE", "contactName": "Anh Đào Văn Vượng", "email": "thinhvuong.hy@kh-giaphat.example", "phone": "0221 386 4419", "address": "Số 5 đường Nguyễn Văn Linh, phường Phố Hiến, tỉnh Hưng Yên", "paymentTerms": "NET30", "creditLimit": 400000000, "initialDebt": 65000000 },
+    { "code": "KH-DM-010", "name": "Trung tâm Điện Máy Nam Định Hòa Phát", "customerType": "WHOLESALE", "taxCode": "0600774521", "contactName": "Anh Trần Hòa Phát", "email": "hoaphat.nd@kh-giaphat.example", "phone": "0228 384 7720", "address": "Số 99 đường Trần Hưng Đạo, phường Nam Định, tỉnh Ninh Bình", "paymentTerms": "NET30", "creditLimit": 800000000 },
+    { "code": "KH-DM-011", "name": "Đại lý Điện Lạnh Bảo Châu", "customerType": "WHOLESALE", "taxCode": "0108556621", "contactName": "Chị Châu Bảo Ngọc", "email": "baochau.dienlanh@kh-giaphat.example", "phone": "0977 441 058", "address": "Số 41 đường Nguyễn Văn Cừ, phường Bồ Đề, Hà Nội", "paymentTerms": "NET30", "creditLimit": 200000000, "initialDebt": 236000000, "notes": "Vượt hạn mức, tạm dừng giao hàng chờ thanh toán" },
+    { "code": "KH-DM-012", "name": "Điện Máy Gia Đình Bình Dương", "customerType": "WHOLESALE", "contactName": "Anh Võ Minh Gia", "email": "giadinh.bd@kh-giaphat.example", "phone": "0274 382 6631", "address": "Số 12 đường Đại lộ Bình Dương, phường Thủ Dầu Một, TP Hồ Chí Minh", "paymentTerms": "NET30", "creditLimit": 500000000 },
+    { "code": "KH-DM-013", "name": "Siêu thị Điện Máy Kinh Bắc", "customerType": "WHOLESALE", "taxCode": "2300441286", "contactName": "Anh Nguyễn Kinh Bắc", "email": "kinhbac.dm@kh-giaphat.example", "phone": "0222 381 5566", "address": "Số 3 đường Lý Thái Tổ, phường Từ Sơn, tỉnh Bắc Ninh", "paymentTerms": "NET30", "creditLimit": 600000000 },
+    { "code": "KH-DM-014", "name": "Đại lý Điện Máy Vĩnh Phúc An Khang", "customerType": "WHOLESALE", "contactName": "Anh Lâm An Khang", "email": "ankhang.vp@kh-giaphat.example", "phone": "0211 386 1147", "address": "Số 30 đường Mê Linh, phường Vĩnh Phúc, tỉnh Phú Thọ", "paymentTerms": "NET30", "creditLimit": 400000000 },
+    { "code": "KH-DM-015", "name": "Đại lý Điện Máy Đồng Nai Tín Nghĩa", "customerType": "WHOLESALE", "taxCode": "3603887415", "contactName": "Anh Trương Tín Nghĩa", "email": "tinnghia.dn@kh-giaphat.example", "phone": "0251 383 2205", "address": "Số 60 đường Đồng Khởi, phường Trấn Biên, tỉnh Đồng Nai", "paymentTerms": "NET30", "creditLimit": 400000000, "initialDebt": 300000000 },
+    { "code": "KH-DM-016", "name": "Cửa hàng Gia Dụng Bếp Xinh", "customerType": "WHOLESALE", "contactName": "Chị Hà Thị Xinh", "email": "bepxinh.store@kh-giaphat.example", "phone": "0938 225 641", "address": "Số 88 đường Phan Văn Trị, phường Gò Vấp, TP Hồ Chí Minh", "paymentTerms": "NET15", "creditLimit": 150000000 },
+    { "code": "KH-DM-017", "name": "Công ty TNHH Lắp Đặt Điện Lạnh Thành Công", "customerType": "WHOLESALE", "contactName": "Anh Phùng Thành Công", "email": "thanhcong.ldl@kh-giaphat.example", "phone": "0913 662 547", "address": "Số 25 phố Tây Sơn, phường Đống Đa, Hà Nội", "paymentTerms": "NET30", "creditLimit": 350000000 },
+    { "code": "KH-DM-018", "name": "Showroom Thiết Bị Nhà Bếp Long An", "customerType": "WHOLESALE", "contactName": "Chị Huỳnh Kim Loan", "email": "bepla.showroom@kh-giaphat.example", "phone": "0272 382 7714", "address": "Số 9 đường Hùng Vương, phường Long An, tỉnh Tây Ninh", "paymentTerms": "NET15", "creditLimit": 200000000 },
+    { "code": "KH-DM-019", "name": "Đại lý Điện Máy Phúc Hưng", "customerType": "WHOLESALE", "contactName": "Anh Mạc Phúc Hưng", "email": "phuchung.dm@kh-giaphat.example", "phone": "0965 330 214", "address": "Số 7 đường Nguyễn Trãi, phường Thanh Xuân, Hà Nội", "paymentTerms": "NET30", "creditLimit": 150000000, "initialDebt": 168000000, "notes": "Vượt hạn mức, đã gửi thư nhắc nợ" },
+    { "code": "KH-DM-020", "name": "Điện Máy Tân Phú Lộc", "customerType": "WHOLESALE", "contactName": "Anh Tạ Phú Lộc", "email": "tanphuloc.dm@kh-giaphat.example", "phone": "0907 441 386", "address": "Số 300 đường Âu Cơ, phường Tân Phú, TP Hồ Chí Minh", "paymentTerms": "NET15", "creditLimit": 250000000 },
+    { "code": "KH-DM-021", "name": "Đại lý Điện Máy Thái Bình Hưng Thịnh", "customerType": "WHOLESALE", "contactName": "Anh Bùi Hưng Thịnh", "email": "hungthinh.tb@kh-giaphat.example", "phone": "0227 383 6650", "address": "Số 14 đường Lý Bôn, phường Thái Bình, tỉnh Hưng Yên", "paymentTerms": "NET30", "creditLimit": 450000000 },
+    { "code": "KH-DM-022", "name": "Điện Máy Cần Thơ Mekong", "customerType": "WHOLESALE", "taxCode": "1801554872", "contactName": "Chị Diệp Mỹ Hạnh", "email": "mekong.ct@kh-giaphat.example", "phone": "0292 382 4419", "address": "Số 55 đường 30 Tháng 4, phường Ninh Kiều, TP Cần Thơ", "paymentTerms": "NET30", "creditLimit": 600000000 },
+    { "code": "KH-DM-023", "name": "Cửa hàng Điện Máy Gia Lâm", "customerType": "WHOLESALE", "contactName": "Anh Kim Văn Lâm", "email": "gialam.dm@kh-giaphat.example", "phone": "0989 551 207", "address": "Số 2 đường Nguyễn Đức Thuận, xã Gia Lâm, Hà Nội", "paymentTerms": "NET15", "creditLimit": 300000000 },
+    { "code": "KH-DM-024", "name": "Điện Máy Thủ Đức Nhật Quang", "customerType": "WHOLESALE", "contactName": "Anh Ông Nhật Quang", "email": "nhatquang.td@kh-giaphat.example", "phone": "0918 337 450", "address": "Số 77 đường Võ Văn Ngân, phường Thủ Đức, TP Hồ Chí Minh", "paymentTerms": "NET15", "creditLimit": 300000000 },
+    { "code": "KH-DM-025", "name": "Khách lẻ Chung cư Linh Đàm", "customerType": "RETAIL", "contactName": "Chị Đinh Thùy Dương", "email": "khachle.linhdam@kh-giaphat.example", "phone": "0961 228 734", "address": "Khu đô thị Linh Đàm, phường Hoàng Liệt, Hà Nội", "paymentTerms": "COD" },
+    { "code": "KH-DM-026", "name": "Khách lẻ Văn phòng Công ty Phần Mềm Sao Mai", "customerType": "RETAIL", "contactName": "Anh Trịnh Sao Mai", "email": "vanphong.saomai@kh-giaphat.example", "phone": "0936 550 812", "address": "Phường Cầu Giấy, Hà Nội", "paymentTerms": "COD" },
+    { "code": "KH-DM-027", "name": "Đại lý Điện Máy Bắc Giang Phồn Thịnh", "customerType": "WHOLESALE", "contactName": "Anh Thân Đức Phồn", "email": "phonthinh.bg@kh-giaphat.example", "phone": "0204 385 7712", "address": "Số 20 đường Hoàng Văn Thụ, phường Bắc Giang, tỉnh Bắc Ninh", "paymentTerms": "NET30", "creditLimit": 350000000, "initialDebt": 42000000 },
+    { "code": "KH-DM-028", "name": "Công ty CP Xây Dựng và Nội Thất An Cư", "customerType": "WHOLESALE", "taxCode": "0109112456", "contactName": "Chị Lục An Cư", "email": "ancu.noithat@kh-giaphat.example", "phone": "0243 776 4401", "address": "Số 18 đường Lê Văn Lương, phường Thanh Xuân, Hà Nội", "paymentTerms": "NET45", "creditLimit": 500000000 }
+  ],
+  "purchaseOrders": [
+    {
+      "number": "PO-DM-001", "supplier": "NCC-DM-01", "warehouse": "DM-HN", "daysAgo": 25, "expectedInDays": -23, "state": "received",
+      "note": "Tivi cho mùa mua sắm cuối năm",
+      "items": [ { "sku": "DM-001", "qty": 30 }, { "sku": "DM-002", "qty": 25 }, { "sku": "DM-003", "qty": 20 }, { "sku": "DM-004", "qty": 8 }, { "sku": "DM-005", "qty": 4 } ],
+      "receipts": [
+        { "daysAgo": 23, "note": "Kiểm tra ngoại quan đạt, đủ phụ kiện", "lines": [
+          { "sku": "DM-001", "qty": 30, "location": "A-R01-B01" },
+          { "sku": "DM-002", "qty": 25, "location": "A-R01-B02" },
+          { "sku": "DM-003", "qty": 20, "location": "A-R01-B03" },
+          { "sku": "DM-004", "qty": 8, "location": "A-R02-B01" },
+          { "sku": "DM-005", "qty": 4, "location": "A-R02-B01" }
+        ] }
+      ],
+      "payment": { "ratio": 1, "method": "BANK_TRANSFER", "daysAgo": 8 }
+    },
+    {
+      "number": "PO-DM-002", "supplier": "NCC-DM-02", "warehouse": "DM-HN", "daysAgo": 20, "expectedInDays": -18, "state": "received",
+      "note": "Tủ lạnh và máy giặt",
+      "items": [ { "sku": "DM-006", "qty": 20 }, { "sku": "DM-007", "qty": 18 }, { "sku": "DM-008", "qty": 12 }, { "sku": "DM-009", "qty": 5 }, { "sku": "DM-011", "qty": 25 }, { "sku": "DM-012", "qty": 15 }, { "sku": "DM-013", "qty": 8 } ],
+      "receipts": [
+        { "daysAgo": 18, "note": "Một máy giặt móp góc thùng, trả lại", "lines": [
+          { "sku": "DM-006", "qty": 20, "location": "A-R02-B02" },
+          { "sku": "DM-007", "qty": 18, "location": "A-R02-B03" },
+          { "sku": "DM-008", "qty": 12, "location": "A-R03-B01" },
+          { "sku": "DM-009", "qty": 5, "location": "A-R03-B02" },
+          { "sku": "DM-011", "qty": 25, "rejected": 1, "rejectedReason": "Móp góc thùng, giao bù đợt sau", "location": "A-R03-B03" },
+          { "sku": "DM-012", "qty": 15, "location": "A-R04-B01" },
+          { "sku": "DM-013", "qty": 8, "location": "A-R04-B02" }
+        ] }
+      ],
+      "payment": { "ratio": 0.5, "method": "BANK_TRANSFER", "daysAgo": 5 }
+    },
+    {
+      "number": "PO-DM-003", "supplier": "NCC-DM-03", "warehouse": "DM-HN", "daysAgo": 16, "expectedInDays": -14, "state": "received",
+      "note": "Điều hòa đặt trước cho mùa nóng năm sau, giao hai đợt",
+      "items": [ { "sku": "DM-015", "qty": 30 }, { "sku": "DM-016", "qty": 30 }, { "sku": "DM-017", "qty": 12 }, { "sku": "DM-018", "qty": 10 } ],
+      "receipts": [
+        { "daysAgo": 14, "note": "Đợt 1", "lines": [
+          { "sku": "DM-015", "qty": 30, "location": "B-R01-B01" },
+          { "sku": "DM-016", "qty": 30, "location": "B-R01-B02" }
+        ] },
+        { "daysAgo": 6, "note": "Đợt 2", "lines": [
+          { "sku": "DM-017", "qty": 12, "location": "B-R01-B03" },
+          { "sku": "DM-018", "qty": 10, "location": "B-R01-B04" }
+        ] }
+      ]
+    },
+    {
+      "number": "PO-DM-004", "supplier": "NCC-DM-04", "warehouse": "DM-HCM", "daysAgo": 14, "expectedInDays": -12, "state": "received",
+      "note": "Gia dụng nhà bếp cho kho miền Nam",
+      "items": [ { "sku": "DM-019", "qty": 60 }, { "sku": "DM-020", "qty": 50 }, { "sku": "DM-021", "qty": 25 }, { "sku": "DM-022", "qty": 30 }, { "sku": "DM-023", "qty": 40 }, { "sku": "DM-024", "qty": 80 }, { "sku": "DM-025", "qty": 20 } ],
+      "receipts": [
+        { "daysAgo": 12, "note": "Nhận đủ", "lines": [
+          { "sku": "DM-019", "qty": 60, "location": "B-R01-B01" },
+          { "sku": "DM-020", "qty": 50, "location": "B-R01-B02" },
+          { "sku": "DM-021", "qty": 25, "location": "B-R01-B03" },
+          { "sku": "DM-022", "qty": 30, "location": "B-R01-B04" },
+          { "sku": "DM-023", "qty": 40, "location": "B-R02-B01" },
+          { "sku": "DM-024", "qty": 80, "location": "B-R02-B02" },
+          { "sku": "DM-025", "qty": 20, "location": "B-R02-B03" }
+        ] }
+      ],
+      "payment": { "ratio": 1, "method": "BANK_TRANSFER", "daysAgo": 3 }
+    },
+    {
+      "number": "PO-DM-005", "supplier": "NCC-DM-05", "warehouse": "DM-HCM", "daysAgo": 10, "expectedInDays": -9, "state": "received",
+      "note": "Quạt và thiết bị không khí",
+      "items": [ { "sku": "DM-026", "qty": 60 }, { "sku": "DM-027", "qty": 20 }, { "sku": "DM-028", "qty": 15 }, { "sku": "DM-029", "qty": 12 } ],
+      "receipts": [
+        { "daysAgo": 9, "note": "Nhận đủ", "lines": [
+          { "sku": "DM-026", "qty": 60, "location": "B-R03-B01" },
+          { "sku": "DM-027", "qty": 20, "location": "A-R01-B01" },
+          { "sku": "DM-028", "qty": 15, "location": "B-R03-B02" },
+          { "sku": "DM-029", "qty": 12, "location": "B-R03-B03" }
+        ] }
+      ],
+      "payment": { "ratio": 0.4, "method": "BANK_TRANSFER", "daysAgo": 2 }
+    },
+    {
+      "number": "PO-DM-006", "supplier": "NCC-DM-06", "warehouse": "DM-HCM", "daysAgo": 8, "expectedInDays": -7, "state": "received",
+      "note": "Bình nóng lạnh và máy lọc nước",
+      "items": [ { "sku": "DM-030", "qty": 25 }, { "sku": "DM-031", "qty": 20 }, { "sku": "DM-032", "qty": 15 }, { "sku": "DM-033", "qty": 8 }, { "sku": "DM-034", "qty": 12 } ],
+      "receipts": [
+        { "daysAgo": 7, "note": "Nhận đủ", "lines": [
+          { "sku": "DM-030", "qty": 25, "location": "A-R02-B01" },
+          { "sku": "DM-031", "qty": 20, "location": "A-R02-B02" },
+          { "sku": "DM-032", "qty": 15, "location": "A-R02-B03" },
+          { "sku": "DM-033", "qty": 8, "location": "A-R03-B01" },
+          { "sku": "DM-034", "qty": 12, "location": "A-R03-B02" }
+        ] }
+      ]
+    },
+    {
+      "number": "PO-DM-007", "supplier": "NCC-DM-07", "warehouse": "DM-HCM", "daysAgo": 12, "expectedInDays": -11, "state": "received",
+      "note": "Tivi, tủ lạnh, máy giặt, điều hòa cho kho Bình Tân",
+      "items": [ { "sku": "DM-002", "qty": 15 }, { "sku": "DM-003", "qty": 12 }, { "sku": "DM-007", "qty": 10 }, { "sku": "DM-012", "qty": 10 }, { "sku": "DM-016", "qty": 15 } ],
+      "receipts": [
+        { "daysAgo": 11, "note": "Nhận đủ", "lines": [
+          { "sku": "DM-002", "qty": 15, "location": "A-R04-B01" },
+          { "sku": "DM-003", "qty": 12, "location": "A-R04-B02" },
+          { "sku": "DM-007", "qty": 10, "location": "A-R03-B03" },
+          { "sku": "DM-012", "qty": 10, "location": "A-R04-B03" },
+          { "sku": "DM-016", "qty": 15, "location": "A-R01-B02" }
+        ] }
+      ]
+    },
+    {
+      "number": "PO-DM-008", "supplier": "NCC-DM-02", "warehouse": "DM-HN", "daysAgo": 3, "expectedInDays": 4, "state": "partial",
+      "note": "Tủ đông và máy sấy, nhà máy giao thiếu",
+      "items": [ { "sku": "DM-010", "qty": 15 }, { "sku": "DM-014", "qty": 10 } ],
+      "receipts": [
+        { "daysAgo": 2, "note": "Mới giao tủ đông, máy sấy hẹn tuần sau", "lines": [
+          { "sku": "DM-010", "qty": 10, "location": "A-R04-B03" }
+        ] }
+      ]
+    },
+    {
+      "number": "PO-DM-009", "supplier": "NCC-DM-01", "warehouse": "DM-HCM", "daysAgo": 1, "expectedInDays": 5, "state": "approved",
+      "note": "Tivi cho kho miền Nam, đang vận chuyển",
+      "items": [ { "sku": "DM-001", "qty": 20 }, { "sku": "DM-004", "qty": 6 } ]
+    },
+    {
+      "number": "PO-DM-010", "supplier": "NCC-DM-08", "warehouse": "DM-HN", "daysAgo": 0, "expectedInDays": 7, "state": "pending",
+      "note": "Hàng bổ sung theo đề xuất của kho, chờ giám đốc duyệt",
+      "items": [ { "sku": "DM-035", "qty": 5 }, { "sku": "DM-029", "qty": 10 } ]
+    }
+  ],
+  "stocktakes": [
+    {
+      "ref": "KK-DM-01", "warehouse": "DM-HCM", "zones": ["B"], "plannedDaysAgo": 1, "state": "completed",
+      "notes": "Kiểm kê khu gia dụng kho Bình Tân",
+      "adjust": [ { "sku": "DM-024", "delta": -1, "reason": "Một ấm siêu tốc móp vỏ, chuyển sang hàng lỗi chờ đổi" } ]
+    },
+    { "ref": "KK-DM-02", "warehouse": "DM-HN", "zones": ["A"], "plannedInDays": 2, "state": "draft", "notes": "Kiểm kê khu hàng lớn kho Thanh Trì" }
+  ],
+  "transfers": [
+    { "ref": "DC-DM-01", "from": "DM-HN", "to": "DM-HCM", "state": "completed", "toLocation": "A-R04-B01", "expectedInDays": -2,
+      "notes": "Điều tivi 43 inch và tủ lạnh 180 lít vào Nam",
+      "items": [ { "sku": "DM-001", "qty": 5 }, { "sku": "DM-006", "qty": 4 } ] },
+    { "ref": "DC-DM-02", "from": "DM-HCM", "to": "DM-HN", "state": "in_transit", "expectedInDays": 3,
+      "notes": "Bổ sung nồi chiên và ấm siêu tốc cho kho Hà Nội",
+      "items": [ { "sku": "DM-020", "qty": 10 }, { "sku": "DM-024", "qty": 20 } ] },
+    { "ref": "DC-DM-03", "from": "DM-HN", "to": "DM-HCM", "state": "draft", "expectedInDays": 6,
+      "notes": "Dự kiến điều hòa 9000 BTU cho đại lý miền Nam",
+      "items": [ { "sku": "DM-015", "qty": 6 } ] }
+  ],
+  "salesOrders": [
+    { "number": "SO-DM-001", "customer": "KH-DM-001", "warehouse": "DM-HN", "daysAgo": 18, "state": "completed",
+      "items": [ { "sku": "DM-001", "qty": 12 }, { "sku": "DM-002", "qty": 8 } ],
+      "invoice": true, "payments": [ { "ratio": 1, "method": "chuyển khoản" } ] },
+    { "number": "SO-DM-002", "customer": "KH-DM-002", "warehouse": "DM-HN", "daysAgo": 16, "state": "completed",
+      "items": [ { "sku": "DM-006", "qty": 6 }, { "sku": "DM-007", "qty": 5 }, { "sku": "DM-011", "qty": 10 } ],
+      "invoice": true, "payments": [ { "ratio": 0.5, "method": "chuyển khoản" } ] },
+    { "number": "SO-DM-003", "customer": "KH-DM-003", "warehouse": "DM-HN", "daysAgo": 13, "state": "completed", "note": "Đại lý gần chạm hạn mức, kế toán đã duyệt",
+      "items": [ { "sku": "DM-003", "qty": 5 }, { "sku": "DM-016", "qty": 3 } ],
+      "invoice": true },
+    { "number": "SO-DM-004", "customer": "KH-DM-004", "warehouse": "DM-HCM", "daysAgo": 11, "state": "completed",
+      "items": [ { "sku": "DM-019", "qty": 20 }, { "sku": "DM-020", "qty": 10 }, { "sku": "DM-024", "qty": 30 } ],
+      "invoice": true, "payments": [ { "ratio": 1, "method": "chuyển khoản" } ] },
+    { "number": "SO-DM-005", "customer": "KH-DM-015", "warehouse": "DM-HCM", "daysAgo": 10, "state": "completed",
+      "items": [ { "sku": "DM-012", "qty": 4 }, { "sku": "DM-020", "qty": 10 } ],
+      "invoice": true },
+    { "number": "SO-DM-006", "customer": "KH-DM-006", "warehouse": "DM-HN", "daysAgo": 8, "state": "completed",
+      "items": [ { "sku": "DM-008", "qty": 4 }, { "sku": "DM-012", "qty": 3 } ],
+      "invoice": true, "payments": [ { "ratio": 0.6, "method": "chuyển khoản" } ] },
+    { "number": "SO-DM-007", "customer": "KH-DM-008", "warehouse": "DM-HCM", "daysAgo": 6, "state": "completed",
+      "items": [ { "sku": "DM-030", "qty": 8 }, { "sku": "DM-031", "qty": 6 }, { "sku": "DM-032", "qty": 5 } ],
+      "invoice": true, "payments": [ { "ratio": 1, "method": "chuyển khoản" } ] },
+    { "number": "SO-DM-008", "customer": "KH-DM-010", "warehouse": "DM-HN", "daysAgo": 5, "state": "completed",
+      "items": [ { "sku": "DM-015", "qty": 10 }, { "sku": "DM-016", "qty": 20 } ],
+      "invoice": true, "payments": [ { "ratio": 0.3, "method": "chuyển khoản" } ] },
+    { "number": "SO-DM-009", "customer": "KH-DM-012", "warehouse": "DM-HCM", "daysAgo": 4, "state": "completed",
+      "items": [ { "sku": "DM-026", "qty": 30 }, { "sku": "DM-028", "qty": 5 } ],
+      "invoice": true },
+    { "number": "SO-DM-010", "customer": "KH-DM-013", "warehouse": "DM-HN", "daysAgo": 3, "state": "completed",
+      "items": [ { "sku": "DM-001", "qty": 8 }, { "sku": "DM-003", "qty": 8 }, { "sku": "DM-006", "qty": 6 } ],
+      "invoice": true, "payments": [ { "ratio": 1, "method": "chuyển khoản" } ] },
+    { "number": "SO-DM-011", "customer": "KH-DM-014", "warehouse": "DM-HN", "daysAgo": 3, "state": "partial", "note": "Máy giặt 11 kg giao sau khi khách lắp xong kệ",
+      "items": [ { "sku": "DM-011", "qty": 8 }, { "sku": "DM-013", "qty": 4 } ],
+      "deliveries": [ { "daysAgo": 2, "lines": [ { "sku": "DM-011", "qty": 8 } ] } ] },
+    { "number": "SO-DM-012", "customer": "KH-DM-016", "warehouse": "DM-HCM", "daysAgo": 2, "state": "partial",
+      "items": [ { "sku": "DM-020", "qty": 12 }, { "sku": "DM-022", "qty": 10 } ],
+      "deliveries": [ { "daysAgo": 1, "lines": [ { "sku": "DM-020", "qty": 6 }, { "sku": "DM-022", "qty": 10 } ] } ] },
+    { "number": "SO-DM-013", "customer": "KH-DM-017", "warehouse": "DM-HN", "daysAgo": 1, "state": "confirmed",
+      "items": [ { "sku": "DM-017", "qty": 4 }, { "sku": "DM-018", "qty": 3 } ] },
+    { "number": "SO-DM-014", "customer": "KH-DM-018", "warehouse": "DM-HCM", "daysAgo": 0, "state": "confirmed",
+      "items": [ { "sku": "DM-033", "qty": 3 }, { "sku": "DM-034", "qty": 4 } ] },
+    { "number": "SO-DM-015", "customer": "KH-DM-020", "warehouse": "DM-HCM", "daysAgo": 0, "state": "confirmed",
+      "items": [ { "sku": "DM-024", "qty": 20 }, { "sku": "DM-023", "qty": 10 } ] },
+    { "number": "SO-DM-016", "customer": "KH-DM-021", "warehouse": "DM-HN", "daysAgo": 1, "state": "backorder", "note": "Máy sấy chưa về, chờ đợt giao của Kelvo",
+      "items": [ { "sku": "DM-014", "qty": 6 } ] },
+    { "number": "SO-DM-017", "customer": "KH-DM-022", "warehouse": "DM-HCM", "daysAgo": 0, "state": "backorder", "note": "Tivi 65 inch đang về theo PO-DM-009",
+      "items": [ { "sku": "DM-004", "qty": 3 } ] },
+    { "number": "SO-DM-018", "customer": "KH-DM-023", "warehouse": "DM-HN", "daysAgo": 0, "state": "draft", "note": "Báo giá cho khách, chờ xác nhận",
+      "items": [ { "sku": "DM-009", "qty": 2 }, { "sku": "DM-005", "qty": 1 } ] },
+    { "number": "SO-DM-019", "customer": "KH-DM-024", "warehouse": "DM-HCM", "daysAgo": 0, "state": "draft",
+      "items": [ { "sku": "DM-027", "qty": 5 }, { "sku": "DM-029", "qty": 4 } ] },
+    { "number": "SO-DM-020", "customer": "KH-DM-025", "warehouse": "DM-HN", "daysAgo": 7, "state": "cancelled", "note": "Khách đổi ý chọn mẫu khác",
+      "items": [ { "sku": "DM-004", "qty": 1 } ] }
+  ]
+}

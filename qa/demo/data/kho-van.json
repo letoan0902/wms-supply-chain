@@ -1,0 +1,360 @@
+{
+  "key": "kho-van",
+  "emailDomain": "khovantochanh.example",
+  "company": {
+    "name": "Công ty Cổ phần Kho Vận Tốc Hành",
+    "taxCode": "2301129874",
+    "phone": "0222 365 8899",
+    "admin": { "username": "tochanh.admin", "fullName": "Vũ Quang Huy" }
+  },
+  "users": [
+    { "username": "tochanh.ql.bn", "fullName": "Nguyễn Đức Mạnh", "roles": ["WAREHOUSE_MANAGER"], "warehouses": ["KV-BN"] },
+    { "username": "tochanh.ql.na", "fullName": "Hồ Sỹ Quang", "roles": ["WAREHOUSE_MANAGER"], "warehouses": ["KV-NA"] },
+    { "username": "tochanh.ql.dn", "fullName": "Trương Minh Nhật", "roles": ["WAREHOUSE_MANAGER"], "warehouses": ["KV-DN"] },
+    { "username": "tochanh.nhanvien", "fullName": "Lại Văn Cường", "roles": ["WAREHOUSE_STAFF"], "warehouses": "all" },
+    { "username": "tochanh.kinhdoanh", "fullName": "Đoàn Thị Phương", "roles": ["SALES"], "warehouses": "all" },
+    { "username": "tochanh.muahang", "fullName": "Cù Văn Hải", "roles": ["PURCHASING"], "warehouses": "all" },
+    { "username": "tochanh.ketoan", "fullName": "Kim Thị Ngọc Bích", "roles": ["ACCOUNTANT"], "warehouses": "all" }
+  ],
+  "uoms": [
+    { "code": "THUNG", "name": "Thùng" },
+    { "code": "LOC", "name": "Lốc" },
+    { "code": "TUI", "name": "Túi" },
+    { "code": "BICH", "name": "Bịch" }
+  ],
+  "categories": [
+    { "code": "KV-NUOC", "name": "Nước giải khát", "description": "Nước khoáng, nước ngọt, trà, cà phê đóng lon" },
+    { "code": "KV-SUA", "name": "Sữa và chế phẩm từ sữa", "description": "Sữa tươi, sữa chua uống, sữa đặc" },
+    { "code": "KV-THUCPHAMKHO", "name": "Mì, gạo, thực phẩm khô", "description": "Mì ăn liền, phở, cháo, gạo đóng túi" },
+    { "code": "KV-GIAVI", "name": "Gia vị và dầu ăn", "description": "Dầu ăn, nước mắm, hạt nêm, nước tương, đường" },
+    { "code": "KV-BANHKEO", "name": "Bánh kẹo", "description": "Bánh quy, bánh xốp, kẹo, bánh gạo" },
+    { "code": "KV-TAYRUA", "name": "Hóa phẩm tẩy rửa", "description": "Bột giặt, nước giặt, nước rửa chén, nước lau sàn" },
+    { "code": "KV-CANHAN", "name": "Chăm sóc cá nhân", "description": "Dầu gội, sữa tắm, kem đánh răng, xà phòng" },
+    { "code": "KV-GIAY", "name": "Giấy và tã", "description": "Giấy vệ sinh, khăn giấy, tã em bé, băng vệ sinh" }
+  ],
+  "warehouses": [
+    {
+      "code": "KV-BN", "name": "Kho tổng Bắc Ninh", "address": "Lô CN5, KCN Quế Võ, phường Quế Võ, tỉnh Bắc Ninh",
+      "managerName": "Nguyễn Đức Mạnh", "contactPhone": "0912 600 145", "capacity": 2000,
+      "locations": [
+        { "zone": "A", "racks": [1, 4], "bins": [1, 4], "maxWeight": 1500 },
+        { "zone": "B", "racks": [1, 3], "bins": [1, 4], "maxWeight": 800 },
+        { "zone": "C", "racks": [1, 1], "bins": [1, 4], "maxWeight": 1000 }
+      ]
+    },
+    {
+      "code": "KV-NA", "name": "Kho Nghệ An", "address": "Lô 12, KCN Nam Cấm, xã Nghi Lộc, tỉnh Nghệ An",
+      "managerName": "Hồ Sỹ Quang", "contactPhone": "0915 338 207", "capacity": 1500,
+      "locations": [
+        { "zone": "A", "racks": [1, 4], "bins": [1, 4], "maxWeight": 1500 },
+        { "zone": "B", "racks": [1, 3], "bins": [1, 4], "maxWeight": 800 },
+        { "zone": "C", "racks": [1, 1], "bins": [1, 4], "maxWeight": 1000 }
+      ]
+    },
+    {
+      "code": "KV-DN", "name": "Kho Đồng Nai", "address": "Đường số 6, KCN Nhơn Trạch 3, xã Nhơn Trạch, tỉnh Đồng Nai",
+      "managerName": "Trương Minh Nhật", "contactPhone": "0909 221 584", "capacity": 1800,
+      "locations": [
+        { "zone": "A", "racks": [1, 4], "bins": [1, 4], "maxWeight": 1500 },
+        { "zone": "B", "racks": [1, 3], "bins": [1, 4], "maxWeight": 800 },
+        { "zone": "C", "racks": [1, 1], "bins": [1, 4], "maxWeight": 1000 }
+      ]
+    }
+  ],
+  "products": [
+    { "sku": "KV-001", "name": "Nước khoáng Suối Ngàn chai 500ml (thùng 24 chai)", "category": "KV-NUOC", "uom": "THUNG", "purchasePrice": 72000, "sellingPrice": 92000, "vatRate": 8, "lot": true, "expiry": true, "safetyStock": 40, "reorderPoint": 100, "maxStock": 1200 },
+    { "sku": "KV-002", "name": "Nước tinh khiết Giọt Sương chai 1,5L (thùng 12 chai)", "category": "KV-NUOC", "uom": "THUNG", "purchasePrice": 60000, "sellingPrice": 78000, "vatRate": 8, "lot": true, "expiry": true, "safetyStock": 30, "reorderPoint": 80, "maxStock": 1000 },
+    { "sku": "KV-003", "name": "Nước ngọt có ga Sảng Khoái vị cam lon 330ml (thùng 24 lon)", "category": "KV-NUOC", "uom": "THUNG", "purchasePrice": 165000, "sellingPrice": 198000, "vatRate": 8, "lot": true, "expiry": true, "safetyStock": 30, "reorderPoint": 60, "maxStock": 600 },
+    { "sku": "KV-004", "name": "Trà xanh Thanh Mộc chai 455ml (thùng 24 chai)", "category": "KV-NUOC", "uom": "THUNG", "purchasePrice": 150000, "sellingPrice": 182000, "vatRate": 8, "lot": true, "expiry": true, "safetyStock": 30, "reorderPoint": 60, "maxStock": 600 },
+    { "sku": "KV-005", "name": "Nước tăng lực Mãnh Hổ lon 250ml (thùng 24 lon)", "category": "KV-NUOC", "uom": "THUNG", "purchasePrice": 210000, "sellingPrice": 250000, "vatRate": 8, "lot": true, "expiry": true, "safetyStock": 20, "reorderPoint": 50, "maxStock": 500 },
+    { "sku": "KV-006", "name": "Cà phê sữa đá Phố Cổ lon 235ml (thùng 24 lon)", "category": "KV-NUOC", "uom": "THUNG", "purchasePrice": 230000, "sellingPrice": 275000, "vatRate": 8, "lot": true, "expiry": true, "safetyStock": 20, "reorderPoint": 40, "maxStock": 400 },
+    { "sku": "KV-007", "name": "Sữa tươi tiệt trùng Đồng Xanh có đường hộp 180ml (thùng 48 hộp)", "category": "KV-SUA", "uom": "THUNG", "purchasePrice": 320000, "sellingPrice": 372000, "vatRate": 8, "lot": true, "expiry": true, "safetyStock": 40, "reorderPoint": 80, "maxStock": 800 },
+    { "sku": "KV-008", "name": "Sữa tươi tiệt trùng Đồng Xanh không đường hộp 1L (thùng 12 hộp)", "category": "KV-SUA", "uom": "THUNG", "purchasePrice": 340000, "sellingPrice": 395000, "vatRate": 8, "lot": true, "expiry": true, "safetyStock": 20, "reorderPoint": 50, "maxStock": 500 },
+    { "sku": "KV-009", "name": "Sữa chua uống men sống Bé Khỏe chai 110ml (thùng 48 chai)", "category": "KV-SUA", "uom": "THUNG", "purchasePrice": 230000, "sellingPrice": 275000, "vatRate": 8, "lot": true, "expiry": true, "safetyStock": 20, "reorderPoint": 40, "maxStock": 300 },
+    { "sku": "KV-010", "name": "Sữa đặc có đường Bò Vàng lon 380g (thùng 48 lon)", "category": "KV-SUA", "uom": "THUNG", "purchasePrice": 960000, "sellingPrice": 1100000, "vatRate": 8, "lot": true, "expiry": true, "safetyStock": 10, "reorderPoint": 20, "maxStock": 200 },
+    { "sku": "KV-011", "name": "Mì ăn liền Tô Vàng tôm chua cay (thùng 30 gói)", "category": "KV-THUCPHAMKHO", "uom": "THUNG", "purchasePrice": 98000, "sellingPrice": 118000, "vatRate": 8, "lot": true, "expiry": true, "safetyStock": 60, "reorderPoint": 120, "maxStock": 1500 },
+    { "sku": "KV-012", "name": "Mì ăn liền Tô Vàng bò hầm (thùng 30 gói)", "category": "KV-THUCPHAMKHO", "uom": "THUNG", "purchasePrice": 102000, "sellingPrice": 122000, "vatRate": 8, "lot": true, "expiry": true, "safetyStock": 60, "reorderPoint": 120, "maxStock": 1500 },
+    { "sku": "KV-013", "name": "Phở bò ăn liền Hương Xưa (thùng 30 gói)", "category": "KV-THUCPHAMKHO", "uom": "THUNG", "purchasePrice": 180000, "sellingPrice": 215000, "vatRate": 8, "lot": true, "expiry": true, "safetyStock": 30, "reorderPoint": 60, "maxStock": 600 },
+    { "sku": "KV-014", "name": "Cháo ăn liền Mẹ Nấu thịt bằm (thùng 50 gói)", "category": "KV-THUCPHAMKHO", "uom": "THUNG", "purchasePrice": 160000, "sellingPrice": 192000, "vatRate": 8, "lot": true, "expiry": true, "safetyStock": 20, "reorderPoint": 50, "maxStock": 500 },
+    { "sku": "KV-015", "name": "Gạo thơm Đồng Bằng túi 5kg", "category": "KV-THUCPHAMKHO", "uom": "TUI", "purchasePrice": 105000, "sellingPrice": 128000, "vatRate": 5, "lot": true, "expiry": true, "safetyStock": 80, "reorderPoint": 150, "maxStock": 2000 },
+    { "sku": "KV-016", "name": "Dầu ăn Hướng Dương Vàng chai 1L (thùng 12 chai)", "category": "KV-GIAVI", "uom": "THUNG", "purchasePrice": 480000, "sellingPrice": 552000, "vatRate": 8, "lot": true, "expiry": true, "safetyStock": 30, "reorderPoint": 60, "maxStock": 500 },
+    { "sku": "KV-017", "name": "Nước mắm Cửa Biển 40 độ đạm chai 500ml (thùng 12 chai)", "category": "KV-GIAVI", "uom": "THUNG", "purchasePrice": 420000, "sellingPrice": 492000, "vatRate": 8, "lot": true, "expiry": true, "safetyStock": 30, "reorderPoint": 60, "maxStock": 500 },
+    { "sku": "KV-018", "name": "Hạt nêm Bếp Việt túi 900g (thùng 10 túi)", "category": "KV-GIAVI", "uom": "THUNG", "purchasePrice": 650000, "sellingPrice": 745000, "vatRate": 8, "lot": true, "expiry": true, "safetyStock": 20, "reorderPoint": 40, "maxStock": 400 },
+    { "sku": "KV-019", "name": "Nước tương Đậu Nành Quê chai 500ml (thùng 24 chai)", "category": "KV-GIAVI", "uom": "THUNG", "purchasePrice": 288000, "sellingPrice": 336000, "vatRate": 8, "lot": true, "expiry": true, "safetyStock": 20, "reorderPoint": 40, "maxStock": 400 },
+    { "sku": "KV-020", "name": "Đường tinh luyện Trắng Ngọc túi 1kg (thùng 20 túi)", "category": "KV-GIAVI", "uom": "THUNG", "purchasePrice": 420000, "sellingPrice": 480000, "vatRate": 5, "lot": true, "expiry": true, "safetyStock": 30, "reorderPoint": 60, "maxStock": 500 },
+    { "sku": "KV-021", "name": "Bánh quy bơ Lâu Đài hộp thiếc 454g (thùng 12 hộp)", "category": "KV-BANHKEO", "uom": "THUNG", "purchasePrice": 780000, "sellingPrice": 900000, "vatRate": 8, "lot": true, "expiry": true, "safetyStock": 20, "reorderPoint": 50, "maxStock": 300 },
+    { "sku": "KV-022", "name": "Bánh xốp kem Gió Đồng gói 200g (thùng 24 gói)", "category": "KV-BANHKEO", "uom": "THUNG", "purchasePrice": 336000, "sellingPrice": 396000, "vatRate": 8, "lot": true, "expiry": true, "safetyStock": 30, "reorderPoint": 60, "maxStock": 500 },
+    { "sku": "KV-023", "name": "Kẹo dẻo trái cây Cầu Vồng gói 100g (thùng 50 gói)", "category": "KV-BANHKEO", "uom": "THUNG", "purchasePrice": 450000, "sellingPrice": 530000, "vatRate": 8, "lot": true, "expiry": true, "safetyStock": 20, "reorderPoint": 40, "maxStock": 400 },
+    { "sku": "KV-024", "name": "Bánh gạo Hạt Ngọc gói 150g (thùng 30 gói)", "category": "KV-BANHKEO", "uom": "THUNG", "purchasePrice": 390000, "sellingPrice": 456000, "vatRate": 8, "lot": true, "expiry": true, "safetyStock": 20, "reorderPoint": 50, "maxStock": 400 },
+    { "sku": "KV-025", "name": "Bột giặt Trắng Tinh túi 3kg (thùng 4 túi)", "category": "KV-TAYRUA", "uom": "THUNG", "purchasePrice": 380000, "sellingPrice": 440000, "vatRate": 10, "safetyStock": 40, "reorderPoint": 80, "maxStock": 800 },
+    { "sku": "KV-026", "name": "Nước giặt Hương Lài túi 2,2kg (thùng 6 túi)", "category": "KV-TAYRUA", "uom": "THUNG", "purchasePrice": 540000, "sellingPrice": 624000, "vatRate": 10, "safetyStock": 30, "reorderPoint": 60, "maxStock": 500 },
+    { "sku": "KV-027", "name": "Nước rửa chén Chanh Sạch can 3,6kg (thùng 4 can)", "category": "KV-TAYRUA", "uom": "THUNG", "purchasePrice": 300000, "sellingPrice": 348000, "vatRate": 10, "safetyStock": 30, "reorderPoint": 60, "maxStock": 600 },
+    { "sku": "KV-028", "name": "Nước lau sàn Thảo Mộc can 3,8kg (thùng 4 can)", "category": "KV-TAYRUA", "uom": "THUNG", "purchasePrice": 280000, "sellingPrice": 325000, "vatRate": 10, "safetyStock": 20, "reorderPoint": 50, "maxStock": 500 },
+    { "sku": "KV-029", "name": "Dầu gội Mây Óng chai 650g (thùng 12 chai)", "category": "KV-CANHAN", "uom": "THUNG", "purchasePrice": 1020000, "sellingPrice": 1176000, "vatRate": 10, "safetyStock": 15, "reorderPoint": 30, "maxStock": 200 },
+    { "sku": "KV-030", "name": "Sữa tắm Hoa Nhài chai 900g (thùng 12 chai)", "category": "KV-CANHAN", "uom": "THUNG", "purchasePrice": 1140000, "sellingPrice": 1320000, "vatRate": 10, "safetyStock": 15, "reorderPoint": 30, "maxStock": 200 },
+    { "sku": "KV-031", "name": "Kem đánh răng Trắng Sáng tuýp 180g (thùng 72 tuýp)", "category": "KV-CANHAN", "uom": "THUNG", "purchasePrice": 1440000, "sellingPrice": 1656000, "vatRate": 10, "safetyStock": 20, "reorderPoint": 45, "maxStock": 200 },
+    { "sku": "KV-032", "name": "Xà phòng cục Thơm Mát 90g (thùng 72 cục)", "category": "KV-CANHAN", "uom": "THUNG", "purchasePrice": 576000, "sellingPrice": 672000, "vatRate": 10, "safetyStock": 20, "reorderPoint": 40, "maxStock": 300 },
+    { "sku": "KV-033", "name": "Giấy vệ sinh Mây Trắng lốc 10 cuộn", "category": "KV-GIAY", "uom": "LOC", "purchasePrice": 52000, "sellingPrice": 62000, "vatRate": 10, "safetyStock": 100, "reorderPoint": 250, "maxStock": 3000 },
+    { "sku": "KV-034", "name": "Khăn giấy rút Mềm Mại gói 180 tờ (thùng 30 gói)", "category": "KV-GIAY", "uom": "THUNG", "purchasePrice": 270000, "sellingPrice": 318000, "vatRate": 10, "safetyStock": 20, "reorderPoint": 50, "maxStock": 500 },
+    { "sku": "KV-035", "name": "Tã quần em bé Bông Mềm size L bịch 54 miếng", "category": "KV-GIAY", "uom": "BICH", "purchasePrice": 265000, "sellingPrice": 309000, "vatRate": 10, "safetyStock": 50, "reorderPoint": 100, "maxStock": 1000 },
+    { "sku": "KV-036", "name": "Băng vệ sinh Ngày Xanh gói 8 miếng (thùng 48 gói)", "category": "KV-GIAY", "uom": "THUNG", "purchasePrice": 768000, "sellingPrice": 888000, "vatRate": 10, "safetyStock": 25, "reorderPoint": 60, "maxStock": 300 }
+  ],
+  "suppliers": [
+    { "code": "NCC-KV-01", "name": "Công ty CP Nước Giải Khát Suối Ngàn", "taxCode": "2600874512", "contactName": "Anh Đặng Văn Khải", "email": "kinhdoanh@suoingan-beverage.example", "phone": "0210 384 1166", "address": "KCN Thụy Vân, phường Việt Trì, tỉnh Phú Thọ", "bankAccount": "1020034488211", "bankName": "Ngân hàng Công Thương chi nhánh Phú Thọ", "paymentTerms": "NET30", "creditLimit": 2000000000 },
+    { "code": "NCC-KV-02", "name": "Công ty CP Sữa Đồng Xanh", "taxCode": "5500617248", "contactName": "Chị Lò Thị Ngân", "email": "phanphoi@dongxanh-milk.example", "phone": "0212 386 7720", "address": "Tiểu khu 6, xã Mộc Châu, tỉnh Sơn La", "bankAccount": "3700211875432", "bankName": "Ngân hàng Đầu tư chi nhánh Sơn La", "paymentTerms": "NET15", "creditLimit": 1500000000 },
+    { "code": "NCC-KV-03", "name": "Công ty TNHH Thực Phẩm Tô Vàng", "taxCode": "0900781523", "contactName": "Anh Phí Văn Dũng", "email": "order@tovang-food.example", "phone": "0221 396 5508", "address": "KCN Phố Nối A, xã Như Quỳnh, tỉnh Hưng Yên", "bankAccount": "0291000654128", "bankName": "Ngân hàng Ngoại thương chi nhánh Hưng Yên", "paymentTerms": "NET30", "initialDebt": 86000000 },
+    { "code": "NCC-KV-04", "name": "Công ty CP Thực Phẩm Bếp Việt Phương Nam", "taxCode": "3601457736", "contactName": "Chị Huỳnh Mỹ Lệ", "email": "sales@bepviet-pn.example", "phone": "0251 383 9014", "address": "KCN Biên Hòa 2, phường Long Bình, tỉnh Đồng Nai", "bankAccount": "0071001237654", "bankName": "Ngân hàng Ngoại thương chi nhánh Đồng Nai", "paymentTerms": "NET30" },
+    { "code": "NCC-KV-05", "name": "Công ty TNHH Nước Mắm Cửa Biển", "taxCode": "4201673395", "contactName": "Ông Nguyễn Văn Sang", "email": "cuabien.nuocmam@ncc-tochanh.example", "phone": "0258 382 6631", "address": "Phường Nam Nha Trang, tỉnh Khánh Hòa", "bankAccount": "5801000311927", "bankName": "Ngân hàng Ngoại thương chi nhánh Khánh Hòa", "paymentTerms": "NET15" },
+    { "code": "NCC-KV-06", "name": "Công ty CP Bánh Kẹo Lâu Đài", "taxCode": "0201558417", "contactName": "Chị Tăng Thị Hạnh", "email": "phanphoi@laudai-confectionery.example", "phone": "0225 374 2288", "address": "KCN Nomura, xã An Dương, TP Hải Phòng", "bankAccount": "1500208877641", "bankName": "Ngân hàng Nông nghiệp chi nhánh Hải Phòng", "paymentTerms": "NET30", "initialDebt": 42500000 },
+    { "code": "NCC-KV-07", "name": "Công ty TNHH Hóa Mỹ Phẩm Trắng Tinh", "taxCode": "0314227865", "contactName": "Anh Mã Quốc Thái", "email": "b2b@trangtinh-chem.example", "phone": "0283 766 1042", "address": "KCN Tân Bình, phường Tây Thạnh, TP Hồ Chí Minh", "bankAccount": "0441003325789", "bankName": "Ngân hàng Ngoại thương chi nhánh Tân Bình", "paymentTerms": "NET45" },
+    { "code": "NCC-KV-08", "name": "Công ty CP Giấy Mây Trắng", "taxCode": "2300556718", "contactName": "Anh Thân Văn Tú", "email": "kinhdoanh@maytrang-paper.example", "phone": "0222 371 9055", "address": "KCN Tiên Sơn, phường Tiên Du, tỉnh Bắc Ninh", "bankAccount": "8600112245038", "bankName": "Ngân hàng Quân đội chi nhánh Bắc Ninh", "paymentTerms": "NET30" },
+    { "code": "NCC-KV-09", "name": "Công ty TNHH Phân Phối Tiêu Dùng Nhật Minh", "taxCode": "0108993145", "contactName": "Chị Ông Thị Thu", "email": "order@nhatminh-distribution.example", "phone": "0243 555 8812", "address": "Số 22 đường Phạm Văn Đồng, phường Phú Diễn, Hà Nội", "bankAccount": "1903377219012", "bankName": "Ngân hàng Kỹ Thương chi nhánh Cầu Giấy", "paymentTerms": "NET30", "creditLimit": 1000000000 }
+  ],
+  "customers": [
+    { "code": "KH-KV-001", "name": "Chuỗi Siêu Thị Hạnh Phúc Mart", "customerType": "WHOLESALE", "taxCode": "0106877541", "contactName": "Anh Lê Hoàng Phúc", "email": "muahang@hanhphucmart.example", "phone": "0243 776 1188", "address": "Số 102 đường Trần Duy Hưng, phường Yên Hòa, Hà Nội", "paymentTerms": "NET30", "creditLimit": 800000000 },
+    { "code": "KH-KV-002", "name": "Nhà phân phối Vinh Thịnh Phát", "customerType": "WHOLESALE", "taxCode": "2900771462", "contactName": "Anh Phan Đình Thịnh", "email": "vinhthinhphat@kh-tochanh.example", "phone": "0238 384 2210", "address": "Số 45 đường Lê Lợi, phường Thành Vinh, tỉnh Nghệ An", "paymentTerms": "NET30", "creditLimit": 600000000, "initialDebt": 120000000 },
+    { "code": "KH-KV-003", "name": "Đại lý Tạp Hóa Tổng Hợp Hà Tĩnh Xanh", "customerType": "WHOLESALE", "taxCode": "3001226845", "contactName": "Chị Trần Thị Hà", "email": "hatinhxanh@kh-tochanh.example", "phone": "0239 385 6604", "address": "Số 8 đường Phan Đình Phùng, phường Thành Sen, tỉnh Hà Tĩnh", "paymentTerms": "NET15", "creditLimit": 300000000 },
+    { "code": "KH-KV-004", "name": "Siêu thị Bắc Ninh Center", "customerType": "WHOLESALE", "taxCode": "2300998164", "contactName": "Anh Ngô Văn Kiên", "email": "bncenter@kh-tochanh.example", "phone": "0222 382 4471", "address": "Số 1 đường Lý Thái Tổ, phường Kinh Bắc, tỉnh Bắc Ninh", "paymentTerms": "NET30", "creditLimit": 500000000 },
+    { "code": "KH-KV-005", "name": "Công ty TNHH Thương Mại Biên Hòa Xanh", "customerType": "WHOLESALE", "taxCode": "3603345218", "contactName": "Chị Đinh Thị Ngọc", "email": "bienhoaxanh@kh-tochanh.example", "phone": "0251 382 7713", "address": "Số 99 đường Phạm Văn Thuận, phường Tam Hiệp, tỉnh Đồng Nai", "paymentTerms": "NET30", "creditLimit": 450000000 },
+    { "code": "KH-KV-006", "name": "Chuỗi Cửa Hàng Tiện Lợi Xứ Nghệ", "customerType": "WHOLESALE", "contactName": "Anh Hoàng Nghĩa Tâm", "email": "xunghe.store@kh-tochanh.example", "phone": "0912 664 230", "address": "Số 12 đường Nguyễn Văn Cừ, phường Vinh Hưng, tỉnh Nghệ An", "paymentTerms": "NET15", "creditLimit": 250000000 },
+    { "code": "KH-KV-007", "name": "Đại lý Phân Phối Thanh Hóa Phát Lộc", "customerType": "WHOLESALE", "taxCode": "2801445627", "contactName": "Anh Lê Đình Lộc", "email": "phatloc.th@kh-tochanh.example", "phone": "0237 385 1249", "address": "Số 230 đường Bà Triệu, phường Hạc Thành, tỉnh Thanh Hóa", "paymentTerms": "NET30", "creditLimit": 400000000, "initialDebt": 95000000 },
+    { "code": "KH-KV-008", "name": "Hệ thống Siêu Thị Mini Sóc Nhỏ", "customerType": "WHOLESALE", "contactName": "Chị Khổng Thị Yến", "email": "socnho.mart@kh-tochanh.example", "phone": "0965 322 708", "address": "Số 15 phố Ngô Thì Nhậm, phường Hà Đông, Hà Nội", "paymentTerms": "NET15", "creditLimit": 200000000 },
+    { "code": "KH-KV-009", "name": "Cửa hàng Tạp Hóa Bà Sáu Từ Sơn", "customerType": "RETAIL", "contactName": "Bà Nguyễn Thị Sáu", "email": "taphoabasau@kh-tochanh.example", "phone": "0983 145 662", "address": "Chợ Giầu, phường Từ Sơn, tỉnh Bắc Ninh", "paymentTerms": "COD" },
+    { "code": "KH-KV-010", "name": "Công ty CP Bán Lẻ Đông Nam Bộ", "customerType": "WHOLESALE", "taxCode": "0316554812", "contactName": "Anh Quan Minh Tuấn", "email": "dongnambo.retail@kh-tochanh.example", "phone": "0283 911 2264", "address": "Số 300 đường Xa lộ Hà Nội, phường Phước Long, TP Hồ Chí Minh", "paymentTerms": "NET30", "creditLimit": 700000000 },
+    { "code": "KH-KV-011", "name": "Quán Cà Phê Chuỗi Góc Phố", "customerType": "WHOLESALE", "contactName": "Anh Từ Gia Huy", "email": "gocpho.coffee@kh-tochanh.example", "phone": "0907 556 214", "address": "Số 41 đường Hà Huy Giáp, phường Trấn Biên, tỉnh Đồng Nai", "paymentTerms": "NET15", "creditLimit": 150000000 },
+    { "code": "KH-KV-012", "name": "Chuỗi Mẹ và Bé Ánh Dương", "customerType": "WHOLESALE", "taxCode": "0109227561", "contactName": "Chị Vi Thị Ánh", "email": "anhduong.mevabe@kh-tochanh.example", "phone": "0243 562 1190", "address": "Số 50 phố Thái Hà, phường Đống Đa, Hà Nội", "paymentTerms": "NET30", "creditLimit": 350000000 },
+    { "code": "KH-KV-013", "name": "Bếp ăn Công ty May Hồng Lĩnh", "customerType": "WHOLESALE", "contactName": "Chị Đậu Thị Thủy", "email": "bepan.honglinh@kh-tochanh.example", "phone": "0239 386 0021", "address": "KCN Gia Lách, xã Xuân Hội, tỉnh Hà Tĩnh", "paymentTerms": "NET30", "creditLimit": 120000000 },
+    { "code": "KH-KV-014", "name": "Đại lý Sữa Thành Vinh", "customerType": "WHOLESALE", "contactName": "Anh Võ Đức Hiếu", "email": "sua.thanhvinh@kh-tochanh.example", "phone": "0915 443 802", "address": "Số 76 đường Quang Trung, phường Thành Vinh, tỉnh Nghệ An", "paymentTerms": "NET15", "creditLimit": 180000000 },
+    { "code": "KH-KV-015", "name": "Công ty TNHH Văn Phòng Phẩm và Tạp Phẩm Diễn Châu", "customerType": "WHOLESALE", "contactName": "Chị Cao Thị Diễm", "email": "dienchau.tappham@kh-tochanh.example", "phone": "0238 362 5517", "address": "Xã Diễn Châu, tỉnh Nghệ An", "paymentTerms": "NET30", "creditLimit": 160000000 },
+    { "code": "KH-KV-016", "name": "Siêu thị Gia Đình Quế Võ", "customerType": "WHOLESALE", "contactName": "Anh Nghiêm Xuân Bách", "email": "quevo.mart@kh-tochanh.example", "phone": "0974 210 553", "address": "Phường Quế Võ, tỉnh Bắc Ninh", "paymentTerms": "NET15", "creditLimit": 150000000 },
+    { "code": "KH-KV-017", "name": "Nhà hàng Tiệc Cưới Kim Cương", "customerType": "WHOLESALE", "contactName": "Anh Tạ Quang Vinh", "email": "kimcuong.tieccuoi@kh-tochanh.example", "phone": "0904 551 237", "address": "Số 9 đường Lê Hồng Phong, phường Thành Vinh, tỉnh Nghệ An", "paymentTerms": "NET7", "creditLimit": 80000000 },
+    { "code": "KH-KV-018", "name": "Đại lý Gia Vị Long Thành", "customerType": "WHOLESALE", "contactName": "Bà Lương Thị Mỹ", "email": "giavi.longthanh@kh-tochanh.example", "phone": "0251 384 6650", "address": "Chợ Long Thành, xã Long Thành, tỉnh Đồng Nai", "paymentTerms": "NET15", "creditLimit": 200000000 },
+    { "code": "KH-KV-019", "name": "Cửa hàng Thực Phẩm Sạch Yên Phong", "customerType": "RETAIL", "contactName": "Chị Hà Thị Lụa", "email": "thucphamsach.yp@kh-tochanh.example", "phone": "0988 772 140", "address": "Xã Yên Phong, tỉnh Bắc Ninh", "paymentTerms": "COD" },
+    { "code": "KH-KV-020", "name": "Hệ thống Cửa Hàng Tiện Lợi Nhơn Trạch Mart", "customerType": "WHOLESALE", "contactName": "Anh Kha Văn Lâm", "email": "nhontrachmart@kh-tochanh.example", "phone": "0919 336 407", "address": "Xã Nhơn Trạch, tỉnh Đồng Nai", "paymentTerms": "NET15", "creditLimit": 250000000 },
+    { "code": "KH-KV-021", "name": "Công ty CP Dịch Vụ Suất Ăn Miền Trung", "customerType": "WHOLESALE", "taxCode": "2901334572", "contactName": "Anh Thái Bá Hùng", "email": "suatan.mientrung@kh-tochanh.example", "phone": "0238 357 1123", "address": "KCN Bắc Vinh, phường Vinh Phú, tỉnh Nghệ An", "paymentTerms": "NET30", "creditLimit": 300000000 },
+    { "code": "KH-KV-022", "name": "Tạp Hóa Cô Ba Cửa Lò", "customerType": "RETAIL", "contactName": "Bà Hồ Thị Ba", "email": "taphoacoba@kh-tochanh.example", "phone": "0947 653 002", "address": "Phường Cửa Lò, tỉnh Nghệ An", "paymentTerms": "COD" },
+    { "code": "KH-KV-023", "name": "Nhà phân phối Thủ Đức Phát Đạt", "customerType": "WHOLESALE", "taxCode": "0317221459", "contactName": "Anh Lâm Phát Đạt", "email": "thuducphatdat@kh-tochanh.example", "phone": "0283 896 4471", "address": "Số 18 đường Kha Vạn Cân, phường Hiệp Bình, TP Hồ Chí Minh", "paymentTerms": "NET30", "creditLimit": 900000000, "initialDebt": 210000000 },
+    { "code": "KH-KV-024", "name": "Cửa hàng Sữa và Đồ Ăn Vặt Bé Na", "customerType": "RETAIL", "contactName": "Chị Lý Ngọc Na", "email": "bena.store@kh-tochanh.example", "phone": "0966 801 234", "address": "Số 7 đường Ngô Gia Tự, phường Kinh Bắc, tỉnh Bắc Ninh", "paymentTerms": "NET7", "creditLimit": 60000000 },
+    { "code": "KH-KV-025", "name": "Siêu thị Nông Thôn Quỳnh Lưu", "customerType": "WHOLESALE", "contactName": "Anh Hồ Văn Lưu", "email": "quynhluu.mart@kh-tochanh.example", "phone": "0238 386 4419", "address": "Xã Quỳnh Lưu, tỉnh Nghệ An", "paymentTerms": "NET15", "creditLimit": 140000000 },
+    { "code": "KH-KV-026", "name": "Đại lý Nước Giải Khát Trảng Bom", "customerType": "WHOLESALE", "contactName": "Anh Mạch Văn Bom", "email": "nuocgiaikhat.tb@kh-tochanh.example", "phone": "0909 448 115", "address": "Xã Trảng Bom, tỉnh Đồng Nai", "paymentTerms": "NET15", "creditLimit": 220000000 },
+    { "code": "KH-KV-027", "name": "Căng tin Trường Đại học Kỹ thuật Kinh Bắc", "customerType": "WHOLESALE", "contactName": "Cô Trịnh Thu Hương", "email": "cangtin.kinhbac@kh-tochanh.example", "phone": "0222 381 7702", "address": "Phường Võ Cường, tỉnh Bắc Ninh", "paymentTerms": "NET30", "creditLimit": 90000000 },
+    { "code": "KH-KV-028", "name": "Khách lẻ Khu Công Nghiệp Nam Cấm", "customerType": "RETAIL", "contactName": "Anh Bế Văn Thành", "email": "khachle.namcam@kh-tochanh.example", "phone": "0978 330 129", "address": "KCN Nam Cấm, xã Nghi Lộc, tỉnh Nghệ An", "paymentTerms": "COD" }
+  ],
+  "purchaseOrders": [
+    {
+      "number": "PO-KV-001", "supplier": "NCC-KV-01", "warehouse": "KV-BN", "daysAgo": 20, "expectedInDays": -18, "state": "received",
+      "note": "Đơn đồ uống tháng 11 cho kho tổng",
+      "items": [ { "sku": "KV-001", "qty": 400 }, { "sku": "KV-002", "qty": 300 }, { "sku": "KV-003", "qty": 200 }, { "sku": "KV-004", "qty": 200 }, { "sku": "KV-005", "qty": 150 } ],
+      "receipts": [
+        { "daysAgo": 18, "note": "Hai xe container, nhận đủ", "lines": [
+          { "sku": "KV-001", "qty": 400, "lot": "SN500-{date}", "mfgDaysAgo": 25, "expInDays": 340, "location": "A-R01-B01" },
+          { "sku": "KV-002", "qty": 300, "lot": "GS15-{date}", "mfgDaysAgo": 25, "expInDays": 340, "location": "A-R01-B02" },
+          { "sku": "KV-003", "qty": 200, "lot": "SK330-{date}", "mfgDaysAgo": 30, "expInDays": 270, "location": "A-R01-B03" },
+          { "sku": "KV-004", "qty": 200, "lot": "TM455-{date}", "mfgDaysAgo": 30, "expInDays": 240, "location": "A-R01-B04" },
+          { "sku": "KV-005", "qty": 150, "lot": "MH250-{date}", "mfgDaysAgo": 28, "expInDays": 300, "location": "A-R02-B01" }
+        ] }
+      ],
+      "payment": { "ratio": 1, "method": "BANK_TRANSFER", "daysAgo": 6 }
+    },
+    {
+      "number": "PO-KV-002", "supplier": "NCC-KV-02", "warehouse": "KV-BN", "daysAgo": 15, "expectedInDays": -13, "state": "received",
+      "note": "Sữa tươi và sữa chua uống, xe lạnh",
+      "items": [ { "sku": "KV-007", "qty": 250 }, { "sku": "KV-008", "qty": 150 }, { "sku": "KV-009", "qty": 120 }, { "sku": "KV-010", "qty": 60 } ],
+      "receipts": [
+        { "daysAgo": 13, "note": "Sữa chua uống hạn ngắn, ưu tiên xuất trước", "lines": [
+          { "sku": "KV-007", "qty": 250, "lot": "DX180-{date}", "mfgDaysAgo": 15, "expInDays": 150, "location": "A-R02-B02" },
+          { "sku": "KV-008", "qty": 150, "lot": "DX1L-{date}", "mfgDaysAgo": 15, "expInDays": 160, "location": "A-R02-B03" },
+          { "sku": "KV-009", "qty": 120, "lot": "BK110-{date}", "mfgDaysAgo": 14, "expInDays": 20, "location": "A-R02-B04" },
+          { "sku": "KV-010", "qty": 60, "lot": "BV380-{date}", "mfgDaysAgo": 40, "expInDays": 330, "location": "A-R03-B01" }
+        ] }
+      ],
+      "payment": { "ratio": 0.5, "method": "BANK_TRANSFER", "daysAgo": 2 }
+    },
+    {
+      "number": "PO-KV-003", "supplier": "NCC-KV-03", "warehouse": "KV-NA", "daysAgo": 17, "expectedInDays": -15, "state": "received",
+      "note": "Mì, phở, cháo, gạo cho khu vực Bắc Trung Bộ, giao hai đợt",
+      "items": [ { "sku": "KV-011", "qty": 300 }, { "sku": "KV-012", "qty": 300 }, { "sku": "KV-013", "qty": 150 }, { "sku": "KV-014", "qty": 120 }, { "sku": "KV-015", "qty": 400 } ],
+      "receipts": [
+        { "daysAgo": 15, "note": "Đợt 1", "lines": [
+          { "sku": "KV-011", "qty": 300, "lot": "TVT-{date}", "mfgDaysAgo": 20, "expInDays": 160, "location": "A-R01-B01" },
+          { "sku": "KV-012", "qty": 300, "lot": "TVB-{date}", "mfgDaysAgo": 20, "expInDays": 160, "location": "A-R01-B02" },
+          { "sku": "KV-015", "qty": 400, "lot": "GDB-{date}", "mfgDaysAgo": 18, "expInDays": 350, "location": "A-R01-B03" }
+        ] },
+        { "daysAgo": 7, "note": "Đợt 2", "lines": [
+          { "sku": "KV-013", "qty": 150, "lot": "PHX-{date}", "mfgDaysAgo": 12, "expInDays": 170, "location": "A-R02-B01" },
+          { "sku": "KV-014", "qty": 120, "lot": "CMN-{date}", "mfgDaysAgo": 12, "expInDays": 175, "location": "A-R02-B02" }
+        ] }
+      ]
+    },
+    {
+      "number": "PO-KV-004", "supplier": "NCC-KV-04", "warehouse": "KV-DN", "daysAgo": 12, "expectedInDays": -10, "state": "received",
+      "note": "Gia vị và dầu ăn cho kho phía Nam",
+      "items": [ { "sku": "KV-016", "qty": 150 }, { "sku": "KV-018", "qty": 100 }, { "sku": "KV-019", "qty": 120 }, { "sku": "KV-020", "qty": 200 } ],
+      "receipts": [
+        { "daysAgo": 10, "note": "Nhận đủ, pallet nguyên đai", "lines": [
+          { "sku": "KV-016", "qty": 150, "lot": "HDV1L-{date}", "mfgDaysAgo": 20, "expInDays": 520, "location": "A-R01-B01" },
+          { "sku": "KV-018", "qty": 100, "lot": "BV900-{date}", "mfgDaysAgo": 18, "expInDays": 500, "location": "A-R01-B02" },
+          { "sku": "KV-019", "qty": 120, "lot": "DNQ-{date}", "mfgDaysAgo": 18, "expInDays": 520, "location": "A-R01-B03" },
+          { "sku": "KV-020", "qty": 200, "lot": "TN1KG-{date}", "mfgDaysAgo": 25, "expInDays": 700, "location": "A-R01-B04" }
+        ] }
+      ]
+    },
+    {
+      "number": "PO-KV-005", "supplier": "NCC-KV-05", "warehouse": "KV-NA", "daysAgo": 10, "expectedInDays": -9, "state": "received",
+      "note": "Nước mắm 40 độ đạm",
+      "items": [ { "sku": "KV-017", "qty": 200 } ],
+      "receipts": [
+        { "daysAgo": 9, "note": "Vỡ 2 chai trong một thùng, đã trả lại", "lines": [
+          { "sku": "KV-017", "qty": 200, "rejected": 1, "rejectedReason": "Thùng vỡ chai khi bốc xếp", "lot": "CB40-{date}", "mfgDaysAgo": 60, "expInDays": 660, "location": "B-R01-B01" }
+        ] }
+      ],
+      "payment": { "ratio": 1, "method": "BANK_TRANSFER", "daysAgo": 5 }
+    },
+    {
+      "number": "PO-KV-006", "supplier": "NCC-KV-06", "warehouse": "KV-BN", "daysAgo": 9, "expectedInDays": -8, "state": "received",
+      "note": "Bánh kẹo chuẩn bị mùa Tết",
+      "items": [ { "sku": "KV-021", "qty": 120 }, { "sku": "KV-022", "qty": 200 }, { "sku": "KV-023", "qty": 150 }, { "sku": "KV-024", "qty": 180 } ],
+      "receipts": [
+        { "daysAgo": 8, "note": "Nhận đủ", "lines": [
+          { "sku": "KV-021", "qty": 120, "lot": "LD454-{date}", "mfgDaysAgo": 20, "expInDays": 340, "location": "B-R01-B01" },
+          { "sku": "KV-022", "qty": 200, "lot": "GD200-{date}", "mfgDaysAgo": 18, "expInDays": 250, "location": "B-R01-B02" },
+          { "sku": "KV-023", "qty": 150, "lot": "CV100-{date}", "mfgDaysAgo": 18, "expInDays": 330, "location": "B-R01-B03" },
+          { "sku": "KV-024", "qty": 180, "lot": "HN150-{date}", "mfgDaysAgo": 18, "expInDays": 280, "location": "B-R01-B04" }
+        ] }
+      ]
+    },
+    {
+      "number": "PO-KV-007", "supplier": "NCC-KV-07", "warehouse": "KV-DN", "daysAgo": 14, "expectedInDays": -12, "state": "received",
+      "note": "Hóa phẩm tẩy rửa quý IV",
+      "items": [ { "sku": "KV-025", "qty": 300 }, { "sku": "KV-026", "qty": 200 }, { "sku": "KV-027", "qty": 250 }, { "sku": "KV-028", "qty": 200 } ],
+      "receipts": [
+        { "daysAgo": 12, "note": "Nhận đủ", "lines": [
+          { "sku": "KV-025", "qty": 300, "location": "B-R01-B01" },
+          { "sku": "KV-026", "qty": 200, "location": "B-R01-B02" },
+          { "sku": "KV-027", "qty": 250, "location": "B-R01-B03" },
+          { "sku": "KV-028", "qty": 200, "location": "B-R01-B04" }
+        ] }
+      ]
+    },
+    {
+      "number": "PO-KV-008", "supplier": "NCC-KV-09", "warehouse": "KV-BN", "daysAgo": 6, "expectedInDays": -5, "state": "received",
+      "note": "Hàng chăm sóc cá nhân và tã em bé",
+      "items": [ { "sku": "KV-029", "qty": 80 }, { "sku": "KV-030", "qty": 80 }, { "sku": "KV-031", "qty": 60 }, { "sku": "KV-032", "qty": 100 }, { "sku": "KV-035", "qty": 300 }, { "sku": "KV-036", "qty": 90 } ],
+      "receipts": [
+        { "daysAgo": 5, "note": "Nhận đủ", "lines": [
+          { "sku": "KV-029", "qty": 80, "location": "B-R02-B01" },
+          { "sku": "KV-030", "qty": 80, "location": "B-R02-B02" },
+          { "sku": "KV-031", "qty": 60, "location": "B-R02-B03" },
+          { "sku": "KV-032", "qty": 100, "location": "B-R02-B04" },
+          { "sku": "KV-035", "qty": 300, "location": "B-R03-B01" },
+          { "sku": "KV-036", "qty": 90, "location": "B-R03-B02" }
+        ] }
+      ]
+    },
+    {
+      "number": "PO-KV-009", "supplier": "NCC-KV-08", "warehouse": "KV-NA", "daysAgo": 4, "expectedInDays": 3, "state": "partial",
+      "note": "Giấy vệ sinh và khăn giấy, nhà máy giao nhiều chuyến",
+      "items": [ { "sku": "KV-033", "qty": 1000 }, { "sku": "KV-034", "qty": 200 } ],
+      "receipts": [
+        { "daysAgo": 3, "note": "Chuyến 1", "lines": [
+          { "sku": "KV-033", "qty": 600, "location": "B-R02-B01" },
+          { "sku": "KV-034", "qty": 200, "location": "B-R02-B02" }
+        ] }
+      ]
+    },
+    {
+      "number": "PO-KV-010", "supplier": "NCC-KV-01", "warehouse": "KV-DN", "daysAgo": 2, "expectedInDays": 2, "state": "approved",
+      "note": "Đồ uống cho kho Đồng Nai, đang trên đường giao",
+      "items": [ { "sku": "KV-001", "qty": 300 }, { "sku": "KV-006", "qty": 200 } ]
+    }
+  ],
+  "stocktakes": [
+    {
+      "ref": "KK-KV-01", "warehouse": "KV-BN", "zones": ["B"], "plannedDaysAgo": 1, "state": "completed",
+      "notes": "Kiểm kê cuối tháng khu B kho Bắc Ninh, đếm mù",
+      "managerNote": "Chênh lệch nhỏ, đồng ý điều chỉnh",
+      "adjust": [
+        { "sku": "KV-023", "delta": -2, "reason": "Hai thùng kẹo bị ẩm do dột mái, đã loại" },
+        { "sku": "KV-032", "delta": 1, "reason": "Lần nhập trước đếm sót một thùng ở tầng trên" }
+      ]
+    },
+    { "ref": "KK-KV-02", "warehouse": "KV-NA", "zones": ["A"], "plannedInDays": 3, "state": "draft", "notes": "Kiểm kê khu A kho Nghệ An theo kế hoạch tháng" }
+  ],
+  "transfers": [
+    { "ref": "DC-KV-01", "from": "KV-BN", "to": "KV-NA", "state": "completed", "toLocation": "A-R04-B01", "expectedInDays": -1,
+      "notes": "Bổ sung đồ uống và sữa cho kho Nghệ An",
+      "items": [ { "sku": "KV-001", "qty": 80 }, { "sku": "KV-003", "qty": 40 }, { "sku": "KV-007", "qty": 50 } ] },
+    { "ref": "DC-KV-02", "from": "KV-NA", "to": "KV-DN", "state": "completed", "toLocation": "A-R04-B01", "expectedInDays": -1,
+      "notes": "Chuyển mì và nước mắm vào Nam theo đơn đại lý",
+      "items": [ { "sku": "KV-011", "qty": 60 }, { "sku": "KV-012", "qty": 60 }, { "sku": "KV-017", "qty": 40 } ] },
+    { "ref": "DC-KV-03", "from": "KV-BN", "to": "KV-DN", "state": "partial", "toLocation": "A-R04-B02", "expectedInDays": 0,
+      "notes": "Bánh kẹo Tết cho kho Đồng Nai", "receiveNotes": "Biên bản: 2 thùng bánh quy móp méo do xếp chồng",
+      "items": [ { "sku": "KV-021", "qty": 30, "received": 28, "damaged": 2, "note": "Móp hộp thiếc" }, { "sku": "KV-022", "qty": 40 } ] },
+    { "ref": "DC-KV-04", "from": "KV-DN", "to": "KV-NA", "state": "completed", "toLocation": "B-R03-B01", "expectedInDays": -1,
+      "notes": "Hóa phẩm cho khách miền Trung",
+      "items": [ { "sku": "KV-025", "qty": 50 }, { "sku": "KV-027", "qty": 40 } ] },
+    { "ref": "DC-KV-05", "from": "KV-BN", "to": "KV-DN", "state": "in_transit", "expectedInDays": 2,
+      "notes": "Dầu gội và tã em bé cho chuỗi mẹ và bé phía Nam",
+      "items": [ { "sku": "KV-029", "qty": 20 }, { "sku": "KV-035", "qty": 60 } ] },
+    { "ref": "DC-KV-06", "from": "KV-NA", "to": "KV-BN", "state": "in_transit", "expectedInDays": 1,
+      "notes": "Trả bớt giấy vệ sinh về kho tổng",
+      "items": [ { "sku": "KV-033", "qty": 150 } ] },
+    { "ref": "DC-KV-07", "from": "KV-DN", "to": "KV-BN", "state": "draft", "expectedInDays": 5,
+      "notes": "Dự kiến chuyển nước giặt ra Bắc",
+      "items": [ { "sku": "KV-026", "qty": 30 } ] },
+    { "ref": "DC-KV-08", "from": "KV-BN", "to": "KV-NA", "state": "cancelled", "cancelReason": "Kho Nghệ An đã nhận sữa trực tiếp từ nhà máy",
+      "notes": "Chuyển sữa không đường cho kho Nghệ An",
+      "items": [ { "sku": "KV-008", "qty": 30 } ] }
+  ],
+  "salesOrders": [
+    { "number": "SO-KV-001", "customer": "KH-KV-001", "warehouse": "KV-BN", "daysAgo": 12, "state": "completed",
+      "items": [ { "sku": "KV-001", "qty": 60 }, { "sku": "KV-003", "qty": 30 }, { "sku": "KV-007", "qty": 40 } ],
+      "invoice": true, "payments": [ { "ratio": 1, "method": "chuyển khoản" } ] },
+    { "number": "SO-KV-002", "customer": "KH-KV-002", "warehouse": "KV-NA", "daysAgo": 11, "state": "completed",
+      "items": [ { "sku": "KV-011", "qty": 80 }, { "sku": "KV-012", "qty": 60 }, { "sku": "KV-015", "qty": 100 } ],
+      "invoice": true, "payments": [ { "ratio": 0.5, "method": "chuyển khoản" } ] },
+    { "number": "SO-KV-003", "customer": "KH-KV-005", "warehouse": "KV-DN", "daysAgo": 9, "state": "completed",
+      "items": [ { "sku": "KV-016", "qty": 30 }, { "sku": "KV-020", "qty": 50 }, { "sku": "KV-025", "qty": 40 } ],
+      "invoice": true },
+    { "number": "SO-KV-004", "customer": "KH-KV-003", "warehouse": "KV-NA", "daysAgo": 8, "state": "completed",
+      "items": [ { "sku": "KV-017", "qty": 50 }, { "sku": "KV-015", "qty": 80 } ],
+      "invoice": true, "payments": [ { "ratio": 1, "method": "chuyển khoản" } ] },
+    { "number": "SO-KV-005", "customer": "KH-KV-008", "warehouse": "KV-BN", "daysAgo": 7, "state": "completed",
+      "items": [ { "sku": "KV-022", "qty": 30 }, { "sku": "KV-024", "qty": 40 }, { "sku": "KV-021", "qty": 20 } ],
+      "invoice": true, "payments": [ { "ratio": 0.6, "method": "chuyển khoản" } ] },
+    { "number": "SO-KV-006", "customer": "KH-KV-010", "warehouse": "KV-DN", "daysAgo": 5, "state": "completed",
+      "items": [ { "sku": "KV-026", "qty": 40 }, { "sku": "KV-027", "qty": 60 }, { "sku": "KV-028", "qty": 30 } ],
+      "invoice": true },
+    { "number": "SO-KV-007", "customer": "KH-KV-012", "warehouse": "KV-BN", "daysAgo": 4, "state": "completed",
+      "items": [ { "sku": "KV-035", "qty": 80 }, { "sku": "KV-036", "qty": 30 }, { "sku": "KV-031", "qty": 20 } ],
+      "invoice": true, "payments": [ { "ratio": 1, "method": "chuyển khoản" } ] },
+    { "number": "SO-KV-008", "customer": "KH-KV-015", "warehouse": "KV-NA", "daysAgo": 3, "state": "completed",
+      "items": [ { "sku": "KV-033", "qty": 200 }, { "sku": "KV-034", "qty": 50 } ],
+      "invoice": true, "payments": [ { "ratio": 0.3, "method": "tiền mặt" } ] },
+    { "number": "SO-KV-009", "customer": "KH-KV-004", "warehouse": "KV-BN", "daysAgo": 3, "state": "partial", "note": "Giao theo hai chuyến xe",
+      "items": [ { "sku": "KV-001", "qty": 100 }, { "sku": "KV-002", "qty": 80 } ],
+      "deliveries": [ { "daysAgo": 2, "lines": [ { "sku": "KV-001", "qty": 60 }, { "sku": "KV-002", "qty": 80 } ] } ] },
+    { "number": "SO-KV-010", "customer": "KH-KV-018", "warehouse": "KV-DN", "daysAgo": 2, "state": "partial",
+      "items": [ { "sku": "KV-019", "qty": 60 }, { "sku": "KV-018", "qty": 40 } ],
+      "deliveries": [ { "daysAgo": 1, "lines": [ { "sku": "KV-019", "qty": 30 } ] } ] },
+    { "number": "SO-KV-011", "customer": "KH-KV-006", "warehouse": "KV-NA", "daysAgo": 1, "state": "confirmed",
+      "items": [ { "sku": "KV-013", "qty": 40 }, { "sku": "KV-014", "qty": 30 } ] },
+    { "number": "SO-KV-012", "customer": "KH-KV-020", "warehouse": "KV-DN", "daysAgo": 0, "state": "confirmed",
+      "items": [ { "sku": "KV-016", "qty": 50 }, { "sku": "KV-025", "qty": 60 } ] },
+    { "number": "SO-KV-013", "customer": "KH-KV-009", "warehouse": "KV-BN", "daysAgo": 0, "state": "confirmed",
+      "items": [ { "sku": "KV-029", "qty": 20 }, { "sku": "KV-030", "qty": 25 }, { "sku": "KV-032", "qty": 30 } ] },
+    { "number": "SO-KV-014", "customer": "KH-KV-011", "warehouse": "KV-DN", "daysAgo": 1, "state": "backorder", "note": "Cà phê lon đang về theo đơn PO-KV-010",
+      "items": [ { "sku": "KV-006", "qty": 80 } ] },
+    { "number": "SO-KV-015", "customer": "KH-KV-014", "warehouse": "KV-NA", "daysAgo": 0, "state": "backorder", "note": "Kho Nghệ An hết sữa chua uống",
+      "items": [ { "sku": "KV-009", "qty": 60 } ] },
+    { "number": "SO-KV-016", "customer": "KH-KV-016", "warehouse": "KV-BN", "daysAgo": 0, "state": "draft",
+      "items": [ { "sku": "KV-004", "qty": 50 }, { "sku": "KV-005", "qty": 40 } ] },
+    { "number": "SO-KV-017", "customer": "KH-KV-022", "warehouse": "KV-NA", "daysAgo": 0, "state": "draft",
+      "items": [ { "sku": "KV-001", "qty": 30 }, { "sku": "KV-007", "qty": 20 } ] },
+    { "number": "SO-KV-018", "customer": "KH-KV-019", "warehouse": "KV-BN", "daysAgo": 5, "state": "cancelled", "note": "Khách hủy do trùng đơn",
+      "items": [ { "sku": "KV-010", "qty": 20 } ] },
+    { "number": "SO-KV-019", "customer": "KH-KV-024", "warehouse": "KV-BN", "daysAgo": 6, "state": "completed",
+      "items": [ { "sku": "KV-009", "qty": 50 }, { "sku": "KV-008", "qty": 40 } ],
+      "invoice": true, "payments": [ { "ratio": 1, "method": "tiền mặt" } ] }
+  ]
+}

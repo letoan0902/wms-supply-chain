@@ -115,3 +115,46 @@
     animation: none;
   }
 }
+
+/*
+ * Bảng xem trước "Nhập dữ liệu bằng AI": dòng đã bỏ chọn nhạt đi (vẫn đọc được, vẫn sửa được), riêng ô chọn và thẻ
+ * trạng thái giữ nguyên để thấy rõ cách tích lại.
+ */
+/* Mặc định mọi dòng đều được chọn nên bỏ nền xanh của dòng đã chọn (không mang thông tin), chỉ dòng bỏ chọn khác màu */
+.ai-preview-table .ant-table-row-selected > td.ant-table-cell {
+  background: #fff;
+}
+
+.ai-preview-table .ant-table-row-selected:hover > td.ant-table-cell {
+  background: #fafafa;
+}
+
+.ai-preview-row-excluded > td.ant-table-cell {
+  background: #f1f5f9 !important;
+}
+
+.ai-preview-row-excluded > td.ant-table-cell:not(.ant-table-selection-column):not(.ai-preview-status-cell) > div {
+  opacity: 0.55;
+}
+
+/* Thanh nhập cố định ở đáy màn hình khi bảng dài */
+.ai-preview-footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  margin: 0 -24px -24px;
+  /* Chừa chỗ bên phải cho nút tròn của trợ lý AI (.ai-chat-fab) để không che nút Nhập */
+  padding: 12px 88px 12px 24px;
+  background: rgba(255, 255, 255, 0.96);
+  border-top: 1px solid #e2e8f0;
+  border-radius: 0 0 8px 8px;
+}
+
+/* Màn hình hẹp: thanh nhập nằm cuối bảng như bình thường, không chiếm chỗ cố định */
+@media (max-width: 575px) {
+  .ai-preview-footer {
+    position: static;
+    margin: 0 -12px -12px;
+    padding: 10px 76px 10px 12px;
+  }
+}

@@ -1,5 +1,5 @@
 import { CloudUploadOutlined, FileTextOutlined, RobotOutlined } from '@ant-design/icons'
-import { Alert, App, Button, Card, Modal, Radio, Spin, Steps, Switch, Tag, Typography, Upload } from 'antd'
+import { Alert, App, Button, Card, Col, Modal, Radio, Row, Spin, Steps, Tag, Typography, Upload } from 'antd'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useBlocker, useSearchParams } from 'react-router-dom'
 import ForbiddenResult from '../../components/ForbiddenResult'
@@ -29,14 +29,28 @@ import {
   mapImportResults,
   mapImportValidationErrors,
   MAX_IMPORT_ROWS,
-  needsReview,
   remainingMs,
   toPreviewRows,
   validateRow,
 } from './aiImport'
 import type { PreviewRow } from './aiImport'
+import {
+  assessRows,
+  blockingRowNumbers,
+  emptyOptionalColumns,
+  formatRowList,
+  IDENTITY_FIELD,
+  matchesFilter,
+  ROW_STATUS_META,
+  ROW_STATUS_ORDER,
+  rowsToImport,
+  summarize,
+} from './aiImportStatus'
+import type { RowFilter, RowStatus } from './aiImportStatus'
+import './ai.css'
 import AiImportPreviewTable from './components/AiImportPreviewTable'
 import AiImportResultView from './components/AiImportResultView'
+import { ProportionBar, StatTile } from './components/AiImportStatusParts'
 import type { ImportOutcome } from './components/AiImportResultView'
 import type { AiUsage, CellValue, Extraction, ExtractionDataType } from './types'
 
@@ -84,7 +98,9 @@ export default function AiImportPage() {
   const [rows, setRows] = useState<PreviewRow[]>([])
   const [deselected, setDeselected] = useState<Set<number>>(() => new Set())
   const [serverCellErrors, setServerCellErrors] = useState<Record<number, Record<string, string>>>({})
-  const [onlyReview, setOnlyReview] = useState(false)
+  const [filter, setFilter] = useState<RowFilter>('all')
+  const [showEmptyColumns, setShowEmptyColumns] = useState(false)
+  const [extractSeconds, setExtractSeconds] = useState<number | null>(null)
   const [dirty, setDirty] = useState(false)
   const [restoring, setRestoring] = useState(Boolean(initialId))
   const [restored, setRestored] = useState(false)
@@ -99,7 +115,8 @@ export default function AiImportPage() {
     setRows(toPreviewRows(data.rows ?? []))
     setDeselected(new Set())
     setServerCellErrors({})
-    setOnlyReview(false)
+    setFilter('all')
+    setShowEmptyColumns(false)
     setDirty(false)
     setOutcome(null)
     setExpiredByServer(false)
@@ -122,7 +139,10 @@ export default function AiImportPage() {
     let active = true
     fetchExtraction(initialId)
       .then((data) => {
-        if (active) loadExtraction(data, true)
+        if (active) {
+          loadExtraction(data, true)
+          setExtractSeconds(null)
+        }
       })
       .catch((error: unknown) => {
         if (!active) return
@@ -187,11 +207,22 @@ export default function AiImportPage() {
     return map
   }, [rows, columns, serverCellErrors])
 
-  const isSelectable = (row: PreviewRow) => Object.keys(errorsByRow.get(row.row) ?? {}).length === 0
-  const selectedRows = rows.filter((row) => isSelectable(row) && !deselected.has(row.row))
-  const invalidCount = rows.filter((row) => !isSelectable(row)).length
-  const reviewRows = rows.filter((row) => needsReview(row, columns, errorsByRow.get(row.row) ?? {}))
-  const visibleRows = onlyReview ? reviewRows : rows
+  const identityField = dataType ? IDENTITY_FIELD[dataType] : (columns[0]?.field ?? '')
+  const assessmentList = useMemo(
+    () => assessRows(rows, columns, errorsByRow, deselected, identityField),
+    [rows, columns, errorsByRow, deselected, identityField],
+  )
+  const assessments = useMemo(() => new Map(assessmentList.map((item) => [item.row, item])), [assessmentList])
+  const summary = summarize(assessmentList)
+  const selectedRows = rowsToImport(rows, assessmentList)
+  const blockingRows = blockingRowNumbers(assessmentList)
+  const visibleRows = rows.filter((row) => {
+    const item = assessments.get(row.row)
+    return item ? matchesFilter(item, filter) : true
+  })
+  // Cột không bắt buộc mà AI không đọc được gì (thường là trường không có trong file): ẩn cho bảng gọn
+  const emptyFields = useMemo(() => emptyOptionalColumns(columns, extraction?.rows ?? []), [columns, extraction])
+  const hiddenFields = useMemo(() => new Set(showEmptyColumns ? [] : emptyFields), [showEmptyColumns, emptyFields])
 
   const remaining = remainingMs(extraction?.expiresAt, now)
   const expired = expiredByServer || (now > 0 && remaining !== null && remaining <= 0)
@@ -221,11 +252,13 @@ export default function AiImportPage() {
     abortRef.current = controller
     setExtracting(true)
     setElapsed(0)
+    const started = Date.now()
     setUploadError(null)
     setRestoreError(null)
     try {
       const data = await extractDocument(file, dataType, controller.signal)
       loadExtraction(data, false)
+      setExtractSeconds(Math.max(1, Math.round((Date.now() - started) / 1000)))
       setSearchParams({ id: data.extractionId }, { replace: true })
       message.success(`Đã đọc ${data.rows.length} dòng từ file ${data.fileName}. Hãy xem lại trước khi nhập.`)
     } catch (err: unknown) {
@@ -298,7 +331,6 @@ export default function AiImportPage() {
     setDeselected((prev) => {
       const next = new Set(prev)
       for (const row of visibleRows) {
-        if (!isSelectable(row)) continue
         if (chosen.has(row.row)) next.delete(row.row)
         else next.add(row.row)
       }
@@ -309,6 +341,15 @@ export default function AiImportPage() {
   const selectAll = (select: boolean) => {
     setDeselected(select ? new Set() : new Set(rows.map((row) => row.row)))
   }
+
+  /** Bỏ chọn mọi dòng còn lỗi hoặc trùng mã: dòng vẫn ở trong bảng, tích lại được sau khi sửa. */
+  const excludeBlocking = () => {
+    if (blockingRows.length === 0) return
+    setDeselected((prev) => new Set([...prev, ...blockingRows]))
+    message.info(`Đã bỏ chọn ${blockingRows.length} dòng lỗi hoặc trùng mã. Các dòng này vẫn nằm trong bảng.`)
+  }
+
+  const toggleFilter = (next: RowFilter) => setFilter((prev) => (prev === next && next !== 'all' ? 'all' : next))
 
   // ----- Bước 3 -----
   const runImport = async (toSend: PreviewRow[]) => {
@@ -333,7 +374,7 @@ export default function AiImportPage() {
       // Giữ nguyên các dòng người dùng đã bỏ chọn để lần nhập tiếp không tự gửi chúng
       setRows(left)
       setDirty(false)
-      setOnlyReview(false)
+      setFilter('all')
       setStage('result')
       if (result.failed > 0) {
         message.warning(`Đã nhập xong: ${result.created} tạo mới, ${result.skipped} bỏ qua, ${result.failed} lỗi.`)
@@ -366,19 +407,62 @@ export default function AiImportPage() {
   }
 
   const confirmImport = () => {
-    if (!dataType || selectedRows.length === 0) return
+    if (!dataType || selectedRows.length === 0 || summary.blocking > 0) return
     if (selectedRows.length > MAX_IMPORT_ROWS) {
       message.error(`Mỗi lần nhập tối đa ${MAX_IMPORT_ROWS} dòng.`)
       return
     }
     const toSend = [...selectedRows]
-    const skippedCount = rows.length - toSend.length
+    const info = DATA_TYPES[dataType]
+    const identityColumnLabel = columns.find((column) => column.field === identityField)?.label ?? 'Mã'
+    // "Mã SKU" thành "mã SKU" để ghép giữa câu
+    const identityLabel = identityColumnLabel.charAt(0).toLowerCase() + identityColumnLabel.slice(1)
+    const reviewRowNumbers = assessmentList.filter((item) => item.status === 'review').map((item) => item.row)
+    const excluded = summary.counts.excluded
+    const excludedParts = [
+      summary.excludedByProblem.error > 0 ? `${summary.excludedByProblem.error} dòng lỗi` : null,
+      summary.excludedByProblem.duplicate > 0 ? `${summary.excludedByProblem.duplicate} dòng trùng mã` : null,
+      summary.excludedByProblem.review > 0 ? `${summary.excludedByProblem.review} dòng cần kiểm tra` : null,
+      summary.excludedByProblem.ready > 0 ? `${summary.excludedByProblem.ready} dòng sẵn sàng` : null,
+    ].filter((part): part is string => part !== null)
     modal.confirm({
-      title: `Nhập ${toSend.length} dòng vào ${DATA_TYPES[dataType].catalogLabel}?`,
+      title: `Ghi ${toSend.length} dòng vào ${info.catalogLabel}?`,
+      width: 580,
       content: (
-        <div className="space-y-1 text-sm">
-          <div>Mỗi dòng được kiểm tra như khi tạo từng bản ghi. Mã đã có trong danh mục được bỏ qua, không ghi đè.</div>
-          {skippedCount > 0 && <div>{skippedCount} dòng chưa chọn hoặc còn lỗi sẽ không được gửi.</div>}
+        <div className="space-y-3 pt-1 text-sm text-slate-700">
+          <ProportionBar
+            label="Dòng sẽ gửi và dòng không gửi"
+            total={summary.total}
+            segments={(['ready', 'review', 'excluded'] as const).map((status) => ({
+              key: status,
+              label: status === 'excluded' ? 'Không gửi' : ROW_STATUS_META[status].title,
+              count: summary.counts[status],
+              color: ROW_STATUS_META[status].barColor,
+            }))}
+          />
+          <ul className="m-0 list-disc space-y-1.5 pl-5">
+            <li>
+              <strong>{toSend.length} dòng</strong> được gửi để tạo mới trong {info.catalogLabel}
+              {reviewRowNumbers.length > 0
+                ? `; trong đó ${reviewRowNumbers.length} dòng còn ô AI chưa chắc chắn mà bạn chưa sửa (${formatRowList(reviewRowNumbers)}).`
+                : '.'}
+            </li>
+            <li>
+              Dòng nào có {identityLabel} đã có trong {info.catalogLabel} sẽ được{' '}
+              <strong>bỏ qua, giữ nguyên dữ liệu đang có, không ghi đè</strong>.
+            </li>
+            {dataType === 'PRODUCT' && <li>Danh mục và đơn vị tính chưa có sẽ được tạo mới theo tên trong file.</li>}
+            {excluded > 0 && (
+              <li>
+                <strong>{excluded} dòng không gửi</strong> vì bạn đã bỏ chọn
+                {excludedParts.length > 0 ? ` (${excludedParts.join(', ')})` : ''}; các dòng này vẫn nằm trong bảng.
+              </li>
+            )}
+            <li>
+              Mỗi dòng được kiểm tra như khi tạo từng bản ghi và lưu riêng: dòng bị từ chối không ảnh hưởng các dòng khác.
+              Bấm nhập không tốn thêm lượt AI.
+            </li>
+          </ul>
         </div>
       ),
       okText: `Nhập ${toSend.length} dòng`,
@@ -423,7 +507,7 @@ export default function AiImportPage() {
         <Steps
           size="small"
           current={stepIndex}
-          items={[{ title: 'Tải file' }, { title: 'Xem trước và sửa' }, { title: 'Kết quả nhập' }]}
+          items={[{ title: 'Tải file' }, { title: 'Xem trước và duyệt' }, { title: 'Kết quả nhập' }]}
         />
       </Card>
 
@@ -543,27 +627,40 @@ export default function AiImportPage() {
 
       {!restoring && stage === 'preview' && extraction && typeInfo && (
         <Card
-          title={`Bước 2: Xem trước và sửa dữ liệu ${typeInfo.noun}`}
+          title={`Bước 2: Xem trước và duyệt dữ liệu ${typeInfo.noun}`}
           extra={
             <Button onClick={confirmNewFile} disabled={importing}>
               Tải file khác
             </Button>
           }
         >
-          <div className="space-y-3">
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-slate-600">
-              <span>
-                File: <strong>{extraction.fileName}</strong>
-              </span>
-              <span>
-                {extraction.totalRows} dòng trong file, {extraction.rows.length} dòng đã đọc
-              </span>
-              <span>{METHOD_LABELS[extraction.method] ?? extraction.method}</span>
-              {remaining !== null && now > 0 && (
-                <span className={expired ? 'text-red-600' : remaining < 10 * 60_000 ? 'text-amber-600' : ''}>
-                  Kết quả giữ tới {expiresClock ?? ''} ({formatRemaining(remaining)})
+          <div className="space-y-4">
+            <div className="rounded-lg border border-blue-200/80 bg-blue-50/50 px-4 py-3">
+              <div className="text-[15px] font-semibold text-slate-900">AI đã đọc xong, chưa có gì được lưu</div>
+              <div className="mt-0.5 text-sm text-slate-600">
+                Bạn là người quyết định: xem lại, sửa hoặc bỏ chọn từng dòng. Dữ liệu chỉ được ghi vào{' '}
+                {typeInfo.catalogLabel} khi bạn bấm Nhập và xác nhận.
+              </div>
+              <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
+                <span>
+                  File <strong className="font-medium text-slate-700">{extraction.fileName}</strong>
                 </span>
-              )}
+                <span>
+                  Loại dữ liệu <strong className="font-medium text-slate-700">{typeInfo.label}</strong>
+                </span>
+                <span>
+                  {extraction.rows.length === extraction.totalRows
+                    ? `${extraction.totalRows} dòng trong file`
+                    : `${extraction.totalRows} dòng trong file, đã đọc ${extraction.rows.length}`}
+                </span>
+                {extractSeconds !== null && <span>AI đọc trong {extractSeconds} giây</span>}
+                <span>{METHOD_LABELS[extraction.method] ?? extraction.method}</span>
+                {remaining !== null && now > 0 && (
+                  <span className={expired ? 'text-red-600' : remaining < 10 * 60_000 ? 'text-amber-600' : ''}>
+                    Kết quả giữ tới {expiresClock ?? ''} ({formatRemaining(remaining)})
+                  </span>
+                )}
+              </div>
             </div>
 
             {restored && (
@@ -615,32 +712,111 @@ export default function AiImportPage() {
               />
             )}
 
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
-              <span>
-                Đã chọn <strong>{selectedRows.length}</strong>/{rows.length} dòng
-              </span>
-              {invalidCount > 0 && <span className="text-red-600">{invalidCount} dòng còn lỗi, chưa chọn được</span>}
-              <span className="inline-flex items-center gap-2">
-                <Switch size="small" checked={onlyReview} onChange={setOnlyReview} />
-                Chỉ hiện dòng cần xem lại ({reviewRows.length})
-              </span>
-              <Button size="small" onClick={() => selectAll(true)} disabled={importing}>
-                Chọn tất cả dòng hợp lệ
+            <section aria-label="Tóm tắt kết quả đọc" className="space-y-2">
+              <div className="text-sm text-slate-700">
+                AI tìm thấy <strong>{summary.total}</strong> dòng: <strong>{summary.toImport}</strong> dòng sẽ được nhập
+                {summary.blocking > 0 && (
+                  <>
+                    , <strong className="text-red-600">{summary.blocking}</strong> dòng phải sửa hoặc bỏ chọn trước
+                  </>
+                )}
+                {summary.counts.excluded > 0 && `, ${summary.counts.excluded} dòng đã bỏ chọn`}.
+              </div>
+              <ProportionBar
+                label={`Tỉ lệ ${summary.total} dòng theo trạng thái`}
+                total={summary.total}
+                segments={ROW_STATUS_ORDER.map((status) => ({
+                  key: status,
+                  label: ROW_STATUS_META[status].title,
+                  count: summary.counts[status],
+                  color: ROW_STATUS_META[status].barColor,
+                }))}
+              />
+              <Row gutter={[8, 8]}>
+                <Col xs={12} sm={8} xl={4}>
+                  <StatTile
+                    title="Tất cả"
+                    value={summary.total}
+                    hint="Bấm để xem lại toàn bộ"
+                    active={filter === 'all'}
+                    onClick={() => setFilter('all')}
+                  />
+                </Col>
+                {ROW_STATUS_ORDER.map((status: RowStatus) => (
+                  <Col key={status} xs={12} sm={8} xl={4}>
+                    <StatTile
+                      title={ROW_STATUS_META[status].title}
+                      value={summary.counts[status]}
+                      hint={ROW_STATUS_META[status].hint}
+                      color={ROW_STATUS_META[status].barColor}
+                      active={filter === status}
+                      onClick={() => toggleFilter(status)}
+                    />
+                  </Col>
+                ))}
+              </Row>
+            </section>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                size="small"
+                onClick={excludeBlocking}
+                disabled={blockingRows.length === 0 || importing}
+              >
+                Bỏ chọn các dòng lỗi ({blockingRows.length})
               </Button>
-              <Button size="small" onClick={() => selectAll(false)} disabled={importing}>
-                Bỏ chọn tất cả
+              <Button
+                size="small"
+                type={filter === 'attention' ? 'primary' : 'default'}
+                aria-pressed={filter === 'attention'}
+                disabled={summary.attention === 0 && filter !== 'attention'}
+                onClick={() => toggleFilter('attention')}
+              >
+                Chỉ xem dòng cần xem lại ({summary.attention})
               </Button>
+              {emptyFields.length > 0 && (
+                <Button size="small" type="text" onClick={() => setShowEmptyColumns((value) => !value)}>
+                  {showEmptyColumns ? `Ẩn ${emptyFields.length} cột trống` : `Hiện ${emptyFields.length} cột trống`}
+                </Button>
+              )}
+              <span className="ml-auto inline-flex">
+                <Button size="small" type="text" onClick={() => selectAll(true)} disabled={importing}>
+                  Chọn tất cả
+                </Button>
+                <Button size="small" type="text" onClick={() => selectAll(false)} disabled={importing}>
+                  Bỏ chọn tất cả
+                </Button>
+              </span>
             </div>
-            <div className="text-xs text-slate-500">
-              Bấm vào ô để sửa. Ô nền vàng: độ tin cậy dưới {Math.round(LOW_CONFIDENCE_THRESHOLD * 100)}%, di chuột để
-              xem. Ô viền đỏ: cần sửa trước khi nhập. Rê chuột lên tiêu đề cột để xem cột nguồn trong file.
+
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
+              <span>Bấm vào ô để sửa (Enter lưu, Esc bỏ); bỏ tích đầu dòng để không nhập dòng đó.</span>
+              <span className="inline-flex items-center gap-1.5">
+                <span aria-hidden className="inline-block h-3 w-4 rounded-sm bg-yellow-100" />
+                AI chưa chắc chắn (dưới {Math.round(LOW_CONFIDENCE_THRESHOLD * 100)}%)
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span aria-hidden className="inline-block h-3 w-4 rounded-sm bg-red-50 ring-1 ring-red-300" />
+                Phải sửa
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span aria-hidden className="inline-block h-3 w-4 rounded-sm bg-purple-50 ring-1 ring-purple-300" />
+                Mã trùng
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span aria-hidden className="font-medium text-blue-700">Abc</span>
+                Bạn đã sửa
+              </span>
             </div>
 
             <AiImportPreviewTable
               columns={columns}
               rows={visibleRows}
               errorsByRow={errorsByRow}
-              selectedKeys={selectedRows.map((row) => row.row)}
+              assessments={assessments}
+              identityField={identityField}
+              hiddenFields={hiddenFields}
+              selectedKeys={rows.filter((row) => !deselected.has(row.row)).map((row) => row.row)}
               method={extraction.method}
               disabled={importing}
               onSelectionChange={changeSelection}
@@ -648,14 +824,30 @@ export default function AiImportPage() {
               onDeleteRow={deleteRow}
             />
 
-            <div className="flex flex-wrap items-center justify-end gap-3 border-t border-slate-100 pt-3">
-              <Text type="secondary">Sẽ nhập {selectedRows.length} dòng</Text>
+            <div className="ai-preview-footer flex flex-wrap items-center justify-end gap-3">
+              <div className="mr-auto text-sm" aria-live="polite">
+                {summary.blocking > 0 ? (
+                  <span className="text-red-600">
+                    Còn {summary.blocking} dòng lỗi hoặc trùng mã: sửa ô được đánh dấu hoặc bỏ chọn trước khi nhập.
+                  </span>
+                ) : (
+                  <span className="text-slate-600">
+                    Sẽ nhập <strong className="text-slate-900">{selectedRows.length}</strong> dòng
+                    {summary.counts.excluded > 0 ? `, không gửi ${summary.counts.excluded} dòng đã bỏ chọn` : ''}.
+                  </span>
+                )}
+              </div>
+              {summary.blocking > 0 && (
+                <Button onClick={excludeBlocking} disabled={importing}>
+                  Bỏ chọn các dòng lỗi
+                </Button>
+              )}
               <Button
                 type="primary"
                 size="large"
                 icon={<CloudUploadOutlined />}
                 loading={importing}
-                disabled={selectedRows.length === 0 || expired}
+                disabled={selectedRows.length === 0 || expired || summary.blocking > 0}
                 onClick={confirmImport}
                 data-write-action
               >

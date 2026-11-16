@@ -237,7 +237,7 @@ Chỉ Quản trị hệ thống và Kế toán lập được hóa đơn bán v�
 
 Lập hóa đơn:
 1. Vào menu "Bán hàng và xuất kho", trên đơn Đã xác nhận hoặc Đã hoàn thành bấm nút lập hóa đơn (hoặc "Tạo Hóa đơn bán" trong chi tiết đơn); ở tab "Hóa đơn bán & Công nợ phải thu" cũng có nút lập hóa đơn trên dòng khách.
-2. Chọn khách hàng, nhập số hóa đơn, chọn "Bán nợ" (cộng vào công nợ phải thu) hoặc "Thu tiền ngay", nhập số tiền, ghi chú.
+2. Chọn khách hàng, nhập số hóa đơn, chọn "Bán nợ" (cộng vào công nợ phải thu) hoặc "Thu tiền ngay" (ghi hóa đơn và phiếu thu cùng số tiền, công nợ khách giữ nguyên; số hóa đơn đã phát hành thì không phát hành lại được), nhập số tiền, ghi chú.
 3. Bấm "Phát hành Hóa đơn".
 
 Tab "Hóa đơn bán & Công nợ phải thu" (Quản trị hệ thống, Quản lý kho, Nhân viên bán hàng, Kế toán) hiện tổng công nợ phải thu và danh sách khách; chọn một khách để xem lịch sử hóa đơn.

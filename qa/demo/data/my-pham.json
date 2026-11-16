@@ -1,0 +1,95 @@
+{
+  "key": "my-pham",
+  "emailDomain": "myphamannhien.example",
+  "company": {
+    "name": "Công ty TNHH Mỹ Phẩm An Nhiên",
+    "taxCode": "0110228745",
+    "phone": "0243 662 4477",
+    "admin": { "username": "annhien.admin", "fullName": "Phan Thị Bảo Ngọc" }
+  },
+  "users": [
+    { "username": "annhien.banhang", "fullName": "Chu Thị Thanh Vân", "roles": ["SALES"], "warehouses": "all" }
+  ],
+  "uoms": [
+    { "code": "CHAI", "name": "Chai" },
+    { "code": "TUYP", "name": "Tuýp" },
+    { "code": "HOP", "name": "Hộp" },
+    { "code": "THOI", "name": "Thỏi" }
+  ],
+  "categories": [
+    { "code": "MP-DA", "name": "Chăm sóc da", "description": "Sữa rửa mặt, nước cân bằng, kem dưỡng, kem chống nắng" },
+    { "code": "MP-TOC", "name": "Chăm sóc tóc", "description": "Dầu gội, dầu xả thảo dược" },
+    { "code": "MP-TRANGDIEM", "name": "Trang điểm", "description": "Son môi, phấn" }
+  ],
+  "warehouses": [
+    {
+      "code": "MP-CG", "name": "Kho Cầu Giấy", "address": "Số 36 phố Trần Thái Tông, phường Cầu Giấy, Hà Nội",
+      "managerName": "Phan Thị Bảo Ngọc", "contactPhone": "0912 330 778", "capacity": 200,
+      "locations": [ { "zone": "A", "racks": [1, 2], "bins": [1, 3], "maxWeight": 300 } ]
+    }
+  ],
+  "products": [
+    { "sku": "MP-001", "name": "Sữa rửa mặt trà xanh An Nhiên 150ml", "category": "MP-DA", "uom": "TUYP", "purchasePrice": 85000, "sellingPrice": 129000, "vatRate": 10, "lot": true, "expiry": true, "safetyStock": 20, "reorderPoint": 40, "maxStock": 400 },
+    { "sku": "MP-002", "name": "Nước cân bằng hoa hồng An Nhiên 200ml", "category": "MP-DA", "uom": "CHAI", "purchasePrice": 110000, "sellingPrice": 169000, "vatRate": 10, "lot": true, "expiry": true, "safetyStock": 15, "reorderPoint": 30, "maxStock": 300 },
+    { "sku": "MP-003", "name": "Kem chống nắng SPF50 An Nhiên 50ml", "category": "MP-DA", "uom": "TUYP", "purchasePrice": 145000, "sellingPrice": 219000, "vatRate": 10, "lot": true, "expiry": true, "safetyStock": 20, "reorderPoint": 40, "maxStock": 400 },
+    { "sku": "MP-004", "name": "Kem dưỡng ẩm nha đam An Nhiên 50g", "category": "MP-DA", "uom": "HOP", "purchasePrice": 120000, "sellingPrice": 179000, "vatRate": 10, "lot": true, "expiry": true, "safetyStock": 15, "reorderPoint": 30, "maxStock": 300 },
+    { "sku": "MP-005", "name": "Tinh chất vitamin C An Nhiên 30ml", "category": "MP-DA", "uom": "CHAI", "purchasePrice": 190000, "sellingPrice": 289000, "vatRate": 10, "lot": true, "expiry": true, "safetyStock": 10, "reorderPoint": 20, "maxStock": 200 },
+    { "sku": "MP-006", "name": "Dầu gội bồ kết An Nhiên 300ml", "category": "MP-TOC", "uom": "CHAI", "purchasePrice": 75000, "sellingPrice": 115000, "vatRate": 10, "lot": true, "expiry": true, "safetyStock": 20, "reorderPoint": 40, "maxStock": 400 },
+    { "sku": "MP-007", "name": "Dầu xả vỏ bưởi An Nhiên 300ml", "category": "MP-TOC", "uom": "CHAI", "purchasePrice": 78000, "sellingPrice": 119000, "vatRate": 10, "lot": true, "expiry": true, "safetyStock": 20, "reorderPoint": 40, "maxStock": 400 },
+    { "sku": "MP-008", "name": "Son dưỡng màu đỏ gạch An Nhiên", "category": "MP-TRANGDIEM", "uom": "THOI", "purchasePrice": 65000, "sellingPrice": 99000, "vatRate": 10, "lot": true, "expiry": true, "safetyStock": 20, "reorderPoint": 40, "maxStock": 300 },
+    { "sku": "MP-009", "name": "Son lì màu hồng đất An Nhiên", "category": "MP-TRANGDIEM", "uom": "THOI", "purchasePrice": 70000, "sellingPrice": 109000, "vatRate": 10, "lot": true, "expiry": true, "safetyStock": 20, "reorderPoint": 40, "maxStock": 300 },
+    { "sku": "MP-010", "name": "Phấn phủ khoáng An Nhiên 10g", "category": "MP-TRANGDIEM", "uom": "HOP", "purchasePrice": 135000, "sellingPrice": 199000, "vatRate": 10, "lot": true, "expiry": true, "safetyStock": 10, "reorderPoint": 20, "maxStock": 200 }
+  ],
+  "suppliers": [
+    { "code": "NCC-MP-01", "name": "Công ty TNHH Sản Xuất Mỹ Phẩm Thảo Nguyên", "taxCode": "0108556471", "contactName": "Chị Lê Thảo Nguyên", "email": "order@thaonguyen-cosmetic.example", "phone": "0243 881 2045", "address": "KCN Quang Minh, xã Mê Linh, Hà Nội", "bankAccount": "1020055441278", "bankName": "Ngân hàng Công Thương chi nhánh Mê Linh", "paymentTerms": "NET30" },
+    { "code": "NCC-MP-02", "name": "Công ty CP Hương Liệu Thiên Nhiên Việt", "taxCode": "0316554218", "contactName": "Anh Mai Văn Hương", "email": "sales@thiennhienviet.example", "phone": "0283 774 6210", "address": "Số 12 đường Cộng Hòa, phường Tân Bình, TP Hồ Chí Minh", "bankAccount": "0441000556721", "bankName": "Ngân hàng Ngoại thương chi nhánh Tân Bình", "paymentTerms": "NET15" },
+    { "code": "NCC-MP-03", "name": "Xưởng Bao Bì Mỹ Phẩm Hưng Long", "taxCode": "0106774512", "contactName": "Anh Đàm Hưng Long", "email": "hunglong.baobi@ncc-annhien.example", "phone": "0986 552 017", "address": "Xã Thanh Oai, Hà Nội", "bankAccount": "2201007788120", "bankName": "Ngân hàng Quân đội chi nhánh Hà Đông", "paymentTerms": "COD" }
+  ],
+  "customers": [
+    { "code": "KH-MP-001", "name": "Cửa hàng Mỹ Phẩm Hoa Cúc", "customerType": "WHOLESALE", "contactName": "Chị Nguyễn Hoa Cúc", "email": "hoacuc.mypham@kh-annhien.example", "phone": "0912 776 120", "address": "Số 18 phố Chùa Bộc, phường Kim Liên, Hà Nội", "paymentTerms": "NET15", "creditLimit": 50000000 },
+    { "code": "KH-MP-002", "name": "Spa Thư Giãn Lam Anh", "customerType": "WHOLESALE", "contactName": "Chị Đỗ Lam Anh", "email": "lamanh.spa@kh-annhien.example", "phone": "0985 330 412", "address": "Số 5 phố Huế, phường Hai Bà Trưng, Hà Nội", "paymentTerms": "NET30", "creditLimit": 40000000 },
+    { "code": "KH-MP-003", "name": "Nhà thuốc và Mỹ phẩm Bình An", "customerType": "WHOLESALE", "contactName": "Anh Trần Bình An", "email": "binhan.pharmacy@kh-annhien.example", "phone": "0904 225 671", "address": "Số 40 đường Nguyễn Trãi, phường Thanh Xuân, Hà Nội", "paymentTerms": "NET15", "creditLimit": 60000000, "initialDebt": 8500000 },
+    { "code": "KH-MP-004", "name": "Khách lẻ Lê Thị Hằng", "customerType": "RETAIL", "contactName": "Chị Lê Thị Hằng", "email": "lethihang@kh-annhien.example", "phone": "0966 112 478", "address": "Phường Láng, Hà Nội", "paymentTerms": "COD" },
+    { "code": "KH-MP-005", "name": "Cửa hàng Làm Đẹp Thu Trang", "customerType": "WHOLESALE", "contactName": "Chị Vũ Thu Trang", "email": "thutrang.beauty@kh-annhien.example", "phone": "0977 448 203", "address": "Số 9 phố Hàng Bài, phường Hoàn Kiếm, Hà Nội", "paymentTerms": "NET15", "creditLimit": 30000000 }
+  ],
+  "purchaseOrders": [
+    {
+      "number": "PO-MP-001", "supplier": "NCC-MP-01", "warehouse": "MP-CG", "daysAgo": 14, "expectedInDays": -12, "state": "received",
+      "note": "Hàng chăm sóc da đợt tháng 11",
+      "items": [ { "sku": "MP-001", "qty": 120 }, { "sku": "MP-002", "qty": 80 }, { "sku": "MP-003", "qty": 100 }, { "sku": "MP-004", "qty": 60 }, { "sku": "MP-005", "qty": 40 } ],
+      "receipts": [
+        { "daysAgo": 12, "note": "Nhận đủ", "lines": [
+          { "sku": "MP-001", "qty": 120, "lot": "SRM-{date}", "mfgDaysAgo": 30, "expInDays": 700, "location": "A-R01-B01" },
+          { "sku": "MP-002", "qty": 80, "lot": "NCB-{date}", "mfgDaysAgo": 30, "expInDays": 700, "location": "A-R01-B02" },
+          { "sku": "MP-003", "qty": 100, "lot": "KCN-{date}", "mfgDaysAgo": 25, "expInDays": 690, "location": "A-R01-B03" },
+          { "sku": "MP-004", "qty": 60, "lot": "KDA-{date}", "mfgDaysAgo": 25, "expInDays": 680, "location": "A-R02-B01" },
+          { "sku": "MP-005", "qty": 40, "lot": "VTC-{date}", "mfgDaysAgo": 20, "expInDays": 360, "location": "A-R02-B01" }
+        ] }
+      ],
+      "payment": { "ratio": 1, "method": "BANK_TRANSFER", "daysAgo": 4 }
+    },
+    {
+      "number": "PO-MP-002", "supplier": "NCC-MP-02", "warehouse": "MP-CG", "daysAgo": 8, "expectedInDays": -6, "state": "received",
+      "note": "Dầu gội, dầu xả và son",
+      "items": [ { "sku": "MP-006", "qty": 100 }, { "sku": "MP-007", "qty": 100 }, { "sku": "MP-008", "qty": 80 }, { "sku": "MP-009", "qty": 80 }, { "sku": "MP-010", "qty": 30 } ],
+      "receipts": [
+        { "daysAgo": 6, "note": "Nhận đủ", "lines": [
+          { "sku": "MP-006", "qty": 100, "lot": "DGBK-{date}", "mfgDaysAgo": 20, "expInDays": 700, "location": "A-R02-B02" },
+          { "sku": "MP-007", "qty": 100, "lot": "DXVB-{date}", "mfgDaysAgo": 20, "expInDays": 700, "location": "A-R02-B02" },
+          { "sku": "MP-008", "qty": 80, "lot": "SDG-{date}", "mfgDaysAgo": 40, "expInDays": 1000, "location": "A-R02-B03" },
+          { "sku": "MP-009", "qty": 80, "lot": "SLH-{date}", "mfgDaysAgo": 40, "expInDays": 1000, "location": "A-R02-B03" },
+          { "sku": "MP-010", "qty": 30, "lot": "PPK-{date}", "mfgDaysAgo": 40, "expInDays": 900, "location": "A-R02-B03" }
+        ] }
+      ]
+    }
+  ],
+  "salesOrders": [
+    { "number": "SO-MP-001", "customer": "KH-MP-001", "warehouse": "MP-CG", "daysAgo": 5, "state": "completed",
+      "items": [ { "sku": "MP-001", "qty": 30 }, { "sku": "MP-003", "qty": 25 }, { "sku": "MP-008", "qty": 20 } ],
+      "invoice": true, "payments": [ { "ratio": 0.5, "method": "chuyển khoản" } ] },
+    { "number": "SO-MP-002", "customer": "KH-MP-002", "warehouse": "MP-CG", "daysAgo": 1, "state": "confirmed",
+      "items": [ { "sku": "MP-002", "qty": 20 }, { "sku": "MP-004", "qty": 15 }, { "sku": "MP-005", "qty": 10 } ] },
+    { "number": "SO-MP-003", "customer": "KH-MP-005", "warehouse": "MP-CG", "daysAgo": 0, "state": "draft",
+      "items": [ { "sku": "MP-009", "qty": 15 }, { "sku": "MP-006", "qty": 20 } ] }
+  ]
+}

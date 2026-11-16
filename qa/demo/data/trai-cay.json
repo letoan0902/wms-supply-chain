@@ -1,0 +1,324 @@
+{
+  "key": "trai-cay",
+  "emailDomain": "traingot.example",
+  "company": {
+    "name": "Công ty TNHH Nông Sản Trái Ngọt",
+    "taxCode": "0110457821",
+    "phone": "0243 868 1122",
+    "admin": { "username": "traingot.admin", "fullName": "Trần Thị Thu Hà" }
+  },
+  "users": [
+    { "username": "traingot.kho", "fullName": "Phạm Văn Lộc", "roles": ["WAREHOUSE_MANAGER"], "warehouses": "all" },
+    { "username": "traingot.nhapkho", "fullName": "Đỗ Minh Tuấn", "roles": ["WAREHOUSE_STAFF"], "warehouses": ["TC-LB"] },
+    { "username": "traingot.banhang", "fullName": "Lê Thị Mai Anh", "roles": ["SALES"], "warehouses": "all" },
+    { "username": "traingot.ketoan", "fullName": "Nguyễn Thị Hồng Nhung", "roles": ["ACCOUNTANT"], "warehouses": "all" }
+  ],
+  "uoms": [
+    { "code": "KG", "name": "Kg" },
+    { "code": "QUA", "name": "Quả" },
+    { "code": "HOP", "name": "Hộp" },
+    { "code": "TUI", "name": "Túi" },
+    { "code": "CHAI", "name": "Chai" },
+    { "code": "GIO", "name": "Giỏ" },
+    { "code": "THUNG", "name": "Thùng" }
+  ],
+  "categories": [
+    { "code": "TC-CAMQUYT", "name": "Cam, quýt, bưởi", "description": "Trái có múi thu mua tại vườn" },
+    { "code": "TC-NOIDIA", "name": "Trái cây nội địa", "description": "Xoài, thanh long, sầu riêng, chuối, măng cụt và các loại theo mùa" },
+    { "code": "TC-NHAPKHAU", "name": "Trái cây nhập khẩu", "description": "Táo, nho, lê, kiwi, cherry nhập khẩu bảo quản lạnh" },
+    { "code": "TC-QUAMONG", "name": "Dâu tây và quả mọng", "description": "Hàng rất nhanh hỏng, bảo quản 2 đến 6 độ C" },
+    { "code": "TC-SAY", "name": "Trái cây sấy", "description": "Trái cây sấy dẻo, sấy giòn đóng túi" },
+    { "code": "TC-NUOCEP", "name": "Nước ép đóng chai", "description": "Nước ép nguyên chất, nước dừa đóng chai" },
+    { "code": "TC-QUATANG", "name": "Giỏ quà, hộp quà", "description": "Giỏ quà trái cây đóng tại kho theo đơn" }
+  ],
+  "warehouses": [
+    {
+      "code": "TC-LB", "name": "Kho lạnh Long Biên", "address": "Số 18 đường Ngọc Thụy, phường Bồ Đề, Hà Nội",
+      "managerName": "Phạm Văn Lộc", "contactPhone": "0912 450 118", "capacity": 600,
+      "locations": [
+        { "zone": "A", "racks": [1, 3], "bins": [1, 4], "maxWeight": 800 },
+        { "zone": "B", "racks": [1, 2], "bins": [1, 4], "maxWeight": 500 },
+        { "zone": "C", "racks": [1, 1], "bins": [1, 3], "maxWeight": 300 }
+      ]
+    },
+    {
+      "code": "TC-TD", "name": "Kho lạnh Thủ Đức", "address": "Lô B7 đường số 4, phường Linh Trung, TP Hồ Chí Minh",
+      "managerName": "Võ Thanh Sơn", "contactPhone": "0903 771 205", "capacity": 450,
+      "locations": [
+        { "zone": "A", "racks": [1, 2], "bins": [1, 4], "maxWeight": 800 },
+        { "zone": "B", "racks": [1, 2], "bins": [1, 3], "maxWeight": 500 }
+      ]
+    }
+  ],
+  "products": [
+    { "sku": "TC-001", "name": "Cam sành Hàm Yên loại 1", "category": "TC-CAMQUYT", "uom": "KG", "purchasePrice": 22000, "sellingPrice": 32000, "vatRate": 5, "lot": true, "expiry": true, "safetyStock": 50, "reorderPoint": 120, "maxStock": 1500 },
+    { "sku": "TC-002", "name": "Cam Vinh xã Đoài", "category": "TC-CAMQUYT", "uom": "KG", "purchasePrice": 35000, "sellingPrice": 48000, "vatRate": 5, "lot": true, "expiry": true, "safetyStock": 30, "reorderPoint": 80, "maxStock": 800 },
+    { "sku": "TC-003", "name": "Bưởi da xanh ruột hồng", "category": "TC-CAMQUYT", "uom": "QUA", "purchasePrice": 45000, "sellingPrice": 65000, "vatRate": 5, "lot": true, "expiry": true, "safetyStock": 40, "reorderPoint": 100, "maxStock": 1000 },
+    { "sku": "TC-004", "name": "Bưởi Diễn", "category": "TC-CAMQUYT", "uom": "QUA", "purchasePrice": 30000, "sellingPrice": 45000, "vatRate": 5, "lot": true, "expiry": true, "safetyStock": 30, "reorderPoint": 80, "maxStock": 800 },
+    { "sku": "TC-005", "name": "Quýt đường Lai Vung", "category": "TC-CAMQUYT", "uom": "KG", "purchasePrice": 28000, "sellingPrice": 40000, "vatRate": 5, "lot": true, "expiry": true, "safetyStock": 30, "reorderPoint": 80, "maxStock": 800 },
+    { "sku": "TC-006", "name": "Xoài cát Hòa Lộc loại 1", "category": "TC-NOIDIA", "uom": "KG", "purchasePrice": 55000, "sellingPrice": 75000, "vatRate": 5, "lot": true, "expiry": true, "safetyStock": 30, "reorderPoint": 80, "maxStock": 800 },
+    { "sku": "TC-007", "name": "Thanh long ruột đỏ", "category": "TC-NOIDIA", "uom": "KG", "purchasePrice": 18000, "sellingPrice": 28000, "vatRate": 5, "lot": true, "expiry": true, "safetyStock": 50, "reorderPoint": 120, "maxStock": 1200 },
+    { "sku": "TC-008", "name": "Sầu riêng Ri6 nguyên trái", "category": "TC-NOIDIA", "uom": "KG", "purchasePrice": 85000, "sellingPrice": 115000, "vatRate": 5, "lot": true, "expiry": true, "safetyStock": 20, "reorderPoint": 50, "maxStock": 500 },
+    { "sku": "TC-009", "name": "Chuối già Nam Mỹ", "category": "TC-NOIDIA", "uom": "KG", "purchasePrice": 15000, "sellingPrice": 24000, "vatRate": 5, "lot": true, "expiry": true, "safetyStock": 40, "reorderPoint": 100, "maxStock": 1000 },
+    { "sku": "TC-010", "name": "Măng cụt Lái Thiêu", "category": "TC-NOIDIA", "uom": "KG", "purchasePrice": 50000, "sellingPrice": 70000, "vatRate": 5, "lot": true, "expiry": true, "safetyStock": 20, "reorderPoint": 60, "maxStock": 500 },
+    { "sku": "TC-011", "name": "Mít Thái ruột vàng", "category": "TC-NOIDIA", "uom": "KG", "purchasePrice": 20000, "sellingPrice": 32000, "vatRate": 5, "lot": true, "expiry": true, "safetyStock": 30, "reorderPoint": 70, "maxStock": 600 },
+    { "sku": "TC-012", "name": "Dứa Queen Đồng Giao", "category": "TC-NOIDIA", "uom": "QUA", "purchasePrice": 9000, "sellingPrice": 15000, "vatRate": 5, "lot": true, "expiry": true, "safetyStock": 60, "reorderPoint": 150, "maxStock": 1500 },
+    { "sku": "TC-013", "name": "Ổi lê Đài Loan", "category": "TC-NOIDIA", "uom": "KG", "purchasePrice": 14000, "sellingPrice": 22000, "vatRate": 5, "lot": true, "expiry": true, "safetyStock": 20, "reorderPoint": 60, "maxStock": 500 },
+    { "sku": "TC-014", "name": "Táo đỏ New Zealand size 28", "category": "TC-NHAPKHAU", "uom": "KG", "purchasePrice": 120000, "sellingPrice": 165000, "vatRate": 5, "lot": true, "expiry": true, "safetyStock": 40, "reorderPoint": 100, "maxStock": 1000 },
+    { "sku": "TC-015", "name": "Táo Gala Mỹ", "category": "TC-NHAPKHAU", "uom": "KG", "purchasePrice": 65000, "sellingPrice": 89000, "vatRate": 5, "lot": true, "expiry": true, "safetyStock": 40, "reorderPoint": 100, "maxStock": 900 },
+    { "sku": "TC-016", "name": "Nho xanh không hạt Úc", "category": "TC-NHAPKHAU", "uom": "KG", "purchasePrice": 140000, "sellingPrice": 189000, "vatRate": 5, "lot": true, "expiry": true, "safetyStock": 30, "reorderPoint": 80, "maxStock": 600 },
+    { "sku": "TC-017", "name": "Nho đỏ Ninh Thuận", "category": "TC-NOIDIA", "uom": "KG", "purchasePrice": 45000, "sellingPrice": 65000, "vatRate": 5, "lot": true, "expiry": true, "safetyStock": 30, "reorderPoint": 70, "maxStock": 600 },
+    { "sku": "TC-018", "name": "Lê Hàn Quốc quả lớn", "category": "TC-NHAPKHAU", "uom": "KG", "purchasePrice": 75000, "sellingPrice": 99000, "vatRate": 5, "lot": true, "expiry": true, "safetyStock": 30, "reorderPoint": 70, "maxStock": 600 },
+    { "sku": "TC-019", "name": "Kiwi vàng New Zealand", "category": "TC-NHAPKHAU", "uom": "KG", "purchasePrice": 160000, "sellingPrice": 215000, "vatRate": 5, "lot": true, "expiry": true, "safetyStock": 20, "reorderPoint": 50, "maxStock": 400 },
+    { "sku": "TC-020", "name": "Cherry đỏ Mỹ size 9.5", "category": "TC-NHAPKHAU", "uom": "KG", "purchasePrice": 380000, "sellingPrice": 490000, "vatRate": 5, "lot": true, "expiry": true, "safetyStock": 20, "reorderPoint": 60, "maxStock": 200 },
+    { "sku": "TC-021", "name": "Dâu tây Đà Lạt hộp 500g", "category": "TC-QUAMONG", "uom": "HOP", "purchasePrice": 75000, "sellingPrice": 105000, "vatRate": 5, "lot": true, "expiry": true, "safetyStock": 40, "reorderPoint": 100, "maxStock": 600 },
+    { "sku": "TC-022", "name": "Việt quất Peru hộp 125g", "category": "TC-QUAMONG", "uom": "HOP", "purchasePrice": 55000, "sellingPrice": 79000, "vatRate": 5, "lot": true, "expiry": true, "safetyStock": 30, "reorderPoint": 80, "maxStock": 500 },
+    { "sku": "TC-023", "name": "Dâu tây Hàn Quốc hộp 330g", "category": "TC-QUAMONG", "uom": "HOP", "purchasePrice": 150000, "sellingPrice": 199000, "vatRate": 5, "lot": true, "expiry": true, "safetyStock": 15, "reorderPoint": 40, "maxStock": 300 },
+    { "sku": "TC-024", "name": "Xoài sấy dẻo túi 500g", "category": "TC-SAY", "uom": "TUI", "purchasePrice": 75000, "sellingPrice": 105000, "vatRate": 8, "lot": true, "expiry": true, "safetyStock": 30, "reorderPoint": 60, "maxStock": 500 },
+    { "sku": "TC-025", "name": "Mít sấy giòn túi 250g", "category": "TC-SAY", "uom": "TUI", "purchasePrice": 42000, "sellingPrice": 60000, "vatRate": 8, "lot": true, "expiry": true, "safetyStock": 30, "reorderPoint": 60, "maxStock": 500 },
+    { "sku": "TC-026", "name": "Chuối sấy dẻo túi 300g", "category": "TC-SAY", "uom": "TUI", "purchasePrice": 35000, "sellingPrice": 52000, "vatRate": 8, "lot": true, "expiry": true, "safetyStock": 20, "reorderPoint": 50, "maxStock": 400 },
+    { "sku": "TC-027", "name": "Nước ép cam nguyên chất chai 1L", "category": "TC-NUOCEP", "uom": "CHAI", "purchasePrice": 38000, "sellingPrice": 55000, "vatRate": 8, "lot": true, "expiry": true, "safetyStock": 30, "reorderPoint": 70, "maxStock": 500 },
+    { "sku": "TC-028", "name": "Nước ép táo xanh chai 330ml", "category": "TC-NUOCEP", "uom": "CHAI", "purchasePrice": 18000, "sellingPrice": 27000, "vatRate": 8, "lot": true, "expiry": true, "safetyStock": 50, "reorderPoint": 100, "maxStock": 800 },
+    { "sku": "TC-029", "name": "Nước dừa xiêm đóng chai 500ml", "category": "TC-NUOCEP", "uom": "CHAI", "purchasePrice": 15000, "sellingPrice": 23000, "vatRate": 8, "lot": true, "expiry": true, "safetyStock": 50, "reorderPoint": 100, "maxStock": 900 },
+    { "sku": "TC-030", "name": "Giỏ quà trái cây nhập khẩu cao cấp", "category": "TC-QUATANG", "uom": "GIO", "purchasePrice": 650000, "sellingPrice": 890000, "vatRate": 8, "lot": true, "expiry": true, "safetyStock": 10, "reorderPoint": 30, "maxStock": 100 },
+    { "sku": "TC-031", "name": "Hộp quà trái cây An Khang", "category": "TC-QUATANG", "uom": "HOP", "purchasePrice": 420000, "sellingPrice": 590000, "vatRate": 8, "lot": true, "expiry": true, "safetyStock": 10, "reorderPoint": 30, "maxStock": 150 },
+    { "sku": "TC-032", "name": "Thùng cam sành 10kg", "category": "TC-CAMQUYT", "uom": "THUNG", "purchasePrice": 200000, "sellingPrice": 290000, "vatRate": 5, "lot": true, "expiry": true, "safetyStock": 10, "reorderPoint": 25, "maxStock": 200 }
+  ],
+  "suppliers": [
+    { "code": "NCC-TC-01", "name": "Hợp tác xã Cam Sành Hàm Yên Xanh", "taxCode": "5000812451", "contactName": "Ông Hoàng Văn Thắng", "email": "htx.hamyenxanh@ncc-traingot.example", "phone": "0915 220 461", "address": "Thôn Bình Ca, xã Hàm Yên, tỉnh Tuyên Quang", "bankAccount": "8800124577", "bankName": "Ngân hàng Nông nghiệp chi nhánh Tuyên Quang", "paymentTerms": "NET15" },
+    { "code": "NCC-TC-02", "name": "Nhà vườn Bưởi Năm Lành", "taxCode": "1300645218", "contactName": "Bà Nguyễn Thị Lành", "email": "buoinamlanh@ncc-traingot.example", "phone": "0939 418 205", "address": "Ấp Phước Hậu, xã Mỏ Cày, tỉnh Vĩnh Long", "bankAccount": "7100288431", "bankName": "Ngân hàng Nông nghiệp chi nhánh Vĩnh Long", "paymentTerms": "NET7" },
+    { "code": "NCC-TC-03", "name": "Hợp tác xã Xoài Cao Lãnh Phát Đạt", "taxCode": "1401182736", "contactName": "Ông Trần Văn Đạt", "email": "xoaiphatdat@ncc-traingot.example", "phone": "0917 650 332", "address": "Xã Mỹ Xương, tỉnh Đồng Tháp", "bankAccount": "6600417820", "bankName": "Ngân hàng Công Thương chi nhánh Đồng Tháp", "paymentTerms": "NET15", "initialDebt": 18500000 },
+    { "code": "NCC-TC-04", "name": "Công ty TNHH Thu Mua Nông Sản Hưng Thịnh", "taxCode": "0316742159", "contactName": "Bà Lý Thanh Hương", "email": "kinhdoanh@hungthinh-nongsan.example", "phone": "0908 335 714", "address": "Chợ đầu mối Thủ Đức, phường Tam Bình, TP Hồ Chí Minh", "bankAccount": "0331000478215", "bankName": "Ngân hàng Ngoại thương chi nhánh Thủ Đức", "paymentTerms": "NET30", "creditLimit": 500000000 },
+    { "code": "NCC-TC-05", "name": "Công ty CP Nhập Khẩu Quả Tươi Hải Đăng", "taxCode": "0315987204", "contactName": "Ông Phan Quốc Bảo", "email": "order@haidang-fruit.example", "phone": "0283 845 6620", "address": "Số 112 đường Trường Chinh, phường Tân Bình, TP Hồ Chí Minh", "bankAccount": "1903355218017", "bankName": "Ngân hàng Kỹ Thương chi nhánh Tân Bình", "paymentTerms": "NET30", "creditLimit": 800000000 },
+    { "code": "NCC-TC-06", "name": "Công ty TNHH Trái Cây Ngoại Bảo Anh", "taxCode": "0109334567", "contactName": "Bà Đặng Bảo Anh", "email": "baoanh.import@ncc-traingot.example", "phone": "0243 776 5512", "address": "Số 9 phố Nguyễn Văn Cừ, phường Bồ Đề, Hà Nội", "bankAccount": "0021002754321", "bankName": "Ngân hàng Ngoại thương chi nhánh Long Biên", "paymentTerms": "NET30" },
+    { "code": "NCC-TC-07", "name": "Trang trại Dâu Tây Langbiang Xanh", "taxCode": "5801346792", "contactName": "Ông Lê Minh Khang", "email": "dautay.langbiang@ncc-traingot.example", "phone": "0918 204 773", "address": "Thôn Đa Lộc, xã Lạc Dương, tỉnh Lâm Đồng", "bankAccount": "5102002233445", "bankName": "Ngân hàng Đầu tư chi nhánh Lâm Đồng", "paymentTerms": "NET7" },
+    { "code": "NCC-TC-08", "name": "Cơ sở Sấy Nông Sản Hương Quê", "taxCode": "6001523874", "contactName": "Bà Y Liên Niê", "email": "huongque.say@ncc-traingot.example", "phone": "0905 662 918", "address": "Phường Tân Lợi, tỉnh Đắk Lắk", "bankAccount": "4500167721", "bankName": "Ngân hàng Nông nghiệp chi nhánh Đắk Lắk", "paymentTerms": "NET30" },
+    { "code": "NCC-TC-09", "name": "Công ty TNHH Nước Ép Mát Lành", "taxCode": "3702819465", "contactName": "Ông Vũ Đình Nam", "email": "sales@matlanh-juice.example", "phone": "0274 381 2290", "address": "Đường DT743, phường Dĩ An, TP Hồ Chí Minh", "bankAccount": "0651000812734", "bankName": "Ngân hàng Ngoại thương chi nhánh Dĩ An", "paymentTerms": "NET15" },
+    { "code": "NCC-TC-10", "name": "Xưởng Giỏ Quà Mây Tre Phú Vinh", "taxCode": "0108215936", "contactName": "Bà Cao Thị Vinh", "email": "phuvinh.gioqua@ncc-traingot.example", "phone": "0986 117 452", "address": "Xã Phú Nghĩa, Hà Nội", "bankAccount": "2201004418866", "bankName": "Ngân hàng Quân đội chi nhánh Hà Đông", "paymentTerms": "NET15" }
+  ],
+  "customers": [
+    { "code": "KH-TC-001", "name": "Chuỗi cửa hàng Trái Cây Sạch Minh Châu", "customerType": "WHOLESALE", "taxCode": "0108745112", "contactName": "Chị Ngô Minh Châu", "email": "muahang@minhchau-fruit.example", "phone": "0912 335 801", "address": "Số 45 phố Hàng Bông, phường Hoàn Kiếm, Hà Nội", "paymentTerms": "NET15", "creditLimit": 200000000 },
+    { "code": "KH-TC-002", "name": "Siêu thị mini Gia Đình Việt", "customerType": "WHOLESALE", "taxCode": "0315220417", "contactName": "Anh Trịnh Quốc Việt", "email": "giadinhviet.mart@kh-traingot.example", "phone": "0908 412 630", "address": "Số 210 đường Lê Văn Việt, phường Tăng Nhơn Phú, TP Hồ Chí Minh", "paymentTerms": "NET15", "creditLimit": 150000000 },
+    { "code": "KH-TC-003", "name": "Cửa hàng Hoa Quả Ngọc Lan", "customerType": "RETAIL", "contactName": "Cô Bùi Ngọc Lan", "email": "ngoclan.hoaqua@kh-traingot.example", "phone": "0937 552 118", "address": "Chợ Bến Thành, phường Bến Thành, TP Hồ Chí Minh", "paymentTerms": "COD" },
+    { "code": "KH-TC-004", "name": "Nhà hàng Buffet Sen Hồng", "customerType": "WHOLESALE", "taxCode": "0109554820", "contactName": "Anh Đinh Công Hậu", "email": "bep.senhong@kh-traingot.example", "phone": "0243 997 2215", "address": "Số 8 đường Võ Chí Công, phường Tây Hồ, Hà Nội", "paymentTerms": "NET30", "creditLimit": 120000000, "initialDebt": 35000000 },
+    { "code": "KH-TC-005", "name": "Khách sạn Hồ Tây Garden", "customerType": "WHOLESALE", "taxCode": "0106281937", "contactName": "Chị Tạ Thu Trang", "email": "purchasing@hotaygarden.example", "phone": "0243 718 6600", "address": "Số 12 đường Thanh Niên, phường Tây Hồ, Hà Nội", "paymentTerms": "NET30", "creditLimit": 250000000 },
+    { "code": "KH-TC-006", "name": "Cửa hàng Trái Cây Nhập Khẩu Thanh Xuân", "customerType": "WHOLESALE", "contactName": "Anh Lương Đức Thịnh", "email": "tcnk.thanhxuan@kh-traingot.example", "phone": "0983 410 276", "address": "Số 301 đường Nguyễn Trãi, phường Thanh Xuân, Hà Nội", "paymentTerms": "NET7", "creditLimit": 80000000 },
+    { "code": "KH-TC-007", "name": "Cửa hàng Đặc Sản Ba Miền", "customerType": "RETAIL", "contactName": "Chị Mạc Thị Yến", "email": "dacsanbamien@kh-traingot.example", "phone": "0977 205 631", "address": "Số 66 phố Kim Mã, phường Giảng Võ, Hà Nội", "paymentTerms": "COD" },
+    { "code": "KH-TC-008", "name": "Quán Nước Ép Xanh Mát", "customerType": "RETAIL", "contactName": "Anh Hồ Gia Bảo", "email": "xanhmat.juice@kh-traingot.example", "phone": "0966 380 452", "address": "Số 23 phố Trần Đại Nghĩa, phường Bạch Mai, Hà Nội", "paymentTerms": "NET7", "creditLimit": 30000000 },
+    { "code": "KH-TC-009", "name": "Siêu thị Tiện Lợi Phố Xanh", "customerType": "WHOLESALE", "taxCode": "0109887721", "contactName": "Chị Quách Thanh Tâm", "email": "phoxanh.mart@kh-traingot.example", "phone": "0904 776 120", "address": "Số 5 phố Xuân Thủy, phường Cầu Giấy, Hà Nội", "paymentTerms": "NET15", "creditLimit": 100000000 },
+    { "code": "KH-TC-010", "name": "Công ty TNHH Sự Kiện Hoa Mai", "customerType": "WHOLESALE", "taxCode": "0107662154", "contactName": "Chị Kiều Hoa Mai", "email": "event@hoamai-sukien.example", "phone": "0985 224 117", "address": "Số 17 phố Lò Đúc, phường Hai Bà Trưng, Hà Nội", "paymentTerms": "NET30", "creditLimit": 60000000 },
+    { "code": "KH-TC-011", "name": "Chợ Đầu Mối Nông Sản Bình Điền - Sạp Tư Hòa", "customerType": "WHOLESALE", "contactName": "Bà Huỳnh Thị Hòa", "email": "sap.tuhoa@kh-traingot.example", "phone": "0909 667 312", "address": "Chợ Bình Điền, phường Bình Đông, TP Hồ Chí Minh", "paymentTerms": "NET7", "creditLimit": 90000000, "initialDebt": 12000000 },
+    { "code": "KH-TC-012", "name": "Chuỗi Siêu Thị Mini Nhà Sạch", "customerType": "WHOLESALE", "taxCode": "0316115582", "contactName": "Anh Tôn Thất Huy", "email": "nhasach.mart@kh-traingot.example", "phone": "0283 911 4470", "address": "Số 88 đường Nguyễn Thị Thập, phường Tân Hưng, TP Hồ Chí Minh", "paymentTerms": "NET15", "creditLimit": 180000000 },
+    { "code": "KH-TC-013", "name": "Trường Mầm non Hoa Sữa (bếp ăn)", "customerType": "WHOLESALE", "contactName": "Cô Phùng Thị Thanh", "email": "bepan.hoasua@kh-traingot.example", "phone": "0243 864 0912", "address": "Ngõ 120 phố Trường Chinh, phường Kim Liên, Hà Nội", "paymentTerms": "NET30", "creditLimit": 40000000 },
+    { "code": "KH-TC-014", "name": "Quán Chè và Sinh Tố Bà Tư", "customerType": "RETAIL", "contactName": "Bà Lâm Thị Tư", "email": "chebatu@kh-traingot.example", "phone": "0938 140 662", "address": "Số 41 đường Hoàng Diệu 2, phường Linh Xuân, TP Hồ Chí Minh", "paymentTerms": "COD" },
+    { "code": "KH-TC-015", "name": "Cửa hàng Trái Cây Phúc Lộc Thọ", "customerType": "WHOLESALE", "contactName": "Anh Thái Văn Phúc", "email": "phucloctho.fruit@kh-traingot.example", "phone": "0918 553 207", "address": "Số 15 đường Võ Văn Ngân, phường Thủ Đức, TP Hồ Chí Minh", "paymentTerms": "NET7", "creditLimit": 70000000 },
+    { "code": "KH-TC-016", "name": "Khách lẻ Văn phòng Tòa nhà Sông Hồng", "customerType": "RETAIL", "contactName": "Chị Âu Thùy Linh", "email": "vanphong.songhong@kh-traingot.example", "phone": "0961 552 907", "address": "Tòa nhà Sông Hồng, phường Ba Đình, Hà Nội", "paymentTerms": "COD" },
+    { "code": "KH-TC-017", "name": "Nhà hàng Chay An Lạc", "customerType": "WHOLESALE", "contactName": "Chị Diệp Bảo Ngọc", "email": "anlac.chay@kh-traingot.example", "phone": "0974 662 015", "address": "Số 7 phố Quán Sứ, phường Cửa Nam, Hà Nội", "paymentTerms": "NET15", "creditLimit": 50000000 },
+    { "code": "KH-TC-018", "name": "Cửa hàng Tiện Ích 24h Phương Mai", "customerType": "RETAIL", "contactName": "Anh Mẫn Đức Long", "email": "tienich24h.pm@kh-traingot.example", "phone": "0949 330 218", "address": "Số 2 phố Phương Mai, phường Kim Liên, Hà Nội", "paymentTerms": "COD" },
+    { "code": "KH-TC-019", "name": "Công ty CP Suất Ăn Công Nghiệp Hòa Bình", "customerType": "WHOLESALE", "taxCode": "2300875416", "contactName": "Anh Khúc Văn Bình", "email": "suatan.hoabinh@kh-traingot.example", "phone": "0222 381 5507", "address": "KCN Yên Phong, tỉnh Bắc Ninh", "paymentTerms": "NET30", "creditLimit": 300000000, "initialDebt": 64000000 },
+    { "code": "KH-TC-020", "name": "Cửa hàng Hoa Quả Sạch Hai Hiền", "customerType": "RETAIL", "contactName": "Chị Ninh Thị Hiền", "email": "haihien.hoaqua@kh-traingot.example", "phone": "0912 778 064", "address": "Chợ Long Biên, phường Hồng Hà, Hà Nội", "paymentTerms": "COD" },
+    { "code": "KH-TC-021", "name": "Quầy Trái Cây Siêu Thị Nam Sài Gòn", "customerType": "WHOLESALE", "contactName": "Anh Vương Minh Trí", "email": "namsaigon.fruit@kh-traingot.example", "phone": "0906 223 571", "address": "Số 1060 đường Nguyễn Văn Linh, phường Tân Phong, TP Hồ Chí Minh", "paymentTerms": "NET15", "creditLimit": 120000000 },
+    { "code": "KH-TC-022", "name": "Tiệm Bánh Kem Dâu Tây Mộc Miên", "customerType": "RETAIL", "contactName": "Chị Giáp Thị Miên", "email": "mocmien.bakery@kh-traingot.example", "phone": "0965 104 228", "address": "Số 93 phố Nguyễn Trãi, phường Khương Đình, Hà Nội", "paymentTerms": "NET7", "creditLimit": 20000000 },
+    { "code": "KH-TC-023", "name": "Khu nghỉ dưỡng Đồi Thông Xanh", "customerType": "WHOLESALE", "taxCode": "5801128456", "contactName": "Anh Lò Văn Sơn", "email": "fb@doithongxanh.example", "phone": "0263 382 2041", "address": "Phường Lâm Viên, tỉnh Lâm Đồng", "paymentTerms": "NET30", "creditLimit": 150000000 },
+    { "code": "KH-TC-024", "name": "Cửa hàng Thực Phẩm Hữu Cơ Mầm Xanh", "customerType": "RETAIL", "contactName": "Chị Lục Thị Huyền", "email": "mamxanh.organic@kh-traingot.example", "phone": "0988 506 143", "address": "Số 30 phố Đội Cấn, phường Ngọc Hà, Hà Nội", "paymentTerms": "NET7", "creditLimit": 25000000 },
+    { "code": "KH-TC-025", "name": "Quán Cà Phê Vườn Cam", "customerType": "RETAIL", "contactName": "Anh Tống Phước An", "email": "caphevuoncam@kh-traingot.example", "phone": "0932 870 411", "address": "Số 12 đường Đặng Văn Bi, phường Trường Thọ, TP Hồ Chí Minh", "paymentTerms": "COD" },
+    { "code": "KH-TC-026", "name": "Đại lý Hoa Quả Kim Ngân", "customerType": "WHOLESALE", "contactName": "Bà Hà Kim Ngân", "email": "kimngan.daily@kh-traingot.example", "phone": "0913 640 285", "address": "Số 150 đường Ngô Gia Tự, phường Việt Hưng, Hà Nội", "paymentTerms": "NET15", "creditLimit": 90000000, "initialDebt": 21500000 }
+  ],
+  "purchaseOrders": [
+    {
+      "number": "PO-TC-001", "supplier": "NCC-TC-01", "warehouse": "TC-LB", "daysAgo": 24, "expectedInDays": -22, "state": "received",
+      "note": "Cam sành đầu vụ, ưu tiên quả loại 1 đều cỡ",
+      "items": [ { "sku": "TC-001", "qty": 600 }, { "sku": "TC-032", "qty": 40 } ],
+      "receipts": [
+        { "daysAgo": 22, "note": "Xe lạnh 29C-418.66, nhiệt độ khi nhận 6 độ C", "lines": [
+          { "sku": "TC-001", "qty": 600, "lot": "CS-HY-{date}", "mfgDaysAgo": 23, "expInDays": 8, "location": "A-R01-B01" },
+          { "sku": "TC-032", "qty": 40, "lot": "CS-HY-{date}-T10", "mfgDaysAgo": 23, "expInDays": 8, "location": "A-R01-B02" }
+        ] }
+      ],
+      "payment": { "ratio": 1, "method": "BANK_TRANSFER", "daysAgo": 10, "note": "Thanh toán đủ theo hợp đồng thu mua vụ cam" }
+    },
+    {
+      "number": "PO-TC-002", "supplier": "NCC-TC-03", "warehouse": "TC-TD", "daysAgo": 12, "expectedInDays": -10, "state": "received",
+      "note": "Xoài cát Hòa Lộc và quýt đường cho kho miền Nam",
+      "items": [ { "sku": "TC-006", "qty": 300 }, { "sku": "TC-005", "qty": 250 }, { "sku": "TC-010", "qty": 150 } ],
+      "receipts": [
+        { "daysAgo": 10, "note": "Nhận đủ, măng cụt chia hai lô theo ngày hái", "lines": [
+          { "sku": "TC-006", "qty": 300, "lot": "XOAI-HL-{date}", "mfgDaysAgo": 11, "expInDays": 4, "location": "A-R01-B01" },
+          { "sku": "TC-005", "qty": 250, "lot": "QUYT-LV-{date}", "mfgDaysAgo": 11, "expInDays": 12, "location": "A-R01-B02" },
+          { "sku": "TC-010", "qty": 40, "lot": "MC-LT-{date}-A", "mfgDaysAgo": 13, "expInDays": -1, "location": "A-R01-B03" },
+          { "sku": "TC-010", "qty": 110, "lot": "MC-LT-{date}-B", "mfgDaysAgo": 11, "expInDays": 5, "location": "A-R01-B03" }
+        ] }
+      ]
+    },
+    {
+      "number": "PO-TC-003", "supplier": "NCC-TC-05", "warehouse": "TC-LB", "daysAgo": 18, "expectedInDays": -16, "state": "received",
+      "note": "Hàng nhập khẩu tháng 11, giao hai đợt theo lịch tàu",
+      "items": [ { "sku": "TC-014", "qty": 400 }, { "sku": "TC-015", "qty": 300 }, { "sku": "TC-016", "qty": 200 }, { "sku": "TC-020", "qty": 60 }, { "sku": "TC-018", "qty": 250 }, { "sku": "TC-019", "qty": 180 } ],
+      "receipts": [
+        { "daysAgo": 16, "note": "Đợt 1 theo container lạnh, kiểm tra nhiệt độ đạt", "lines": [
+          { "sku": "TC-014", "qty": 400, "lot": "TAO-NZ-{date}", "mfgDaysAgo": 30, "expInDays": 45, "location": "A-R02-B01" },
+          { "sku": "TC-015", "qty": 300, "lot": "GALA-US-{date}", "mfgDaysAgo": 28, "expInDays": 40, "location": "A-R02-B02" },
+          { "sku": "TC-016", "qty": 200, "lot": "NHO-AU-{date}", "mfgDaysAgo": 20, "expInDays": 10, "location": "A-R02-B03" },
+          { "sku": "TC-020", "qty": 60, "lot": "CHERRY-US-{date}", "mfgDaysAgo": 18, "expInDays": 3, "location": "A-R02-B04" }
+        ] },
+        { "daysAgo": 6, "note": "Đợt 2, lê và kiwi", "lines": [
+          { "sku": "TC-018", "qty": 250, "lot": "LE-KR-{date}", "mfgDaysAgo": 20, "expInDays": 35, "location": "A-R03-B02" },
+          { "sku": "TC-019", "qty": 180, "lot": "KIWI-NZ-{date}", "mfgDaysAgo": 15, "expInDays": 25, "location": "A-R03-B03" }
+        ] }
+      ],
+      "payment": { "ratio": 0.6, "method": "BANK_TRANSFER", "daysAgo": 4, "note": "Thanh toán 60% theo điều khoản nhập khẩu" }
+    },
+    {
+      "number": "PO-TC-004", "supplier": "NCC-TC-07", "warehouse": "TC-LB", "daysAgo": 9, "expectedInDays": -8, "state": "received",
+      "note": "Dâu tây Đà Lạt giao hai chuyến xe lạnh",
+      "items": [ { "sku": "TC-021", "qty": 380 } ],
+      "receipts": [
+        { "daysAgo": 8, "note": "Chuyến 1", "lines": [
+          { "sku": "TC-021", "qty": 80, "lot": "DT-DL-{date}", "mfgDaysAgo": 9, "expInDays": -2, "location": "A-R03-B01" }
+        ] },
+        { "daysAgo": 4, "note": "Chuyến 2, hộp nguyên vẹn", "lines": [
+          { "sku": "TC-021", "qty": 300, "lot": "DT-DL-{date}", "mfgDaysAgo": 5, "expInDays": 3, "location": "A-R03-B01" }
+        ] }
+      ]
+    },
+    {
+      "number": "PO-TC-005", "supplier": "NCC-TC-04", "warehouse": "TC-TD", "daysAgo": 7, "expectedInDays": -6, "state": "received",
+      "note": "Hàng nội địa tổng hợp cho kho Thủ Đức",
+      "items": [ { "sku": "TC-007", "qty": 500 }, { "sku": "TC-009", "qty": 300 }, { "sku": "TC-011", "qty": 200 }, { "sku": "TC-012", "qty": 400 }, { "sku": "TC-013", "qty": 150 }, { "sku": "TC-002", "qty": 300 }, { "sku": "TC-017", "qty": 200 }, { "sku": "TC-008", "qty": 150 } ],
+      "receipts": [
+        { "daysAgo": 6, "note": "Loại 12 kg thanh long dập", "lines": [
+          { "sku": "TC-007", "qty": 500, "rejected": 12, "rejectedReason": "Dập, chảy nước", "lot": "TL-BT-{date}", "mfgDaysAgo": 7, "expInDays": 14, "location": "A-R02-B01" },
+          { "sku": "TC-009", "qty": 300, "lot": "CHUOI-{date}", "mfgDaysAgo": 7, "expInDays": 6, "location": "A-R02-B02" },
+          { "sku": "TC-011", "qty": 200, "lot": "MIT-{date}", "mfgDaysAgo": 7, "expInDays": 5, "location": "A-R02-B03" },
+          { "sku": "TC-012", "qty": 400, "lot": "DUA-DG-{date}", "mfgDaysAgo": 8, "expInDays": 12, "location": "A-R02-B04" },
+          { "sku": "TC-013", "qty": 150, "lot": "OI-{date}", "mfgDaysAgo": 7, "expInDays": 9, "location": "B-R01-B01" },
+          { "sku": "TC-002", "qty": 300, "lot": "CV-ND-{date}", "mfgDaysAgo": 8, "expInDays": 20, "location": "B-R01-B02" },
+          { "sku": "TC-017", "qty": 200, "lot": "NHO-NT-{date}", "mfgDaysAgo": 7, "expInDays": 7, "location": "B-R01-B03" },
+          { "sku": "TC-008", "qty": 150, "lot": "SR-RI6-{date}", "mfgDaysAgo": 7, "expInDays": 6, "location": "B-R02-B01" }
+        ] }
+      ]
+    },
+    {
+      "number": "PO-TC-006", "supplier": "NCC-TC-08", "warehouse": "TC-LB", "daysAgo": 30, "expectedInDays": -28, "state": "received",
+      "note": "Trái cây sấy cho quầy quà tặng cuối năm",
+      "items": [ { "sku": "TC-024", "qty": 200 }, { "sku": "TC-025", "qty": 300 }, { "sku": "TC-026", "qty": 150 } ],
+      "receipts": [
+        { "daysAgo": 28, "note": "Loại 5 túi xoài sấy rách bao bì", "lines": [
+          { "sku": "TC-024", "qty": 195, "rejected": 5, "rejectedReason": "Rách bao bì khi vận chuyển", "lot": "XS-{date}", "mfgDaysAgo": 35, "expInDays": 240, "location": "B-R01-B01" },
+          { "sku": "TC-025", "qty": 300, "lot": "MS-{date}", "mfgDaysAgo": 33, "expInDays": 200, "location": "B-R01-B02" },
+          { "sku": "TC-026", "qty": 150, "lot": "CS-{date}", "mfgDaysAgo": 33, "expInDays": 180, "location": "B-R01-B03" }
+        ] }
+      ],
+      "payment": { "ratio": 1, "method": "BANK_TRANSFER", "daysAgo": 14 }
+    },
+    {
+      "number": "PO-TC-007", "supplier": "NCC-TC-09", "warehouse": "TC-LB", "daysAgo": 15, "expectedInDays": -14, "state": "received",
+      "note": "Nước ép đóng chai, giao kèm phiếu kiểm nghiệm lô",
+      "items": [ { "sku": "TC-027", "qty": 120 }, { "sku": "TC-028", "qty": 240 }, { "sku": "TC-029", "qty": 300 } ],
+      "receipts": [
+        { "daysAgo": 14, "note": "Đủ số lượng, có phiếu kiểm nghiệm", "lines": [
+          { "sku": "TC-027", "qty": 120, "lot": "NE-CAM-{date}", "mfgDaysAgo": 15, "expInDays": 25, "location": "B-R02-B01" },
+          { "sku": "TC-028", "qty": 240, "lot": "NE-TAO-{date}", "mfgDaysAgo": 15, "expInDays": 60, "location": "B-R02-B02" },
+          { "sku": "TC-029", "qty": 300, "lot": "NDX-{date}", "mfgDaysAgo": 15, "expInDays": 90, "location": "B-R02-B03" }
+        ] }
+      ],
+      "payment": { "ratio": 0.5, "method": "BANK_TRANSFER", "daysAgo": 3 }
+    },
+    {
+      "number": "PO-TC-008", "supplier": "NCC-TC-02", "warehouse": "TC-TD", "daysAgo": 3, "expectedInDays": 2, "state": "partial",
+      "note": "Bưởi cho mùa lễ hội cuối năm, bưởi Diễn giao sau",
+      "items": [ { "sku": "TC-003", "qty": 400 }, { "sku": "TC-004", "qty": 300 } ],
+      "receipts": [
+        { "daysAgo": 2, "note": "Nhận trước 250 quả bưởi da xanh", "lines": [
+          { "sku": "TC-003", "qty": 250, "lot": "BDX-{date}", "mfgDaysAgo": 3, "expInDays": 40, "location": "B-R02-B02" }
+        ] }
+      ]
+    },
+    {
+      "number": "PO-TC-009", "supplier": "NCC-TC-06", "warehouse": "TC-LB", "daysAgo": 1, "expectedInDays": 3, "state": "pending",
+      "note": "Quả mọng nhập khẩu cho tiệm bánh, chờ duyệt giá",
+      "items": [ { "sku": "TC-022", "qty": 200 }, { "sku": "TC-023", "qty": 100 } ]
+    },
+    {
+      "number": "PO-TC-010", "supplier": "NCC-TC-10", "warehouse": "TC-LB", "daysAgo": 4, "expectedInDays": -3, "state": "received",
+      "note": "Giỏ quà đóng sẵn cho khách doanh nghiệp",
+      "items": [ { "sku": "TC-030", "qty": 40 }, { "sku": "TC-031", "qty": 60 } ],
+      "receipts": [
+        { "daysAgo": 3, "note": "Giỏ quà đóng tại xưởng, giao trong ngày", "lines": [
+          { "sku": "TC-030", "qty": 40, "lot": "GQ-{date}", "mfgDaysAgo": 3, "expInDays": 6, "location": "C-R01-B01" },
+          { "sku": "TC-031", "qty": 60, "lot": "HQ-{date}", "mfgDaysAgo": 3, "expInDays": 6, "location": "C-R01-B02" }
+        ] }
+      ]
+    }
+  ],
+  "stocktakes": [
+    {
+      "ref": "KK-TC-01", "warehouse": "TC-LB", "zones": ["B"], "plannedDaysAgo": 1, "state": "completed",
+      "notes": "Kiểm kê định kỳ khu hàng khô và nước ép",
+      "adjust": [ { "sku": "TC-025", "delta": -3, "reason": "Rách bao bì 3 túi khi xếp kệ, đã hủy" } ]
+    },
+    { "ref": "KK-TC-02", "warehouse": "TC-TD", "zones": ["A"], "plannedInDays": 4, "state": "draft", "notes": "Kiểm kê khu kho mát cuối tuần" }
+  ],
+  "transfers": [
+    {
+      "ref": "DC-TC-01", "from": "TC-TD", "to": "TC-LB", "state": "completed", "toLocation": "A-R03-B04", "expectedInDays": -1,
+      "notes": "Bổ sung xoài và cam Vinh cho khách miền Bắc",
+      "items": [ { "sku": "TC-006", "qty": 60 }, { "sku": "TC-002", "qty": 50 } ]
+    },
+    {
+      "ref": "DC-TC-02", "from": "TC-LB", "to": "TC-TD", "state": "in_transit", "expectedInDays": 2,
+      "notes": "Chuyển táo nhập khẩu vào kho Thủ Đức",
+      "items": [ { "sku": "TC-014", "qty": 80 }, { "sku": "TC-015", "qty": 50 } ]
+    },
+    {
+      "ref": "DC-TC-03", "from": "TC-TD", "to": "TC-LB", "state": "draft", "expectedInDays": 4,
+      "notes": "Dự kiến chuyển thanh long ra Bắc khi có xe",
+      "items": [ { "sku": "TC-007", "qty": 100 } ]
+    }
+  ],
+  "salesOrders": [
+    { "number": "SO-TC-001", "customer": "KH-TC-001", "warehouse": "TC-LB", "daysAgo": 9, "state": "completed", "note": "Giao trước 7 giờ sáng",
+      "items": [ { "sku": "TC-014", "qty": 40 }, { "sku": "TC-015", "qty": 30 }, { "sku": "TC-001", "qty": 50 } ],
+      "invoice": true, "payments": [ { "ratio": 1, "method": "chuyển khoản" } ] },
+    { "number": "SO-TC-002", "customer": "KH-TC-003", "warehouse": "TC-TD", "daysAgo": 8, "state": "completed",
+      "items": [ { "sku": "TC-006", "qty": 50 }, { "sku": "TC-005", "qty": 40 } ],
+      "invoice": true, "payments": [ { "ratio": 0.5, "method": "tiền mặt" } ] },
+    { "number": "SO-TC-003", "customer": "KH-TC-005", "warehouse": "TC-LB", "daysAgo": 7, "state": "completed", "note": "Trái cây tráng miệng cho tiệc cưới cuối tuần",
+      "items": [ { "sku": "TC-016", "qty": 30 }, { "sku": "TC-020", "qty": 10 }, { "sku": "TC-015", "qty": 20 } ],
+      "invoice": true },
+    { "number": "SO-TC-004", "customer": "KH-TC-002", "warehouse": "TC-TD", "daysAgo": 6, "state": "completed",
+      "items": [ { "sku": "TC-012", "qty": 80 }, { "sku": "TC-009", "qty": 60 }, { "sku": "TC-013", "qty": 30 } ],
+      "invoice": true, "payments": [ { "ratio": 1, "method": "chuyển khoản" } ] },
+    { "number": "SO-TC-005", "customer": "KH-TC-008", "warehouse": "TC-LB", "daysAgo": 5, "state": "completed",
+      "items": [ { "sku": "TC-027", "qty": 40 }, { "sku": "TC-028", "qty": 60 }, { "sku": "TC-024", "qty": 30 } ],
+      "invoice": true, "payments": [ { "ratio": 0.3, "method": "tiền mặt" } ] },
+    { "number": "SO-TC-006", "customer": "KH-TC-010", "warehouse": "TC-LB", "daysAgo": 2, "state": "completed", "note": "Quà tặng hội nghị khách hàng",
+      "items": [ { "sku": "TC-030", "qty": 12 }, { "sku": "TC-031", "qty": 15 } ],
+      "invoice": true },
+    { "number": "SO-TC-007", "customer": "KH-TC-012", "warehouse": "TC-TD", "daysAgo": 3, "state": "completed",
+      "items": [ { "sku": "TC-002", "qty": 40 }, { "sku": "TC-005", "qty": 50 }, { "sku": "TC-008", "qty": 20 } ],
+      "invoice": true, "payments": [ { "ratio": 1, "method": "chuyển khoản" } ] },
+    { "number": "SO-TC-008", "customer": "KH-TC-004", "warehouse": "TC-LB", "daysAgo": 2, "state": "partial", "note": "Giao làm hai đợt theo lịch buffet",
+      "items": [ { "sku": "TC-001", "qty": 120 }, { "sku": "TC-019", "qty": 40 } ],
+      "deliveries": [ { "daysAgo": 1, "lines": [ { "sku": "TC-001", "qty": 80 }, { "sku": "TC-019", "qty": 40 } ] } ] },
+    { "number": "SO-TC-009", "customer": "KH-TC-006", "warehouse": "TC-LB", "daysAgo": 1, "state": "confirmed",
+      "items": [ { "sku": "TC-021", "qty": 60 }, { "sku": "TC-014", "qty": 30 } ] },
+    { "number": "SO-TC-010", "customer": "KH-TC-015", "warehouse": "TC-TD", "daysAgo": 0, "state": "confirmed",
+      "items": [ { "sku": "TC-003", "qty": 40 }, { "sku": "TC-017", "qty": 30 } ] },
+    { "number": "SO-TC-011", "customer": "KH-TC-007", "warehouse": "TC-LB", "daysAgo": 0, "state": "confirmed",
+      "items": [ { "sku": "TC-025", "qty": 40 }, { "sku": "TC-026", "qty": 25 }, { "sku": "TC-029", "qty": 50 } ] },
+    { "number": "SO-TC-012", "customer": "KH-TC-022", "warehouse": "TC-LB", "daysAgo": 0, "state": "backorder", "note": "Việt quất chưa về, giao khi nhập hàng",
+      "items": [ { "sku": "TC-022", "qty": 50 }, { "sku": "TC-021", "qty": 20 } ] },
+    { "number": "SO-TC-013", "customer": "KH-TC-011", "warehouse": "TC-TD", "daysAgo": 1, "state": "backorder", "note": "Chờ đợt bưởi Diễn",
+      "items": [ { "sku": "TC-004", "qty": 60 } ] },
+    { "number": "SO-TC-014", "customer": "KH-TC-013", "warehouse": "TC-LB", "daysAgo": 0, "state": "draft", "note": "Thực đơn tuần sau, chờ nhà trường chốt",
+      "items": [ { "sku": "TC-015", "qty": 25 }, { "sku": "TC-018", "qty": 15 } ] },
+    { "number": "SO-TC-015", "customer": "KH-TC-014", "warehouse": "TC-TD", "daysAgo": 0, "state": "draft",
+      "items": [ { "sku": "TC-011", "qty": 30 }, { "sku": "TC-007", "qty": 40 } ] },
+    { "number": "SO-TC-016", "customer": "KH-TC-016", "warehouse": "TC-LB", "daysAgo": 6, "state": "cancelled", "note": "Khách đổi lịch sự kiện, hủy đơn",
+      "items": [ { "sku": "TC-020", "qty": 5 } ] },
+    { "number": "SO-TC-017", "customer": "KH-TC-019", "warehouse": "TC-LB", "daysAgo": 4, "state": "completed",
+      "items": [ { "sku": "TC-021", "qty": 60 }, { "sku": "TC-001", "qty": 100 } ],
+      "invoice": true, "payments": [ { "ratio": 0.4, "method": "chuyển khoản" } ] }
+  ]
+}

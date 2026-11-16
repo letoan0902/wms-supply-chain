@@ -12,6 +12,7 @@ Script không chứa mật khẩu. Thứ tự lấy mật khẩu: tham số th�
 
 Các tài khoản seed do Flyway tạo từ `backend/auth-service/src/main/resources/db/migration/V2__seed_default_accounts.sql`
 (`admin`, `manager`, `staff`, `purchasing`, `sales`, `accountant`, `demo`) có chung mật khẩu mặc định `Demopassword`, ghi trong chú thích đầu file migration đó.
+`admin_a` (admin của Công ty mẫu A, tạo ở migration V9) dùng chung mật khẩu với `admin`. Script mặc định đăng nhập `admin_a`: từ V9 `admin` là quản trị nền tảng (`SUPER_ADMIN`), gọi API kho và sản phẩm nhận 403 nên bước 5 và 6 sẽ FAIL.
 Nếu đã đổi mật khẩu theo mục 7 của [README.md](README.md) thì dùng mật khẩu mới.
 
 ## 2. Cách chạy
@@ -20,21 +21,21 @@ Trên máy chủ, trong thư mục mã nguồn:
 
 ```bash
 cd /opt/wms-supply-chain
-bash deploy/smoke-test.sh                          # qua tên miền https://wms.toanmarket.me, hỏi mật khẩu admin
+bash deploy/smoke-test.sh                          # qua tên miền https://wms.toanmarket.me, hỏi mật khẩu admin_a
 bash deploy/smoke-test.sh http://127.0.0.1:8080    # nội bộ: gọi thẳng api-gateway, thêm bước /actuator/health
 ```
 
 Chạy không tương tác (ví dụ ngay sau `deploy.sh`): nhập mật khẩu vào biến một lần, không lưu vào lịch sử lệnh.
 
 ```bash
-read -rsp 'Mật khẩu admin: ' SMOKE_PASSWORD; echo; export SMOKE_PASSWORD
+read -rsp 'Mật khẩu admin_a: ' SMOKE_PASSWORD; echo; export SMOKE_PASSWORD
 bash deploy/smoke-test.sh && bash deploy/smoke-test.sh http://127.0.0.1:8080
 ```
 
 Từ máy cá nhân (Linux, macOS hoặc Git Bash trên Windows có `curl` và `python3`), trong thư mục repository:
 
 ```bash
-bash deploy/smoke-test.sh                                    # tài khoản admin
+bash deploy/smoke-test.sh                                    # tài khoản admin_a
 bash deploy/smoke-test.sh https://wms.toanmarket.me manager  # tài khoản khác
 ```
 
@@ -49,7 +50,7 @@ bash deploy/smoke-test.sh http://127.0.0.1:8080
 | Tham số hoặc biến | Mặc định | Ý nghĩa |
 | --- | --- | --- |
 | Tham số 1 hoặc `BASE_URL` | `https://wms.toanmarket.me` | `https://` đi đúng đường của người dùng (Caddy -> nginx -> api-gateway); `http://` là kiểm tra nội bộ thẳng tới api-gateway |
-| Tham số 2 hoặc `SMOKE_USERNAME` | `admin` | Tài khoản đăng nhập. Không dùng tên biến `USERNAME` vì Windows tự đặt biến này |
+| Tham số 2 hoặc `SMOKE_USERNAME` | `admin_a` | Tài khoản đăng nhập. Không dùng tên biến `USERNAME` vì Windows tự đặt biến này |
 | Tham số 3 hoặc `SMOKE_PASSWORD` | hỏi khi chạy | Nên dùng biến hoặc lời hỏi: mật khẩu truyền qua tham số lộ trong lịch sử lệnh và danh sách tiến trình |
 | `SMOKE_TIMEOUT` | `10` | Số giây tối đa cho mỗi request |
 | `SMOKE_INSECURE=1` | tắt | Bỏ kiểm tra chứng chỉ TLS, chỉ dùng khi Caddy đang lấy chứng chỉ staging của Let's Encrypt |
@@ -84,8 +85,8 @@ nên hãy ghi bit thực thi vào Git khi commit từ Windows: `git add deploy/s
 Mỗi dòng có dạng `TRẠNG THÁI  [bước/tổng] mô tả (HTTP mã, thời gian ms)`, các dòng thụt vào bên dưới là phản hồi của máy chủ và gợi ý xử lý. Ví dụ (số liệu minh họa):
 
 ```text
-PASS  [2/6] Đăng nhập đúng bằng tài khoản admin: POST /api/auth/login (HTTP 200, 312 ms)
-      Nhận accessToken của admin (vai trò ADMIN, hết hạn sau 900 giây).
+PASS  [2/6] Đăng nhập đúng bằng tài khoản admin_a: POST /api/auth/login (HTTP 200, 312 ms)
+      Nhận accessToken của admin_a (vai trò ADMIN, hết hạn sau 900 giây).
 FAIL  [5/6] Danh sách kho (inventory-service): GET /api/inventory/warehouses (HTTP 503, 21 ms)
       Phản hồi: Service Unavailable
       Gợi ý: inventory-service chưa đăng ký với Eureka (...)

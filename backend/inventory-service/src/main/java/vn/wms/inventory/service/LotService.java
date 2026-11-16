@@ -189,6 +189,8 @@ public class LotService {
         String reason = (request != null && request.reason() != null && !request.reason().isBlank())
                 ? request.reason().trim() : "Khóa thủ công bởi " + (username != null ? username : "người dùng");
 
+        // Khóa các dòng stock_items của lô trước, rồi mới khóa dòng inventory_lots (cùng thứ tự với trừ tồn, WMS-20.4)
+        List<StockItem> stockRows = lockStockRowsOfLot(id);
         Optional<InventoryLot> lotOpt = inventoryLotRepository.findByIdWithLock(id);
         if (lotOpt.isPresent()) {
             InventoryLot lot = lotOpt.get();
@@ -201,14 +203,10 @@ public class LotService {
             InventoryLot saved = inventoryLotRepository.save(lot);
 
             // Đồng bộ trạng thái khóa sang bảng stock_items tương ứng để chặn triệt để khi xuất kho
-            if (lot.getBinLocation() != null && lot.getLotNumber() != null) {
-                stockItemRepository.findByBinLocationIdAndProductIdAndLotNo(
-                        lot.getBinLocation().getId(), lot.getProductId(), lot.getLotNumber())
-                        .ifPresent(stockItem -> {
-                            stockItem.setLocked(true);
-                            stockItem.setLockedReason(reason);
-                            stockItemRepository.save(stockItem);
-                        });
+            for (StockItem stockItem : stockRows) {
+                stockItem.setLocked(true);
+                stockItem.setLockedReason(reason);
+                stockItemRepository.save(stockItem);
             }
 
             log.warn("Đã khóa lô hàng (inventory_lots) ID: {}, Lô số: {} bởi {}. Lý do: {}",
@@ -227,9 +225,9 @@ public class LotService {
         stockItem.setLockedReason(reason);
         StockItem saved = stockItemRepository.save(stockItem);
 
-        // Đồng bộ trạng thái khóa sang bảng inventory_lots tương ứng
+        // Đồng bộ trạng thái khóa sang bảng inventory_lots tương ứng (khóa dòng lô sau dòng tồn, như luồng trừ tồn)
         if (stockItem.getBinLocation() != null && stockItem.getLotNo() != null) {
-            inventoryLotRepository.findByLotNumberAndBinLocationIdAndProductId(
+            inventoryLotRepository.findByLotNumberAndBinLocationIdAndProductIdForUpdate(
                     stockItem.getLotNo(), stockItem.getBinLocation().getId(), stockItem.getProductId())
                     .ifPresent(lot -> {
                         lot.setLocked(true);
@@ -253,6 +251,8 @@ public class LotService {
      */
     @Transactional
     public LotResponse unlockLot(Long id, String username) {
+        // Khóa các dòng stock_items của lô trước, rồi mới khóa dòng inventory_lots (cùng thứ tự với trừ tồn, WMS-20.4)
+        List<StockItem> stockRows = lockStockRowsOfLot(id);
         Optional<InventoryLot> lotOpt = inventoryLotRepository.findByIdWithLock(id);
         if (lotOpt.isPresent()) {
             InventoryLot lot = lotOpt.get();
@@ -271,14 +271,10 @@ public class LotService {
             InventoryLot saved = inventoryLotRepository.save(lot);
 
             // Đồng bộ mở khóa sang bảng stock_items tương ứng
-            if (lot.getBinLocation() != null && lot.getLotNumber() != null) {
-                stockItemRepository.findByBinLocationIdAndProductIdAndLotNo(
-                        lot.getBinLocation().getId(), lot.getProductId(), lot.getLotNumber())
-                        .ifPresent(stockItem -> {
-                            stockItem.setLocked(false);
-                            stockItem.setLockedReason(null);
-                            stockItemRepository.save(stockItem);
-                        });
+            for (StockItem stockItem : stockRows) {
+                stockItem.setLocked(false);
+                stockItem.setLockedReason(null);
+                stockItemRepository.save(stockItem);
             }
 
             log.info("Đã mở khóa lô hàng (inventory_lots) ID: {}, Lô số: {} bởi {}",
@@ -304,9 +300,9 @@ public class LotService {
         stockItem.setLockedReason(null);
         StockItem saved = stockItemRepository.save(stockItem);
 
-        // Đồng bộ mở khóa sang bảng inventory_lots tương ứng
+        // Đồng bộ mở khóa sang bảng inventory_lots tương ứng (khóa dòng lô sau dòng tồn, như luồng trừ tồn)
         if (stockItem.getBinLocation() != null && stockItem.getLotNo() != null) {
-            inventoryLotRepository.findByLotNumberAndBinLocationIdAndProductId(
+            inventoryLotRepository.findByLotNumberAndBinLocationIdAndProductIdForUpdate(
                     stockItem.getLotNo(), stockItem.getBinLocation().getId(), stockItem.getProductId())
                     .ifPresent(lot -> {
                         lot.setLocked(false);
@@ -319,6 +315,22 @@ public class LotService {
                 saved.getId(), saved.getLotNo(), username);
 
         return LotResponse.from(saved, LocalDate.now());
+    }
+
+    /**
+     * Khóa bi quan các dòng stock_items cùng (ô, sản phẩm, số lô) với dòng inventory_lots có ID này, trước khi khóa dòng
+     * lô: đúng thứ tự khóa của luồng trừ tồn (stock_items trước, inventory_lots sau) để không khóa chéo với phiếu xuất
+     * (WMS-20.4). Dòng tồn đọc dưới khóa nên lưu lại không ghi đè số lượng vừa bị phiếu xuất khác thay đổi. Chỉ đọc khóa
+     * của lô (không nạp entity) để lần đọc có khóa sau đó nạp dữ liệu mới. ID không phải của inventory_lots thì trả rỗng.
+     */
+    private List<StockItem> lockStockRowsOfLot(Long lotId) {
+        List<Object[]> keys = inventoryLotRepository.findLotKeyById(lotId);
+        if (keys.isEmpty() || keys.get(0)[0] == null || keys.get(0)[2] == null) {
+            return List.of();
+        }
+        Object[] key = keys.get(0);
+        return stockItemRepository.findByBinLocationIdAndProductIdAndLotNoForUpdate(
+                (Long) key[0], (Long) key[1], (String) key[2]);
     }
 
     private void checkWarehouseWriteAccess(Long warehouseId) {

@@ -3,13 +3,11 @@ import {
   ExportOutlined,
   EyeOutlined,
   FileExcelOutlined,
-  InboxOutlined,
   PlusOutlined,
   PrinterOutlined,
   ReloadOutlined,
   RocketOutlined,
   SearchOutlined,
-  SyncOutlined,
 } from '@ant-design/icons'
 import {
   Alert,
@@ -23,7 +21,6 @@ import {
   Row,
   Select,
   Space,
-  Statistic,
   Table,
   Tag,
   Tooltip,
@@ -194,70 +191,81 @@ export default function GoodsDeliveryTable() {
 
   const columns: ColumnsType<GdnResponse> = [
     {
-      title: 'Mã Phiếu GDN',
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">#</span>,
+      key: 'index',
+      width: 44,
+      align: 'center',
+      render: (_, __, idx) => (
+        <span className="text-xs font-mono text-slate-400">{page * pageSize + idx + 1}</span>
+      ),
+    },
+    {
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">Mã Phiếu GDN</span>,
       dataIndex: 'gdnNumber',
       key: 'gdnNumber',
-      width: 170,
+      width: 160,
       render: (code, r) => (
-        <a
+        <button
+          type="button"
           onClick={() => setSelectedGdnForDetail(r)}
-          className="font-mono font-bold text-emerald-700 hover:text-emerald-900"
+          className="font-mono text-sm font-semibold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer text-left transition-colors"
         >
           {code}
-        </a>
+        </button>
       ),
     },
     {
-      title: 'Mã Đơn SO',
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">Mã Đơn SO</span>,
       dataIndex: 'soNumber',
       key: 'soNumber',
-      width: 160,
+      width: 140,
       render: (soCode) => (
-        <span className="font-mono font-bold text-blue-700">{soCode}</span>
+        <span className="font-mono text-sm font-semibold text-slate-800">{soCode}</span>
       ),
     },
     {
-      title: 'Khách hàng & Địa chỉ',
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">Khách hàng & Địa chỉ</span>,
       key: 'customer',
+      width: 220,
       render: (_, r) => (
-        <div>
-          <div className="font-semibold text-slate-800">{r.customerName || 'N/A'}</div>
+        <div className="py-0.5">
+          <div className="font-semibold text-slate-900 text-sm leading-snug line-clamp-1">{r.customerName || 'N/A'}</div>
           {r.deliveryAddress && (
-            <div className="text-xs text-slate-500 truncate max-w-xs">{r.deliveryAddress}</div>
+            <div className="text-xs text-slate-500 truncate max-w-xs mt-0.5">{r.deliveryAddress}</div>
           )}
         </div>
       ),
     },
     {
-      title: 'Kho xuất hàng',
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">Kho xuất hàng</span>,
       dataIndex: 'warehouseName',
       key: 'warehouseName',
-      width: 150,
-      render: (name) => <span className="text-xs font-medium text-slate-700">{name || '-'}</span>,
+      width: 140,
+      render: (name) => <span className="text-sm font-medium text-slate-700">{name || '-'}</span>,
     },
     {
-      title: 'Số mặt hàng / Tổng SL',
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">Mặt hàng & Tổng SL</span>,
       key: 'itemsSummary',
-      width: 170,
+      width: 160,
       align: 'center',
       render: (_, r) => {
         const totalUnits = Number(r.totalQuantity ?? 0)
         return (
-          <div>
-            <span className="font-semibold text-slate-800">{r.items?.length || 0}</span> mặt hàng
-            <div className="text-[11px] text-emerald-700 font-bold">
-              = {formatNumber(totalUnits)} sản phẩm
+          <div className="py-0.5">
+            <span className="font-semibold text-slate-900 text-sm">{r.items?.length || 0}</span> mặt hàng
+            <div className="text-xs text-slate-600 font-mono font-semibold tabular-nums mt-0.5">
+              = {formatNumber(totalUnits)} SP
             </div>
           </div>
         )
       },
     },
     {
-      title: 'Thời gian xuất',
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">Thời gian xuất</span>,
       key: 'dispatchedAt',
-      width: 150,
+      width: 130,
       render: (_, r) => (
-        <span className="text-xs text-slate-600">
+        <span className="text-xs text-slate-600 font-medium">
           {r.dispatchedAt
             ? dayjs(r.dispatchedAt).format('DD/MM/YYYY HH:mm')
             : r.deliveryDate
@@ -267,7 +275,7 @@ export default function GoodsDeliveryTable() {
       ),
     },
     {
-      title: 'Trạng thái',
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">Trạng thái</span>,
       dataIndex: 'status',
       key: 'status',
       width: 130,
@@ -275,27 +283,27 @@ export default function GoodsDeliveryTable() {
       render: (status: GoodsDeliveryStatus) => {
         if (status === 'COMPLETED') {
           return (
-            <Tag color="success" className="m-0 font-medium">
+            <Tag color="success" className="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full border m-0 font-medium">
               <CheckCircleOutlined /> Đã xuất kho
             </Tag>
           )
         }
         if (status === 'CANCELLED') {
-          return <Tag color="error">Đã hủy</Tag>
+          return <Tag color="error" className="text-xs px-2.5 py-0.5 rounded-full border m-0 font-medium">Đã hủy</Tag>
         }
         if (status === 'PICKING') {
-          return <Tag color="processing">Đang lấy hàng</Tag>
+          return <Tag color="processing" className="text-xs px-2.5 py-0.5 rounded-full border m-0 font-medium">Đang lấy hàng</Tag>
         }
-        return <Tag color="warning">Nháp</Tag>
+        return <Tag color="warning" className="text-xs px-2.5 py-0.5 rounded-full border m-0 font-medium">Nháp</Tag>
       },
     },
     {
-      title: 'Thao tác',
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">Thao tác</span>,
       key: 'actions',
-      width: 150,
-      fixed: 'right',
+      width: 120,
+      align: 'center',
       render: (_, r) => (
-        <Space size="small">
+        <Space size={2}>
           {isAwaitingDispatch(r) && can('gdn.create', r.warehouseId) && (
             <Tooltip title="Xác nhận xuất kho (trừ tồn theo phiếu)">
               <Popconfirm
@@ -304,15 +312,16 @@ export default function GoodsDeliveryTable() {
                 onConfirm={() => handleDispatch(r)}
                 okText="Xác nhận xuất kho"
                 cancelText="Hủy"
+                okButtonProps={{ type: 'primary' }}
               >
                 <Button
                   data-write-action
                   size="small"
-                  icon={<ExportOutlined />}
+                  type="text"
+                  icon={<ExportOutlined className="text-blue-600 hover:text-blue-700" />}
                   aria-label="Xác nhận xuất kho"
                   loading={dispatchingId === r.id}
                   disabled={dispatchingId !== null && dispatchingId !== r.id}
-                  className="text-orange-600 border-orange-400"
                 />
               </Popconfirm>
             </Tooltip>
@@ -321,7 +330,8 @@ export default function GoodsDeliveryTable() {
           <Tooltip title="Xem chi tiết phiếu GDN">
             <Button
               size="small"
-              icon={<EyeOutlined />}
+              type="text"
+              icon={<EyeOutlined className="text-slate-500 hover:text-blue-600" />}
               onClick={() => setSelectedGdnForDetail(r)}
             />
           </Tooltip>
@@ -329,10 +339,9 @@ export default function GoodsDeliveryTable() {
           <Tooltip title="In Phiếu xuất kho kiêm giao hàng">
             <Button
               size="small"
-              type="primary"
-              icon={<PrinterOutlined />}
+              type="text"
+              icon={<PrinterOutlined className="text-slate-500 hover:text-slate-800" />}
               onClick={() => setSelectedGdnForPrint(r)}
-              className="bg-emerald-600 hover:bg-emerald-700"
             />
           </Tooltip>
         </Space>
@@ -345,9 +354,9 @@ export default function GoodsDeliveryTable() {
       {/* 1. Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3.5 rounded-lg border border-slate-200">
         <div className="flex items-center gap-2.5">
-          <RocketOutlined className="text-emerald-600 text-xl" />
+          <RocketOutlined className="text-slate-600 text-xl" />
           <div>
-            <h3 className="font-bold text-slate-800 text-base m-0">
+            <h3 className="font-bold text-slate-900 text-base m-0">
               Sổ Theo Dõi Phiếu Xuất Kho (Goods Delivery Notes - GDN)
             </h3>
             <span className="text-xs text-slate-500">
@@ -362,7 +371,7 @@ export default function GoodsDeliveryTable() {
               type="primary"
               icon={<PlusOutlined />}
               onClick={() => setIsCreateModalOpen(true)}
-              className="bg-emerald-600 hover:bg-emerald-700 font-semibold"
+              className="font-semibold shadow-xs"
             >
               Lập Phiếu Xuất GDN
             </Button>
@@ -371,7 +380,7 @@ export default function GoodsDeliveryTable() {
           <Button
             icon={<FileExcelOutlined />}
             onClick={handleExportExcel}
-            className="text-emerald-700 hover:text-emerald-800"
+            className="font-medium"
           >
             Xuất Excel
           </Button>
@@ -386,53 +395,73 @@ export default function GoodsDeliveryTable() {
         </Space>
       </div>
 
-      {/* 2. Thẻ thống kê */}
+      {/* 2. Thẻ thống kê KPI chuẩn Enterprise */}
       <Row gutter={[16, 16]}>
-        <Col xs={24} sm={12} lg={6}>
-          <Card size="small" className="border-l-4 border-l-emerald-600 shadow-2xs">
-            <Statistic
-              title={<span className="text-xs text-slate-500">Tổng số phiếu xuất kho</span>}
-              value={summary?.totalGdns ?? total}
-              valueStyle={{ color: '#059669', fontWeight: 'bold' }}
-              prefix={<RocketOutlined />}
-              suffix="phiếu"
-            />
+        <Col xs={12} sm={6}>
+          <Card variant="borderless" className="shadow-xs border border-slate-200/80 bg-white">
+            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Tổng số phiếu xuất kho
+            </div>
+            <div className="mt-2 flex items-baseline gap-1.5">
+              <span className="text-3xl font-bold text-slate-900 tracking-tight tabular-nums">
+                {summary?.totalGdns ?? total}
+              </span>
+              <span className="text-sm text-slate-500 font-normal">phiếu</span>
+            </div>
+            <div className="mt-3 pt-2 border-t border-slate-100 text-xs text-slate-600">
+              Toàn bộ phiếu GDN trong kỳ
+            </div>
           </Card>
         </Col>
 
-        <Col xs={24} sm={12} lg={6}>
-          <Card size="small" className="border-l-4 border-l-blue-600 shadow-2xs">
-            <Statistic
-              title={<span className="text-xs text-slate-500">Đã xuất kho thành công</span>}
-              value={summary?.completedGdns ?? 0}
-              valueStyle={{ color: '#2563eb', fontWeight: 'bold' }}
-              prefix={<CheckCircleOutlined />}
-              suffix="phiếu"
-            />
+        <Col xs={12} sm={6}>
+          <Card variant="borderless" className="shadow-xs border border-slate-200/80 bg-white">
+            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Đã xuất kho thành công
+            </div>
+            <div className="mt-2 flex items-baseline gap-1.5">
+              <span className="text-3xl font-bold text-slate-900 tracking-tight tabular-nums">
+                {summary?.completedGdns ?? 0}
+              </span>
+              <span className="text-sm text-slate-500 font-normal">phiếu</span>
+            </div>
+            <div className="mt-3 pt-2 border-t border-slate-100 text-xs text-slate-600">
+              Đã trừ tồn kho hoàn tất
+            </div>
           </Card>
         </Col>
 
-        <Col xs={24} sm={12} lg={6}>
-          <Card size="small" className="border-l-4 border-l-orange-500 shadow-2xs">
-            <Statistic
-              title={<span className="text-xs text-slate-500">Tổng sản phẩm đã xuất xưởng</span>}
-              value={summary?.totalQuantityDispatched ?? 0}
-              valueStyle={{ color: '#ea580c', fontWeight: 'bold' }}
-              prefix={<InboxOutlined />}
-              formatter={(v) => formatNumber(Number(v))}
-            />
+        <Col xs={12} sm={6}>
+          <Card variant="borderless" className="shadow-xs border border-slate-200/80 bg-white">
+            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Sản phẩm đã xuất
+            </div>
+            <div className="mt-2 flex items-baseline gap-1.5">
+              <span className="text-3xl font-bold text-slate-900 tracking-tight tabular-nums">
+                {formatNumber(summary?.totalQuantityDispatched ?? 0)}
+              </span>
+              <span className="text-sm text-slate-500 font-normal">sản phẩm</span>
+            </div>
+            <div className="mt-3 pt-2 border-t border-slate-100 text-xs text-slate-600">
+              Tổng lượng hàng thực tế xuất xưởng
+            </div>
           </Card>
         </Col>
 
-        <Col xs={24} sm={12} lg={6}>
-          <Card size="small" className="border-l-4 border-l-purple-600 shadow-2xs">
-            <Statistic
-              title={<span className="text-xs text-slate-500">Phiếu nháp / đang lấy hàng</span>}
-              value={(summary?.draftGdns ?? 0) + (summary?.pickingGdns ?? 0)}
-              valueStyle={{ color: '#7c3aed', fontWeight: 'bold' }}
-              prefix={<SyncOutlined />}
-              suffix="phiếu"
-            />
+        <Col xs={12} sm={6}>
+          <Card variant="borderless" className="shadow-xs border border-slate-200/80 bg-white">
+            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Phiếu đang xử lý
+            </div>
+            <div className="mt-2 flex items-baseline gap-1.5">
+              <span className="text-3xl font-bold text-slate-900 tracking-tight tabular-nums">
+                {(summary?.draftGdns ?? 0) + (summary?.pickingGdns ?? 0)}
+              </span>
+              <span className="text-sm text-slate-500 font-normal">phiếu</span>
+            </div>
+            <div className="mt-3 pt-2 border-t border-slate-100 text-xs text-slate-600">
+              Phiếu nháp hoặc đang lấy hàng
+            </div>
           </Card>
         </Col>
       </Row>
@@ -529,7 +558,7 @@ export default function GoodsDeliveryTable() {
           dataSource={gdns}
           loading={loading}
           rowClassName={(r) => (pendingGdnNumber && r.gdnNumber === pendingGdnNumber ? '[&>td]:!bg-amber-100' : '')}
-          scroll={{ x: 1100 }}
+          scroll={{ x: 1044 }}
           pagination={{
             current: page + 1,
             pageSize,

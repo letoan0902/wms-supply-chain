@@ -22,7 +22,8 @@ import java.util.Optional;
  * <p>Chỉ tài khoản đang bật của doanh nghiệp đang {@code ACTIVE} nhận liên kết (hiệu lực 30 phút). Đặt lại thành công
  * thì đổi mật khẩu, vô hiệu mọi liên kết đặt lại khác của tài khoản và xóa refresh token đang lưu trên Redis
  * ({@code refresh:{username}}, mỗi tài khoản một refresh token): mọi phiên đang mở phải đăng nhập lại khi access token
- * hiện tại (15 phút) hết hạn.
+ * hiện tại (15 phút) hết hạn. Đặt lại thành công cũng gỡ khóa đăng nhập 30 phút và bộ đếm lần nhập sai của tài khoản
+ * (người dùng vừa chứng minh sở hữu email); khóa theo địa chỉ IP vẫn giữ nguyên.
  */
 @Slf4j
 @Service
@@ -31,6 +32,9 @@ public class PasswordResetService {
 
     /** Khóa Redis của refresh token, cùng quy ước với {@code AuthService}. */
     static final String REFRESH_KEY_PREFIX = "refresh:";
+    /** Khóa đăng nhập và bộ đếm lần nhập sai theo tài khoản, cùng quy ước với {@code AuthService}. */
+    static final String LOGIN_LOCK_USER_PREFIX = "login:lock:user:";
+    static final String LOGIN_ATTEMPTS_USER_PREFIX = "login:attempts:user:";
 
     private final AccountTokenService tokenService;
     private final AccountTokenRepository tokenRepository;
@@ -71,6 +75,9 @@ public class PasswordResetService {
         tokenRepository.revokeOutstandingForUser(user.getId(), AccountTokenType.PASSWORD_RESET, Instant.now());
         // Vô hiệu refresh token của tài khoản: phiên cũ (kể cả của người đã biết mật khẩu cũ) không làm mới được nữa
         redisTemplate.delete(REFRESH_KEY_PREFIX + user.getUsername());
+        // Gỡ khóa đăng nhập do nhập sai mật khẩu cũ: không thì người vừa đặt lại vẫn bị chặn tới hết 30 phút
+        redisTemplate.delete(LOGIN_LOCK_USER_PREFIX + user.getUsername());
+        redisTemplate.delete(LOGIN_ATTEMPTS_USER_PREFIX + user.getUsername());
         log.info("Tài khoản {} đã đặt lại mật khẩu bằng liên kết email (companyId={})", user.getUsername(),
                 user.getCompany().getId());
     }

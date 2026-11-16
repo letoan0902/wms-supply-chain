@@ -41,12 +41,12 @@ import java.util.regex.Pattern;
  * <ol>
  *   <li>kiểm tra loại dữ liệu, vai trò, file (định dạng, dung lượng, nội dung) và đọc bảng tính tại chỗ: lỗi ở bước này
  *       trả 400 trước khi đụng tới hạn mức;</li>
- *   <li>kiểm tra hạn mức lượt AI;</li>
+ *   <li>giữ một lượt AI (kiểm tra hạn mức nguyên tử, {@link AiQuotaService#reserve()});</li>
  *   <li>bảng tính: Claude chỉ ghép cột (chế độ giả lập: ghép theo tên tiêu đề), server áp cho mọi dòng; PDF, hình ảnh:
  *       Claude đọc cả tài liệu (chế độ giả lập: báo cần AI thật, không bịa dòng);</li>
  *   <li>chuẩn hóa, kiểm tra từng ô; không có cột nào phù hợp thì 400;</li>
- *   <li>lưu kết quả lên Redis 1 giờ, rồi mới tăng bộ đếm lượt AI. Lỗi ở bất kỳ bước nào trước đó (kể cả AI từ chối,
- *       kết quả bị cắt, AI không phản hồi) đều không bị tính.</li>
+ *   <li>lưu kết quả lên Redis 1 giờ, rồi mới xác nhận lượt AI. Lỗi ở bất kỳ bước nào trước đó (kể cả AI từ chối,
+ *       kết quả bị cắt, AI không phản hồi) đều trả lại lượt đã giữ nên không bị tính.</li>
  * </ol>
  * Nhập ({@code POST /api/ai/extractions/{id}/import}) chỉ chạy khi người dùng bấm, không tính lượt AI.
  */
@@ -98,36 +98,39 @@ public class AiExtractionService {
         long companyId = TenantContext.requireCompanyId();
         UploadedFile file = UploadedFile.of(multipartFile);
 
-        ExtractionAssembler.Preview preview;
-        String method;
+        SheetTable table = null;
         if (file.type().spreadsheet()) {
-            SheetTable table = SpreadsheetReader.read(file);
-            quotaService.checkQuota();
-            ColumnMapping mapping;
-            if (runtime.isMock()) {
-                mapping = HeaderSynonymMatcher.match(type, table.headers());
-                method = METHOD_HEADER_MATCHING;
-            } else {
-                mapping = claudeExtractor.mapColumns(type, table);
-                method = METHOD_COLUMN_MAPPING;
-            }
-            preview = ExtractionAssembler.fromSpreadsheet(type, table, mapping);
-        } else {
-            if (runtime.isMock()) {
-                throw ApiException.badRequest(MockAiClient.NEEDS_REAL_AI_MESSAGE);
-            }
-            quotaService.checkQuota();
-            preview = ExtractionAssembler.fromDocument(type, claudeExtractor.extractDocument(type, file));
-            method = METHOD_AI_DOCUMENT;
+            table = SpreadsheetReader.read(file);
+        } else if (runtime.isMock()) {
+            throw ApiException.badRequest(MockAiClient.NEEDS_REAL_AI_MESSAGE);
         }
 
-        Instant now = clock.instant();
-        ExtractionResponse extraction = new ExtractionResponse(UUID.randomUUID().toString(), type, file.fileName(),
-                file.type().name(), method, preview.totalRows(), preview.truncated(), preview.columns(),
-                preview.rows(), preview.warnings(), now, now.plus(properties.resultTtl()), null);
-        store.save(companyId, extraction);
-        long used = quotaService.recordSuccessfulRequest();
-        return extraction.withUsage(new AskResponse.Usage(used, quotaService.currentMax()));
+        try (AiQuotaService.Reservation turn = quotaService.reserve()) {
+            ExtractionAssembler.Preview preview;
+            String method;
+            if (table != null) {
+                ColumnMapping mapping;
+                if (runtime.isMock()) {
+                    mapping = HeaderSynonymMatcher.match(type, table.headers());
+                    method = METHOD_HEADER_MATCHING;
+                } else {
+                    mapping = claudeExtractor.mapColumns(type, table);
+                    method = METHOD_COLUMN_MAPPING;
+                }
+                preview = ExtractionAssembler.fromSpreadsheet(type, table, mapping);
+            } else {
+                preview = ExtractionAssembler.fromDocument(type, claudeExtractor.extractDocument(type, file));
+                method = METHOD_AI_DOCUMENT;
+            }
+
+            Instant now = clock.instant();
+            ExtractionResponse extraction = new ExtractionResponse(UUID.randomUUID().toString(), type,
+                    file.fileName(), file.type().name(), method, preview.totalRows(), preview.truncated(),
+                    preview.columns(), preview.rows(), preview.warnings(), now, now.plus(properties.resultTtl()), null);
+            store.save(companyId, extraction);
+            long used = turn.confirm();
+            return extraction.withUsage(new AskResponse.Usage(used, quotaService.currentMax()));
+        }
     }
 
     /** Xem lại kết quả trích xuất của doanh nghiệp hiện tại trong thời hạn lưu. */

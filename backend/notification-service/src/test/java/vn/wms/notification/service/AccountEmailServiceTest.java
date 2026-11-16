@@ -51,7 +51,7 @@ class AccountEmailServiceTest {
     @SuppressWarnings("unchecked")
     private final ValueOperations<String, String> valueOps = mock(ValueOperations.class);
     private final EmailService emailService = new EmailService(providerOf(mailSender),
-            new NotificationProperties(new NotificationProperties.Mail("no-reply@wms.local"),
+            new NotificationProperties(new NotificationProperties.Mail("no-reply@wms.local", "WMS Supply Chain"),
                     new NotificationProperties.Rabbitmq("wms.events", "notification.alerts", "alert.#")),
             "smtp.example.test", "mailer");
 
@@ -159,6 +159,29 @@ class AccountEmailServiceTest {
         assertThat(holder[0].getSubject()).isEqualTo("Đặt lại mật khẩu tài khoản WMS Supply Chain");
         assertThat(holder[0].getErrorMessage()).contains("Connection refused");
         assertThat(output.getAll()).doesNotContain("reset-password?token=");
+    }
+
+    @Test
+    void brevoAloneIsEnoughToSendAccountEmails(CapturedOutput output) {
+        // Máy chủ thật: có BREVO_API_KEY, MAIL_HOST còn giá trị cũ nhưng không có tài khoản SMTP
+        BrevoEmailClient brevo = mock(BrevoEmailClient.class);
+        when(brevo.isConfigured()).thenReturn(true);
+        @SuppressWarnings("unchecked")
+        ObjectProvider<BrevoEmailClient> brevoProvider = mock(ObjectProvider.class);
+        when(brevoProvider.getIfAvailable()).thenReturn(brevo);
+        EmailService viaBrevo = new EmailService(providerOf(mailSender),
+                new NotificationProperties(new NotificationProperties.Mail("kho@example.com", "WMS Supply Chain"),
+                        new NotificationProperties.Rabbitmq("wms.events", "notification.alerts", "alert.#")),
+                "smtp.gmail.com", "", brevoProvider);
+        AccountEmailService service = new AccountEmailService(viaBrevo, repository, redis, "smtp.gmail.com", "");
+
+        NotificationLog entry = TenantContext.callAs(COMPANY_ID, () -> service.send(activation, "msg-brevo"));
+
+        verify(brevo).send(eq("kho@example.com"), eq("WMS Supply Chain"), eq("an@example.com"),
+                eq("Kích hoạt doanh nghiệp Công ty <Kho> Mẫu trên WMS Supply Chain"), anyString(), eq(true));
+        verify(mailSender, never()).send(any(MimeMessage.class));
+        assertThat(entry.getStatus()).isEqualTo(NotificationStatus.SENT);
+        assertThat(output.getAll()).doesNotContain("activate?token=");
     }
 
     @Test

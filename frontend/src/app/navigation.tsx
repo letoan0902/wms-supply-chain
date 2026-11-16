@@ -3,11 +3,13 @@ import {
   ApiOutlined,
   AppstoreOutlined,
   AuditOutlined,
+  BankOutlined,
   BarChartOutlined,
   ContainerOutlined,
   CreditCardOutlined,
   DashboardOutlined,
   DatabaseOutlined,
+  FundOutlined,
   RobotOutlined,
   ShopOutlined,
   ShoppingCartOutlined,
@@ -58,4 +60,14 @@ export const navigationItems: NavigationItem[] = [
   { path: '/companies', label: 'Doanh nghiệp', icon: <ApartmentOutlined />, anyOf: ['company.manage'] },
   { path: '/subscription', label: 'Gói dịch vụ', icon: <CreditCardOutlined /> },
   { path: '/settings/api-keys', label: 'API key', icon: <ApiOutlined /> },
+]
+
+/**
+ * Menu của quản trị nền tảng (vai trò SUPER_ADMIN): chỉ ba mục, không có mục nghiệp vụ nào của doanh nghiệp.
+ * Người dùng doanh nghiệp không thấy danh sách này (xem AuthenticatedLayout).
+ */
+export const platformNavigationItems: NavigationItem[] = [
+  { path: '/platform', label: 'Tổng quan nền tảng', icon: <FundOutlined /> },
+  { path: '/platform/companies', label: 'Doanh nghiệp', icon: <BankOutlined /> },
+  { path: '/platform/payments', label: 'Thanh toán', icon: <CreditCardOutlined /> },
 ]

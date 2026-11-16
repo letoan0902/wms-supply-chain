@@ -20,6 +20,8 @@ import vn.wms.ai.summary.SummaryCache;
 import vn.wms.common.api.ErrorCode;
 import vn.wms.common.exception.ApiException;
 import vn.wms.common.plan.SubscriptionCacheKeys;
+import vn.wms.common.security.CurrentUser;
+import vn.wms.common.security.UserContext;
 import vn.wms.common.tenant.TenantContext;
 
 import java.time.Clock;
@@ -29,18 +31,19 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Bản tóm tắt số liệu điều hành bằng AI cho dashboard ({@code GET /api/ai/summary}, WMS-18.1).
  *
  * <p>Luồng: đọc bộ nhớ đệm 30 phút theo doanh nghiệp, nhóm vai trò và phạm vi kho (trừ khi {@code refresh=true});
  * không có thì lấy 8 thẻ KPI (notification-service) và tổng nhập, xuất từ đầu tháng (báo cáo Xuất - Nhập - Tồn của
- * inventory-service) bằng danh tính người xem, kiểm tra hạn mức, nhờ Claude viết 3 đến 5 ý và 1 đến 2 gợi ý chỉ từ số
- * đã cho (structured outputs), tính một lượt AI rồi lưu bộ nhớ đệm. Lấy từ bộ nhớ đệm không tốn lượt. Chế độ giả lập
+ * inventory-service) bằng danh tính người xem, giữ một lượt AI (kiểm tra hạn mức nguyên tử), nhờ Claude viết 3 đến 5 ý
+ * và 1 đến 2 gợi ý chỉ từ số đã cho (structured outputs), xác nhận lượt rồi lưu bộ nhớ đệm (lỗi thì trả lại lượt). Lấy từ bộ nhớ đệm không tốn lượt. Chế độ giả lập
  * dựng các ý bằng câu soạn sẵn từ cùng số liệu.
  *
  * <p>Ai xem được: người được notification-service cho xem KPI (vai trò theo kho phải được gán kho; kho không được gán
- * trả {@code 403}); thẻ tài chính bị che với vai trò không phải ADMIN, ACCOUNTANT và không được đưa vào bản tóm tắt.
+ * trả {@code 403}, kiểm tra ngay trước khi đọc bộ nhớ đệm để bản đã lưu cũng không lọt sang người ngoài phạm vi); thẻ tài chính bị che với vai trò không phải ADMIN, ACCOUNTANT và không được đưa vào bản tóm tắt.
  */
 @Service
 public class AiSummaryService {
@@ -49,6 +52,8 @@ public class AiSummaryService {
 
     static final int MAX_BULLETS = 5;
     static final int MAX_ACTIONS = 2;
+
+    static final String SCOPE_FORBIDDEN_MESSAGE = "Bạn không có quyền xem số liệu điều hành của phạm vi này.";
 
     /** Lược đồ câu trả lời của Claude. */
     static final Map<String, Object> SCHEMA = schema();
@@ -84,6 +89,9 @@ public class AiSummaryService {
 
     public SummaryResponse summary(Long warehouseId, boolean refresh) {
         long companyId = TenantContext.requireCompanyId();
+        // Kiểm tra phạm vi kho TRƯỚC khi đọc bộ nhớ đệm: khóa chỉ gồm doanh nghiệp, nhóm vai trò và kho, nên nếu không
+        // kiểm tra ở đây thì người không được gán kho đã chọn vẫn nhận bản tóm tắt người khác vừa tạo.
+        UserContext.getCurrentUser().ifPresent(user -> requireWarehouseScope(user, warehouseId));
         String key = SummaryCache.keyForCurrentUser(companyId, warehouseId);
         if (!refresh) {
             Optional<SummaryResponse> cached = cache.find(key);
@@ -94,27 +102,28 @@ public class AiSummaryService {
         }
 
         DashboardFacts facts = loadFacts(warehouseId);
-        quotaService.checkQuota();
-        List<String> bullets;
-        List<String> actions;
-        if (runtime.isMock()) {
-            bullets = facts.mockBullets();
-            actions = facts.mockActions();
-        } else {
-            JsonNode reply = askClaude(facts);
-            bullets = lines(reply.path("bullets"), MAX_BULLETS);
-            actions = lines(reply.path("actions"), MAX_ACTIONS);
-            if (bullets.isEmpty()) {
-                log.warn("Claude trả bản tóm tắt dashboard không có ý nào");
-                throw unavailable();
+        try (AiQuotaService.Reservation turn = quotaService.reserve()) {
+            List<String> bullets;
+            List<String> actions;
+            if (runtime.isMock()) {
+                bullets = facts.mockBullets();
+                actions = facts.mockActions();
+            } else {
+                JsonNode reply = askClaude(facts);
+                bullets = lines(reply.path("bullets"), MAX_BULLETS);
+                actions = lines(reply.path("actions"), MAX_ACTIONS);
+                if (bullets.isEmpty()) {
+                    log.warn("Claude trả bản tóm tắt dashboard không có ý nào");
+                    throw unavailable();
+                }
             }
+            long used = turn.confirm();
+            SummaryResponse response = new SummaryResponse(text(bullets, actions), bullets, actions, clock.instant(),
+                    false, runtime.mode().name(), warehouseId, facts.financialsVisible(),
+                    new AskResponse.Usage(used, quotaService.currentMax()));
+            cache.save(key, response);
+            return response;
         }
-        long used = quotaService.recordSuccessfulRequest();
-        SummaryResponse response = new SummaryResponse(text(bullets, actions), bullets, actions, clock.instant(),
-                false, runtime.mode().name(), warehouseId, facts.financialsVisible(),
-                new AskResponse.Usage(used, quotaService.currentMax()));
-        cache.save(key, response);
-        return response;
     }
 
     /** Lấy KPI (bắt buộc) và tổng nhập, xuất từ đầu tháng (không bắt buộc) cùng một phạm vi kho. */
@@ -125,7 +134,7 @@ public class AiSummaryService {
                 "/api/notifications/dashboard/kpi-summary", Map.of(), kpiQuery);
         if (!kpi.ok()) {
             throw switch (kpi.status()) {
-                case FORBIDDEN -> ApiException.forbidden("Bạn không có quyền xem số liệu điều hành của phạm vi này.");
+                case FORBIDDEN -> ApiException.forbidden(SCOPE_FORBIDDEN_MESSAGE);
                 case NOT_FOUND -> ApiException.notFound("Không tìm thấy kho đã chọn.");
                 case BAD_REQUEST -> ApiException.badRequest(kpi.message());
                 default -> new ApiException(ErrorCode.SERVICE_UNAVAILABLE, "Chưa lấy được số liệu điều hành: "
@@ -151,6 +160,21 @@ public class AiSummaryService {
                     : "chưa đọc được báo cáo Xuất - Nhập - Tồn";
         }
         return new DashboardFacts(kpi.data(), report.ok() ? report.data() : null, note);
+    }
+
+    /**
+     * Cùng quy tắc phạm vi kho của notification-service ({@code DashboardKpiService}): vai trò xem mọi kho (ADMIN,
+     * ACCOUNTANT) qua; vai trò theo kho phải được gán ít nhất một kho, và kho đã chọn (nếu có) phải nằm trong số kho
+     * được gán. Sai thì {@code 403} với cùng thông báo như khi notification-service từ chối.
+     */
+    private static void requireWarehouseScope(CurrentUser user, Long warehouseId) {
+        if (UserContext.isGlobalScope(user)) {
+            return;
+        }
+        Set<Long> allowed = user.warehouseIds();
+        if (allowed == null || allowed.isEmpty() || (warehouseId != null && !allowed.contains(warehouseId))) {
+            throw ApiException.forbidden(SCOPE_FORBIDDEN_MESSAGE);
+        }
     }
 
     private JsonNode askClaude(DashboardFacts facts) {

@@ -21,6 +21,9 @@ class RolesTest {
         // Vai trò của API key không gán được cho tài khoản
         assertThat(Roles.isValid(Roles.INTEGRATION)).isFalse();
         assertThat(Roles.ALL).doesNotContain(Roles.INTEGRATION);
+        // Vai trò quản trị nền tảng không gán được qua API quản lý người dùng của doanh nghiệp
+        assertThat(Roles.isValid(Roles.SUPER_ADMIN)).isFalse();
+        assertThat(Roles.ALL).doesNotContain(Roles.SUPER_ADMIN);
         assertThat(Roles.toAuthority(Roles.ADMIN)).isEqualTo("ROLE_ADMIN");
     }
 }

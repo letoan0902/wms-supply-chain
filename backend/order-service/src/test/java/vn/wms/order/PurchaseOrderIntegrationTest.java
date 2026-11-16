@@ -127,7 +127,7 @@ class PurchaseOrderIntegrationTest {
         Supplier supplier = createSampleSupplier("SUP-CUSTOM", "Công ty Bao Bì");
 
         PurchaseOrderItemRequest item = new PurchaseOrderItemRequest(
-                null, "SKU-BOX-01", "Thùng carton 5 lớp", "Cái",
+                9001L, "SKU-BOX-01", "Thùng carton 5 lớp", "Cái",
                 new BigDecimal("500.000"), new BigDecimal("10000.00"),
                 null, null, null, null, null
         );
@@ -162,7 +162,7 @@ class PurchaseOrderIntegrationTest {
         purchaseOrderRepository.save(existing);
 
         PurchaseOrderItemRequest item = new PurchaseOrderItemRequest(
-                null, "SKU-01", "Mặt hàng", "Cái",
+                9002L, "SKU-01", "Mặt hàng", "Cái",
                 new BigDecimal("10.000"), new BigDecimal("10000.00"),
                 null, null, null, null, null
         );
@@ -186,7 +186,7 @@ class PurchaseOrderIntegrationTest {
         Supplier supplier = createSampleSupplier("SUP-APP", "Công ty CP Dược Phẩm");
 
         PurchaseOrderItemRequest item = new PurchaseOrderItemRequest(
-                null, "SKU-MED-01", "Khẩu trang y tế 4 lớp", "Hộp",
+                9003L, "SKU-MED-01", "Khẩu trang y tế 4 lớp", "Hộp",
                 new BigDecimal("200.000"), new BigDecimal("25000.00"),
                 null, null, null, null, null
         );
@@ -226,7 +226,7 @@ class PurchaseOrderIntegrationTest {
         Supplier supplier = createSampleSupplier("SUP-REJ", "Công ty Thiết Bị");
 
         PurchaseOrderItemRequest item = new PurchaseOrderItemRequest(
-                null, "SKU-TOOL-01", "Kìm bấm mạng RJ45", "Cái",
+                9004L, "SKU-TOOL-01", "Kìm bấm mạng RJ45", "Cái",
                 new BigDecimal("20.000"), new BigDecimal("150000.00"),
                 null, null, null, null, null
         );
@@ -263,7 +263,7 @@ class PurchaseOrderIntegrationTest {
         Supplier supplier = createSampleSupplier("SUP-UPD", "Công ty Hóa Chất");
 
         PurchaseOrderItemRequest item1 = new PurchaseOrderItemRequest(
-                null, "SKU-CHEM-01", "Cồn sát khuẩn 70 độ", "Can",
+                9005L, "SKU-CHEM-01", "Cồn sát khuẩn 70 độ", "Can",
                 new BigDecimal("10.000"), new BigDecimal("100000.00"),
                 null, null, null, null, null
         );
@@ -285,7 +285,7 @@ class PurchaseOrderIntegrationTest {
 
         // Cập nhật số lượng lên 25 can
         PurchaseOrderItemRequest itemUpdated = new PurchaseOrderItemRequest(
-                null, "SKU-CHEM-01", "Cồn sát khuẩn 70 độ", "Can",
+                9006L, "SKU-CHEM-01", "Cồn sát khuẩn 70 độ", "Can",
                 new BigDecimal("25.000"), new BigDecimal("100000.00"),
                 null, null, null, null, null
         );
@@ -311,7 +311,7 @@ class PurchaseOrderIntegrationTest {
         Supplier supplier = createSampleSupplier("SUP-DEL", "Công ty Cần Xóa Đơn");
 
         PurchaseOrderItemRequest item = new PurchaseOrderItemRequest(
-                null, "SKU-DEL-01", "Mặt hàng hủy", "Cái",
+                9007L, "SKU-DEL-01", "Mặt hàng hủy", "Cái",
                 new BigDecimal("10.000"), new BigDecimal("50000.00"),
                 null, null, null, null, null
         );
@@ -344,7 +344,7 @@ class PurchaseOrderIntegrationTest {
         Supplier supplier = createSampleSupplier("SUP-CAN", "Công ty Hủy Đơn");
 
         PurchaseOrderItemRequest item = new PurchaseOrderItemRequest(
-                null, "SKU-CAN-01", "Mặt hàng", "Cái",
+                9008L, "SKU-CAN-01", "Mặt hàng", "Cái",
                 new BigDecimal("5.000"), new BigDecimal("20000.00"),
                 null, null, null, null, null
         );
@@ -375,13 +375,13 @@ class PurchaseOrderIntegrationTest {
         Supplier s2 = createSampleSupplier("SUP-FLT2", "Nhà cung cấp 2");
 
         PurchaseOrderItemRequest item1 = new PurchaseOrderItemRequest(
-                null, "SKU-FLT-1", "Hàng 1", "Cái",
+                9009L, "SKU-FLT-1", "Hàng 1", "Cái",
                 new BigDecimal("10.000"), new BigDecimal("10000.00"),
                 null, null, null, null, null
         );
 
         PurchaseOrderItemRequest item2 = new PurchaseOrderItemRequest(
-                null, "SKU-FLT-2", "Hàng 2", "Cái",
+                9010L, "SKU-FLT-2", "Hàng 2", "Cái",
                 new BigDecimal("20.000"), new BigDecimal("15000.00"),
                 null, null, null, null, null
         );
@@ -416,7 +416,7 @@ class PurchaseOrderIntegrationTest {
         Supplier s = createSampleSupplier("SUP-SUM", "Nhà cung cấp Thống kê");
 
         PurchaseOrderItemRequest item = new PurchaseOrderItemRequest(
-                null, "SKU-SUM-01", "Hàng mẫu", "Cái",
+                9011L, "SKU-SUM-01", "Hàng mẫu", "Cái",
                 new BigDecimal("10.000"), new BigDecimal("100000.00"),
                 null, null, null, null, null
         );
@@ -441,7 +441,7 @@ class PurchaseOrderIntegrationTest {
         Supplier supplier = createSampleSupplier("SUP-INV-STATUS", "NCC Trạng thái sai");
 
         PurchaseOrderItemRequest item = new PurchaseOrderItemRequest(
-                null, "SKU-TEST-01", "Hàng test", "Cái",
+                9012L, "SKU-TEST-01", "Hàng test", "Cái",
                 new BigDecimal("10.000"), new BigDecimal("10000.00"),
                 null, null, null, null, null
         );
@@ -480,7 +480,7 @@ class PurchaseOrderIntegrationTest {
 
         // Chiết khấu 150% (> 100%)
         PurchaseOrderItemRequest itemInvalidDiscount = new PurchaseOrderItemRequest(
-                null, "SKU-VAL-01", "Hàng chiết khấu lố", "Cái",
+                9013L, "SKU-VAL-01", "Hàng chiết khấu lố", "Cái",
                 new BigDecimal("10.000"), new BigDecimal("10000.00"),
                 new BigDecimal("150.00"), null, null, null, null
         );
@@ -498,7 +498,7 @@ class PurchaseOrderIntegrationTest {
 
         // Thuế VAT 120% (> 100%)
         PurchaseOrderItemRequest itemInvalidTax = new PurchaseOrderItemRequest(
-                null, "SKU-VAL-02", "Hàng thuế lố", "Cái",
+                9014L, "SKU-VAL-02", "Hàng thuế lố", "Cái",
                 new BigDecimal("10.000"), new BigDecimal("10000.00"),
                 null, null, new BigDecimal("120.00"), null, null
         );
@@ -520,7 +520,7 @@ class PurchaseOrderIntegrationTest {
         Supplier supplier = createSampleSupplier("SUP-RESTRICT", "NCC Giới hạn thao tác");
 
         PurchaseOrderItemRequest item = new PurchaseOrderItemRequest(
-                null, "SKU-RESTRICT-01", "Hàng đã duyệt", "Cái",
+                9015L, "SKU-RESTRICT-01", "Hàng đã duyệt", "Cái",
                 new BigDecimal("5.000"), new BigDecimal("100000.00"),
                 null, null, null, null, null
         );
@@ -580,7 +580,7 @@ class PurchaseOrderIntegrationTest {
         Supplier s = createSampleSupplier("SUP-DATE", "NCC Kiểm tra Ngày");
 
         PurchaseOrderItemRequest item = new PurchaseOrderItemRequest(
-                null, "SKU-DATE-01", "Hàng hóa", "Cái",
+                9016L, "SKU-DATE-01", "Hàng hóa", "Cái",
                 new BigDecimal("1.000"), new BigDecimal("10000.00"),
                 null, null, null, null, null
         );
@@ -605,5 +605,27 @@ class PurchaseOrderIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.content[?(@.poNumber == 'PO-DATE-NOV')]").exists())
                 .andExpect(jsonPath("$.data.content[?(@.poNumber == 'PO-DATE-OCT')]").doesNotExist());
+    }
+
+    @Test
+    void createPurchaseOrderLineWithoutProductIdReturnsValidationError() throws Exception {
+        // Dòng không có productId: nhận hàng sẽ ghi hóa đơn mua, công nợ nhưng inventory-service không cộng được tồn
+        // (thông điệp vào hàng chết), nên phải chặn ngay khi lập đơn mua.
+        Supplier s = createSampleSupplier("SUP-NOPROD", "NCC Thiếu mã hàng");
+        PurchaseOrderItemRequest item = new PurchaseOrderItemRequest(
+                null, "SKU-FREE-01", "Hàng gõ tay ngoài danh mục", "Cái",
+                new BigDecimal("5.000"), new BigDecimal("10000.00"),
+                null, null, null, null, null
+        );
+        CreatePurchaseOrderRequest request = new CreatePurchaseOrderRequest(
+                null, s.getId(), null, null, LocalDate.now(), null, null, OrderStatus.DRAFT, List.of(item));
+
+        mockMvc.perform(post("/api/orders/purchase")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.data['items[0].productId']").value("ID sản phẩm không được để trống"));
+        assertThat(purchaseOrderRepository.findAll()).noneMatch(po -> po.getSupplier().getId().equals(s.getId()));
     }
 }

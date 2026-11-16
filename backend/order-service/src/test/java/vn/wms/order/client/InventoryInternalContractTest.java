@@ -92,6 +92,22 @@ class InventoryInternalContractTest {
     }
 
     @Test
+    @DisplayName("Kiểm tra ATP khi lập, xác nhận đơn bán: GET /internal/inventory/stock/atp (không lọc theo phạm vi kho của người bán)")
+    void atpUsesInternalEndpoint() {
+        stub.respond(200, "{\"success\":true,\"code\":\"OK\",\"message\":\"Thành công\",\"data\":{\"productId\":101,"
+                + "\"warehouseId\":3,\"onHandQuantity\":40,\"reservedQuantity\":7,\"atpQuantity\":33}}");
+
+        AtpResponse atp = inventoryGateway.getAtp(101L, 3L);
+
+        Request sent = stub.last();
+        assertThat(sent.httpMethod()).isEqualTo(Request.HttpMethod.GET);
+        assertThat(sent.url()).contains("/internal/inventory/stock/atp?")
+                .contains("productId=101").contains("warehouseId=3");
+        assertThat(sent.headers().get(TenantContext.HEADER_COMPANY_ID)).containsExactly(String.valueOf(COMPANY));
+        assertThat(atp.atpQuantity()).isEqualByComparingTo("33");
+    }
+
+    @Test
     @DisplayName("Lỗi nghiệp vụ 4xx của inventory-service được trả lại nguyên mã và thông báo; 5xx thành 503")
     void businessErrorsArePassedThroughAndServerErrorsBecomeUnavailable() {
         stub.respond(400, "{\"success\":false,\"code\":\"BAD_REQUEST\","

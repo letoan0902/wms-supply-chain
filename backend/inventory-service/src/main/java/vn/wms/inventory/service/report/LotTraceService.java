@@ -51,8 +51,9 @@ public class LotTraceService {
 
     static final String NOTE_PARTNER_NAMES = "Tên nhà cung cấp và khách hàng không lưu ở dịch vụ kho; truy vết hiển thị "
             + "ID nhà cung cấp, số đơn mua, số đơn bán để tra cứu ở màn hình đơn hàng.";
-    static final String NOTE_TRANSFER_LOT = "Phiếu điều chuyển chưa lưu số lô: hàng nhận tại kho đích được cộng vào tồn "
-            + "không theo lô nên không truy tiếp được các lần xuất sau tại kho đích.";
+    static final String NOTE_TRANSFER_LOT = "Có lệnh điều chuyển chưa nhận, hoặc nhận trước ngày 16/11/2026 (WMS-20.4) nên "
+            + "hàng tại kho đích chưa mang số lô: không truy tiếp được các lần xuất sau tại kho đích. Lệnh nhận từ ngày "
+            + "đó giữ số lô, hạn dùng của lô đã xuất.";
     static final String NOTE_OPENING = "Một phần lô là số dư mở sổ kho: tồn có sẵn trước khi hệ thống ghi sổ kho, không còn "
             + "chứng từ nhập gốc trong hệ thống.";
     static final String NOTE_SALES_DOCUMENT = "Xuất bán ghi theo số đơn bán vì sự kiện xuất kho chưa mang mã phiếu xuất (GDN).";
@@ -135,7 +136,7 @@ public class LotTraceService {
                 origins.add(toFlow(group, warehouses, null));
             } else if (OUTFLOW_TYPES.contains(first.getMovementType())) {
                 TransferInfo transfer = first.getMovementType() == StockMovementType.TRANSFER_OUT
-                        ? transferInfo(transfers.get(first.getDocumentId()), product, sumOut(group), warehouses) : null;
+                        ? transferInfo(transfers.get(first.getDocumentId()), product, sumOut(group), warehouses, movements) : null;
                 outflows.add(toFlow(group, warehouses, transfer));
             }
         }
@@ -174,7 +175,7 @@ public class LotTraceService {
         if (outflows.stream().anyMatch(f -> StockMovementType.SALES_DISPATCH.name().equals(f.movementType()))) {
             notes.add(NOTE_SALES_DOCUMENT);
         }
-        if (outflows.stream().anyMatch(f -> f.transfer() != null)) {
+        if (outflows.stream().anyMatch(f -> f.transfer() != null && !f.transfer().lotTrackedAtDestination())) {
             notes.add(NOTE_TRANSFER_LOT);
         }
         if (origins.stream().anyMatch(f -> StockMovementType.OPENING_BALANCE.name().equals(f.movementType()))) {
@@ -267,7 +268,7 @@ public class LotTraceService {
     }
 
     private static TransferInfo transferInfo(StockTransfer transfer, Long productId, BigDecimal lotQuantity,
-                                             Map<Long, Warehouse> warehouses) {
+                                             Map<Long, Warehouse> warehouses, List<StockMovement> lotMovements) {
         if (transfer == null) {
             return null;
         }
@@ -285,13 +286,16 @@ public class LotTraceService {
             }
         }
         boolean isReceived = transfer.getReceivedAt() != null;
+        // Từ WMS-20.4 hàng nhận tại kho đích giữ số lô: sổ kho của lô có dòng TRANSFER_IN của chính lệnh này
+        boolean lotTracked = lotMovements.stream().anyMatch(m -> m.getMovementType() == StockMovementType.TRANSFER_IN
+                && transfer.getId().equals(m.getDocumentId()));
         return new TransferInfo(transfer.getId(), transfer.getTransferNumber(), transfer.getStatus().name(),
                 transfer.getDestinationWarehouse().getId(),
                 dest != null ? dest.getCode() : null, dest != null ? dest.getName() : null,
                 lotQuantity,
                 isReceived ? received : null,
                 isReceived ? damaged : null,
-                destBin, transfer.getReceivedAt(), transfer.getReceivedBy(), false);
+                destBin, transfer.getReceivedAt(), transfer.getReceivedBy(), lotTracked);
     }
 
     private static TraceNode buildTree(String lot, Long productId, ReportLookups.ProductDisplay display,
@@ -352,7 +356,8 @@ public class LotTraceService {
                             : "chưa nhận, phiếu " + t.status();
                     dest.add(node("transfer-dest:" + seq, "TRANSFER_DESTINATION", "DOWNSTREAM",
                             "Kho đích " + nvl(t.destinationWarehouseName()) + ": " + receivedText
-                                    + "; số lô không được giữ tại kho đích",
+                                    + (t.lotTrackedAtDestination() ? "; giữ số lô tại kho đích"
+                                            : "; số lô không được giữ tại kho đích"),
                             t.itemReceivedQuantity(), t.receivedAt(), null, null, null, t.destinationWarehouseId(),
                             t.destinationWarehouseName(), t.destinationBinLocationCode(), List.of()));
                 }

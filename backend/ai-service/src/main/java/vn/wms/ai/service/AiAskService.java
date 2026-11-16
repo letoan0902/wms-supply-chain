@@ -8,8 +8,9 @@ import vn.wms.ai.config.AiProperties;
 import vn.wms.ai.dto.AskResponse;
 
 /**
- * Hỏi đáp một câu với Claude ({@code POST /api/ai/ask}): kiểm tra hạn mức, gọi mô hình, rồi mới trừ lượt. Gọi mô hình
- * lỗi (ném {@code ApiException}) thì bước trừ lượt không chạy, nên lượt lỗi không bị tính. Trợ lý có lịch sử hội thoại,
+ * Hỏi đáp một câu với Claude ({@code POST /api/ai/ask}): giữ một lượt (kiểm tra hạn mức nguyên tử), gọi mô hình rồi
+ * xác nhận lượt. Gọi mô hình lỗi (ném {@code ApiException}) hoặc mô hình từ chối thì lượt được trả lại, nên không bị
+ * tính. Trợ lý có lịch sử hội thoại,
  * tài liệu hướng dẫn và công cụ tra cứu (WMS-24.4) nằm ở {@link AiChatService}.
  */
 @Service
@@ -26,11 +27,12 @@ public class AiAskService {
     }
 
     public AskResponse ask(String question) {
-        quotaService.checkQuota();
-        AiReply reply = aiClient.ask(new AiRequest(AiPrompts.ASSISTANT_SYSTEM_PROMPT, question.strip(),
-                properties.maxTokens()));
-        long used = quotaService.recordSuccess(reply);
-        return new AskResponse(reply.text(), reply.truncated(), reply.refused(),
-                new AskResponse.Usage(used, quotaService.currentMax()));
+        try (AiQuotaService.Reservation turn = quotaService.reserve()) {
+            AiReply reply = aiClient.ask(new AiRequest(AiPrompts.ASSISTANT_SYSTEM_PROMPT, question.strip(),
+                    properties.maxTokens()));
+            long used = turn.confirm(reply.refused());
+            return new AskResponse(reply.text(), reply.truncated(), reply.refused(),
+                    new AskResponse.Usage(used, quotaService.currentMax()));
+        }
     }
 }

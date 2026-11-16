@@ -1,5 +1,5 @@
 import { LockOutlined } from '@ant-design/icons'
-import { Alert, Table, Tag, Tooltip, Typography } from 'antd'
+import { Alert, Table, Tag, Tooltip } from 'antd'
 import type { TableProps } from 'antd'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
@@ -43,7 +43,7 @@ interface LotStockRow extends LotRow {
 const EMPTY_INDEX: AlertIndex = indexAlerts([])
 
 function quantityCell(value: number | null | undefined) {
-  return <span className="tabular-nums">{formatQuantity(value)}</span>
+  return <span className="font-mono text-[15px] font-semibold tabular-nums text-slate-900">{formatQuantity(value)}</span>
 }
 
 function isExpiredRow(row: LotRow): boolean {
@@ -169,71 +169,89 @@ export default function LotStockView({
 
   const columns: TableProps<LotStockRow>['columns'] = [
     {
-      title: 'Mã SKU',
-      key: 'sku',
-      width: 130,
-      fixed: 'left',
-      render: (_, row) => <Typography.Text strong>{row.product?.sku ?? `#${row.productId}`}</Typography.Text>,
+      title: <span className="text-sm font-semibold text-slate-700">#</span>,
+      key: 'index',
+      width: 48,
+      align: 'center',
+      render: (_v, _r, i) => <span className="text-sm tabular-nums text-slate-500">{(page - 1) * pageSize + i + 1}</span>,
     },
     {
-      title: 'Tên hàng hóa',
+      title: <span className="text-sm font-semibold text-slate-700">Mã SKU</span>,
+      key: 'sku',
+      width: 120,
+      render: (_, row) => (
+        <span className="font-mono text-[15px] font-semibold text-blue-600">{row.product?.sku ?? `#${row.productId}`}</span>
+      ),
+    },
+    {
+      title: <span className="text-sm font-semibold text-slate-700">Tên hàng hóa</span>,
       key: 'name',
-      width: 200,
-      render: (_, row) => row.product?.name ?? <Typography.Text type="secondary">Không rõ tên</Typography.Text>,
+      width: 180,
+      render: (_, row) => (
+        <span className="text-[15px] font-semibold text-slate-900">
+          {row.product?.name ?? <span className="text-slate-400">Không rõ tên</span>}
+        </span>
+      ),
     },
     ...(showWarehouse
       ? [
           {
-            title: 'Kho',
+            title: <span className="text-sm font-semibold text-slate-700">Kho</span>,
             key: 'warehouse',
-            width: 160,
-            render: (_: unknown, row: LotStockRow) => row.warehouseName ?? row.warehouseCode ?? '—',
+            width: 140,
+            render: (_: unknown, row: LotStockRow) => (
+              <span className="text-sm text-slate-700">{row.warehouseName ?? row.warehouseCode ?? '—'}</span>
+            ),
           },
         ]
       : []),
     {
-      title: 'Số lô',
+      title: <span className="text-sm font-semibold text-slate-700">Số lô</span>,
       key: 'lotNo',
-      width: 120,
-      render: (_, row) => row.lotNo ?? <Typography.Text type="secondary">Không số lô</Typography.Text>,
+      width: 100,
+      render: (_, row) => (
+        <span className="text-sm text-slate-700">
+          {row.lotNo ?? <span className="text-slate-400">Không số lô</span>}
+        </span>
+      ),
     },
     {
-      title: 'Ngày sản xuất',
+      title: <span className="text-sm font-semibold text-slate-700">Ngày SX</span>,
       key: 'mfgDate',
-      width: 120,
+      width: 100,
       sorter: true,
       sortOrder: sortOrderOf('mfgDate'),
-      render: (_, row) => formatLocalDate(row.mfgDate),
+      render: (_, row) => <span className="text-sm tabular-nums text-slate-600">{formatLocalDate(row.mfgDate)}</span>,
     },
     {
-      title: 'Hạn dùng',
+      title: <span className="text-sm font-semibold text-slate-700">Hạn dùng</span>,
       key: 'expDate',
-      width: 110,
+      width: 100,
       sorter: true,
       sortOrder: sortOrderOf('expDate'),
-      render: (_, row) => formatLocalDate(row.expDate),
+      render: (_, row) => <span className="text-sm tabular-nums text-slate-600">{formatLocalDate(row.expDate)}</span>,
     },
     {
-      title: 'Còn lại',
+      title: <span className="text-sm font-semibold text-slate-700">Còn lại</span>,
       key: 'daysLeft',
-      width: 130,
+      width: 110,
       render: (_, row) => {
-        if (row.expDate === null) return <Typography.Text type="secondary">Không có hạn</Typography.Text>
+        if (row.expDate === null) return <span className="text-sm text-slate-400">Không có hạn</span>
         const text = daysLeftText(row.daysUntilExpiry)
-        if (row.expired) return <Typography.Text type="danger" strong>{text}</Typography.Text>
-        if (row.expiryStatus === 'EXPIRING_SOON') return <Typography.Text type="warning">{text}</Typography.Text>
-        return text
+        if (row.expired) return <span className="text-sm font-semibold text-red-600">{text}</span>
+        if (row.expiryStatus === 'EXPIRING_SOON') return <span className="text-sm font-medium text-amber-600">{text}</span>
+        return <span className="text-sm text-slate-600">{text}</span>
       },
     },
     {
-      title: 'Vị trí (khu - kệ - ô)',
+      title: <span className="text-sm font-semibold text-slate-700 whitespace-nowrap">Vị trí (khu-kệ-ô)</span>,
       key: 'bin',
-      width: 170,
+      width: 140,
       render: (_, row) => (
         <div>
-          <Typography.Text code>{row.binLocationCode ?? '—'}</Typography.Text>
+          <code className="rounded bg-slate-100 px-1 py-0.5 text-xs font-medium text-slate-700">{row.binLocationCode ?? '—'}</code>
           {row.zone || row.rack || row.bin ? (
-            <div className="text-xs text-gray-500">
+            <div className="mt-0.5 text-xs text-slate-500">
               {[row.zone, row.rack, row.bin].map((part) => part ?? '—').join(' - ')}
             </div>
           ) : null}
@@ -241,32 +259,34 @@ export default function LotStockView({
       ),
     },
     {
-      title: 'Số lượng',
+      title: <span className="text-sm font-semibold text-slate-700">Số lượng</span>,
       key: 'quantity',
-      width: 110,
+      width: 96,
       align: 'right',
       sorter: true,
       sortOrder: sortOrderOf('quantity'),
       render: (_, row) => quantityCell(row.quantity),
     },
     {
-      title: 'Đã giữ chỗ',
+      title: <span className="text-sm font-semibold text-slate-700">Đã giữ chỗ</span>,
       key: 'reserved',
-      width: 110,
+      width: 96,
       align: 'right',
       render: (_, row) => quantityCell(row.reservedQuantity),
     },
     {
-      title: 'Khả dụng',
+      title: <span className="text-sm font-semibold text-slate-700">Khả dụng</span>,
       key: 'available',
-      width: 110,
+      width: 96,
       align: 'right',
-      render: (_, row) => <Typography.Text strong>{formatQuantity(row.availableQuantity)}</Typography.Text>,
+      render: (_, row) => (
+        <span className="font-mono text-[15px] font-bold tabular-nums text-slate-900">{formatQuantity(row.availableQuantity)}</span>
+      ),
     },
     {
-      title: 'Trạng thái',
+      title: <span className="text-sm font-semibold text-slate-700">Trạng thái</span>,
       key: 'locked',
-      width: 120,
+      width: 100,
       render: (_, row) =>
         row.locked ? (
           <Tooltip title={row.lockedReason ? `Lý do: ${row.lockedReason}` : 'Lô đang bị khóa, không được xuất'}>
@@ -279,9 +299,9 @@ export default function LotStockView({
         ),
     },
     {
-      title: 'Cảnh báo',
+      title: <span className="text-sm font-semibold text-slate-700">Cảnh báo</span>,
       key: 'tags',
-      width: 200,
+      width: 160,
       render: (_, row) => <AlertTags tags={row.tags} />,
     },
   ]
@@ -323,7 +343,7 @@ export default function LotStockView({
         loading={loading}
         columns={columns}
         dataSource={dataSource}
-        scroll={{ x: showWarehouse ? 1800 : 1640 }}
+        scroll={{ x: showWarehouse ? 1586 : 1446 }}
         rowClassName={(row) => (row.locked ? 'inventory-row-locked' : row.expired ? 'inventory-row-expired' : '')}
         onChange={handleChange}
         locale={{ emptyText: 'Không có lô hàng nào khớp bộ lọc' }}

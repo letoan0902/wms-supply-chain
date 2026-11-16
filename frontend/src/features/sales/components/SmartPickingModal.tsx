@@ -356,6 +356,7 @@ export default function SmartPickingModal({
           <InputNumber
             min={0}
             max={r.orderedQuantity}
+            precision={3}
             value={r.pickedQuantity}
             onChange={(val) => handleQuantityChange(r.id, val)}
             className="w-20 text-center font-bold text-emerald-700"

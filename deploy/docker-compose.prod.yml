@@ -154,6 +154,9 @@ services:
       MAIL_USERNAME: ${MAIL_USERNAME:-}
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
       MAIL_FROM: ${MAIL_FROM:-}
+      MAIL_FROM_NAME: ${MAIL_FROM_NAME:-WMS Supply Chain}
+      # Khóa API Brevo (xkeysib-...): có thì gửi qua API Brevo thay cho SMTP.
+      BREVO_API_KEY: ${BREVO_API_KEY:-}
       SECURITY_ALLOW_ANONYMOUS: ${SECURITY_ALLOW_ANONYMOUS:-false}
 
   # --------------------------------------------------------------------------

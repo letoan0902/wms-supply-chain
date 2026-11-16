@@ -52,6 +52,8 @@ public class SecurityConfig {
                     // Webhook PayOS công khai, xác thực bằng chữ ký; các API thanh toán khác cần đăng nhập (WMS-23.5a)
                     .requestMatchers(HttpMethod.POST, "/api/auth/payments/payos/webhook").permitAll()
                     .requestMatchers("/api/auth/payments", "/api/auth/payments/**").authenticated()
+                    // Quản trị nền tảng: chỉ SUPER_ADMIN (docs/SAAS_SPEC.md mục 6)
+                    .requestMatchers("/api/auth/platform", "/api/auth/platform/**").hasRole("SUPER_ADMIN")
                     // API key cho hệ thống ngoài: chỉ ADMIN quản lý (WMS-25.1)
                     .requestMatchers("/api/auth/api-keys", "/api/auth/api-keys/**").hasRole("ADMIN")
                     // Kích hoạt doanh nghiệp và đặt lại mật khẩu qua liên kết email: công khai, chỉ POST (WMS-23.6)

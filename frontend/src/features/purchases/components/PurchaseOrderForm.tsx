@@ -310,6 +310,10 @@ export default function PurchaseOrderForm({
 
     for (let i = 0; i < items.length; i++) {
       const it = items[i]
+      if (!it.productId) {
+        message.error(`Dòng #${i + 1}: Vui lòng chọn mặt hàng từ danh mục hàng hóa`)
+        return
+      }
       if (!it.skuCode || !it.skuCode.trim()) {
         message.error(`Dòng #${i + 1}: Mã SKU không được để trống`)
         return
@@ -392,7 +396,7 @@ export default function PurchaseOrderForm({
 
           <Space>
             {onCancel && (
-              <Button onClick={onCancel} disabled={submitting}>
+              <Button onClick={onCancel} disabled={submitting} className="rounded-md text-xs font-medium">
                 Hủy / Quay lại
               </Button>
             )}
@@ -400,6 +404,7 @@ export default function PurchaseOrderForm({
               icon={<SaveOutlined />}
               onClick={() => handleSubmitOrder('DRAFT')}
               loading={submitting}
+              className="rounded-md text-xs font-medium"
             >
               Lưu nháp
             </Button>
@@ -408,7 +413,7 @@ export default function PurchaseOrderForm({
               icon={<CheckCircleOutlined />}
               onClick={() => handleSubmitOrder('PENDING')}
               loading={submitting}
-              className="bg-blue-600 hover:bg-blue-700 font-semibold"
+              className="!bg-blue-600 hover:!bg-blue-700 !border-blue-600 text-white font-medium rounded-md text-xs"
             >
               Gửi phê duyệt
             </Button>
@@ -654,31 +659,31 @@ export default function PurchaseOrderForm({
             </Col>
 
             <Col xs={24} md={14}>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-white p-3 rounded-lg border border-slate-200">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-white p-3 rounded-lg border border-slate-200/80 shadow-2xs">
                 <div>
-                  <div className="text-[11px] text-slate-500">Tiền hàng:</div>
-                  <div className="font-semibold text-slate-700 text-sm">
+                  <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">Tiền hàng</div>
+                  <div className="font-mono font-semibold text-slate-800 text-sm mt-0.5 tabular-nums">
                     {formatCurrency(orderTotals.subtotal)}
                   </div>
                 </div>
 
                 <div>
-                  <div className="text-[11px] text-slate-500">Chiết khấu:</div>
-                  <div className="font-semibold text-amber-600 text-sm">
+                  <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">Chiết khấu</div>
+                  <div className="font-mono font-semibold text-amber-600 text-sm mt-0.5 tabular-nums">
                     -{formatCurrency(orderTotals.totalDiscount)}
                   </div>
                 </div>
 
                 <div>
-                  <div className="text-[11px] text-slate-500">Tiền thuế VAT:</div>
-                  <div className="font-semibold text-blue-600 text-sm">
+                  <div className="text-[11px] font-medium text-slate-500 uppercase tracking-wider">Tiền thuế VAT</div>
+                  <div className="font-mono font-semibold text-blue-600 text-sm mt-0.5 tabular-nums">
                     +{formatCurrency(orderTotals.totalTax)}
                   </div>
                 </div>
 
                 <div className="border-l border-slate-200 pl-3">
-                  <div className="text-[11px] text-slate-500 font-medium">Tổng thanh toán:</div>
-                  <div className="font-bold text-red-600 text-base">
+                  <div className="text-[11px] font-medium text-slate-700 uppercase tracking-wider">Tổng thanh toán</div>
+                  <div className="font-mono font-bold text-slate-900 text-base mt-0.5 tabular-nums">
                     {formatCurrency(orderTotals.grandTotal)}
                   </div>
                 </div>
@@ -697,7 +702,7 @@ export default function PurchaseOrderForm({
 
             <Space>
               {onCancel && (
-                <Button onClick={onCancel} disabled={submitting}>
+                <Button onClick={onCancel} disabled={submitting} className="rounded-md text-xs font-medium">
                   Hủy / Quay lại
                 </Button>
               )}
@@ -705,6 +710,7 @@ export default function PurchaseOrderForm({
                 icon={<SaveOutlined />}
                 onClick={() => handleSubmitOrder('DRAFT')}
                 loading={submitting}
+                className="rounded-md text-xs font-medium"
               >
                 Lưu nháp
               </Button>
@@ -713,7 +719,7 @@ export default function PurchaseOrderForm({
                 icon={<CheckCircleOutlined />}
                 onClick={() => handleSubmitOrder('PENDING')}
                 loading={submitting}
-                className="bg-blue-600 hover:bg-blue-700 font-semibold"
+                className="!bg-blue-600 hover:!bg-blue-700 !border-blue-600 text-white font-medium rounded-md text-xs"
               >
                 Gửi phê duyệt đơn mua
               </Button>

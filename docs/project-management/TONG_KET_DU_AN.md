@@ -1,13 +1,12 @@
 # Tổng kết dự án và danh sách nghiệm thu
 
-Tài liệu chuẩn bị cho buổi họp tổng kết ngày 13/11/2026 (WMS-21.4, TASK-130): phạm vi đã làm, đối soát tiêu chí hoàn
+Tài liệu cho buổi họp tổng kết của nhóm (WMS-21.4, TASK-130, đã họp ngày 12/11/2026): phạm vi đã làm, đối soát tiêu chí hoàn
 thành, việc còn lại, bàn giao và phần nhìn lại. Số liệu lấy ngày 12/11/2026 từ Jira dự án TASK và repository; mục 5 là
 bản nháp do TechLead tổng hợp, cả nhóm bổ sung và thống nhất trong buổi họp.
 
 ## 1. Phạm vi đã làm
 
-Jira có 109 subtask (150 ngày công kế hoạch). Ngày 12/11/2026: 99 subtask Done, 8 đã làm xong đang chờ merge Pull
-Request #78 và #79, 2 làm trong ngày 13/11 (triển khai bản cuối WMS-21.3, họp tổng kết WMS-21.4).
+Jira có 109 subtask (150 ngày công kế hoạch), cả 109 đã Done ngày 13/11/2026. Bản cuối (commit 9b966a7, gồm PR #80) được triển khai lên https://wms.toanmarket.me ngày 13/11/2026: chạy 28 migration trên cơ sở dữ liệu thật (sao lưu trước khi chạy), mọi service healthy; PayOS chuyển sang thật sau khi đăng ký webhook, email gửi qua API Brevo, trợ lý AI dùng Claude thật, đăng ký doanh nghiệp bắt buộc kích hoạt qua email.
 
 | Nhóm chức năng | Mã | Tình trạng |
 | --- | --- | --- |
@@ -24,7 +23,7 @@ Request #78 và #79, 2 làm trong ngày 13/11 (triển khai bản cuối WMS-21.
 | Kiểm thử đầu cuối, phân quyền API, sửa lỗi, báo cáo test | WMS-20 | Chờ merge PR #78 |
 | Swagger, tài liệu vận hành, triển khai, tổng kết | WMS-21 | Triển khai bản cuối và họp tổng kết làm ngày 13/11 |
 | Đa doanh nghiệp: tách dữ liệu ở mọi service, kiểm thử cách ly | WMS-22 | Xong; kết quả kiểm thử chờ merge PR #78 |
-| Đăng ký doanh nghiệp, gói dịch vụ, giới hạn gói, thanh toán PayOS | WMS-23 | Xong (PayOS ở chế độ giả lập) |
+| Đăng ký doanh nghiệp, gói dịch vụ, giới hạn gói, thanh toán PayOS | WMS-23 | Xong; từ 13/11 PayOS thật và email kích hoạt gửi qua Brevo |
 | ai-service, trích xuất danh mục từ Excel, PDF, ảnh | WMS-24 | Xong (đã chạy với Claude thật ngày 12/11) |
 | API key cho hệ thống ngoài | WMS-25 | Xong |
 | Rà giao diện | WMS-26 | Chờ merge PR #79 |
@@ -48,12 +47,16 @@ Tiêu chí lấy từ [CONTRIBUTING.md](../../CONTRIBUTING.md) mục 7.
 
 ## 3. Việc chưa xong và chưa kiểm chứng
 
-- Máy chủ `production` đang chạy bản cũ; bản cuối chưa được triển khai và chưa chạy bộ kiểm thử trên máy chủ.
-- Thanh toán PayOS chưa thử với khóa thật và webhook thật; gửi email (kích hoạt, quên mật khẩu, cảnh báo) chưa thử với
-  máy chủ SMTP thật. Cách bật ở [OPERATIONS.md](../OPERATIONS.md) mục 8.
+- Bản cuối đã triển khai ngày 13/11 nhưng bộ kiểm thử Postman và kịch bản tải chưa chạy trên máy chủ (bộ Postman tạo dữ
+  liệu thử và cần chế độ giả lập).
+- PayOS thật: đã đăng ký webhook (PayOS gọi thử và máy chủ kiểm tra đúng chữ ký), chưa có giao dịch tiền thật. Email
+  qua Brevo: đã kiểm tra khóa, người gửi và định dạng request; người gửi là một địa chỉ Gmail nên thư có thể vào Spam.
 - Độ trễ vượt 500 ms khi tải 40 thao tác mỗi giây dồn vào một mặt hàng (đạt tới 20 thao tác mỗi giây); chưa phân tích
   điểm nghẽn, chưa đo trên máy chủ ([PERFORMANCE.md](../PERFORMANCE.md) mục 5.4).
 - Tồn kho chưa có giá vốn: thẻ Giá trị tồn kho và các báo cáo chưa có cột giá trị.
+- Triển khai chậm: `deploy.sh` biên dịch lại 9 service Java ngay trên máy chủ (lần 13/11 mất 40 phút), rồi các service
+  khởi động 5 đến 7 phút khi chạy nhiều migration, quá 10 phút chờ mặc định nên phải bật frontend bằng tay. Nên đổi sang
+  kéo image CI đã đẩy lên GHCR và đặt `WAIT_TIMEOUT` lớn hơn khi có nhiều migration.
 - Giao diện: chưa bấm thử từng bước các màn hình đăng ký doanh nghiệp, đối soát và duyệt kiểm kê, thanh toán; chưa thử các vai trò khác Quản trị, chưa thử bề ngang điện thoại; chưa có test tự động.
 - Các điểm nghiệp vụ chưa chốt ghi ở [TEST_PLAN.md](../TEST_PLAN.md) mục 2.5 (hóa đơn mua không cộng VAT, người lập tự
   duyệt đơn mua, phiếu xuất cho đơn thiếu hàng).
@@ -71,8 +74,9 @@ Tiêu chí lấy từ [CONTRIBUTING.md](../../CONTRIBUTING.md) mục 7.
 | Kiểm thử | [TEST_PLAN.md](../TEST_PLAN.md), [TEST_REPORT.md](../TEST_REPORT.md), [qa/README.md](../../qa/README.md) |
 | Công việc và tiến độ | Jira dự án TASK; ba báo cáo sprint (30/10, 06/11, 13/11) |
 
-Bí mật chỉ nằm trong file `.env` trên máy chủ: mật khẩu cơ sở dữ liệu, RabbitMQ, khóa ký JWT, khóa Claude, khóa PayOS
-(khi có). Khi hết môn: thu hồi khóa Claude và khóa PayOS ở trang quản trị của nhà cung cấp rồi xóa khỏi `.env`.
+Bí mật chỉ nằm trong file `.env` trên máy chủ: mật khẩu cơ sở dữ liệu, RabbitMQ, khóa ký JWT, khóa Claude, ba khóa
+PayOS, khóa Brevo. Khi hết môn: thu hồi các khóa ở trang quản trị của nhà cung cấp rồi xóa khỏi `.env`
+([OPERATIONS.md](../OPERATIONS.md) mục 9).
 
 ## 5. Nhìn lại (bản nháp để nhóm thống nhất)
 

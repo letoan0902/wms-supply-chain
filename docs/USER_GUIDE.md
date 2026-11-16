@@ -1,14 +1,16 @@
 # Hướng dẫn sử dụng WMS Supply Chain
 
 WMS Supply Chain là phần mềm quản lý kho trên web: kho và vị trí ô/kệ, hàng hóa (SKU), nhà cung cấp, khách hàng, mua và nhập kho, bán và xuất kho, điều chuyển, tồn kho và cảnh báo, công nợ, báo cáo, truy vết theo lô, gói dịch vụ, trợ lý AI. Mọi mục menu (trừ "Nhập dữ liệu bằng AI") hiện với mọi người; vai trò không có quyền sẽ thấy thông báo không có quyền. Các vai trò:
-- Quản trị hệ thống: toàn quyền, quản lý người dùng và API key.
+- Quản trị hệ thống: quản trị của một doanh nghiệp, toàn quyền trong doanh nghiệp đó, quản lý người dùng và API key.
 - Quản lý kho: quản lý kho, vị trí kệ, duyệt đơn mua và điều chuyển.
 - Nhân viên kho: nhập, xuất kho, quét mã vạch, kiểm đếm.
 - Nhân viên mua hàng: lập đơn mua, theo dõi nhà cung cấp.
 - Nhân viên bán hàng: lập đơn bán, theo dõi khách hàng.
 - Kế toán: công nợ, hóa đơn, thanh toán.
 
-Hướng dẫn phản ánh giao diện tại ngày 12/11/2026.
+Ngoài các vai trò của doanh nghiệp còn có Quản trị nền tảng: người vận hành hệ thống, chỉ xem thống kê và quản lý các doanh nghiệp khách hàng, không làm việc bên trong doanh nghiệp nào (xem mục "Quản trị nền tảng" ở cuối).
+
+Hướng dẫn phản ánh giao diện tại ngày 16/11/2026.
 
 ## Đăng nhập, quên mật khẩu, đăng ký và kích hoạt doanh nghiệp
 
@@ -28,7 +30,7 @@ Hướng dẫn phản ánh giao diện tại ngày 12/11/2026.
 
 Máy chủ thử nghiệm tắt yêu cầu kích hoạt qua email thì sau bước 3 trang chuyển thẳng sang `/login` với tên đăng nhập điền sẵn.
 
-Đăng nhập: vào `/login`, nhập Tên đăng nhập, Mật khẩu, bấm "Đăng nhập". Tên doanh nghiệp hiện ở thanh tiêu đề phía trên, cạnh chuông thông báo. Doanh nghiệp chưa kích hoạt sẽ thấy cảnh báo "Doanh nghiệp chưa được kích hoạt" kèm ô gửi lại email kích hoạt. Đang đăng nhập mà mở `/login` hoặc `/register` thì được đưa thẳng vào trang tổng quan.
+Đăng nhập: vào `/login`, nhập Tên đăng nhập, Mật khẩu, bấm "Đăng nhập". Tên doanh nghiệp hiện ở thanh tiêu đề phía trên, cạnh chuông thông báo. Doanh nghiệp chưa kích hoạt sẽ thấy cảnh báo "Doanh nghiệp chưa được kích hoạt" kèm ô gửi lại email kích hoạt. Đang đăng nhập mà mở `/login` hoặc `/register` thì được đưa thẳng vào trang tổng quan. Doanh nghiệp bị quản trị nền tảng tạm khóa thì đăng nhập nhận thông báo "Doanh nghiệp đã bị tạm khóa. Vui lòng liên hệ quản trị nền tảng.".
 
 Quên mật khẩu:
 1. Ở trang đăng nhập bấm "Quên mật khẩu?" (trang `/forgot-password`), nhập email, bấm "Gửi liên kết đặt lại mật khẩu".
@@ -237,7 +239,7 @@ Chỉ Quản trị hệ thống và Kế toán lập được hóa đơn bán v�
 
 Lập hóa đơn:
 1. Vào menu "Bán hàng và xuất kho", trên đơn Đã xác nhận hoặc Đã hoàn thành bấm nút lập hóa đơn (hoặc "Tạo Hóa đơn bán" trong chi tiết đơn); ở tab "Hóa đơn bán & Công nợ phải thu" cũng có nút lập hóa đơn trên dòng khách.
-2. Chọn khách hàng, nhập số hóa đơn, chọn "Bán nợ" (cộng vào công nợ phải thu) hoặc "Thu tiền ngay", nhập số tiền, ghi chú.
+2. Chọn khách hàng, nhập số hóa đơn, chọn "Bán nợ" (cộng vào công nợ phải thu) hoặc "Thu tiền ngay" (ghi hóa đơn và phiếu thu cùng số tiền, công nợ khách giữ nguyên; số hóa đơn đã phát hành thì không phát hành lại được), nhập số tiền, ghi chú.
 3. Bấm "Phát hành Hóa đơn".
 
 Tab "Hóa đơn bán & Công nợ phải thu" (Quản trị hệ thống, Quản lý kho, Nhân viên bán hàng, Kế toán) hiện tổng công nợ phải thu và danh sách khách; chọn một khách để xem lịch sử hóa đơn.
@@ -439,7 +441,7 @@ Ai dùng được: hàng hóa và nhà cung cấp cho Quản trị hệ thống,
 
 Các bước:
 1. Vào menu "Nhập dữ liệu bằng AI" (hoặc bấm "Nhập bằng AI" trên trang danh mục), chọn loại dữ liệu.
-2. Kéo thả hoặc bấm chọn một file: tối đa 10 MB, 200 dòng (file dài hơn chỉ lấy 200 dòng đầu). Bảng tính nên có một dòng tiêu đề cột, ví dụ "Mã hàng", "Tên hàng", "ĐVT", "Giá nhập".
+2. Kéo thả hoặc bấm chọn một file: tối đa 10 MB (ảnh png, jpg tối đa 7,5 MB), 200 dòng (file dài hơn chỉ lấy 200 dòng đầu). Bảng tính nên có một dòng tiêu đề cột, ví dụ "Mã hàng", "Tên hàng", "ĐVT", "Giá nhập".
 3. Bấm "Trích xuất dữ liệu" và chờ: bảng tính thường xong trong vài chục giây, PDF và ảnh có thể tới khoảng 3 phút. Bấm "Hủy" để thôi chờ. File không đọc được, không có cột phù hợp hoặc sai định dạng sẽ báo lỗi rõ ràng.
 4. Xem lại bảng: mỗi cột là một trường của danh mục (dấu * là bắt buộc); rê chuột lên tiêu đề cột để biết cột đó lấy từ cột nào trong file. Ô nền vàng là ô AI chưa chắc chắn, ô viền đỏ phải sửa trước khi nhập, biểu tượng cảnh báo ở đầu dòng cho biết lý do. Bấm vào ô để sửa (Enter để lưu, Esc để bỏ). Dòng còn lỗi không chọn được; bỏ chọn hoặc xóa những dòng không muốn nhập; bật "Chỉ hiện dòng cần xem lại" để lọc nhanh.
 5. Bấm "Nhập N dòng" và xác nhận. Màn hình hiện tổng số dòng đã tạo mới, bỏ qua (mã đã có trong danh mục, không ghi đè) và lỗi, cùng kết quả từng dòng kèm lý do.
@@ -462,3 +464,13 @@ Cách hỏi:
 4. Hỏi tiếp trong cùng khung để trợ lý hiểu theo ngữ cảnh. Bấm "Cuộc trò chuyện mới" để bắt đầu lại. Cuộc trò chuyện hết hạn sau 1 giờ không hỏi thêm và mất khi tải lại trang.
 
 Mỗi câu hỏi được trả lời dùng một lượt AI trong hạn mức hằng tháng của gói dịch vụ (câu bị từ chối không tính); khung chat hiện "Lượt AI tháng này". Lỗi thì bấm "Gửi lại". Nhãn "Chế độ giả lập" nghĩa là hệ thống chưa bật AI thật, trợ lý trả lời theo quy tắc. Khi gói đã hết hạn, trợ lý không nhận câu hỏi mới.
+
+## Quản trị nền tảng
+
+Dành cho tài khoản quản trị nền tảng (người vận hành hệ thống, không thuộc doanh nghiệp khách hàng nào). Sau khi đăng nhập luôn vào trang "Tổng quan nền tảng" `/platform`. Menu chỉ có ba mục; menu tài khoản góc phải trên vẫn có hồ sơ cá nhân, đổi mật khẩu, đăng xuất. Quản trị nền tảng không xem được hàng hóa, đơn hàng hay dữ liệu nghiệp vụ của doanh nghiệp; mở các trang đó sẽ được đưa về `/platform`. Mỗi doanh nghiệp có tài khoản quản trị riêng (với Công ty mẫu A là `admin_a`).
+
+- "Tổng quan nền tảng" (`/platform`): số doanh nghiệp theo trạng thái (đang hoạt động, chờ kích hoạt, tạm khóa), số doanh nghiệp theo gói, số thuê bao đã hết hạn và sắp hết hạn trong 7 ngày, số người dùng, doanh thu (tổng, tháng này), biểu đồ đăng ký và doanh thu 6 tháng gần nhất, doanh nghiệp mới đăng ký và thanh toán gần nhất.
+- "Doanh nghiệp" (`/platform/companies`): tìm theo tên, mã, mã số thuế, email; lọc theo trạng thái và gói. Mở một doanh nghiệp để xem thông tin, giới hạn và mức dùng của gói, tài khoản quản trị của doanh nghiệp, các lần thanh toán.
+- "Thanh toán" (`/platform/payments`): mọi giao dịch của các doanh nghiệp, lọc theo trạng thái, doanh nghiệp và khoảng ngày tạo.
+
+Khóa và mở khóa doanh nghiệp: trong trang "Doanh nghiệp", chọn doanh nghiệp đang hoạt động, bấm khóa, nhập lý do (không bắt buộc, tối đa 255 ký tự) và xác nhận. Người dùng của doanh nghiệp đó không đăng nhập được nữa; ai đang trong phiên làm việc bị đăng xuất muộn nhất sau 15 phút. Bấm mở khóa với doanh nghiệp đang tạm khóa để họ đăng nhập lại được. Doanh nghiệp chờ kích hoạt không kích hoạt được ở đây: người đăng ký phải bấm liên kết trong email.

@@ -1,6 +1,8 @@
 package vn.wms.notification.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.databind.json.JsonMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.amqp.core.Binding;
 import org.springframework.amqp.core.Message;
@@ -9,8 +11,11 @@ import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.TopicExchange;
 import org.springframework.amqp.support.converter.MessageConverter;
 import vn.wms.common.messaging.WmsEvents;
+import vn.wms.common.messaging.event.AccountEmailKind;
+import vn.wms.common.messaging.event.AccountEmailRequestedEvent;
 import vn.wms.notification.messaging.NotificationMessage;
 
+import java.time.Instant;
 import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -20,7 +25,7 @@ class RabbitMqConfigTest {
 
     private final RabbitMqConfig config = new RabbitMqConfig();
     private final NotificationProperties properties = new NotificationProperties(
-            new NotificationProperties.Mail("no-reply@wms.local"),
+            new NotificationProperties.Mail("no-reply@wms.local", "WMS Supply Chain"),
             new NotificationProperties.Rabbitmq("wms.events", "notification.alerts", "alert.#"));
 
     @Test
@@ -94,5 +99,27 @@ class RabbitMqConfigTest {
 
         assertThat(converted).isEqualTo(new NotificationMessage(
                 "LOW_STOCK", "quan.ly.kho@wms.local", "Cảnh báo tồn kho thấp", "SKU-001 chỉ còn 3 cái"));
+    }
+
+    /**
+     * Listener nhận {@code Message} thô nên container không suy được kiểu và dùng header {@code __TypeId__} của service
+     * gửi. Gói sự kiện dùng chung phải được tin cậy, nếu không mọi tin bị đẩy vào dead-letter trước khi tới listener.
+     */
+    @Test
+    void converterAcceptsSharedEventTypesSentByOtherServices() throws Exception {
+        ObjectMapper objectMapper = JsonMapper.builder().findAndAddModules()
+                .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS).build();
+        MessageConverter converter = config.jsonMessageConverter(objectMapper);
+        AccountEmailRequestedEvent event = new AccountEmailRequestedEvent(AccountEmailKind.ACTIVATION, 3L,
+                "Công ty Mẫu", "an@example.com", "Nguyễn Văn An", "https://wms.example.com/activate?token=abc",
+                Instant.parse("2026-11-17T05:53:51Z"), Instant.parse("2026-11-16T05:53:51Z"));
+        MessageProperties messageProperties = new MessageProperties();
+        messageProperties.setContentType(MessageProperties.CONTENT_TYPE_JSON);
+        messageProperties.setHeader("__TypeId__", AccountEmailRequestedEvent.class.getName());
+
+        Object converted = converter.fromMessage(
+                new Message(objectMapper.writeValueAsBytes(event), messageProperties));
+
+        assertThat(converted).isEqualTo(event);
     }
 }

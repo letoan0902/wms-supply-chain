@@ -101,11 +101,13 @@ export default function SalesOrderItemsTable({
       dataIndex: 'uom',
       key: 'uom',
       width: 90,
-      render: (val, record) => (
+      render: (val) => (
+        // Chỉ đọc: số lượng trên chứng từ luôn tính theo đơn vị cơ bản của hàng hóa, hệ thống không quy đổi đơn vị khác
         <Input
           size="small"
           value={val || 'Cái'}
-          onChange={(e) => onItemChange(record._key, 'uom', e.target.value)}
+          readOnly
+          title="Đơn vị tính lấy theo hàng hóa; số lượng nhập theo đơn vị này"
           placeholder="ĐVT"
         />
       ),
@@ -161,6 +163,7 @@ export default function SalesOrderItemsTable({
           size="small"
           min={0.001}
           step={1}
+          precision={3}
           value={val}
           onChange={(newVal) => onItemChange(record._key, 'quantity', newVal ?? 1)}
           className="w-full"

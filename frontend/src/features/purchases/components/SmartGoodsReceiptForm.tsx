@@ -5,7 +5,6 @@ import {
   CheckCircleOutlined,
   ClearOutlined,
   EnvironmentOutlined,
-  ExclamationCircleOutlined,
   FastForwardOutlined,
   InboxOutlined,
   MinusOutlined,
@@ -625,47 +624,47 @@ export default function SmartGoodsReceiptForm({
   // Cấu hình bảng hiển thị chi tiết các dòng hàng
   const columns: ColumnsType<ReceiptItemRow> = [
     {
-      title: 'STT',
-      width: 55,
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">#</span>,
+      width: 44,
       align: 'center',
-      render: (_, __, idx) => idx + 1,
+      render: (_, __, idx) => <span className="text-xs font-mono text-slate-400">{idx + 1}</span>,
     },
     {
-      title: 'Mặt hàng & SKU',
-      width: 240,
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">Mặt hàng & SKU</span>,
+      width: 230,
       render: (_, r) => {
         const isHighlighted = lastScannedSku === r.skuCode
         return (
           <div
-            className={`p-1.5 rounded transition-colors duration-500 ${
-              isHighlighted ? 'bg-emerald-100 ring-2 ring-emerald-500' : ''
+            className={`p-1.5 rounded-lg transition-colors duration-300 ${
+              isHighlighted ? 'bg-blue-50/70 ring-1 ring-blue-300' : ''
             }`}
           >
-            <div className="font-semibold text-slate-800 flex items-center gap-1.5">
+            <div className="font-semibold text-slate-900 flex items-center gap-1.5 text-sm">
               <span>{r.productName}</span>
               {isHighlighted && (
-                <Tag color="success" className="animate-bounce m-0 text-[10px]">
+                <Tag color="processing" className="m-0 text-[10px]">
                   + Vừa quét
                 </Tag>
               )}
             </div>
-            <div className="text-xs text-slate-500 flex items-center gap-2 mt-0.5">
-              <span className="font-mono bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200">
+            <div className="text-xs text-slate-600 flex items-center gap-2 mt-0.5">
+              <span className="font-mono text-xs bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200/80 text-slate-700 font-medium">
                 {r.skuCode}
               </span>
               <span>ĐVT: {r.uom}</span>
             </div>
             {(r.manageByExpiration || r.manageByLot) && (
-              <div className="flex items-center gap-1 mt-1">
+              <div className="flex items-center gap-1.5 mt-1">
                 {r.manageByExpiration && (
-                  <Tag color="purple" className="text-[10px] m-0">
+                  <span className="text-xs px-1.5 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200/80 font-medium">
                     Quản lý Date
-                  </Tag>
+                  </span>
                 )}
                 {r.manageByLot && (
-                  <Tag color="cyan" className="text-[10px] m-0">
+                  <span className="text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200/80 font-medium">
                     Quản lý Lô
-                  </Tag>
+                  </span>
                 )}
               </div>
             )}
@@ -674,8 +673,8 @@ export default function SmartGoodsReceiptForm({
       },
     },
     {
-      title: 'Tiến độ PO',
-      width: 170,
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">Tiến độ PO</span>,
+      width: 150,
       render: (_, r) => {
         const totalReceivedAfterThis = r.receivedQuantity + r.acceptedQuantity
         const percent = Math.min(
@@ -686,12 +685,12 @@ export default function SmartGoodsReceiptForm({
 
         return (
           <div className="space-y-1">
-            <div className="flex justify-between text-xs text-slate-600">
+            <div className="flex justify-between text-xs text-slate-700 font-medium">
               <span>
-                Đã nhận: <strong>{formatNumber(r.receivedQuantity)}</strong>
+                Đã nhận: <strong className="font-mono tabular-nums text-slate-900">{formatNumber(r.receivedQuantity)}</strong>
               </span>
               <span>
-                Đặt: <strong>{formatNumber(r.orderedQuantity)}</strong>
+                Đặt: <strong className="font-mono tabular-nums text-slate-900">{formatNumber(r.orderedQuantity)}</strong>
               </span>
             </div>
             <Progress
@@ -699,9 +698,9 @@ export default function SmartGoodsReceiptForm({
               size="small"
               status={isOver ? 'exception' : percent === 100 ? 'success' : 'active'}
             />
-            <div className="flex justify-between text-[11px]">
-              <span className="text-slate-500">
-                Còn lại: <strong className="text-blue-600">{formatNumber(r.remainingQuantity)}</strong>
+            <div className="flex justify-between text-xs">
+              <span className="text-slate-600">
+                Còn lại: <strong className="text-slate-900 font-mono tabular-nums font-semibold">{formatNumber(r.remainingQuantity)}</strong>
               </span>
               {isOver && <span className="text-rose-600 font-semibold">Vượt PO!</span>}
             </div>
@@ -710,12 +709,8 @@ export default function SmartGoodsReceiptForm({
       },
     },
     {
-      title: (
-        <span className="text-emerald-700 font-semibold flex items-center gap-1">
-          <CheckCircleOutlined /> SL Đạt (Accepted)
-        </span>
-      ),
-      width: 180,
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">SL Đạt</span>,
+      width: 150,
       render: (_, r, idx) => (
         <div className="space-y-1">
           <Space size={4}>
@@ -724,58 +719,56 @@ export default function SmartGoodsReceiptForm({
               icon={<MinusOutlined />}
               onClick={() => handleAdjustAccepted(idx, -1)}
               disabled={r.acceptedQuantity <= 0}
+              className="rounded"
             />
             <InputNumber
               min={0}
-              precision={2}
+              precision={3}
               value={r.acceptedQuantity}
               onChange={(val) => handleItemFieldChange(idx, 'acceptedQuantity', val || 0)}
-              className="w-24 font-bold text-center text-emerald-700"
+              className="w-24 font-bold text-center text-slate-900 font-mono"
             />
             <Button
               size="small"
               icon={<PlusOutlined />}
               onClick={() => handleAdjustAccepted(idx, 1)}
+              className="rounded"
             />
           </Space>
-          <div className="text-[11px] text-slate-500">
+          <div className="text-xs text-slate-600 font-mono tabular-nums">
             = {formatCurrency(r.acceptedQuantity * (r.unitPrice || 0))}
           </div>
         </div>
       ),
     },
     {
-      title: (
-        <span className="text-amber-700 font-semibold flex items-center gap-1">
-          <ExclamationCircleOutlined /> SL Hỏng (Rejected)
-        </span>
-      ),
-      width: 200,
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">SL Hỏng</span>,
+      width: 140,
       render: (_, r, idx) => (
         <div className="space-y-1.5">
           <InputNumber
             min={0}
-            precision={2}
+            precision={3}
             placeholder="SL hỏng"
             value={r.rejectedQuantity}
             onChange={(val) => handleItemFieldChange(idx, 'rejectedQuantity', val || 0)}
-            className="w-full text-amber-700"
+            className="w-full text-slate-900 font-mono font-semibold"
           />
           {r.rejectedQuantity > 0 && (
             <Input
               size="small"
-              placeholder="Nhập lý do hỏng / phế phẩm *"
+              placeholder="Lý do hỏng / phế phẩm *"
               value={r.rejectedReason}
               onChange={(e) => handleItemFieldChange(idx, 'rejectedReason', e.target.value)}
-              className="text-xs"
+              className="text-xs rounded"
             />
           )}
         </div>
       ),
     },
     {
-      title: 'Quản lý Lô & HSD',
-      width: 250,
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">Lô & Hạn sử dụng</span>,
+      width: 170,
       render: (_, r, idx) => {
         const isDateManaged = Boolean(r.manageByExpiration || r.manageByLot)
         const isMissingRequired =
@@ -792,45 +785,45 @@ export default function SmartGoodsReceiptForm({
               danger={isMissingRequired}
               icon={<CalendarOutlined />}
               onClick={() => handleOpenLotModal(idx)}
-              className="w-full text-xs font-semibold flex items-center justify-center gap-1 shadow-2xs"
+              className="w-full text-xs font-medium rounded flex items-center justify-center gap-1 shadow-2xs"
             >
               {isMissingRequired
                 ? 'Nhập Lô & HSD ngay *'
                 : r.batchNumber || r.expDate
-                ? 'Sửa Lô / HSD / Vị trí'
+                ? 'Sửa Lô / HSD'
                 : 'Nhập Lô & HSD'}
             </Button>
 
             <div className="flex flex-wrap items-center gap-1">
               {r.batchNumber ? (
-                <Tag color="blue" className="font-mono text-[11px] m-0">
+                <span className="font-mono text-xs px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200/80 font-medium">
                   Lô: {r.batchNumber}
-                </Tag>
+                </span>
               ) : isDateManaged ? (
-                <Tag color="default" className="text-[10px] m-0 text-slate-400">
+                <span className="text-xs text-slate-400">
                   Chưa có lô
-                </Tag>
+                </span>
               ) : null}
 
               {r.expDate ? (
-                <Tag color={isExpired ? 'error' : 'purple'} className="text-[11px] m-0">
+                <span className={`text-xs px-1.5 py-0.5 rounded border font-medium ${isExpired ? 'bg-rose-50 text-rose-700 border-rose-200/80' : 'bg-slate-100 text-slate-700 border-slate-200/80'}`}>
                   HSD: {dayjs(r.expDate).format('DD/MM/YYYY')}
-                </Tag>
+                </span>
               ) : isDateManaged ? (
-                <Tag color="default" className="text-[10px] m-0 text-slate-400">
+                <span className="text-xs text-slate-400">
                   Chưa có HSD
-                </Tag>
+                </span>
               ) : null}
             </div>
 
             {isExpired && (
-              <Tag color="error" className="m-0 text-[10px] flex items-center gap-1">
+              <span className="text-xs font-medium text-rose-600 flex items-center gap-1">
                 <WarningOutlined /> Lô đã hết hạn!
-              </Tag>
+              </span>
             )}
             {isMissingRequired && (
-              <div className="text-[10px] text-rose-600 font-medium">
-                * Bắt buộc nhập Lô & HSD khi nhận hàng
+              <div className="text-xs text-rose-600 font-medium">
+                * Bắt buộc nhập Lô & HSD
               </div>
             )}
           </div>
@@ -838,8 +831,8 @@ export default function SmartGoodsReceiptForm({
       },
     },
     {
-      title: 'Vị trí cất hàng',
-      width: 200,
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">Vị trí cất hàng</span>,
+      width: 160,
       render: (_, r, idx) => (
         <div className="space-y-1">
           <Select
@@ -864,10 +857,10 @@ export default function SmartGoodsReceiptForm({
             }))}
           />
           {r.locationCode && (
-            <div className="text-[11px] text-emerald-700 flex items-center gap-1">
-              <EnvironmentOutlined />
+            <div className="text-xs text-slate-700 flex items-center gap-1 font-medium">
+              <EnvironmentOutlined className="text-slate-400" />
               <span>
-                Ô lưu cất: <strong>{r.locationCode}</strong>
+                Ô lưu cất: <strong className="text-slate-900">{r.locationCode}</strong>
               </span>
             </div>
           )}
@@ -881,11 +874,11 @@ export default function SmartGoodsReceiptForm({
       {/* Header Form */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 border-b border-slate-200 pb-4">
         <div>
-          <Title level={4} className="!mb-1 flex items-center gap-2 text-slate-800">
-            <BarcodeOutlined className="text-emerald-600" />
+          <Title level={4} className="!mb-1 flex items-center gap-2 text-slate-900 font-bold">
+            <BarcodeOutlined className="text-slate-600" />
             <span>Form Lập Phiếu Nhập Kho Thông Minh (Quét mã vạch cộng dồn SL)</span>
           </Title>
-          <Text type="secondary" className="text-xs">
+          <Text type="secondary" className="text-sm text-slate-500">
             Hỗ trợ súng bắn mã vạch quét liên tục (&lt; 100ms) tự động tích cộng dồn, phát tiếng bíp, quản lý Lô & HSD
           </Text>
         </div>
@@ -897,7 +890,7 @@ export default function SmartGoodsReceiptForm({
             icon={<SaveOutlined />}
             loading={submitting}
             onClick={handleSubmit}
-            className="bg-emerald-600 hover:bg-emerald-700 font-semibold"
+            className="font-semibold shadow-xs"
           >
             Xác nhận Nhập kho (GRN)
           </Button>
@@ -984,22 +977,22 @@ export default function SmartGoodsReceiptForm({
 
       {/* KHU VỰC QUÉT MÃ VẠCH THÔNG MINH (SMART SCAN ZONE) */}
       <Card
-        className="border-2 border-emerald-400 bg-linear-to-r from-emerald-50/60 to-blue-50/40 shadow-sm"
+        className="border border-slate-200 bg-slate-50/80 rounded-xl shadow-xs"
         bodyStyle={{ padding: '16px 20px' }}
       >
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex-1">
-            <div className="flex items-center gap-2 mb-1.5">
-              <BarcodeOutlined className="text-emerald-700 text-lg animate-pulse" />
-              <span className="font-bold text-slate-800 text-sm">
+            <div className="flex items-center gap-2 mb-2">
+              <BarcodeOutlined className="text-slate-600 text-lg" />
+              <span className="font-semibold text-slate-900 text-sm">
                 Ô Quét Mã Vạch Thông Minh (Tự động nhận diện súng bắn mã &lt; 100ms)
               </span>
-              <Tag color="green" className="text-[10px] m-0">
+              <span className="text-xs px-2 py-0.5 rounded bg-slate-200/80 text-slate-600 font-medium">
                 Tự động chọn ô quét
-              </Tag>
-              <Tag color="blue" className="text-[10px] m-0">
+              </span>
+              <span className="text-xs px-2 py-0.5 rounded bg-slate-200/80 text-slate-600 font-medium">
                 Tiếng bíp: Bật
-              </Tag>
+              </span>
             </div>
 
             <div className="flex items-center gap-2">
@@ -1011,7 +1004,7 @@ export default function SmartGoodsReceiptForm({
                 value={barcodeInput}
                 onChange={(e) => setBarcodeInput(e.target.value)}
                 onKeyDown={handleBarcodeKeyDown}
-                className="font-mono text-base font-semibold border-emerald-400 focus:border-emerald-600"
+                className="font-mono text-base font-semibold"
                 disabled={!selectedPoId}
                 autoFocus
               />
@@ -1022,21 +1015,20 @@ export default function SmartGoodsReceiptForm({
                 icon={<CameraOutlined />}
                 onClick={() => setIsCameraModalOpen(true)}
                 disabled={!selectedPoId}
-                className="hover:border-blue-500 hover:text-blue-600"
+                className="font-medium"
               >
                 Camera quét
               </Button>
             </div>
           </div>
 
-          <div className="flex flex-wrap md:flex-col items-start md:items-end gap-2 text-xs">
-            <div className="flex items-center gap-1.5">
-              <span className="text-slate-500">Mỗi lần quét cộng:</span>
+          <div className="flex flex-wrap md:flex-col items-start md:items-end gap-2.5 text-xs">
+            <div className="flex items-center gap-2">
+              <span className="text-slate-600 font-medium">Mỗi lần quét cộng:</span>
               <Radio.Group
                 size="small"
                 value={scanStep}
                 onChange={(e) => setScanStep(e.target.value)}
-                buttonStyle="solid"
               >
                 <Radio.Button value={1}>+1</Radio.Button>
                 <Radio.Button value={5}>+5</Radio.Button>
@@ -1050,7 +1042,7 @@ export default function SmartGoodsReceiptForm({
                 icon={<FastForwardOutlined />}
                 onClick={handleFillAllRemaining}
                 disabled={!selectedPoId || items.length === 0}
-                className="text-blue-600 border-blue-400"
+                className="text-slate-700"
               >
                 Điền đủ số còn lại
               </Button>
@@ -1068,10 +1060,10 @@ export default function SmartGoodsReceiptForm({
 
         {/* Thanh trạng thái nhanh vừa quét */}
         {lastScannedSku && (
-          <div className="mt-2.5 flex items-center gap-2 text-xs text-emerald-800 bg-emerald-100/80 px-3 py-1.5 rounded-md border border-emerald-300">
-            <CheckCircleOutlined className="text-emerald-600" />
+          <div className="mt-3 flex items-center gap-2 text-xs text-slate-800 bg-white px-3 py-2 rounded-lg border border-slate-200 shadow-2xs">
+            <CheckCircleOutlined className="text-emerald-600 text-sm" />
             <span>
-              Đã ghi nhận quét thành công cho SKU: <strong>{lastScannedSku}</strong> (+{scanStep})
+              Đã ghi nhận quét thành công cho SKU: <strong className="font-mono text-slate-900">{lastScannedSku}</strong> (+{scanStep})
             </span>
           </div>
         )}
@@ -1099,17 +1091,19 @@ export default function SmartGoodsReceiptForm({
 
       {/* Bảng Chi tiết các mặt hàng của PO */}
       <Card variant="borderless" className="shadow-2xs">
-        <div className="flex items-center justify-between mb-3">
-          <div className="font-semibold text-slate-800 flex items-center gap-2">
-            <InboxOutlined className="text-blue-600" />
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
+          <div className="font-semibold text-slate-900 flex items-center gap-2 text-sm">
+            <InboxOutlined className="text-slate-600" />
             <span>Danh sách mặt hàng nhập kho</span>
-            <Badge count={items.length} style={{ backgroundColor: '#108ee9' }} />
+            <Badge count={items.length} style={{ backgroundColor: '#475569' }} />
           </div>
 
-          <div className="text-xs text-slate-500">
-            Số lượng đạt: <strong className="text-emerald-600 text-sm">{formatNumber(totalAccepted)}</strong> |{' '}
-            Hàng lỗi: <strong className="text-amber-600 text-sm">{formatNumber(totalRejected)}</strong> |{' '}
-            Ước tính giá trị: <strong className="text-slate-800 text-sm">{formatCurrency(totalEstimatedAmount)}</strong>
+          <div className="text-xs text-slate-600 flex flex-wrap items-center gap-3">
+            <span>Số lượng đạt: <strong className="text-slate-900 font-bold tabular-nums text-sm">{formatNumber(totalAccepted)}</strong></span>
+            <span className="text-slate-300">|</span>
+            <span>Hàng lỗi: <strong className="text-slate-900 font-bold tabular-nums text-sm">{formatNumber(totalRejected)}</strong></span>
+            <span className="text-slate-300">|</span>
+            <span>Ước tính giá trị: <strong className="text-slate-900 font-bold tabular-nums text-sm">{formatCurrency(totalEstimatedAmount)}</strong></span>
           </div>
         </div>
 
@@ -1119,7 +1113,7 @@ export default function SmartGoodsReceiptForm({
           dataSource={items}
           loading={loadingProgress}
           pagination={false}
-          scroll={{ x: 1300 }}
+          scroll={{ x: 1044 }}
           locale={{
             emptyText: selectedPoId
               ? 'Không có mặt hàng nào cần nhập trong đơn PO này.'
@@ -1130,18 +1124,18 @@ export default function SmartGoodsReceiptForm({
 
       {/* Footer Form Thao tác */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 bg-slate-50 rounded-lg border border-slate-200">
-        <div className="flex flex-wrap items-center gap-4 text-sm">
+        <div className="flex flex-wrap items-center gap-6 text-sm text-slate-600">
           <div>
             Tổng SL đạt chuẩn:{' '}
-            <strong className="text-emerald-600 text-base">{formatNumber(totalAccepted)}</strong>
+            <strong className="text-slate-900 font-bold text-base tabular-nums">{formatNumber(totalAccepted)}</strong>
           </div>
           <div>
             Tổng SL phế phẩm:{' '}
-            <strong className="text-amber-600 text-base">{formatNumber(totalRejected)}</strong>
+            <strong className="text-slate-900 font-bold text-base tabular-nums">{formatNumber(totalRejected)}</strong>
           </div>
           <div>
             Tổng tiền hàng:{' '}
-            <strong className="text-blue-700 text-base">{formatCurrency(totalEstimatedAmount)}</strong>
+            <strong className="text-slate-900 font-bold text-base tabular-nums">{formatCurrency(totalEstimatedAmount)}</strong>
           </div>
         </div>
 
@@ -1152,7 +1146,7 @@ export default function SmartGoodsReceiptForm({
             icon={<SaveOutlined />}
             loading={submitting}
             onClick={handleSubmit}
-            className="bg-emerald-600 hover:bg-emerald-700 font-semibold px-6"
+            className="font-semibold px-6 shadow-xs"
           >
             Xác nhận Nhập kho (GRN)
           </Button>

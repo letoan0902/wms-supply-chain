@@ -200,7 +200,7 @@ không gọi được inventory-service thì 503 và chứng từ không đổi.
 | Lập hoặc xác nhận phiếu nhập GRN | `POST /internal/inventory/receipts/location-check`: vị trí nhận (xác định như listener: theo ID, theo mã, không chọn thì ô đầu tiên của kho) đang đóng băng kiểm kê thì trả xung đột, order-service trả `409 CONFLICT` và không ghi phiếu, hóa đơn mua, công nợ | `order.received` vẫn là bước cộng tồn (inventory-service), thông báo và KPI (notification-service). Listener vẫn kiểm tra đóng băng; tin bị từ chối xử lý theo mục 4 |
 | Xác nhận đơn bán (`confirm`, lập đơn ở trạng thái CONFIRMED, sửa đơn BACKORDER đủ hàng) | `POST /internal/inventory/reservations`: giữ chỗ toàn bộ đơn dưới khóa bi quan các dòng tồn, tất cả hoặc không, idempotent theo `orderId` (đơn đã có giữ chỗ ACTIVE thì không đổi gì). Thiếu hàng: inventory-service trả 409 và không giữ dòng nào; order-service theo quy tắc cũ: `confirm` trả 400, lập đơn cho phép BACKORDER thì đơn thành BACKORDER, không thì 400. Dòng đơn bán bị khóa khi xác nhận, sửa, hủy nên bấm hai lần chỉ một lần thành công và một sự kiện | `order.created` cho thông báo, KPI. Listener giữ chỗ của inventory-service vẫn chạy cho sự kiện cũ nhưng bỏ qua đơn đã có bất kỳ bản ghi giữ chỗ nào (ACTIVE, FULFILLED, RELEASED), nên không giữ lần hai kể cả khi sự kiện tới trễ sau khi đơn đã xuất hoặc đã hủy |
 
-| Hoàn tất phiếu xuất GDN (lập phiếu ở COMPLETED hoặc `dispatch` phiếu DRAFT/PICKING) | `POST /internal/inventory/dispatches` với khóa `dispatchKey = GDN-<id phiếu>`: trừ tồn như listener (tự phân bổ theo hạn dùng, bỏ ô đóng băng, hoàn tất đúng phần giữ chỗ của đơn, xuất một phần thì phần còn lại vẫn giữ, ghi sổ kho), ghi khóa vào `stock_dispatches` cùng transaction; khóa đã có thì không trừ thêm và trả `alreadyProcessed`. Không đủ tồn hoặc ô đóng băng thì lỗi 4xx của inventory-service được trả nguyên cho người dùng và phiếu không hoàn tất | `order.dispatched` (mang `dispatchKey`) cho thông báo, KPI, báo cáo. Listener trừ tồn của inventory-service tra nhật ký theo `dispatchKey` nên bỏ qua; sự kiện cũ không có khóa vẫn chống trùng theo `messageId` |
+| Hoàn tất phiếu xuất GDN (lập phiếu ở COMPLETED hoặc `dispatch` phiếu DRAFT/PICKING) | `POST /internal/inventory/dispatches` với khóa `dispatchKey = GDN-<id phiếu>`: trừ tồn như listener (lấy trước các dòng tồn đơn đã giữ chỗ, phần còn lại tự phân bổ theo hạn dùng trên hàng chưa giữ cho đơn khác, bỏ ô đóng băng, hoàn tất đúng phần giữ chỗ của đơn, xuất một phần thì phần còn lại vẫn giữ, ghi sổ kho), ghi khóa vào `stock_dispatches` cùng transaction; khóa đã có thì không trừ thêm và trả `alreadyProcessed`. Không đủ tồn hoặc ô đóng băng thì lỗi 4xx của inventory-service được trả nguyên cho người dùng và phiếu không hoàn tất | `order.dispatched` (mang `dispatchKey`) cho thông báo, KPI, báo cáo. Listener trừ tồn của inventory-service tra nhật ký theo `dispatchKey` nên bỏ qua; sự kiện cũ không có khóa vẫn chống trùng theo `messageId` |
 
 Thứ tự bước và khoảng hở còn lại:
 
@@ -208,11 +208,11 @@ Thứ tự bước và khoảng hở còn lại:
 - Xác nhận đơn bán: khóa đơn, kiểm tra ATP và hạn mức, gọi giữ chỗ (inventory-service commit), rồi mới đổi trạng thái
   và commit bên order-service, sự kiện phát sau commit. Nếu order-service rollback sau khi đã giữ chỗ (lỗi CSDL lúc
   commit) thì sau rollback gọi giải phóng giữ chỗ của đơn (`/api/inventory/stock/reservations/release`). Nếu lời gọi giữ
-  chỗ hết thời gian chờ (5 giây) mà inventory-service vẫn giữ xong thì đơn vẫn DRAFT nhưng có giữ chỗ: người dùng bấm
-  xác nhận lại thì dùng lại đúng giữ chỗ đó (idempotent), hủy đơn DRAFT/BACKORDER cũng gọi giải phóng. Giữ chỗ treo chỉ
-  còn khi lần gọi hết thời gian chờ và người dùng không bao giờ xác nhận lại hay hủy đơn. Lần xác nhận lại sau khi đã
-  sửa số lượng của đơn dùng giữ chỗ cũ (không giữ lại theo số mới); nên hủy và lập lại đơn trong trường hợp hiếm này.
-- Phiếu xuất: khóa đơn bán (lập phiếu) hoặc phiếu (`dispatch`), lưu phiếu ở PICKING để có ID, gọi trừ tồn với khóa
+  chỗ hết thời gian chờ (5 giây) mà inventory-service vẫn giữ xong thì đơn vẫn DRAFT nhưng có giữ chỗ: sửa, xác nhận
+  lại, xóa hay hủy đơn đều gọi giải phóng trước (xác nhận lại thì giải phóng rồi giữ lại theo dòng hàng hiện tại;
+  inventory-service vẫn báo đã có giữ chỗ thì order-service trả 503 và đơn không đổi). Giữ chỗ treo chỉ còn khi lần
+  gọi hết thời gian chờ và người dùng không bao giờ đụng lại đơn. Đơn chỉ được xác nhận khi đã chọn kho.
+- Phiếu xuất: khóa đơn bán (lập phiếu; `dispatch` khóa đơn bán rồi khóa phiếu và từ chối khi đơn đã hủy), lưu phiếu ở PICKING để có ID, gọi trừ tồn với khóa
   `GDN-<id>` (inventory-service commit), rồi mới chuyển COMPLETED, đóng đơn nếu đã giao đủ, commit, phát sự kiện sau
   commit. Trừ tồn bị từ chối: lập phiếu thì rollback toàn bộ (không có phiếu), `dispatch` thì phiếu giữ nguyên trạng
   thái. Hết thời gian chờ, mất kết nối hoặc 5xx (không biết inventory-service đã trừ chưa): lập phiếu thì phiếu vẫn
@@ -221,7 +221,10 @@ Thứ tự bước và khoảng hở còn lại:
   `alreadyProcessed` và phiếu hoàn tất mà không trừ thêm, chưa trừ thì trừ bình thường; hai lần gọi trùng khóa đồng
   thời chỉ trừ một lần (ràng buộc duy nhất `(company_id, message_id)`, lần sau đọc lại nhật ký). Khoảng hở còn lại:
   inventory-service đã trừ nhưng order-service không commit được bước hoàn tất (lỗi CSDL) thì phiếu vẫn PICKING trong
-  khi tồn đã giảm cho tới khi có người bấm Xuất kho lại; phiếu PICKING như vậy hiện trong danh sách phiếu xuất.
+  khi tồn đã giảm cho tới khi có người bấm Xuất kho lại; phiếu PICKING như vậy hiện trong danh sách phiếu xuất. Hủy
+  đơn bán hủy luôn các phiếu DRAFT, PICKING của đơn và trả số lượng của chúng về dòng đơn; nếu một phiếu PICKING đó là
+  phiếu hết thời gian chờ mà inventory-service thật ra đã trừ tồn thì phần tồn đã trừ không được trả lại (order-service
+  không phân biệt được phiếu này với phiếu PICKING thường).
 
 ## 8. WebSocket STOMP: thông báo thời gian thực (WMS-02.3)
 

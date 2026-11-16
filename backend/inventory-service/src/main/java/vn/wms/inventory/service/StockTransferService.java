@@ -25,12 +25,15 @@ import vn.wms.inventory.dto.StockAtpResponse;
 import vn.wms.inventory.dto.StockTransferResponse;
 import vn.wms.inventory.dto.UpdateStockTransferRequest;
 import vn.wms.inventory.entity.BinLocation;
+import vn.wms.inventory.entity.InventoryLot;
 import vn.wms.inventory.entity.StockItem;
+import vn.wms.inventory.entity.StockMovement;
 import vn.wms.inventory.entity.StockTransfer;
 import vn.wms.inventory.entity.StockTransferItem;
 import vn.wms.inventory.entity.StockTransferStatus;
 import vn.wms.inventory.entity.Warehouse;
 import vn.wms.inventory.repository.BinLocationRepository;
+import vn.wms.inventory.repository.InventoryLotRepository;
 import vn.wms.inventory.repository.StockItemRepository;
 import vn.wms.inventory.repository.StockTransferItemRepository;
 import vn.wms.inventory.repository.StockTransferRepository;
@@ -40,11 +43,15 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -75,6 +82,10 @@ public class StockTransferService {
     /** Ghi sổ kho cho mỗi lần cộng tồn tại kho đích (WMS-17.1); xuất kho nguồn được ghi trong StockDeductionService. */
     @Autowired
     private StockMovementRecorder stockMovementRecorder;
+
+    /** Cộng hàng theo lô nhận điều chuyển vào inventory_lots tại kho đích (WMS-20.4), như phiếu nhập. */
+    @Autowired
+    private InventoryLotRepository inventoryLotRepository;
 
     public StockTransferService(
             StockTransferRepository stockTransferRepository,
@@ -449,6 +460,7 @@ public class StockTransferService {
         }
 
         boolean hasDiscrepancy = false;
+        Map<Long, List<LotPortion>> dispatchedLots = dispatchedLotsByItem(transfer);
 
         for (ReceiveStockTransferItemRequest itemReq : request.items()) {
             StockTransferItem item = transferItemMap.get(itemReq.itemId());
@@ -496,50 +508,23 @@ public class StockTransferService {
 
                 if (stocktakeFreezeGuard != null) stocktakeFreezeGuard.assertNotFrozen(destBinLocation.getId(), item.getProductId(), "nhận hàng điều chuyển");
                 // Cập nhật tăng tồn kho OnHand tại kho đích với Khóa bi quan
-                List<StockItem> existingItems = stockItemRepository
-                        .findAllByBinLocationIdAndProductIdWithPessimisticLock(destBinLocation.getId(), item.getProductId());
+                List<StockItem> existingItems = new ArrayList<>(stockItemRepository
+                        .findAllByBinLocationIdAndProductIdWithPessimisticLock(destBinLocation.getId(), item.getProductId()));
 
-                // Phiếu điều chuyển chưa lưu lô xuất đi nên hàng nhận về là hàng không theo lô: chỉ cộng dồn vào dòng
-                // không có số lô, không có hạn dùng và không bị khóa. Cộng vào dòng của một lô khác sẽ gán nhầm
-                // số lô, hạn dùng (sai FEFO, bị khóa khi lô đó hết hạn) hoặc nhập thẳng vào dòng đang bị khóa.
-                Optional<StockItem> mergeTarget = existingItems.stream()
-                        .filter(s -> (s.getLotNo() == null || s.getLotNo().isBlank())
-                                && s.getExpDate() == null
-                                && !s.isLocked())
-                        .findFirst();
-
-                StockItem destStockItem;
-                BigDecimal beforeQty;
-                if (mergeTarget.isPresent()) {
-                    destStockItem = mergeTarget.get();
-                    beforeQty = destStockItem.getQuantity() != null ? destStockItem.getQuantity() : BigDecimal.ZERO;
-                    destStockItem.setQuantity(beforeQty.add(receivedQty));
-                } else {
-                    destStockItem = new StockItem();
-                    destStockItem.setBinLocation(destBinLocation);
-                    destStockItem.setProductId(item.getProductId());
-                    destStockItem.setQuantity(receivedQty);
-                    destStockItem.setReservedQuantity(BigDecimal.ZERO);
-                    destStockItem.setLocked(false);
-                    beforeQty = BigDecimal.ZERO;
+                // Hàng nhận giữ số lô, ngày sản xuất, hạn dùng của các dòng tồn đã trừ ở kho nguồn (WMS-20.4): số thực
+                // nhận được chia lần lượt theo thứ tự lô đã xuất (FEFO), phần thiếu, hỏng tính vào các lô xuất sau cùng.
+                BigDecimal toPlace = receivedQty;
+                for (LotPortion portion : dispatchedLots.getOrDefault(item.getId(), List.of())) {
+                    if (toPlace.signum() <= 0) {
+                        break;
+                    }
+                    BigDecimal qty = toPlace.min(portion.quantity());
+                    receiveIntoBin(transfer, item, destBinLocation, existingItems, portion.withQuantity(qty), currentUser);
+                    toPlace = toPlace.subtract(qty);
                 }
-                StockItem savedItem = stockItemRepository.save(destStockItem);
-                BigDecimal afterQty = (savedItem != null && savedItem.getQuantity() != null)
-                        ? savedItem.getQuantity()
-                        : destStockItem.getQuantity();
-                stockMovementRecorder.recordTransferIn(transfer, item, destBinLocation, savedItem != null ? savedItem : destStockItem, receivedQty, currentUser);
-
-                // Phát sự kiện inventory.updated cho SKU tại kho đích
-                publishInventoryUpdated(
-                        transfer.getDestinationWarehouse().getId(),
-                        item.getProductId(),
-                        item.getSkuCode(),
-                        beforeQty,
-                        afterQty,
-                        "TRANSFER_IN",
-                        transfer.getTransferNumber(),
-                        Instant.now()
-                );
+                if (toPlace.signum() > 0) {
+                    receiveIntoBin(transfer, item, destBinLocation, existingItems, new LotPortion(null, null, null, toPlace), currentUser);
+                }
             }
 
             item.setReceivedQuantity(receivedQty);
@@ -565,6 +550,140 @@ public class StockTransferService {
                 saved.getTransferNumber(), saved.getStatus());
 
         return StockTransferResponse.from(saved);
+    }
+
+    /** Một phần hàng của dòng lệnh điều chuyển theo lô: số lô, ngày sản xuất, hạn dùng, số lượng (WMS-20.4). */
+    private record LotPortion(String lotNo, LocalDate mfgDate, LocalDate expDate, BigDecimal quantity) {
+        LotPortion withQuantity(BigDecimal newQuantity) {
+            return new LotPortion(lotNo, mfgDate, expDate, newQuantity);
+        }
+    }
+
+    /**
+     * Lô đã xuất của từng dòng lệnh, dựng lại từ các dòng sổ kho TRANSFER_OUT ghi cùng transaction lúc duyệt xuất (số
+     * lô, ngày sản xuất, hạn dùng của từng dòng tồn đã trừ, theo thứ tự đã trừ). Sổ kho ghi theo sản phẩm nên các dòng
+     * lệnh cùng sản phẩm nhận lần lượt theo thứ tự dòng lệnh, đúng thứ tự đã gửi sang trừ tồn. Phần không có trong sổ
+     * (lệnh duyệt xuất trước khi có sổ kho) coi là hàng không theo lô như trước.
+     */
+    private Map<Long, List<LotPortion>> dispatchedLotsByItem(StockTransfer transfer) {
+        Map<Long, Deque<LotPortion>> queueByProduct = new HashMap<>();
+        if (stockMovementRecorder != null) {
+            for (StockMovement m : stockMovementRecorder.findTransferOutLines(transfer.getId())) {
+                if (m.getQuantityOut() == null || m.getQuantityOut().signum() <= 0) {
+                    continue;
+                }
+                queueByProduct.computeIfAbsent(m.getProductId(), k -> new ArrayDeque<>())
+                        .addLast(new LotPortion(blankToNull(m.getLotNo()), m.getMfgDate(), m.getExpDate(), m.getQuantityOut()));
+            }
+        }
+        Map<Long, List<LotPortion>> result = new HashMap<>();
+        for (StockTransferItem item : transfer.getItems()) {
+            Deque<LotPortion> queue = queueByProduct.getOrDefault(item.getProductId(), new ArrayDeque<>());
+            List<LotPortion> portions = new ArrayList<>();
+            BigDecimal need = item.getTransferredQuantity() != null ? item.getTransferredQuantity() : BigDecimal.ZERO;
+            while (need.signum() > 0 && !queue.isEmpty()) {
+                LotPortion head = queue.pollFirst();
+                BigDecimal take = need.min(head.quantity());
+                portions.add(head.withQuantity(take));
+                if (head.quantity().compareTo(take) > 0) {
+                    queue.addFirst(head.withQuantity(head.quantity().subtract(take)));
+                }
+                need = need.subtract(take);
+            }
+            result.put(item.getId(), portions);
+        }
+        return result;
+    }
+
+    /**
+     * Cộng một phần hàng nhận vào ô đích: chỉ cộng dồn vào dòng cùng số lô, cùng hạn dùng và không bị khóa (cộng vào
+     * dòng của lô khác sẽ gán nhầm số lô, hạn dùng hoặc nhập thẳng vào dòng đang bị khóa); không có thì tạo dòng mới
+     * mang số lô, ngày sản xuất, hạn dùng của lô đã xuất. Hàng theo lô được cộng cả vào inventory_lots như phiếu nhập.
+     */
+    private void receiveIntoBin(StockTransfer transfer, StockTransferItem item, BinLocation destBinLocation,
+                                List<StockItem> existingItems, LotPortion portion, String currentUser) {
+        Optional<StockItem> mergeTarget = existingItems.stream()
+                .filter(s -> Objects.equals(blankToNull(s.getLotNo()), portion.lotNo())
+                        && Objects.equals(s.getExpDate(), portion.expDate())
+                        && !s.isLocked())
+                .findFirst();
+
+        StockItem destStockItem;
+        BigDecimal beforeQty;
+        if (mergeTarget.isPresent()) {
+            destStockItem = mergeTarget.get();
+            beforeQty = destStockItem.getQuantity() != null ? destStockItem.getQuantity() : BigDecimal.ZERO;
+            destStockItem.setQuantity(beforeQty.add(portion.quantity()));
+            if (destStockItem.getMfgDate() == null && portion.mfgDate() != null) {
+                destStockItem.setMfgDate(portion.mfgDate());
+            }
+        } else {
+            destStockItem = new StockItem();
+            destStockItem.setBinLocation(destBinLocation);
+            destStockItem.setProductId(item.getProductId());
+            destStockItem.setLotNo(portion.lotNo());
+            destStockItem.setMfgDate(portion.mfgDate());
+            destStockItem.setExpDate(portion.expDate());
+            destStockItem.setQuantity(portion.quantity());
+            destStockItem.setReservedQuantity(BigDecimal.ZERO);
+            destStockItem.setLocked(false);
+            beforeQty = BigDecimal.ZERO;
+        }
+        StockItem savedItem = stockItemRepository.save(destStockItem);
+        StockItem stored = savedItem != null ? savedItem : destStockItem;
+        if (mergeTarget.isEmpty()) {
+            existingItems.add(stored);
+        }
+        addToInventoryLot(destBinLocation, item.getProductId(), portion);
+        BigDecimal afterQty = stored.getQuantity() != null ? stored.getQuantity() : destStockItem.getQuantity();
+        stockMovementRecorder.recordTransferIn(transfer, item, destBinLocation, stored, portion.quantity(), currentUser);
+
+        // Phát sự kiện inventory.updated cho SKU tại kho đích
+        publishInventoryUpdated(
+                transfer.getDestinationWarehouse().getId(),
+                item.getProductId(),
+                item.getSkuCode(),
+                beforeQty,
+                afterQty,
+                "TRANSFER_IN",
+                transfer.getTransferNumber(),
+                Instant.now()
+        );
+    }
+
+    /** Cộng hàng theo lô vào inventory_lots tại ô đích (khóa dòng lô sau dòng tồn, cùng thứ tự với trừ tồn). */
+    private void addToInventoryLot(BinLocation destBinLocation, Long productId, LotPortion portion) {
+        if (inventoryLotRepository == null || portion.lotNo() == null) {
+            return;
+        }
+        Optional<InventoryLot> existing = inventoryLotRepository.findByLotNumberAndBinLocationIdAndProductIdForUpdate(
+                portion.lotNo(), destBinLocation.getId(), productId);
+        if (existing.isPresent()) {
+            InventoryLot lot = existing.get();
+            lot.setQuantity(lot.getQuantity().add(portion.quantity()));
+            if (lot.getMfgDate() == null && portion.mfgDate() != null) {
+                lot.setMfgDate(portion.mfgDate());
+            }
+            if (lot.getExpDate() == null && portion.expDate() != null) {
+                lot.setExpDate(portion.expDate());
+            }
+            inventoryLotRepository.save(lot);
+        } else {
+            InventoryLot lot = new InventoryLot();
+            lot.setLotNumber(portion.lotNo());
+            lot.setProductId(productId);
+            lot.setBinLocation(destBinLocation);
+            lot.setMfgDate(portion.mfgDate());
+            lot.setExpDate(portion.expDate());
+            lot.setQuantity(portion.quantity());
+            lot.setReservedQuantity(BigDecimal.ZERO);
+            lot.setLocked(false);
+            inventoryLotRepository.save(lot);
+        }
+    }
+
+    private static String blankToNull(String value) {
+        return value == null || value.isBlank() ? null : value;
     }
 
     private void publishInventoryUpdated(

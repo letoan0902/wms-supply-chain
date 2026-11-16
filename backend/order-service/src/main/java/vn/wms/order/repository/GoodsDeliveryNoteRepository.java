@@ -27,6 +27,14 @@ public interface GoodsDeliveryNoteRepository extends JpaRepository<GoodsDelivery
     @Query("SELECT g FROM GoodsDeliveryNote g WHERE g.id = :id")
     Optional<GoodsDeliveryNote> findByIdForUpdate(@Param("id") Long id);
 
+    /**
+     * ID đơn bán của phiếu xuất, đọc dạng giá trị (không nạp phiếu vào persistence context): xác nhận xuất kho cần khóa
+     * đơn bán trước rồi mới khóa phiếu (cùng thứ tự với lập phiếu và hủy đơn); nếu phiếu đã nằm sẵn trong persistence
+     * context thì lần đọc có khóa sau đó trả lại bản cũ trong bộ nhớ (WMS-20.4).
+     */
+    @Query("SELECT g.salesOrder.id FROM GoodsDeliveryNote g WHERE g.id = :id")
+    Optional<Long> findSalesOrderIdById(@Param("id") Long id);
+
     Optional<GoodsDeliveryNote> findByGdnNumber(String gdnNumber);
 
     boolean existsByGdnNumber(String gdnNumber);

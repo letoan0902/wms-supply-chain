@@ -1,5 +1,6 @@
 package vn.wms.ai.service;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import vn.wms.ai.AiTestSupport;
@@ -13,7 +14,7 @@ import vn.wms.common.exception.ApiException;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doThrow;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -25,13 +26,19 @@ class AiAskServiceTest {
 
     private final AiClient aiClient = mock(AiClient.class);
     private final AiQuotaService quotaService = mock(AiQuotaService.class);
+    private final AiQuotaService.Reservation turn = mock(AiQuotaService.Reservation.class);
     private final AiAskService service = new AiAskService(aiClient, quotaService, AiTestSupport.properties(false, true));
+
+    @BeforeEach
+    void setUp() {
+        when(quotaService.reserve()).thenReturn(turn);
+    }
 
     @Test
     void successfulAnswer_isCountedAndReturnedWithUsage() {
         AiReply reply = AiReply.answered("Vào Kho, bấm Thêm kho.", "end_turn", 50, 12, false);
         when(aiClient.ask(any())).thenReturn(reply);
-        when(quotaService.recordSuccess(reply)).thenReturn(4L);
+        when(turn.confirm(false)).thenReturn(4L);
         when(quotaService.currentMax()).thenReturn(20L);
 
         AskResponse response = service.ask("  Tạo kho thế nào?  ");
@@ -43,16 +50,16 @@ class AiAskServiceTest {
         assertThat(request.getValue().userMessage()).isEqualTo("Tạo kho thế nào?");
         assertThat(request.getValue().systemPrompt()).isEqualTo(AiPrompts.ASSISTANT_SYSTEM_PROMPT);
         assertThat(request.getValue().maxTokens()).isEqualTo(4096);
-        verify(quotaService).checkQuota();
+        verify(quotaService).reserve();
     }
 
     @Test
     void overQuota_doesNotCallTheModel() {
-        doThrow(new ApiException(ErrorCode.PLAN_LIMIT_EXCEEDED)).when(quotaService).checkQuota();
+        when(quotaService.reserve()).thenThrow(new ApiException(ErrorCode.PLAN_LIMIT_EXCEEDED));
 
         assertThatThrownBy(() -> service.ask("Câu hỏi")).isInstanceOf(ApiException.class);
         verifyNoInteractions(aiClient);
-        verify(quotaService, never()).recordSuccess(any());
+        verifyNoInteractions(turn);
     }
 
     @Test
@@ -62,14 +69,16 @@ class AiAskServiceTest {
         assertThatThrownBy(() -> service.ask("Câu hỏi"))
                 .isInstanceOfSatisfying(ApiException.class,
                         ex -> assertThat(ex.getErrorCode()).isEqualTo(ErrorCode.SERVICE_UNAVAILABLE));
-        verify(quotaService, never()).recordSuccess(any());
+        // Lượt đã giữ được trả lại khi đóng (không confirm)
+        verify(turn, never()).confirm(anyBoolean());
+        verify(turn).close();
     }
 
     @Test
     void refusal_returnsPoliteMessageAndFlag() {
         AiReply refusal = AiReply.refusal("refusal", 40, 0);
         when(aiClient.ask(any())).thenReturn(refusal);
-        when(quotaService.recordSuccess(refusal)).thenReturn(3L);
+        when(turn.confirm(true)).thenReturn(3L);
 
         AskResponse response = service.ask("Câu hỏi nhạy cảm");
 

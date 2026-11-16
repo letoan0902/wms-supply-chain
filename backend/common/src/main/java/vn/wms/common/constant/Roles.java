@@ -30,11 +30,18 @@ public final class Roles {
      * (xem {@code UserContext#isGlobalReadScope} và {@code IntegrationAccessFilter}).
      */
     public static final String INTEGRATION = "INTEGRATION";
+    /**
+     * Quản trị nền tảng: người vận hành nền tảng SaaS, xem thống kê và quản lý các doanh nghiệp khách hàng
+     * (auth-service, {@code /api/auth/platform/**}). Tài khoản mang vai trò này thuộc doanh nghiệp hệ thống mã
+     * {@code PLATFORM} (migration auth V9), không có thuê bao, không có kho. Không nằm trong {@link #ALL}: admin của
+     * doanh nghiệp không gán được vai trò này qua API quản lý người dùng.
+     */
+    public static final String SUPER_ADMIN = "SUPER_ADMIN";
 
     /** Tiền tố authority mà Spring Security dùng cho vai trò. */
     public static final String AUTHORITY_PREFIX = "ROLE_";
 
-    /** Toàn bộ vai trò gán được cho tài khoản (không gồm {@link #INTEGRATION}). */
+    /** Toàn bộ vai trò gán được cho tài khoản của doanh nghiệp (không gồm {@link #INTEGRATION}, {@link #SUPER_ADMIN}). */
     public static final List<String> ALL = List.of(
             ADMIN, WAREHOUSE_MANAGER, WAREHOUSE_STAFF, PURCHASING, SALES, ACCOUNTANT);
 

@@ -376,6 +376,148 @@ class AccountEmailIntegrationTest extends BaseIntegrationTest {
         login(registered.username(), DEFAULT_PASSWORD).andExpect(status().isOk());
     }
 
+    private ResultActions loginFrom(String username, String password, String clientIp) throws Exception {
+        return mockMvc.perform(post("/api/auth/login")
+                .header("X-Forwarded-For", clientIp)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(loginJson(username, password)));
+    }
+
+    @Test
+    @DisplayName("Đặt lại mật khẩu gỡ khóa đăng nhập 30 phút của tài khoản và bộ đếm lần sai; khóa theo IP vẫn giữ")
+    void resetPasswordLiftsAccountLoginLock() throws Exception {
+        Registered registered = registerAndActivate();
+        String username = registered.username();
+
+        // Năm lần sai từ năm địa chỉ khác nhau: tài khoản bị khóa, không địa chỉ nào bị khóa
+        for (int i = 1; i <= 4; i++) {
+            loginFrom(username, "SaiMatKhau" + i, "10.23.0." + i).andExpect(status().isUnauthorized());
+        }
+        loginFrom(username, "SaiMatKhau5", "10.23.0.5").andExpect(status().isBadRequest());
+        assertThat(mockRedisStore).containsKey("login:lock:user:" + username);
+        loginFrom(username, DEFAULT_PASSWORD, "10.23.0.9").andExpect(status().isBadRequest());
+
+        // Bộ đếm lần sai còn dở và khóa của một địa chỉ IP (độc lập với tài khoản)
+        mockRedisStore.put("login:attempts:user:" + username, "3");
+        mockRedisStore.put("login:lock:ip:10.23.0.66", "LOCKED");
+
+        postJson("/api/auth/password/forgot", Map.of("email", registered.email())).andExpect(status().isOk());
+        String token = latestTokenSentTo(registered.email(), AccountEmailKind.PASSWORD_RESET);
+        postJson("/api/auth/password/reset", Map.of("token", token, "newPassword", NEW_PASSWORD))
+                .andExpect(status().isOk());
+
+        assertThat(mockRedisStore)
+                .doesNotContainKey("login:lock:user:" + username)
+                .doesNotContainKey("login:attempts:user:" + username)
+                .containsKey("login:lock:ip:10.23.0.66");
+        loginFrom(username, NEW_PASSWORD, "10.23.0.9").andExpect(status().isOk());
+        loginFrom(username, NEW_PASSWORD, "10.23.0.66").andExpect(status().isBadRequest());
+    }
+
+    // ---------------------------------------------------------------- Đăng ký lại khi chờ kích hoạt quá hạn
+
+    private ResultActions registerWith(String username, String email, String taxCode) throws Exception {
+        return mockMvc.perform(post("/api/auth/companies/register")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(RegisterCompanyRequest.builder()
+                        .companyName("Công ty Đăng Ký Lại " + username)
+                        .taxCode(taxCode)
+                        .fullName("Người Đại Diện " + username)
+                        .username(username)
+                        .email(email)
+                        .password(DEFAULT_PASSWORD)
+                        .build())));
+    }
+
+    private long companyIdOf(ResultActions result) throws Exception {
+        return body(result).path("data").path("company").path("id").asLong();
+    }
+
+    /** Đưa doanh nghiệp về lúc đăng ký {@code hours} giờ trước và cho mọi liên kết kích hoạt của nó hết hạn. */
+    private void ageRegistration(long companyId, long hours) {
+        jdbcTemplate.update("UPDATE companies SET created_at = ? WHERE id = ?",
+                Timestamp.from(Instant.now().minus(hours, ChronoUnit.HOURS)), companyId);
+        jdbcTemplate.update("UPDATE account_tokens SET expires_at = ? WHERE company_id = ?",
+                Timestamp.from(Instant.now().minus(1, ChronoUnit.MINUTES)), companyId);
+    }
+
+    private Integer countRows(String sql, Object... args) {
+        return jdbcTemplate.queryForObject(sql, Integer.class, args);
+    }
+
+    @Test
+    @DisplayName("Doanh nghiệp chờ kích hoạt quá 24 giờ (gõ nhầm email) không còn chặn đăng ký lại cùng tên đăng nhập, "
+            + "mã số thuế hay email")
+    void abandonedPendingRegistrationNoLongerBlocks() throws Exception {
+        String suffix = System.nanoTime() + "_" + SEQ.incrementAndGet();
+        String username = "again_" + suffix;
+        String taxCode = "MST" + suffix.substring(suffix.length() - 12);
+        String typoEmail = username + "@wms.vm";
+        String rightEmail = username + "@wms.vn";
+
+        long stale = companyIdOf(registerWith(username, typoEmail, taxCode).andExpect(status().isCreated()));
+        long staleAdmin = userRepository.findByUsername(username).orElseThrow().getId();
+
+        // Còn trong 24 giờ: vẫn 409 như trước
+        registerWith(username, rightEmail, "MSTKHAC" + suffix.substring(suffix.length() - 8))
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("Tên đăng nhập đã tồn tại: " + username));
+        registerWith("khac_" + suffix, rightEmail, taxCode)
+                .andExpect(status().isConflict())
+                .andExpect(jsonPath("$.message").value("Mã số thuế đã tồn tại: " + taxCode));
+
+        // Quá 24 giờ, liên kết đã hết hạn: đăng ký lại với email đúng thành công, bản đăng ký cũ bị gỡ hẳn
+        ageRegistration(stale, 25);
+        publishedEvents.clear();
+        long fresh = companyIdOf(registerWith(username, rightEmail, taxCode)
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.company.status").value("PENDING")));
+        assertThat(fresh).isNotEqualTo(stale);
+        assertThat(companyRepository.findById(stale)).isEmpty();
+        assertThat(userRepository.findById(staleAdmin)).isEmpty();
+        assertThat(countRows("SELECT COUNT(*) FROM subscriptions WHERE company_id = ?", stale)).isZero();
+        assertThat(countRows("SELECT COUNT(*) FROM account_tokens WHERE company_id = ?", stale)).isZero();
+        assertThat(countRows("SELECT COUNT(*) FROM user_roles WHERE user_id = ?", staleAdmin)).isZero();
+        assertThat(userRepository.findByUsername(username).orElseThrow().getCompany().getId()).isEqualTo(fresh);
+        activateCompanyByEmail(rightEmail);
+        login(username, DEFAULT_PASSWORD).andExpect(status().isOk());
+
+        // Email của một bản đăng ký bỏ dở quá hạn cũng được dùng lại
+        String otherUser = "mail_" + suffix;
+        String sharedEmail = otherUser + "@wms.vn";
+        long staleByEmail = companyIdOf(registerWith(otherUser, sharedEmail, null).andExpect(status().isCreated()));
+        ageRegistration(staleByEmail, 25);
+        registerWith("mail2_" + suffix, sharedEmail, null).andExpect(status().isCreated());
+        assertThat(companyRepository.findById(staleByEmail)).isEmpty();
+        assertThat(userRepository.findByUsername(otherUser)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("Đăng ký lại vẫn 409 với doanh nghiệp đã kích hoạt và với bản chờ kích hoạt vừa được gửi lại liên kết còn hạn")
+    void activeOrStillValidPendingRegistrationStillBlocks() throws Exception {
+        String suffix = System.nanoTime() + "_" + SEQ.incrementAndGet();
+
+        // Doanh nghiệp đã kích hoạt, đăng ký từ lâu: không bao giờ bị gỡ
+        String activeUser = "keep_" + suffix;
+        long active = companyIdOf(registerWith(activeUser, activeUser + "@wms.vn", null)
+                .andExpect(status().isCreated()));
+        activateCompanyByEmail(activeUser + "@wms.vn");
+        ageRegistration(active, 24 * 40);
+        registerWith(activeUser, "khac_" + activeUser + "@wms.vn", null).andExpect(status().isConflict());
+        assertThat(company(active).getStatus()).isEqualTo(CompanyStatus.ACTIVE);
+
+        // Chờ kích hoạt quá 24 giờ nhưng vừa xin gửi lại liên kết (còn hạn): vẫn giữ chỗ
+        String pendingUser = "wait_" + suffix;
+        long pending = companyIdOf(registerWith(pendingUser, pendingUser + "@wms.vn", null)
+                .andExpect(status().isCreated()));
+        ageRegistration(pending, 30);
+        mockRedisStore.clear();
+        postJson("/api/auth/companies/resend-activation", Map.of("email", pendingUser + "@wms.vn"))
+                .andExpect(status().isOk());
+        registerWith(pendingUser, "khac_" + pendingUser + "@wms.vn", null).andExpect(status().isConflict());
+        assertThat(company(pending).getStatus()).isEqualTo(CompanyStatus.PENDING);
+    }
+
     /** Bản sao của {@code expected} mang {@code timestamp} của {@code actual}, để so sánh phần còn lại của phản hồi. */
     private JsonNode withSameTimestamp(JsonNode expected, JsonNode actual) {
         com.fasterxml.jackson.databind.node.ObjectNode copy = expected.deepCopy();

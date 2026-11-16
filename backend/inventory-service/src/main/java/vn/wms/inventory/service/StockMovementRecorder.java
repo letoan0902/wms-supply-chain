@@ -167,6 +167,18 @@ public class StockMovementRecorder {
         stockMovementRepository.saveAll(movements);
     }
 
+    /**
+     * Các dòng sổ xuất kho nguồn của một lệnh điều chuyển, theo thứ tự đã trừ tồn (WMS-20.4). Mỗi dòng ứng với một dòng
+     * tồn đã trừ, mang số lô, ngày sản xuất, hạn dùng và số lượng; dùng để hàng nhận ở kho đích giữ đúng lô đã xuất.
+     */
+    public List<StockMovement> findTransferOutLines(Long transferId) {
+        if (transferId == null) {
+            return List.of();
+        }
+        return stockMovementRepository.findByMovementTypeAndDocumentTypeAndDocumentIdOrderByIdAsc(
+                StockMovementType.TRANSFER_OUT, StockMovement.DOC_STOCK_TRANSFER, transferId);
+    }
+
     /** Nhận một dòng hàng điều chuyển vào vị trí của kho đích. */
     public void recordTransferIn(StockTransfer transfer, StockTransferItem item, BinLocation binLocation,
                                  StockItem stockItem, BigDecimal quantity, String performedBy) {
@@ -175,8 +187,10 @@ public class StockMovementRecorder {
         m.setSkuCode(truncate(item.getSkuCode(), 64));
         m.setProductName(truncate(item.getProductName(), 255));
         m.setUom(truncate(item.getUom(), 20));
-        // Phiếu điều chuyển chưa lưu số lô xuất đi, hàng nhận được cộng vào dòng tồn không theo lô
+        // Dòng tồn nhận mang số lô, ngày sản xuất, hạn dùng của lô đã xuất ở kho nguồn (WMS-20.4) nên truy vết lô đi tiếp
         m.setLotNo(stockItem != null ? stockItem.getLotNo() : null);
+        m.setMfgDate(stockItem != null ? stockItem.getMfgDate() : null);
+        m.setExpDate(stockItem != null ? stockItem.getExpDate() : null);
         m.setDocumentType(StockMovement.DOC_STOCK_TRANSFER);
         m.setDocumentId(transfer.getId());
         m.setDocumentNumber(truncate(transfer.getTransferNumber(), 64));

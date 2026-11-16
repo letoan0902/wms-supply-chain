@@ -121,6 +121,26 @@ export default function InventoryPage() {
   const [kind, setKind] = useState<StockAlertKind | undefined>(initialKind)
   const [severity, setSeverity] = useState<StockAlertSeverity | undefined>(initialSeverity)
 
+  // Đang ở trang mà bấm liên kết cảnh báo khác (chuông thông báo) thì địa chỉ đổi nhưng trang không mở lại:
+  // áp lại bộ lọc theo tham số mới ngay khi render (cách React khuyên dùng khi trạng thái phụ thuộc giá trị đổi)
+  const alertQueryKey = ['kind', 'severity', 'warehouseId'].map((name) => searchParams.get(name) ?? '').join('|')
+  const [appliedAlertQueryKey, setAppliedAlertQueryKey] = useState(alertQueryKey)
+  if (appliedAlertQueryKey !== alertQueryKey) {
+    setAppliedAlertQueryKey(alertQueryKey)
+    const nextKind = parseKind(searchParams.get('kind'))
+    const nextSeverity = parseSeverity(searchParams.get('severity'))
+    const nextWarehouseId = parseId(searchParams.get('warehouseId'))
+    setKind(nextKind)
+    setSeverity(nextSeverity)
+    setAlertOnly(Boolean(nextKind || nextSeverity))
+    if (isGlobalScope) {
+      setWarehouseId(nextWarehouseId)
+    } else if (nextWarehouseId !== undefined && warehouses.some((w) => w.id === nextWarehouseId)) {
+      // Vai trò theo kho chỉ chuyển sang kho được phân công
+      setWarehouseId(nextWarehouseId)
+    }
+  }
+
   // Bộ lọc theo hàng hóa (và từ khóa của danh sách cảnh báo)
   const [keywordInput, setKeywordInput] = useState('')
   const keyword = useDebouncedValue(keywordInput.trim(), SEARCH_DEBOUNCE_MS) || undefined
@@ -334,17 +354,18 @@ export default function InventoryPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <Card
-        title="Tồn kho"
-        extra={
-          <Space wrap size={12}>
+      <Card>
+        {/* Header: tiêu đề lớn + trạng thái + nút hành động */}
+        <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="m-0 text-xl font-bold text-slate-900">Tồn kho</h2>
+          <div className="flex flex-wrap items-center gap-3">
             <Tooltip title={status.label}>
-              <Badge status={status.badge} text={<span className="text-sm">{status.label}</span>} />
+              <Badge status={status.badge} text={<span className="text-sm text-slate-600">{status.label}</span>} />
             </Tooltip>
             {lastRefreshAt ? (
-              <Typography.Text type="secondary" className="text-sm">
+              <span className="text-sm text-slate-500">
                 Cập nhật lúc {formatClock(lastRefreshAt)}
-              </Typography.Text>
+              </span>
             ) : null}
             {liveFlash ? <Tag color="green">Vừa cập nhật</Tag> : null}
             <Button icon={<ReloadOutlined />} onClick={handleManualRefresh}>
@@ -361,9 +382,8 @@ export default function InventoryPage() {
                 Quét cảnh báo ngay
               </Button>
             ) : null}
-          </Space>
-        }
-      >
+          </div>
+        </div>
         <div className="flex flex-col gap-4">
           <AlertSummaryBar
             summary={summary}
@@ -402,7 +422,7 @@ export default function InventoryPage() {
             <Col xs={24} md={12} lg={6}>
               <Space>
                 <Switch checked={alertOnly} onChange={toggleAlertOnly} />
-                <span>Chỉ hiện dòng có cảnh báo</span>
+                <span className="text-sm font-medium text-slate-700">Chỉ hiện dòng có cảnh báo</span>
               </Space>
             </Col>
             <Col xs={24} md={12} lg={6} className="text-right">

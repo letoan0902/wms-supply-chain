@@ -108,7 +108,7 @@ Lỗi (với lỗi validate, `data` chứa thông báo theo từng trường):
   "accessToken": "<jwt>",
   "tokenType": "Bearer",
   "expiresIn": 900,
-  "username": "admin",
+  "username": "admin_a",
   "roles": ["ADMIN"]
 }
 ```

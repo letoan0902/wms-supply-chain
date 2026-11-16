@@ -30,7 +30,8 @@ public class CompanyController {
     private final CompanyService companyService;
 
     @GetMapping
-    @PreAuthorize("isAuthenticated()")
+    // Quản trị nền tảng không thuộc doanh nghiệp khách hàng nào: 403 thay vì trả doanh nghiệp hệ thống PLATFORM
+    @PreAuthorize("isAuthenticated() and !hasRole('SUPER_ADMIN')")
     @Operation(summary = "Xem thông tin doanh nghiệp của người dùng đang đăng nhập")
     public ApiResponse<CompanyResponse> getMyCompany(Authentication authentication) {
         return ApiResponse.ok(companyService.getOwnCompany(UserPrincipal.requireCompanyId(authentication)));

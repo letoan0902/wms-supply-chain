@@ -4,12 +4,15 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
+import vn.wms.ai.config.ServiceClientConfig;
+import vn.wms.ai.config.ServiceClientProperties;
 import vn.wms.ai.dto.BulkImportResult;
 import vn.wms.common.api.ApiResponse;
 import vn.wms.common.api.ErrorCode;
@@ -36,6 +39,18 @@ public class BulkImportClient {
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
 
+    /**
+     * Nhập hàng loạt chạy lâu hơn một lần tra cứu nên dùng thời gian chờ đọc riêng
+     * ({@code app.ai.services.bulk-read-timeout}), cùng thời gian chờ mở kết nối.
+     */
+    @Autowired
+    public BulkImportClient(RestClient.Builder loadBalancedRestClientBuilder, ObjectMapper objectMapper,
+                            ServiceClientProperties properties) {
+        this(loadBalancedRestClientBuilder.clone().requestFactory(ServiceClientConfig.requestFactory(
+                properties.connectTimeout(), properties.bulkReadTimeout())), objectMapper);
+    }
+
+    /** Dùng trong test với client đã cấu hình sẵn (ví dụ gắn {@code MockRestServiceServer}). */
     public BulkImportClient(RestClient.Builder loadBalancedRestClientBuilder, ObjectMapper objectMapper) {
         this.restClient = loadBalancedRestClientBuilder.build();
         this.objectMapper = objectMapper;

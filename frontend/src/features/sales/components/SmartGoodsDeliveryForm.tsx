@@ -482,45 +482,45 @@ export default function SmartGoodsDeliveryForm({
 
   const columns: ColumnsType<DeliveryItemRow> = [
     {
-      title: 'Mặt hàng & SKU',
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">Mặt hàng & SKU</span>,
       key: 'product',
       render: (_, r) => (
-        <div>
-          <div className="font-semibold text-slate-800">{r.productName}</div>
+        <div className="py-0.5">
+          <div className="font-semibold text-slate-900 text-sm leading-snug">{r.productName}</div>
           <div className="text-xs text-slate-500 flex items-center gap-2 mt-0.5">
-            <span className="font-mono bg-slate-100 px-1 py-0.5 rounded border border-slate-200">
+            <span className="font-mono bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200 text-slate-700 font-medium">
               {r.skuCode}
             </span>
             {r.barcode && (
-              <span className="text-[11px] text-slate-400 font-mono">Mã: {r.barcode}</span>
+              <span className="text-xs text-slate-400 font-mono">Mã: {r.barcode}</span>
             )}
           </div>
         </div>
       ),
     },
     {
-      title: 'Vị trí lấy hàng',
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">Vị trí lấy hàng</span>,
       key: 'location',
       width: 150,
       render: (_, r) =>
         r.binCode ? (
           <div>
-            <span className="font-mono font-bold text-blue-700 text-xs">
+            <span className="font-mono font-bold text-slate-900 text-sm">
               {r.binCode}
             </span>
-            <div className="text-[10px] text-slate-400">Ô lưu cất gợi ý</div>
+            <div className="text-xs text-slate-500 font-medium">Ô lưu cất gợi ý</div>
           </div>
         ) : (
           <span className="text-xs text-slate-400 italic">Chưa chỉ định ô</span>
         ),
     },
     {
-      title: 'Số Lô hàng',
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">Số Lô hàng</span>,
       key: 'lotNo',
       width: 140,
       render: (_, r) =>
         r.lotNo ? (
-          <Tag color="blue" className="font-mono text-xs m-0">
+          <Tag color="blue" className="font-mono text-xs m-0 font-medium">
             Lô: {r.lotNo}
           </Tag>
         ) : (
@@ -528,23 +528,23 @@ export default function SmartGoodsDeliveryForm({
         ),
     },
     {
-      title: 'SL đặt / Còn lại',
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">SL đặt / Còn lại</span>,
       key: 'quantities',
-      width: 130,
+      width: 140,
       align: 'right',
       render: (_, r) => (
-        <div className="text-right">
-          <div className="text-xs text-slate-500">
-            Đặt: <strong>{formatNumber(r.orderedQuantity)}</strong> {r.uom}
+        <div className="text-right py-0.5">
+          <div className="text-xs text-slate-600">
+            Đặt: <strong className="font-mono tabular-nums text-slate-800">{formatNumber(r.orderedQuantity)}</strong> {r.uom}
           </div>
-          <div className="text-xs font-bold text-orange-600">
+          <div className="text-xs font-bold text-slate-900 tabular-nums font-mono mt-0.5">
             Cần xuất: {formatNumber(r.remainingQuantity)} {r.uom}
           </div>
         </div>
       ),
     },
     {
-      title: 'Số lượng xuất xưởng',
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">Số lượng xuất xưởng</span>,
       key: 'dispatchQty',
       width: 160,
       render: (_, r) => (
@@ -556,11 +556,11 @@ export default function SmartGoodsDeliveryForm({
             value={r.dispatchQuantity}
             onChange={(val) => handleQuantityChange(r.key, val)}
             disabled={r.remainingQuantity === 0}
-            className="w-full font-mono text-sm font-bold text-emerald-700"
+            className="w-full font-mono text-sm font-bold text-slate-900"
             addonAfter={r.uom}
           />
           {r.dispatchQuantity >= r.remainingQuantity && r.remainingQuantity > 0 && (
-            <div className="text-[11px] text-emerald-600 font-semibold flex items-center gap-1">
+            <div className="text-xs text-emerald-700 font-medium flex items-center gap-1">
               <CheckCircleOutlined /> Đã đủ số lượng
             </div>
           )}
@@ -568,17 +568,17 @@ export default function SmartGoodsDeliveryForm({
       ),
     },
     {
-      title: 'Trạng thái',
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">Trạng thái</span>,
       key: 'status',
       width: 120,
       align: 'center',
       render: (_, r) => {
         if (r.remainingQuantity === 0) {
-          return <Tag color="default">Đã giao đủ</Tag>
+          return <Tag color="default" className="text-xs px-2.5 py-0.5 rounded-full border m-0 font-medium">Đã giao đủ</Tag>
         }
         if (r.dispatchQuantity === r.remainingQuantity) {
           return (
-            <Tag color="success" className="font-medium">
+            <Tag color="success" className="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full border m-0 font-medium">
               <CheckCircleOutlined /> Đã đóng gói
             </Tag>
           )
@@ -614,7 +614,7 @@ export default function SmartGoodsDeliveryForm({
             loading={submitting}
             disabled={!activeOrder || loadingItems || Boolean(createdGdnForPrint)}
             onClick={() => void handleConfirmDispatch()}
-            className="bg-emerald-600 hover:bg-emerald-700 font-semibold"
+            className="font-semibold shadow-xs"
           >
             Xác Nhận Xuất Xưởng & In Phiếu Giao Hàng
           </Button>,
@@ -706,22 +706,22 @@ export default function SmartGoodsDeliveryForm({
           {/* 3. Khung Quét Mã Vạch Thông Minh (< 100ms) */}
           <Card
             size="small"
-            className="border-2 border-emerald-300 bg-emerald-50/40"
-            bodyStyle={{ padding: '12px 16px' }}
+            className="border border-slate-200 bg-slate-50/80 rounded-xl shadow-xs"
+            bodyStyle={{ padding: '14px 18px' }}
           >
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <BarcodeOutlined className="text-emerald-600 animate-pulse text-base" />
-                  <span className="font-bold text-slate-800 text-xs">
+                <div className="flex items-center gap-2 mb-2">
+                  <BarcodeOutlined className="text-slate-600 text-base" />
+                  <span className="font-semibold text-slate-900 text-sm">
                     Ô quét mã vạch SKU / Barcode / Số lô kiểm tra đóng gói xuất xưởng (&lt; 100ms)
                   </span>
-                  <Tag color="emerald" className="text-[10px] m-0">
+                  <span className="text-xs px-2 py-0.5 rounded bg-slate-200/80 text-slate-600 font-medium">
                     Tự động focus
-                  </Tag>
-                  <Tag color="blue" className="text-[10px] m-0">
+                  </span>
+                  <span className="text-xs px-2 py-0.5 rounded bg-slate-200/80 text-slate-600 font-medium">
                     Âm thanh bíp
-                  </Tag>
+                  </span>
                 </div>
                 <Input
                   ref={barcodeInputRef}
@@ -729,7 +729,7 @@ export default function SmartGoodsDeliveryForm({
                   value={barcodeInput}
                   onChange={(e) => setBarcodeInput(e.target.value)}
                   onKeyDown={handleBarcodeKeyDown}
-                  className="font-mono text-sm border-emerald-300 focus:border-emerald-500"
+                  className="font-mono text-sm"
                   allowClear
                 />
               </div>
@@ -739,14 +739,14 @@ export default function SmartGoodsDeliveryForm({
                   data-write-action
                   icon={<CameraOutlined />}
                   onClick={() => setIsCameraOpen(true)}
-                  className="text-slate-700"
+                  className="font-medium"
                 >
                   Quét bằng Camera
                 </Button>
                 <Button
                   icon={<FastForwardOutlined />}
                   onClick={handlePackAll}
-                  className="text-blue-600 border-blue-400"
+                  className="font-medium"
                 >
                   Đóng gói toàn bộ
                 </Button>
@@ -754,10 +754,10 @@ export default function SmartGoodsDeliveryForm({
             </div>
 
             {lastScannedSku && (
-              <div className="mt-2 text-xs text-emerald-800 bg-emerald-100 px-2.5 py-1 rounded border border-emerald-300 flex items-center gap-1.5">
-                <CheckCircleOutlined className="text-emerald-600" />
+              <div className="mt-3 text-xs text-slate-800 bg-white px-3 py-1.5 rounded-lg border border-slate-200 shadow-2xs flex items-center gap-2">
+                <CheckCircleOutlined className="text-emerald-600 text-sm" />
                 <span>
-                  Đã quét thành công mặt hàng: <strong>{lastScannedSku}</strong> (+1 số lượng xuất)
+                  Đã quét thành công mặt hàng: <strong className="font-mono text-slate-900">{lastScannedSku}</strong> (+1 số lượng xuất)
                 </span>
               </div>
             )}

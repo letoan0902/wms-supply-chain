@@ -1,6 +1,7 @@
 package vn.wms.product.dto;
 
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -21,10 +22,12 @@ public record BatchBarcodeRequest(
         @Schema(description = "Loại mã (mặc định QR_CODE)", example = "QR_CODE")
         BarcodeType type,
 
-        @Schema(description = "Chiều rộng ảnh tùy chọn (mặc định 250)", example = "250")
+        @Schema(description = "Chiều rộng ảnh tùy chọn (mặc định 250), từ 50 đến 2000 pixel", example = "250")
+        @Max(value = 2000, message = "Chiều rộng ảnh tối đa 2000 pixel")
         Integer width,
 
-        @Schema(description = "Chiều cao ảnh tùy chọn (mặc định 250)", example = "250")
+        @Schema(description = "Chiều cao ảnh tùy chọn (mặc định 250), từ 50 đến 2000 pixel", example = "250")
+        @Max(value = 2000, message = "Chiều cao ảnh tối đa 2000 pixel")
         Integer height
 ) {
 }

@@ -122,6 +122,24 @@ api.interceptors.response.use(
   },
 )
 
+/**
+ * Sau khi làm mới token thất bại: trả access token mới nếu tab khác đã lưu access token mới
+ * (tab kia đã refresh thành công và lưu access token mới vào localStorage). Phản hồi của tab kia có thể về
+ * sau lỗi của tab này nên đọc lại một lần nữa sau 1 giây; không có thì trả null để đăng xuất như cũ.
+ */
+async function waitForTokensFromOtherTab(previousAccessToken: string | null): Promise<string | null> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    if (attempt > 0) {
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+    }
+    const latestAccessToken = getToken()
+    if (latestAccessToken && latestAccessToken !== previousAccessToken) {
+      return latestAccessToken
+    }
+  }
+  return null
+}
+
 // Xử lý 401: Tự động dùng Refresh Token để gia hạn Access Token và thử lại request bị lỗi.
 api.interceptors.response.use(
   (response) => response,
@@ -163,39 +181,27 @@ api.interceptors.response.use(
 
       originalRequest._retry = true
       isRefreshing = true
-
-      // const currentRefreshToken = getRefreshToken()
-      // if (!currentRefreshToken) {
-      //   clearAuth()
-      //   if (window.location.pathname !== LOGIN_PATH) {
-      //     window.location.assign(loginPathWithRedirect())
-      //   }
-      //   return Promise.reject(error)
-      // }
+      const previousAccessToken = getToken()
 
       try {
         // Gọi API refresh qua axios độc lập (không qua instance `api` để tránh đệ quy interceptor)
         const refreshResponse = await axios.post<ApiResponse<RefreshTokenResponse>>(
-        `${api.defaults.baseURL || '/api'}/auth/refresh`,
-        {},
-        {
-          headers: { 'Content-Type': 'application/json' },
-          withCredentials: true,
-        },
-)
+          `${api.defaults.baseURL || '/api'}/auth/refresh`,
+          {},
+          {
+            headers: { 'Content-Type': 'application/json' },
+            withCredentials: true,
+          },
+        )
         const data = refreshResponse.data?.data
         const newAccessToken = data?.accessToken
-        // const newRefreshToken = data?.refreshToken
 
         if (!newAccessToken) {
           throw new Error('Không nhận được Access Token mới từ máy chủ')
         }
 
-        // Cập nhật Access Token mới (và Refresh Token mới nếu backend xoay vòng RTR)
+        // Cập nhật Access Token mới vào localStorage
         saveToken(newAccessToken)
-        // if (newRefreshToken) {
-        //   saveRefreshToken(newRefreshToken)
-        // }
 
         // Giải phóng hàng đợi và thông báo token mới cho các request đang chờ
         processQueue(null, newAccessToken)
@@ -206,6 +212,16 @@ api.interceptors.response.use(
         }
         return api(originalRequest)
       } catch (refreshErr) {
+        // Máy chủ chỉ giữ một refresh token cho mỗi người dùng và xoay vòng sau mỗi lần làm mới: tab khác làm mới
+        // cùng lúc thì lần của tab này thua. Nếu tab kia đã lưu token mới thì gửi lại request, không xóa phiên.
+        const latestAccessToken = await waitForTokensFromOtherTab(previousAccessToken)
+        if (latestAccessToken) {
+          processQueue(null, latestAccessToken)
+          if (originalRequest.headers) {
+            originalRequest.headers.Authorization = `Bearer ${latestAccessToken}`
+          }
+          return api(originalRequest)
+        }
         processQueue(refreshErr, null)
         clearAuth()
         if (window.location.pathname !== LOGIN_PATH) {

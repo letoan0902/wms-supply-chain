@@ -99,6 +99,8 @@ export interface PurchaseOrderSummary {
   approvedOrders: number
   rejectedOrders: number
   cancelledOrders: number
+  partiallyReceivedOrders?: number
+  completedOrders?: number
   totalApprovedAmount: number
 }
 

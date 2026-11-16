@@ -99,7 +99,8 @@ export function calculateOrderTotals(items: PurchaseOrderItemPayload[]): OrderCa
     totalDiscount: round2(totalDiscount),
     totalTax: round2(totalTax),
     grandTotal: round2(grandTotal),
-    totalQuantity: round2(totalQuantity),
+    // Số lượng lưu DECIMAL(18,3): làm tròn 3 chữ số, không dùng round2 của tiền
+    totalQuantity: Math.round((totalQuantity + Number.EPSILON) * 1000) / 1000,
     itemCount: items.length,
   }
 }

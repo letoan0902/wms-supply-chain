@@ -122,6 +122,25 @@ api.interceptors.response.use(
   },
 )
 
+/**
+ * Sau khi làm mới token thất bại: trả access token mới nếu tab khác đã lưu refresh token khác token vừa dùng
+ * (tab kia ghi access token trước refresh token nên hai giá trị đi cùng nhau). Phản hồi của tab kia có thể về
+ * sau lỗi của tab này nên đọc lại một lần nữa sau 1 giây; không có thì trả null để đăng xuất như cũ.
+ */
+async function waitForTokensFromOtherTab(usedRefreshToken: string): Promise<string | null> {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    if (attempt > 0) {
+      await new Promise((resolve) => setTimeout(resolve, 1000))
+    }
+    const latestRefreshToken = getRefreshToken()
+    const latestAccessToken = getToken()
+    if (latestRefreshToken && latestAccessToken && latestRefreshToken !== usedRefreshToken) {
+      return latestAccessToken
+    }
+  }
+  return null
+}
+
 // Xử lý 401: Tự động dùng Refresh Token để gia hạn Access Token và thử lại request bị lỗi.
 api.interceptors.response.use(
   (response) => response,
@@ -204,6 +223,16 @@ api.interceptors.response.use(
         }
         return api(originalRequest)
       } catch (refreshErr) {
+        // Máy chủ chỉ giữ một refresh token cho mỗi người dùng và xoay vòng sau mỗi lần làm mới: tab khác làm mới
+        // cùng lúc thì lần của tab này thua. Nếu tab kia đã lưu cặp token mới thì gửi lại request, không xóa phiên.
+        const latestAccessToken = await waitForTokensFromOtherTab(currentRefreshToken)
+        if (latestAccessToken) {
+          processQueue(null, latestAccessToken)
+          if (originalRequest.headers) {
+            originalRequest.headers.Authorization = `Bearer ${latestAccessToken}`
+          }
+          return api(originalRequest)
+        }
         processQueue(refreshErr, null)
         clearAuth()
         if (window.location.pathname !== LOGIN_PATH) {

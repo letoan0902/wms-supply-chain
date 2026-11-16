@@ -214,13 +214,22 @@ export default function SuppliersPage() {
   const handleExportExcel = async () => {
     try {
       setExporting(true)
-      const data = await supplierApi.fetchSuppliers({
-        keyword,
-        active,
-        page: 0,
-        size: 1000,
-      })
-      const exportList = data.content || []
+      // order-service giới hạn 100 dòng mỗi trang: lặp qua mọi trang như xuất đơn mua hàng
+      let currentPage = 0
+      let isLast = false
+      let exportList: Supplier[] = []
+      while (!isLast) {
+        const data = await supplierApi.fetchSuppliers({
+          keyword,
+          active,
+          page: currentPage,
+          size: 100,
+        })
+        const items = data.content || []
+        exportList = exportList.concat(items)
+        isLast = Boolean(data.last || items.length === 0 || currentPage >= data.totalPages - 1)
+        currentPage++
+      }
       if (exportList.length === 0) {
         message.warning('Không có dữ liệu nhà cung cấp để xuất Excel')
         return

@@ -161,6 +161,7 @@ export default function SalesOrderItemsTable({
           size="small"
           min={0.001}
           step={1}
+          precision={3}
           value={val}
           onChange={(newVal) => onItemChange(record._key, 'quantity', newVal ?? 1)}
           className="w-full"

@@ -208,6 +208,7 @@ export default function PurchaseOrderItemsTable({
         <InputNumber
           min={0.001}
           step={1}
+          precision={3}
           // Chưa nhập (0) thì để ô trống cho người dùng tự điền, không hiện số 0 như một giá trị đã chọn
           value={record.quantity > 0 ? record.quantity : null}
           placeholder="Nhập"

@@ -569,7 +569,8 @@ export default function PurchasesPage() {
     },
     { key: 'APPROVED', label: `Đã duyệt (${summary?.approvedOrders ?? 0})` },
     { key: 'PARTIALLY_RECEIVED', label: 'Nhập dở dang' },
-    { key: 'CONFIRMED', label: 'Đã xác nhận' },
+    // Đơn mua không có trạng thái CONFIRMED: nhập đủ hàng thì chuyển sang COMPLETED
+    { key: 'COMPLETED', label: `Hoàn thành (${summary?.completedOrders ?? 0})` },
     { key: 'DRAFT', label: `Bản nháp (${summary?.draftOrders ?? 0})` },
     { key: 'REJECTED', label: `Đã từ chối (${summary?.rejectedOrders ?? 0})` },
     { key: 'CANCELLED', label: `Đã hủy (${summary?.cancelledOrders ?? 0})` },

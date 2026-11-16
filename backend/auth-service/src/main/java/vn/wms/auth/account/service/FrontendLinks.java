@@ -17,6 +17,7 @@ public class FrontendLinks {
 
     static final String ACTIVATE_PATH = "/activate?token=";
     static final String RESET_PASSWORD_PATH = "/reset-password?token=";
+    static final String LOGIN_PATH = "/login";
 
     private final String baseUrl;
 
@@ -37,6 +38,11 @@ public class FrontendLinks {
     /** Liên kết đặt lại mật khẩu. */
     public String passwordReset(String rawToken) {
         return baseUrl + RESET_PASSWORD_PATH + rawToken;
+    }
+
+    /** Trang đăng nhập (email báo doanh nghiệp đã được duyệt). */
+    public String login() {
+        return baseUrl + LOGIN_PATH;
     }
 
     static String resolveBaseUrl(String frontendUrl, String payOsReturnUrl) {

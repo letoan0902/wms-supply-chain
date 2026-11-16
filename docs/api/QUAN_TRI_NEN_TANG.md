@@ -10,7 +10,7 @@ có phần lẻ của giây), ngày dạng `yyyy-MM-dd`. Số tiền là số ng
 
 Chỉ vai trò `SUPER_ADMIN` (quản trị nền tảng). Chưa đăng nhập: `401 UNAUTHORIZED`. Vai trò khác, kể cả `ADMIN` của
 doanh nghiệp: `403 FORBIDDEN`. Doanh nghiệp hệ thống mã `PLATFORM` (chứa tài khoản `SUPER_ADMIN`) không bao giờ có
-trong kết quả và không được tính vào số liệu; xem hoặc đổi trạng thái nó trả `404 NOT_FOUND`.
+trong kết quả và không được tính vào số liệu; xem, đổi trạng thái, duyệt hoặc từ chối nó trả `404 NOT_FOUND`.
 
 Giá trị enum: trạng thái doanh nghiệp `PENDING | ACTIVE | SUSPENDED`; gói `FREE | TRIAL | PRO`; trạng thái thuê bao
 `ACTIVE | EXPIRED`; trạng thái thanh toán `PENDING | PAID | CANCELLED | EXPIRED`; chu kỳ `MONTHLY | YEARLY`.
@@ -104,7 +104,7 @@ khi đổi.
 | --- | --- | --- |
 | `ACTIVE` | Tạm khóa | `400` "Doanh nghiệp đang hoạt động, không cần mở khóa" |
 | `SUSPENDED` | `400` "Doanh nghiệp đang bị tạm khóa" | Mở khóa |
-| `PENDING` | `400` (chỉ tạm khóa được doanh nghiệp đang hoạt động) | `400` (chỉ kích hoạt qua liên kết trong email đăng ký) |
+| `PENDING` | `400` (chỉ tạm khóa được doanh nghiệp đang hoạt động) | `400` (kích hoạt qua liên kết trong email đăng ký hoặc mục 3.6) |
 
 - Giá trị khác (`PENDING`): `400 BAD_REQUEST`. Giá trị không phải enum: `400 BAD_REQUEST` "Nội dung yêu cầu không đúng
   định dạng". Thiếu `status` hoặc `reason` quá 255 ký tự: `400 VALIDATION_ERROR` kèm lỗi từng trường trong `data`.
@@ -119,6 +119,40 @@ khi đổi.
 Tham số: `status`, `companyId`, `from`, `to` (ngày `yyyy-MM-dd` theo giờ Việt Nam, lọc theo ngày tạo, gồm cả hai đầu),
 `page`, `size`. Sắp xếp: mới tạo trước. Trả `PageResponse<PlatformPayment>`. `from` sau `to` hoặc ngày sai dạng: `400`.
 Giao dịch `PENDING` đã quá hạn được chuyển `EXPIRED` trước khi trả (giống lịch sử thanh toán của doanh nghiệp).
+
+### 3.6 `POST /companies/{id}/approve`
+
+Duyệt một bản đăng ký đang chờ kích hoạt (`PENDING`). Thân tùy chọn; không gửi thân thì cấp gói dùng thử 30 ngày:
+
+```json
+{ "plan": "TRIAL", "trialDays": 30 }
+{ "plan": "PRO", "cycle": "MONTHLY" }
+```
+
+- `plan`: `TRIAL` (mặc định) hoặc `PRO`, không phân biệt hoa thường. `trialDays`: 1 đến 90, mặc định 30, chỉ dùng với
+  `TRIAL`. `cycle`: `MONTHLY` (30 ngày) hoặc `YEARLY` (365 ngày), bắt buộc với `PRO`, không dùng với `TRIAL`.
+- Kết quả: doanh nghiệp `ACTIVE`, ghi `activatedAt`; thuê bao tạo lúc đăng ký được đặt lại một lần, hạn tính từ lúc duyệt
+  (gói `PRO` không cộng dồn thời gian dùng thử còn lại và không tạo giao dịch thanh toán); bộ nhớ đệm Redis của thuê bao
+  được ghi lại. Người đăng ký (ADMIN đầu tiên) đăng nhập được ngay và nhận email báo đã duyệt kèm liên kết đăng nhập.
+  Liên kết kích hoạt trong email đăng ký vẫn mở được và chỉ báo doanh nghiệp đã hoạt động, không đổi gì.
+- Trả `PlatformCompanySummary` sau khi duyệt.
+- Gói khác `TRIAL`, `PRO`, chu kỳ sai, `PRO` thiếu `cycle`, `trialDays` đi với `PRO` hoặc `cycle` đi với `TRIAL`:
+  `400 BAD_REQUEST`. `trialDays` ngoài 1 đến 90: `400 VALIDATION_ERROR`. Doanh nghiệp không còn `PENDING` (đã duyệt, đã
+  kích hoạt qua email, đã từ chối, đang tạm khóa): `400 BAD_REQUEST`. `PLATFORM` hoặc không tồn tại: `404`.
+
+### 3.7 `POST /companies/{id}/reject`
+
+Từ chối một bản đăng ký đang chờ kích hoạt (`PENDING`). Thân: `{ "reason": "bắt buộc, tối đa 255 ký tự" }`.
+
+- Kết quả: doanh nghiệp chuyển `SUSPENDED`, `activatedAt` vẫn `null` (cách nhận ra bản đăng ký bị từ chối trong danh
+  sách); liên kết kích hoạt chưa dùng bị vô hiệu. Người đăng ký đăng nhập nhận `403 COMPANY_INACTIVE` "Doanh nghiệp đã bị
+  tạm khóa. Vui lòng liên hệ quản trị nền tảng." và nhận email báo bản đăng ký chưa được chấp thuận (không kèm lý do).
+- `reason` chỉ ghi vào log của auth-service, không lưu và không gửi đi. Thiếu hoặc quá 255 ký tự: `400 VALIDATION_ERROR`.
+- Doanh nghiệp không còn `PENDING`: `400 BAD_REQUEST` (bản đăng ký đã từ chối không duyệt lại được). `PLATFORM` hoặc
+  không tồn tại: `404`.
+- Mở khóa (mục 3.4) vẫn đưa doanh nghiệp đã từ chối về `ACTIVE` như mọi doanh nghiệp đang tạm khóa, với thuê bao dùng
+  thử tính từ lúc đăng ký; chỉ làm khi thật sự muốn nhận lại bản đăng ký.
+- Trả `PlatformCompanySummary` sau khi từ chối.
 
 ## 4. API của doanh nghiệp khi đăng nhập bằng `SUPER_ADMIN`
 

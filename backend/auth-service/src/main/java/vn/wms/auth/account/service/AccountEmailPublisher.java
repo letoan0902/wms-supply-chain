@@ -40,6 +40,21 @@ public class AccountEmailPublisher {
                 recipient, frontendLinks.passwordReset(token.rawToken()), token.expiresAt());
     }
 
+    /**
+     * Báo cho người đăng ký biết quản trị nền tảng đã duyệt bản đăng ký: doanh nghiệp đã hoạt động, liên kết tới trang
+     * đăng nhập. Nội dung email cố định ở notification-service, sự kiện không mang nội dung tùy ý.
+     */
+    public void publishCompanyApproved(Company company, User recipient) {
+        publish(AccountEmailKind.COMPANY_APPROVED, WmsEvents.RoutingKeys.AUTH_COMPANY_APPROVED, company, recipient,
+                frontendLinks.login(), null);
+    }
+
+    /** Báo cho người đăng ký biết bản đăng ký bị từ chối; liên kết tới trang chủ, không gửi lý do. */
+    public void publishCompanyRejected(Company company, User recipient) {
+        publish(AccountEmailKind.COMPANY_REJECTED, WmsEvents.RoutingKeys.AUTH_COMPANY_REJECTED, company, recipient,
+                frontendLinks.baseUrl(), null);
+    }
+
     private void publish(AccountEmailKind kind, String routingKey, Company company, User recipient, String link,
                          Instant expiresAt) {
         AccountEmailRequestedEvent event = new AccountEmailRequestedEvent(kind, company.getId(), company.getName(),

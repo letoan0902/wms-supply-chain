@@ -176,11 +176,15 @@ nghiệp vụ còn lại.
 | `/api/auth/payments/**` (trừ webhook PayOS công khai) | W | - | - |
 | `/api/auth/api-keys/**` | W | - | - |
 | `/api/auth/platform/**` (tổng quan, doanh nghiệp, tạm khóa và mở khóa, thanh toán) | - | - | W |
+| `POST /api/auth/platform/companies/{id}/approve`, `.../reject` (duyệt, từ chối bản đăng ký `PENDING`) | - | - | W |
 
 `/api/auth/platform/**` chặn ở cả `SecurityConfig` (`hasRole("SUPER_ADMIN")`) và `@PreAuthorize` của từng phương thức
 (`PlatformController`), giống cách `ApiKeyController` chặn `ADMIN`. Đây là chỗ duy nhất đọc dữ liệu của mọi doanh
 nghiệp; truy vấn nằm ở `vn.wms.auth.platform.repository` và luôn loại `PLATFORM`. Test `PlatformAdminIntegrationTest`
-gọi cả năm API khi chưa đăng nhập (401), bằng ADMIN và nhân viên của doanh nghiệp (403) và bằng `SUPER_ADMIN` (200).
+gọi cả năm API khi chưa đăng nhập (401), bằng ADMIN và nhân viên của doanh nghiệp (403) và bằng `SUPER_ADMIN` (200);
+`AdminCompanyIntegrationTest` làm như vậy với duyệt và từ chối bản đăng ký (cấp gói, kể cả PRO miễn phí, nên tuyệt đối
+không mở cho `ADMIN` của doanh nghiệp) và kiểm tra các API quản lý doanh nghiệp cũ dưới `/api/auth/companies` không còn
+tồn tại (404 hoặc 405). Dưới `/api/auth/companies` chỉ còn ba API công khai: đăng ký, kích hoạt, gửi lại email kích hoạt.
 
 Ở product, inventory, order, notification, `SUPER_ADMIN` không có trong danh sách `@PreAuthorize` nào nên mọi API
 nghiệp vụ trả 403; dù có lọt qua thì dữ liệu cũng lọc theo doanh nghiệp `PLATFORM` (rỗng).

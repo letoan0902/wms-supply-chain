@@ -79,6 +79,8 @@ public class SubscriptionIntegrationTest extends BaseIntegrationTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.data.company.name").value("Công ty Cổ phần Vận Tải Anpha"))
                 .andExpect(jsonPath("$.data.company.code", startsWith("CTY")))
+                // WMS-23.6: doanh nghiệp mới chờ kích hoạt qua email
+                .andExpect(jsonPath("$.data.activationRequired").value(true))
                 .andExpect(jsonPath("$.data.company.status").value("PENDING"))
                 .andExpect(jsonPath("$.data.admin.username").value("admin_anpha"))
                 .andExpect(jsonPath("$.data.subscription.plan").value("TRIAL"))
@@ -92,15 +94,7 @@ public class SubscriptionIntegrationTest extends BaseIntegrationTest {
         long companyId = regData.path("company").path("id").asLong();
         assertThat(regData.path("company").path("code").asText()).isEqualTo(String.format("CTY%06d", companyId));
 
-        // Admin toàn hệ thống phê duyệt doanh nghiệp
-        String adminToken = loginAndGetToken("admin", DEFAULT_PASSWORD);
-        mockMvc.perform(post("/api/auth/companies/" + companyId + "/approve")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.status").value("ACTIVE"))
-                .andExpect(jsonPath("$.data.adminUser.enabled").value(true));
-
-        // trial_ends_at = thời điểm phê duyệt + 30 ngày
+        // trial_ends_at = thời điểm đăng ký + 30 ngày
         Subscription sub = subscriptionRepository.findByCompanyId(companyId).orElseThrow();
         assertThat(sub.getTrialEndsAt()).isBetween(
                 Instant.now().plus(30, ChronoUnit.DAYS).minus(1, ChronoUnit.MINUTES),
@@ -119,7 +113,15 @@ public class SubscriptionIntegrationTest extends BaseIntegrationTest {
                 .containsEntry("apiAccess", "true")
                 .hasSize(8);
 
-        // Đăng nhập bằng tài khoản Admin mới tạo sau khi đã được phê duyệt: đăng nhập cũng ghi lại bộ nhớ đệm
+        // Chưa kích hoạt thì chưa đăng nhập được (WMS-23.6); bấm liên kết trong email rồi mới đăng nhập
+        mockMvc.perform(post("/api/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new LoginRequest("admin_anpha", "Demopassword"))))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("COMPANY_INACTIVE"));
+        activateCompanyByEmail("anpha@wms.vn");
+
+        // Đăng nhập bằng tài khoản Admin mới tạo: đăng nhập cũng ghi lại bộ nhớ đệm
         mockRedisHashMap.clear();
         LoginRequest loginReq = new LoginRequest("admin_anpha", "Demopassword");
         String loginResponseStr = mockMvc.perform(post("/api/auth/login")
@@ -280,7 +282,6 @@ public class SubscriptionIntegrationTest extends BaseIntegrationTest {
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         long companyId = objectMapper.readTree(reg).path("data").path("company").path("id").asLong();
-        approveCompany(companyId);
         Instant trialEndsAt = subscriptionRepository.findByCompanyId(companyId).orElseThrow().getTrialEndsAt();
         activateCompanyByEmail("gamma@wms.vn");
 
@@ -367,7 +368,8 @@ public class SubscriptionIntegrationTest extends BaseIntegrationTest {
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         long companyId = objectMapper.readTree(reg).path("data").path("company").path("id").asLong();
-        approveCompany(companyId);
+
+        activateCompanyByEmail("delta@wms.vn");
 
         String loginResponseStr = mockMvc.perform(post("/api/auth/login")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -437,8 +439,8 @@ public class SubscriptionIntegrationTest extends BaseIntegrationTest {
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         long companyId = objectMapper.readTree(reg).path("data").path("company").path("id").asLong();
-        approveCompany(companyId);
 
+        activateCompanyByEmail("zeta@wms.vn");
         jdbcTemplate.update("UPDATE subscriptions SET trial_ends_at = ? WHERE company_id = ?",
                 Timestamp.from(Instant.now().minus(1, ChronoUnit.HOURS)), companyId);
         mockRedisHashMap.clear();
@@ -474,8 +476,8 @@ public class SubscriptionIntegrationTest extends BaseIntegrationTest {
                 .andExpect(status().isCreated())
                 .andReturn().getResponse().getContentAsString();
         long companyId = objectMapper.readTree(reg).path("data").path("company").path("id").asLong();
-        approveCompany(companyId);
 
+        activateCompanyByEmail("eta@wms.vn");
         jdbcTemplate.update("UPDATE subscriptions SET trial_ends_at = ? WHERE company_id = ?",
                 Timestamp.from(Instant.now().minus(1, ChronoUnit.HOURS)), companyId);
 
@@ -510,12 +512,5 @@ public class SubscriptionIntegrationTest extends BaseIntegrationTest {
         mockMvc.perform(post("/api/auth/subscription/demo/expire")
                         .header(HttpHeaders.AUTHORIZATION, "Bearer " + staffToken))
                 .andExpect(status().isForbidden());
-    }
-
-    private void approveCompany(long companyId) throws Exception {
-        String adminToken = loginAndGetToken("admin", DEFAULT_PASSWORD);
-        mockMvc.perform(post("/api/auth/companies/" + companyId + "/approve")
-                        .header(HttpHeaders.AUTHORIZATION, "Bearer " + adminToken))
-                .andExpect(status().isOk());
     }
 }

@@ -118,6 +118,33 @@ public class SubscriptionService {
         return subscription;
     }
 
+    /**
+     * Cấp gói Chuyên Nghiệp (PRO) khi quản trị nền tảng duyệt một bản đăng ký (docs/SAAS_SPEC.md mục 6): hạn tính từ lúc
+     * duyệt cộng 30 hoặc 365 ngày. Khác {@link #activate}, thời gian dùng thử còn lại (tính từ lúc đăng ký) không được
+     * cộng dồn. Thuê bao đọc dưới khóa dòng; doanh nghiệp chưa có thuê bao thì tạo mới. Ghi lại bộ nhớ đệm Redis.
+     */
+    @Transactional
+    public Subscription grantProOnApproval(Company company, BillingCycle cycle) {
+        if (cycle == null) {
+            throw ApiException.badRequest("Chu kỳ thanh toán không được để trống");
+        }
+        Plan plan = planRepository.findById(PLAN_PRO)
+                .orElseThrow(() -> ApiException.notFound("Không tìm thấy gói dịch vụ: " + PLAN_PRO));
+        Instant now = Instant.now().truncatedTo(ChronoUnit.SECONDS);
+        long days = (cycle == BillingCycle.YEARLY) ? 365L : 30L;
+
+        Subscription subscription = subscriptionRepository.findByCompanyIdForUpdate(company.getId())
+                .orElseGet(() -> Subscription.builder().company(company).build());
+        subscription.setPlan(plan);
+        subscription.setStatus(SubscriptionStatus.ACTIVE);
+        subscription.setTrialEndsAt(null);
+        subscription.setExpiresAt(now.plus(days, ChronoUnit.DAYS));
+
+        subscription = subscriptionRepository.save(subscription);
+        syncToRedis(subscription);
+        return subscription;
+    }
+
     @Transactional
     public Subscription downgradeToFree(Long companyId) {
         Subscription subscription = subscriptionRepository.findByCompanyIdForUpdate(companyId)

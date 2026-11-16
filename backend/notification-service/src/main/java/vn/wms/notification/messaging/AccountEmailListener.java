@@ -16,8 +16,9 @@ import vn.wms.notification.service.AccountEmailService;
 
 /**
  * Consumer duy nhất của queue {@code notification.auth-emails} (binding {@code auth.#}, WMS-23.6): nhận yêu cầu gửi
- * email kích hoạt doanh nghiệp và đặt lại mật khẩu từ auth-service ({@link AccountEmailRequestedEvent},
- * docs/MESSAGING.md mục 3) rồi chuyển cho {@link AccountEmailService} trong ngữ cảnh doanh nghiệp của sự kiện.
+ * email kích hoạt doanh nghiệp, đặt lại mật khẩu và kết quả duyệt đăng ký từ auth-service
+ * ({@link AccountEmailRequestedEvent}, docs/MESSAGING.md mục 3) rồi chuyển cho {@link AccountEmailService} trong ngữ
+ * cảnh doanh nghiệp của sự kiện.
  *
  * <p>Doanh nghiệp đọc từ header {@code x-wms-company-id}, không có thì trường {@code companyId} của payload. Không có
  * doanh nghiệp, thiếu người nhận hoặc liên kết thì ghi cảnh báo và bỏ qua (ack). JSON hỏng thì chuyển dead-letter.

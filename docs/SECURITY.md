@@ -92,7 +92,7 @@ ADMIN là quản trị của một doanh nghiệp nên có mọi quyền nghiệ
 | `GET /api/inventory/stock/atp` | R | R | R | R | R | R | R |
 | `POST /api/inventory/stock/atp/batch` (đọc) | R | R | R | R | R | R | - |
 | `POST /api/inventory/stock/picking-list` (order-service gọi khi lập phiếu xuất, xem lấy hàng) | R | R | R | - | R | - | - |
-| `POST /api/inventory/stock/reservations/release` (order-service gọi khi hủy, xóa đơn bán) | W | W | - | - | W | - | - |
+| `POST /api/inventory/stock/reservations/release` (order-service gọi khi hủy, xóa, sửa và xác nhận lại đơn bán) | W | W | - | - | W | - | - |
 | `POST /api/inventory/stock/deduct`, `/dispatch` (trừ tồn trực tiếp, giao diện không gọi) | W | W | - | - | - | - | - |
 | `GET /api/inventory/reports/**` (nhập-xuất-tồn, thẻ kho, truy vết lô, kèm `/export` tải file Excel của nhập-xuất-tồn và thẻ kho: cùng quyền và phạm vi kho) | R | R (kho được gán) | R (kho được gán) | - | - | R | - |
 | `GET /api/inventory/alerts`, `/alerts/summary` (cảnh báo tồn kho, theo phạm vi kho của người gọi) | R | R | R | R | R | R | R |

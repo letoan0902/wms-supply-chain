@@ -208,11 +208,11 @@ Thứ tự bước và khoảng hở còn lại:
 - Xác nhận đơn bán: khóa đơn, kiểm tra ATP và hạn mức, gọi giữ chỗ (inventory-service commit), rồi mới đổi trạng thái
   và commit bên order-service, sự kiện phát sau commit. Nếu order-service rollback sau khi đã giữ chỗ (lỗi CSDL lúc
   commit) thì sau rollback gọi giải phóng giữ chỗ của đơn (`/api/inventory/stock/reservations/release`). Nếu lời gọi giữ
-  chỗ hết thời gian chờ (5 giây) mà inventory-service vẫn giữ xong thì đơn vẫn DRAFT nhưng có giữ chỗ: người dùng bấm
-  xác nhận lại thì dùng lại đúng giữ chỗ đó (idempotent), hủy đơn DRAFT/BACKORDER cũng gọi giải phóng. Giữ chỗ treo chỉ
-  còn khi lần gọi hết thời gian chờ và người dùng không bao giờ xác nhận lại hay hủy đơn. Lần xác nhận lại sau khi đã
-  sửa số lượng của đơn dùng giữ chỗ cũ (không giữ lại theo số mới); nên hủy và lập lại đơn trong trường hợp hiếm này.
-- Phiếu xuất: khóa đơn bán (lập phiếu) hoặc phiếu (`dispatch`), lưu phiếu ở PICKING để có ID, gọi trừ tồn với khóa
+  chỗ hết thời gian chờ (5 giây) mà inventory-service vẫn giữ xong thì đơn vẫn DRAFT nhưng có giữ chỗ: sửa, xác nhận
+  lại, xóa hay hủy đơn đều gọi giải phóng trước (xác nhận lại thì giải phóng rồi giữ lại theo dòng hàng hiện tại;
+  inventory-service vẫn báo đã có giữ chỗ thì order-service trả 503 và đơn không đổi). Giữ chỗ treo chỉ còn khi lần
+  gọi hết thời gian chờ và người dùng không bao giờ đụng lại đơn. Đơn chỉ được xác nhận khi đã chọn kho.
+- Phiếu xuất: khóa đơn bán (lập phiếu; `dispatch` khóa đơn bán rồi khóa phiếu và từ chối khi đơn đã hủy), lưu phiếu ở PICKING để có ID, gọi trừ tồn với khóa
   `GDN-<id>` (inventory-service commit), rồi mới chuyển COMPLETED, đóng đơn nếu đã giao đủ, commit, phát sự kiện sau
   commit. Trừ tồn bị từ chối: lập phiếu thì rollback toàn bộ (không có phiếu), `dispatch` thì phiếu giữ nguyên trạng
   thái. Hết thời gian chờ, mất kết nối hoặc 5xx (không biết inventory-service đã trừ chưa): lập phiếu thì phiếu vẫn
@@ -221,7 +221,10 @@ Thứ tự bước và khoảng hở còn lại:
   `alreadyProcessed` và phiếu hoàn tất mà không trừ thêm, chưa trừ thì trừ bình thường; hai lần gọi trùng khóa đồng
   thời chỉ trừ một lần (ràng buộc duy nhất `(company_id, message_id)`, lần sau đọc lại nhật ký). Khoảng hở còn lại:
   inventory-service đã trừ nhưng order-service không commit được bước hoàn tất (lỗi CSDL) thì phiếu vẫn PICKING trong
-  khi tồn đã giảm cho tới khi có người bấm Xuất kho lại; phiếu PICKING như vậy hiện trong danh sách phiếu xuất.
+  khi tồn đã giảm cho tới khi có người bấm Xuất kho lại; phiếu PICKING như vậy hiện trong danh sách phiếu xuất. Hủy
+  đơn bán hủy luôn các phiếu DRAFT, PICKING của đơn và trả số lượng của chúng về dòng đơn; nếu một phiếu PICKING đó là
+  phiếu hết thời gian chờ mà inventory-service thật ra đã trừ tồn thì phần tồn đã trừ không được trả lại (order-service
+  không phân biệt được phiếu này với phiếu PICKING thường).
 
 ## 8. WebSocket STOMP: thông báo thời gian thực (WMS-02.3)
 

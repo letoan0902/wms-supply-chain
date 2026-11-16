@@ -84,6 +84,7 @@ Các điểm dưới đây ghi lúc viết bộ kiểm thử (11/11/2026), chưa
 - order-service không biết cờ `manageByLot`, `manageByExpiration` của hàng hóa: phiếu nhập hàng quản lý theo lô mà không có số lô hoặc hạn dùng vẫn được nhận (lô tự đặt `LOT-<số phiếu nhập>`).
 - Một tài khoản PURCHASING lập và tự duyệt được đơn mua của chính mình (chưa tách người lập và người duyệt).
 - Phiếu xuất được lập cho đơn ở trạng thái BACKORDER (chỉ chặn DRAFT, CANCELLED, COMPLETED), và không kiểm tra kho của nhân viên kho với kho của đơn.
+- Đơn vị tính trên dòng đơn mua, đơn bán (16/11/2026): quy tắc là số lượng trên dòng đơn (và phiếu nhập, phiếu xuất) luôn tính theo đơn vị tính gốc của hàng hóa; `uom` chỉ là nhãn, không service nào quy đổi (dòng 2 "Thùng" với 1 Thùng = 24 Cái vẫn giữ chỗ và trừ 2 đơn vị gốc). Form đơn mua (`PurchaseOrderItemsTable`) và đơn bán (`SalesOrderItemsTable`) điền sẵn ĐVT từ `uomName` của hàng hóa khi chọn mã hàng nhưng ô ĐVT là ô nhập tự do, người dùng sửa được; form không đọc bảng quy đổi (`/api/products/{id}/conversions`). order-service chưa đọc được một hàng hóa theo ID (product-service chỉ có `/internal/products` dạng danh sách phân trang) nên chưa ép tên ĐVT theo hàng hóa ở phía máy chủ. Cần: khóa ô ĐVT trên hai form (chỉ hiển thị ĐVT gốc), hoặc thêm quy đổi có chủ đích.
 - Danh mục, đơn vị tính chưa có API sửa, xóa; notification-service chưa có API danh sách thông báo: phần cách ly của các nhóm này kiểm tra bằng cách dùng ID của A khi tạo mới (danh mục, đơn vị tính) và qua KPI (thông báo).
 
 ## 3. WMS-20.1 Luồng mua và nhập kho

@@ -117,6 +117,8 @@ Nên đặt tài khoản RabbitMQ riêng; với volume đã có dữ liệu ph�
 | `MAIL_HOST`, `MAIL_PORT` | Máy chủ SMTP của notification-service | `smtp.gmail.com`, `587` | Không |
 | `MAIL_USERNAME` | Tài khoản SMTP; để trống thì không gửi mà ghi liên kết ra log | rỗng | Có |
 | `MAIL_PASSWORD` | Mật khẩu SMTP (Gmail: Mật khẩu ứng dụng) | rỗng | Có |
+| `BREVO_API_KEY` | Khóa API v3 của Brevo (`xkeysib-...`); có khóa thì gửi email qua API Brevo, bỏ qua các biến SMTP ở trên | rỗng | Có |
+| `MAIL_FROM`, `MAIL_FROM_NAME` | Địa chỉ và tên người gửi; gửi qua Brevo thì địa chỉ phải là sender đã xác minh trong Brevo | rỗng, `WMS Supply Chain` | Không |
 | `APP_FRONTEND_URL` | Địa chỉ gốc trong liên kết email kích hoạt và đặt lại mật khẩu | `https://<DOMAIN>` | Không |
 | `REGISTRATION_REQUIRE_ACTIVATION` | Doanh nghiệp mới phải bấm liên kết kích hoạt trong email; để trống là `true`. Chỉ máy phát triển không có mail mới đặt `false` | `true` | Không |
 
@@ -369,9 +371,13 @@ Các bước đầy đủ (gồm đăng ký webhook PayOS và kiểm tra) ở m�
 - PayOS: điền `PAYOS_CLIENT_ID`, `PAYOS_API_KEY`, `PAYOS_CHECKSUM_KEY` vào `.env`, chạy `docker compose up -d auth-service`, đăng ký webhook `https://<DOMAIN>/api/auth/payments/payos/webhook`, rồi đặt `PAYOS_MOCK=false` và chạy lại `docker compose up -d auth-service`. Thiếu khóa mà `PAYOS_MOCK=false` thì tạo thanh toán trả `503`.
 - AI: điền `ANTHROPIC_API_KEY`, đặt `AI_MOCK=false`, chạy `docker compose up -d ai-service`. Kiểm tra: `curl -s -H 'X-Company-Id: 1' http://127.0.0.1:8086/api/ai/health` trả `"mode":"LIVE"`. Thiếu khóa thì ai-service tự chạy giả lập.
 
-### 8.4. Cấu hình SMTP
+### 8.4. Cấu hình gửi email
 
-Điền `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD` (Gmail dùng Mật khẩu ứng dụng) vào `.env`, rồi `docker compose up -d notification-service`. Khi chưa có SMTP, liên kết kích hoạt và đặt lại mật khẩu được ghi ra log: `docker compose logs notification-service | grep "liên kết"`. `REGISTRATION_REQUIRE_ACTIVATION` giữ trống (luôn bắt buộc kích hoạt) ở production. Chi tiết mục 8.5 của deploy/README.md.
+notification-service chọn đường gửi theo thứ tự: có `BREVO_API_KEY` thì gửi qua API Brevo; không có thì dùng SMTP nếu có `MAIL_HOST`; không có cả hai thì không gửi mà ghi nội dung vào log.
+
+Brevo (đang dùng trên máy chủ từ 13/11/2026): đặt `BREVO_API_KEY` và `MAIL_FROM` là sender đã xác minh trong tài khoản Brevo (Senders, Domains và Dedicated IPs), rồi `docker compose up -d notification-service`. Log khởi động có dòng "Gửi email qua API Brevo". Gói miễn phí giới hạn 300 email mỗi ngày. Lỗi của Brevo (khóa sai, sender chưa xác minh) được ghi FAILED trong nhật ký thông báo và log `docker compose logs notification-service | grep Brevo`; log không chứa khóa.
+
+SMTP: Điền `MAIL_HOST`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD` (Gmail dùng Mật khẩu ứng dụng) vào `.env`, rồi `docker compose up -d notification-service`. Khi chưa có SMTP, liên kết kích hoạt và đặt lại mật khẩu được ghi ra log: `docker compose logs notification-service | grep "liên kết"`. `REGISTRATION_REQUIRE_ACTIVATION` giữ trống (luôn bắt buộc kích hoạt) ở production. Chi tiết mục 8.5 của deploy/README.md.
 
 ### 8.5. Bật Swagger tạm thời
 
@@ -394,6 +400,7 @@ Mật khẩu `Demopassword` của các tài khoản mẫu nằm công khai trong
 - Xóa `ANTHROPIC_API_KEY` khỏi `.env`, đặt `AI_MOCK=true`, chạy `docker compose up -d ai-service`, thu hồi khóa trên Claude Console.
 - Xóa ba khóa PayOS khỏi `.env`, đặt `PAYOS_MOCK=true`, chạy `docker compose up -d auth-service`, hủy webhook hoặc thu hồi khóa ở my.payos.vn.
 - Thu hồi Mật khẩu ứng dụng SMTP và xóa `MAIL_USERNAME`, `MAIL_PASSWORD`.
+- Xóa `BREVO_API_KEY` khỏi `.env`, chạy `docker compose up -d notification-service`, xóa khóa ở trang SMTP & API của Brevo.
 - Thu hồi mọi API key của hệ thống ngoài ở `/settings/api-keys`.
 - Xóa deploy key đã thêm trên GitHub (nếu có) và xóa bản sao `.env`, bản sao lưu ở các máy cá nhân.
 - Nếu ngừng dịch vụ: xóa bản ghi DNS, hủy hoặc xóa máy chủ sau khi đã lưu bản sao lưu cuối.

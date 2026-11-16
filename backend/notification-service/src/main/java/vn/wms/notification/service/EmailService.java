@@ -5,6 +5,7 @@ import jakarta.mail.internet.MimeMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.mail.MailPreparationException;
 import org.springframework.mail.SimpleMailMessage;
@@ -17,11 +18,16 @@ import vn.wms.notification.config.NotificationProperties;
 import java.nio.charset.StandardCharsets;
 
 /**
- * Gửi email qua SMTP (Spring Mail, cấu hình từ MAIL_HOST, MAIL_PORT, MAIL_USERNAME, MAIL_PASSWORD, MAIL_FROM).
- *
- * <p>SMTP chưa cấu hình ({@code MAIL_HOST} rỗng): service vẫn khởi động bình thường, email không được gửi mà nội dung
- * (tiêu đề, số người nhận, thân thư) được ghi vào log để nhóm kiểm tra, kết quả là {@link DeliveryResult#LOGGED}.
- * SMTP lỗi thì ném {@code MailException}, người gọi ghi nhật ký FAILED và không ném tiếp (tránh requeue vô hạn).
+ * Gửi email. Thứ tự chọn đường gửi:
+ * <ol>
+ *   <li>Có {@code BREVO_API_KEY}: gửi qua API Brevo ({@link BrevoEmailClient}), người gửi là {@code MAIL_FROM}
+ *       (phải là sender đã xác minh trong Brevo) với tên hiển thị {@code MAIL_FROM_NAME}.</li>
+ *   <li>Có {@code MAIL_HOST}: gửi qua SMTP (Spring Mail, cấu hình từ MAIL_HOST, MAIL_PORT, MAIL_USERNAME, MAIL_PASSWORD,
+ *       MAIL_FROM).</li>
+ *   <li>Không có cả hai: service vẫn khởi động bình thường, email không được gửi mà nội dung (tiêu đề, số người nhận,
+ *       thân thư) được ghi vào log để nhóm kiểm tra, kết quả là {@link DeliveryResult#LOGGED}.</li>
+ * </ol>
+ * Gửi lỗi thì ném {@code MailException}, người gọi ghi nhật ký FAILED và không ném tiếp (tránh requeue vô hạn).
  */
 @Service
 public class EmailService {
@@ -31,9 +37,9 @@ public class EmailService {
 
     /** Kết quả gửi một email. */
     public enum DeliveryResult {
-        /** Đã giao cho máy chủ SMTP. */
+        /** Đã giao cho Brevo hoặc máy chủ SMTP. */
         SENT,
-        /** SMTP chưa cấu hình: chỉ ghi nội dung vào log. */
+        /** Chưa cấu hình cách gửi email: chỉ ghi nội dung vào log. */
         LOGGED
     }
 
@@ -41,18 +47,41 @@ public class EmailService {
     private final NotificationProperties properties;
     private final String mailHost;
     private final String mailUsername;
+    private final BrevoEmailClient brevo;
 
+    @Autowired
     public EmailService(ObjectProvider<JavaMailSender> mailSender, NotificationProperties properties,
                         @Value("${spring.mail.host:}") String mailHost,
-                        @Value("${spring.mail.username:}") String mailUsername) {
+                        @Value("${spring.mail.username:}") String mailUsername,
+                        ObjectProvider<BrevoEmailClient> brevo) {
         this.mailSender = mailSender;
         this.properties = properties;
         this.mailHost = mailHost;
         this.mailUsername = mailUsername;
+        this.brevo = brevo.getIfAvailable();
+    }
+
+    /** Chỉ có SMTP, không dùng Brevo (dùng trong test). */
+    public EmailService(ObjectProvider<JavaMailSender> mailSender, NotificationProperties properties,
+                        String mailHost, String mailUsername) {
+        this.mailSender = mailSender;
+        this.properties = properties;
+        this.mailHost = mailHost;
+        this.mailUsername = mailUsername;
+        this.brevo = null;
+    }
+
+    /** Đã cấu hình một cách gửi email: API Brevo hoặc SMTP. */
+    public boolean isConfigured() {
+        return brevoConfigured() || smtpConfigured();
+    }
+
+    private boolean brevoConfigured() {
+        return brevo != null && brevo.isConfigured();
     }
 
     /** SMTP đã cấu hình (có MAIL_HOST và có bean JavaMailSender). */
-    public boolean isConfigured() {
+    private boolean smtpConfigured() {
         return StringUtils.hasText(mailHost) && mailSender.getIfAvailable() != null;
     }
 
@@ -65,9 +94,13 @@ public class EmailService {
         return StringUtils.hasText(mailUsername) ? mailUsername.trim() : DEFAULT_FROM;
     }
 
-    /** Gửi một email văn bản thuần; ném MailException nếu SMTP lỗi. */
+    /** Gửi một email văn bản thuần; ném MailException nếu Brevo hoặc SMTP lỗi. */
     public DeliveryResult send(String to, String subject, String content) {
-        if (!isConfigured()) {
+        if (brevoConfigured()) {
+            brevo.send(fromAddress(), properties.mail().fromName(), to, subject, content, false);
+            return DeliveryResult.SENT;
+        }
+        if (!smtpConfigured()) {
             logInsteadOfSending(to, subject, content);
             return DeliveryResult.LOGGED;
         }
@@ -82,10 +115,14 @@ public class EmailService {
 
     /**
      * Gửi một email HTML (UTF-8): email cảnh báo tồn kho (WMS-15.2), email kích hoạt và đặt lại mật khẩu (WMS-23.6);
-     * ném MailException nếu SMTP lỗi hoặc không dựng được thư.
+     * ném MailException nếu Brevo hoặc SMTP lỗi hoặc không dựng được thư.
      */
     public DeliveryResult sendHtml(String to, String subject, String html) {
-        if (!isConfigured()) {
+        if (brevoConfigured()) {
+            brevo.send(fromAddress(), properties.mail().fromName(), to, subject, html, true);
+            return DeliveryResult.SENT;
+        }
+        if (!smtpConfigured()) {
             logInsteadOfSending(to, subject, html);
             return DeliveryResult.LOGGED;
         }
@@ -105,7 +142,7 @@ public class EmailService {
     }
 
     private static void logInsteadOfSending(String to, String subject, String body) {
-        log.info("SMTP chưa cấu hình (MAIL_HOST rỗng), không gửi email mà ghi nội dung: tiêu đề='{}', số người nhận={}, "
+        log.info("SMTP chưa cấu hình (MAIL_HOST rỗng) và không có BREVO_API_KEY, không gửi email mà ghi nội dung: tiêu đề='{}', số người nhận={}, "
                 + "nội dung:\n{}", subject, StringUtils.hasText(to) ? 1 : 0, body);
     }
 }

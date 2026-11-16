@@ -15,7 +15,8 @@ Kết quả kiểm thử của hệ thống tính đến ngày 12/11/2026 (WMS-2
 | Bấm thử giao diện | Các màn hình làm trong tuần 10 đến 12/11 | Xem mục 5; tìm thấy và sửa một lỗi ở màn hình đếm kiểm kê |
 | Frontend | `npm run lint`, `npm run build` | Đạt; frontend chưa có test tự động |
 
-Chưa kiểm thử: thanh toán PayOS thật, gửi email qua SMTP thật, chạy trên máy chủ triển khai, giao diện ở bề ngang điện
+Trên máy chủ (13/11/2026): đã triển khai, kiểm tra trang chủ, trạng thái service, webhook PayOS thật và khóa Brevo; chưa
+chạy bộ Postman và kịch bản tải trên máy chủ, chưa có giao dịch PayOS bằng tiền thật. Chưa kiểm thử: giao diện ở bề ngang điện
 thoại, các vai trò khác Quản trị trên giao diện (phân quyền đã kiểm bằng test backend và bộ Postman).
 
 ## 2. Test tự động backend

@@ -85,7 +85,7 @@ public class SubscriptionCacheWriter {
     }
 
     /** Mốc hết hạn hiệu lực: FREE không có, TRIAL là trial_ends_at, gói trả phí là expires_at. */
-    static Instant effectiveExpiry(Subscription subscription) {
+    public static Instant effectiveExpiry(Subscription subscription) {
         String planCode = subscription.getPlan().getCode();
         if (SubscriptionService.PLAN_FREE.equals(planCode)) {
             return null;

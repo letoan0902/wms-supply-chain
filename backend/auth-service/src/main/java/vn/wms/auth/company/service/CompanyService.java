@@ -12,7 +12,7 @@ import vn.wms.common.exception.ApiException;
 
 /**
  * Nghiệp vụ doanh nghiệp. Mọi hàm chỉ làm việc trên doanh nghiệp của người đang đăng nhập
- * (companyId lấy từ JWT), hệ thống không có quản trị viên toàn nền tảng.
+ * (companyId lấy từ JWT). Quản trị nền tảng (SUPER_ADMIN) quản lý các doanh nghiệp qua gói vn.wms.auth.platform.
  */
 @Service
 @RequiredArgsConstructor

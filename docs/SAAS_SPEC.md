@@ -22,7 +22,8 @@ Khi làm mà thấy cần lệch khỏi mô tả ở đây thì báo Toàn và s
 Tác nhân:
 
 - Khách truy cập: xem trang giới thiệu, đăng ký doanh nghiệp.
-- Admin của doanh nghiệp: tài khoản đầu tiên tạo lúc đăng ký và các tài khoản có vai trò `ADMIN`. Quản lý người dùng, gói dịch vụ, thanh toán, API key của chính doanh nghiệp mình. Hệ thống không có quản trị viên toàn nền tảng.
+- Admin của doanh nghiệp: tài khoản đầu tiên tạo lúc đăng ký và các tài khoản có vai trò `ADMIN`. Quản lý người dùng, gói dịch vụ, thanh toán, API key của chính doanh nghiệp mình, không thấy doanh nghiệp khác.
+- Quản trị nền tảng: người vận hành nền tảng SaaS, vai trò `SUPER_ADMIN` (từ 16/11/2026, mục 6). Xem thống kê toàn nền tảng, danh sách doanh nghiệp khách hàng và thanh toán, tạm khóa và mở khóa doanh nghiệp. Không làm việc bên trong doanh nghiệp nào (không xem kho, hàng hóa, đơn hàng); việc đó do admin của từng doanh nghiệp làm. Tài khoản `admin` có sẵn là quản trị nền tảng; admin của Công ty mẫu A là `admin_a`.
 - Năm vai trò nghiệp vụ hiện có (`WAREHOUSE_MANAGER`, `WAREHOUSE_STAFF`, `PURCHASING`, `SALES`, `ACCOUNTANT`): giữ nguyên quyền, nhưng chỉ trong phạm vi doanh nghiệp của mình.
 - Hệ thống ngoài: gọi API bằng API key, vai trò `INTEGRATION`, chỉ đọc.
 - PayOS: cổng thanh toán, gọi webhook về máy chủ khi khách chuyển khoản xong.
@@ -1154,7 +1155,7 @@ Toàn dùng thử toàn bộ hệ thống, ghi danh sách góp ý (bố cục, l
 | --- | --- |
 | Mọi danh sách, tìm kiếm, báo cáo | Chỉ còn dữ liệu của doanh nghiệp đang đăng nhập |
 | Mã SKU, mã kho, mã đối tác, số chứng từ | Duy nhất trong một doanh nghiệp, không còn duy nhất toàn hệ thống |
-| Vai trò `ADMIN` | Là quản trị của một doanh nghiệp |
+| Vai trò `ADMIN` | Là quản trị của một doanh nghiệp. Quản trị toàn nền tảng là vai trò riêng `SUPER_ADMIN` (mục 6) |
 | Test của các service | Phải đặt doanh nghiệp (header `X-Company-Id` hoặc `TenantContext`) trước khi gọi |
 | WebSocket | Kênh đổi sang dạng theo doanh nghiệp ở WMS-22.4c, Toàn sửa hook dùng chung |
 | Cache Redis (WMS-19.1) | Tên khóa phải có `companyId`. Đã làm: `wms:stock:{companyId}:...` (chi tiết ở [PERFORMANCE.md](PERFORMANCE.md)) |
@@ -1165,3 +1166,38 @@ Toàn dùng thử toàn bộ hệ thống, ghi danh sách góp ý (bố cục, l
 
 1. Giá gói Pro (499.000 đ mỗi tháng, 4.790.000 đ mỗi năm) đang lấy theo trang bảng giá, Toàn xác nhận trước ngày 10/11.
 2. Khóa PayOS và khóa AI do Toàn đặt trực tiếp vào `.env` trên máy chủ. Trước đó mọi người phát triển với `PAYOS_MOCK=true` và `AI_MOCK=true`.
+
+## 6. Quản trị nền tảng
+
+Bổ sung ngày 16/11/2026 theo phản ánh của chủ dự án: tài khoản `admin` trước đây là `ADMIN` của Công ty mẫu A nên đăng nhập vào thấy toàn bộ tab nghiệp vụ của một doanh nghiệp. `admin` phải là người vận hành nền tảng, chỉ có vài tab thống kê và quản lý doanh nghiệp khách hàng; việc bên trong từng doanh nghiệp do admin của chính doanh nghiệp đó làm.
+
+### 6.1. Mô hình
+
+- Vai trò `SUPER_ADMIN` (tên hiển thị "Quản trị nền tảng"), hằng số `Roles.SUPER_ADMIN` của module `common`. Không nằm trong `Roles.ALL` (vẫn sáu vai trò), nên API quản lý người dùng của doanh nghiệp (`POST /api/auth/users`, `PUT /api/auth/users/{id}`, `POST /api/auth/register`) trả `400` "Vai trò không hợp lệ: SUPER_ADMIN".
+- Doanh nghiệp hệ thống mã `PLATFORM`, tên "Quản trị nền tảng", trạng thái `ACTIVE`, không có thuê bao, không có kho. Tài khoản `SUPER_ADMIN` thuộc doanh nghiệp này, nên cơ chế tách dữ liệu sẵn có (mục 2.3) tách nó khỏi dữ liệu của khách hàng: gọi API nghiệp vụ của service khác chỉ thấy dữ liệu rỗng của `PLATFORM`. Doanh nghiệp `PLATFORM` không bao giờ xuất hiện trong danh sách, số liệu thống kê, tác vụ định kỳ (quét thuê bao hết hạn) hay việc gỡ bản đăng ký bỏ dở; đăng ký mới luôn nhận mã `CTY` cộng 6 chữ số nên không lấy được mã `PLATFORM`.
+- Migration auth `V9__platform_admin.sql`: thêm vai trò `SUPER_ADMIN` và doanh nghiệp `PLATFORM`; tạo `admin_a` (vai trò `ADMIN` của Công ty mẫu A, email `admin_a@wms.local`) theo đúng cách V4 tạo `admin_b` (dùng lại mật khẩu đã băm của `admin`, nhận lại phân công kho của `admin`); chuyển `admin` sang `PLATFORM`, bỏ mọi vai trò và phân công kho cũ, gán `SUPER_ADMIN`. Cơ sở dữ liệu không có `admin` thì chỉ có thêm dòng vai trò và doanh nghiệp `PLATFORM` chưa có ai.
+- JWT của quản trị nền tảng: `roles = ["SUPER_ADMIN"]`, `companyId` là id của `PLATFORM`, `companyCode = "PLATFORM"`, `warehouseIds = []`, không có `plan`. Kết quả đăng nhập giữ cấu trúc mục 2.1 với `subscription = null`. Đăng nhập và làm mới token bỏ qua bước kiểm tra thuê bao của `PLATFORM` và không ghi `wms:subscription:{id}` cho nó.
+- Doanh nghiệp bị tạm khóa (`SUSPENDED`): người dùng không đăng nhập và không làm mới token được, nhận `403 COMPANY_INACTIVE` "Doanh nghiệp đã bị tạm khóa. Vui lòng liên hệ quản trị nền tảng.". Access token đã cấp vẫn dùng được tới khi hết hạn (tối đa 15 phút) vì gateway không kiểm tra trạng thái doanh nghiệp.
+- `SUPER_ADMIN` gọi API chỉ dành cho doanh nghiệp của auth-service nhận phản hồi sạch: `GET /api/auth/subscription` trả `404 NOT_FOUND` (không có thuê bao); thanh toán, API key, quản lý người dùng, `GET` và `PUT /api/auth/company` trả `403 FORBIDDEN`. `GET /api/auth/me`, hồ sơ cá nhân và đổi mật khẩu vẫn dùng được.
+
+### 6.2. API (auth-service, tiền tố `/api/auth/platform`)
+
+Chỉ `SUPER_ADMIN`, chặn ở cả `SecurityConfig` và `@PreAuthorize` của từng phương thức; vai trò khác nhận `403 FORBIDDEN`, chưa đăng nhập nhận `401 UNAUTHORIZED`. Phân trang dùng `PageResponse` (`page` từ 0, `size` mặc định 10, tối đa 100). Thời điểm là chuỗi ISO-8601 UTC, số tiền là số nguyên đồng. Chi tiết trường và ví dụ ở [api/QUAN_TRI_NEN_TANG.md](api/QUAN_TRI_NEN_TANG.md).
+
+| API | Mô tả |
+| --- | --- |
+| `GET /overview` | Số doanh nghiệp theo trạng thái; số doanh nghiệp theo gói của thuê bao (kể cả đã hết hạn), số thuê bao `EXPIRED`, số thuê bao `ACTIVE` có hạn trong 7 ngày tới; số tài khoản và số tài khoản đang bật; doanh thu (chỉ `PAID`, theo `paidAt`): tổng, tháng hiện tại giờ Việt Nam, số giao dịch; đăng ký và doanh thu theo tháng (đúng 6 tháng gần nhất kể cả tháng hiện tại, tăng dần, tháng trống có giá trị 0); 5 doanh nghiệp mới nhất; 5 thanh toán `PAID` gần nhất |
+| `GET /companies` | Lọc `keyword` (không phân biệt hoa thường trong tên, mã, mã số thuế, email), `status` (`PENDING`, `ACTIVE`, `SUSPENDED`), `plan` (`FREE`, `TRIAL`, `PRO`; gói lạ trả `400`), mới tạo trước. Mỗi phần tử: thông tin doanh nghiệp, gói, trạng thái và hạn đang áp dụng của thuê bao (`null` khi chưa có thuê bao), số tài khoản |
+| `GET /companies/{id}` | Thông tin doanh nghiệp kèm địa chỉ; giới hạn của gói và mức dùng (`null` khi chưa có thuê bao; số kho, SKU, lượt AI đọc từ Redis qua `SubscriptionUsageReader`, đọc không được thì `null`); tài khoản `ADMIN`; 10 thanh toán gần nhất. `PLATFORM` hoặc không tồn tại: `404` |
+| `PUT /companies/{id}/status` | Body `{ "status": "SUSPENDED" \| "ACTIVE", "reason": "tùy chọn, tối đa 255 ký tự" }`. Tạm khóa chỉ từ `ACTIVE`, mở khóa chỉ từ `SUSPENDED`; doanh nghiệp `PENDING` chỉ kích hoạt qua email. Chuyển không hợp lệ: `400 BAD_REQUEST`; `PLATFORM`: `404`. Lý do chỉ ghi vào log, không lưu cơ sở dữ liệu |
+| `GET /payments` | Lọc `status`, `companyId`, `from`, `to` (ngày `yyyy-MM-dd` giờ Việt Nam theo ngày tạo, gồm cả hai đầu; `from` sau `to` trả `400`), mới tạo trước. Giao dịch `PENDING` đã quá hạn được chuyển `EXPIRED` trước khi trả, như lịch sử thanh toán của doanh nghiệp |
+
+Truy vấn xuyên doanh nghiệp nằm trong gói `vn.wms.auth.platform.repository` và luôn loại `PLATFORM` tường minh (bảng của auth-service không dùng `TenantEntity`, xem [MULTI_TENANT.md](MULTI_TENANT.md) mục 7). Số liệu theo tháng gom trong Java từ các cột cần thiết, không dùng hàm ngày của cơ sở dữ liệu.
+
+### 6.3. Giao diện
+
+Sau khi đăng nhập, `SUPER_ADMIN` luôn vào `/platform`. Menu chỉ có "Tổng quan nền tảng" (`/platform`), "Doanh nghiệp" (`/platform/companies`), "Thanh toán" (`/platform/payments`); menu tài khoản giữ hồ sơ cá nhân, đổi mật khẩu, đăng xuất. Mở đường dẫn nghiệp vụ của doanh nghiệp thì được chuyển về `/platform`; người dùng doanh nghiệp mở `/platform/**` thấy trang không có quyền. Khu vực nền tảng không gọi API của doanh nghiệp và không hiện chuông cảnh báo tồn kho, lớp thông báo thuê bao, trợ lý AI, kết nối WebSocket; thanh trên ghi "Quản trị nền tảng" thay cho tên doanh nghiệp.
+
+**Tiêu chí nghiệm thu**
+
+Đăng nhập `admin` vào thẳng `/platform`, thấy số liệu toàn nền tảng không gồm `PLATFORM`; tạm khóa một doanh nghiệp thì tài khoản của doanh nghiệp đó đăng nhập nhận thông báo tạm khóa, mở khóa thì đăng nhập lại được; `admin_a` đăng nhập thấy Công ty mẫu A như `admin` trước đây; tài khoản doanh nghiệp gọi `/api/auth/platform/**` nhận `403`. Kiểm thử tự động: `PlatformAdminIntegrationTest` của auth-service.

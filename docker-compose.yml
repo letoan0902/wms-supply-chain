@@ -40,12 +40,15 @@ x-db-credentials: &db-credentials
   DB_USERNAME: ${DB_USERNAME:-wms}
   DB_PASSWORD: ${DB_PASSWORD:?Thiếu DB_PASSWORD trong file .env}
 
-# Thời gian chờ cho healthcheck của các ứng dụng Spring Boot (khởi động khá lâu)
+# Thời gian chờ cho healthcheck của các ứng dụng Spring Boot (khởi động khá lâu). Trong start_period lần kiểm tra hỏng
+# không bị tính, lần đầu đạt là healthy ngay. Trên máy chủ (CPU 2,1 GHz, chín JVM khởi động cùng lúc và chạy migration)
+# một service từng mất tới 414 giây mới lên; với 60 giây cũ container bị đánh dấu unhealthy sau 210 giây, làm
+# `docker compose up` báo lỗi phụ thuộc và không khởi động frontend (lần triển khai 13/11/2026).
 x-spring-healthcheck: &spring-healthcheck
   interval: 15s
   timeout: 5s
   retries: 10
-  start_period: 60s
+  start_period: 420s
 
 # Các service nghiệp vụ chỉ khởi động khi hạ tầng và cấu hình đã sẵn sàng
 x-depends-on-core: &depends-on-core

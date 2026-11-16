@@ -15,7 +15,7 @@
 #   APP_DIR       thư mục chứa mã nguồn trên VPS            mặc định /opt/wms-supply-chain
 #   BRANCH        nhánh Git cần triển khai                  mặc định develop
 #   REPO_URL      địa chỉ repository Git                    mặc định https://github.com/letoan0902/wms-supply-chain.git
-#   WAIT_TIMEOUT  số giây tối đa chờ container healthy      mặc định 600
+#   WAIT_TIMEOUT  số giây tối đa chờ container healthy      mặc định 900
 #
 # Lần chạy đầu tiên: nếu chưa có file .env, script dừng lại và hướng dẫn tạo từ deploy/.env.production.example.
 # Lưu ý: script dùng git reset --hard nên mọi chỉnh sửa cục bộ trong file đã theo dõi của APP_DIR sẽ bị xóa
@@ -28,7 +28,7 @@ set -Eeuo pipefail
 APP_DIR="${APP_DIR:-/opt/wms-supply-chain}"
 BRANCH="${BRANCH:-develop}"
 REPO_URL="${REPO_URL:-https://github.com/letoan0902/wms-supply-chain.git}"
-WAIT_TIMEOUT="${WAIT_TIMEOUT:-600}"
+WAIT_TIMEOUT="${WAIT_TIMEOUT:-900}"
 
 # Phiên bản Docker Compose tối thiểu: deploy/docker-compose.prod.yml dùng thẻ !reset và !override
 MIN_COMPOSE_VERSION="2.24.4"
@@ -65,7 +65,7 @@ Biến môi trường (đều tùy chọn):
   APP_DIR       thư mục chứa mã nguồn trên VPS          (mặc định /opt/wms-supply-chain)
   BRANCH        nhánh Git cần triển khai                (mặc định develop)
   REPO_URL      địa chỉ repository Git                  (mặc định https://github.com/letoan0902/wms-supply-chain.git)
-  WAIT_TIMEOUT  số giây tối đa chờ container healthy    (mặc định 600)
+  WAIT_TIMEOUT  số giây tối đa chờ container healthy    (mặc định 900)
 
 Ví dụ:
   bash deploy/deploy.sh
@@ -312,10 +312,18 @@ show_diagnostics() {
 
 start_stack() {
   step "Bước 5/7: Khởi động stack"
-  if ! compose up -d --remove-orphans; then
-    show_diagnostics
-    die "docker compose up thất bại, xem trạng thái và log phía trên."
-  fi
+  # `compose up` trả lỗi khi một service phụ thuộc chưa healthy kịp (service Java khởi động chậm), dù service đó vẫn đang
+  # lên bình thường; khi ấy các container phía sau (frontend) chưa được khởi động. Thử lại cho tới hết WAIT_TIMEOUT thay vì
+  # dừng ngay: lần gọi sau chỉ khởi động phần còn thiếu.
+  local up_deadline=$(( SECONDS + WAIT_TIMEOUT ))
+  until compose up -d --remove-orphans; do
+    if (( SECONDS >= up_deadline )); then
+      show_diagnostics
+      die "docker compose up thất bại sau ${WAIT_TIMEOUT} giây, xem trạng thái và log phía trên."
+    fi
+    warn "docker compose up chưa xong (có service chưa healthy), thử lại sau 20 giây."
+    sleep 20
+  done
 
   # Caddyfile được mount dạng tệp đơn lẻ. Khi git thay file (đổi inode), container đang chạy vẫn thấy bản cũ,
   # nên phải khởi động lại caddy để nạp cấu hình mới.

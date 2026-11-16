@@ -21,6 +21,11 @@ import java.util.List;
 @Repository
 public interface StockMovementRepository extends JpaRepository<StockMovement, Long> {
 
+    /** Các dòng sổ của một chứng từ theo loại biến động, theo thứ tự ghi (lô đã xuất của lệnh điều chuyển, WMS-20.4). */
+    List<StockMovement> findByMovementTypeAndDocumentTypeAndDocumentIdOrderByIdAsc(StockMovementType movementType,
+                                                                                  String documentType,
+                                                                                  Long documentId);
+
     /** Tồn của một sản phẩm tại một kho tính đến trước thời điểm {@code before} (không gồm {@code before}). */
     @Query("SELECT COALESCE(SUM(m.quantityIn - m.quantityOut), 0) FROM StockMovement m " +
             "WHERE m.warehouseId = :warehouseId AND m.productId = :productId AND m.occurredAt < :before")

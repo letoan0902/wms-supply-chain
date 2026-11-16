@@ -59,6 +59,7 @@ Hàng ở lô khóa, lô hết hạn và ô đang đóng băng kiểm kê không
 | --- | --- |
 | Trừ tồn thành công | Như trước: `201` (lập) hoặc `200` (`dispatch`), `status` COMPLETED |
 | Không đủ tồn thực tế, lô khóa, kho ngừng hoạt động | Mã và thông báo của inventory-service (thường `400 BAD_REQUEST` "Không đủ tồn kho để xuất..."). Lập phiếu: không có phiếu nào được lưu. `dispatch`: phiếu giữ nguyên DRAFT/PICKING |
+| Phần đơn đã giữ chỗ nằm ở lô vừa bị khóa, hết hạn hoặc ô đóng băng, và ngoài phần đang giữ cho đơn khác không còn đủ hàng | `400 BAD_REQUEST` "Không đủ tồn kho để xuất ... tồn khả dụng ... (đã trừ phần giữ chỗ của đơn khác) chỉ còn ...", kèm số lượng đơn đã giữ ở lô không xuất được. Từ WMS-20.4 phiếu xuất lấy trước đúng các dòng tồn đơn đã giữ chỗ, phần còn lại chỉ lấy hàng chưa giữ cho đơn khác (theo hạn dùng), không bao giờ lấy sang hàng đang giữ cho đơn khác |
 | Xuất từ ô đang đóng băng kiểm kê | `409 CONFLICT` với `data` của đợt kiểm kê; phiếu không hoàn tất |
 | Lập phiếu mà hết thời gian chờ hoặc mất kết nối tới inventory-service | `503 SERVICE_UNAVAILABLE`, thông báo nêu mã phiếu: phiếu **đã được lưu ở PICKING**. Giao diện tải lại danh sách phiếu của đơn và cho người dùng bấm Xuất kho (`dispatch`) trên phiếu đó; không lập phiếu mới (số lượng của phiếu PICKING đã tính vào phần đã xuất của đơn) |
 | `dispatch` mà hết thời gian chờ | `503`, phiếu giữ nguyên; bấm lại an toàn, tồn chỉ bị trừ một lần |

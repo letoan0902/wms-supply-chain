@@ -49,7 +49,7 @@ Các tệp trong thư mục `deploy/`:
 
 ## 2. Yêu cầu
 
-- VPS Ubuntu 24.04 LTS, quyền root (hoặc sudo). Cấu hình 12 vCPU, 47 GB RAM là dư dả: stack gồm 12 container, ước lượng tối thiểu khoảng 8 GB RAM.
+- VPS Ubuntu 24.04 LTS, quyền root (hoặc sudo). Cấu hình 12 vCPU, 47 GB RAM là dư dả: stack gồm 14 container thường trực (kể cả Caddy) và một container chạy một lần (`rabbitmq-init`), ước lượng tối thiểu khoảng 8 GB RAM.
 - Ổ đĩa còn trống từ 20 GB trở lên (image Docker, bộ nhớ đệm build và dữ liệu MySQL).
 - Tên miền `wms.toanmarket.me` và quyền chỉnh bản ghi DNS.
 - Cổng 80 và 443 của máy chủ chưa bị chương trình khác chiếm, và không bị firewall của nhà cung cấp VPS chặn.

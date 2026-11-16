@@ -237,7 +237,7 @@ Chỉ Quản trị hệ thống và Kế toán lập được hóa đơn bán v�
 
 Lập hóa đơn:
 1. Vào menu "Bán hàng và xuất kho", trên đơn Đã xác nhận hoặc Đã hoàn thành bấm nút lập hóa đơn (hoặc "Tạo Hóa đơn bán" trong chi tiết đơn); ở tab "Hóa đơn bán & Công nợ phải thu" cũng có nút lập hóa đơn trên dòng khách.
-2. Chọn khách hàng, nhập số hóa đơn, chọn "Bán nợ" (cộng vào công nợ phải thu) hoặc "Thu tiền ngay", nhập số tiền, ghi chú.
+2. Chọn khách hàng, nhập số hóa đơn, chọn "Bán nợ" (cộng vào công nợ phải thu) hoặc "Thu tiền ngay" (ghi hóa đơn và phiếu thu cùng số tiền, công nợ khách giữ nguyên; số hóa đơn đã phát hành thì không phát hành lại được), nhập số tiền, ghi chú.
 3. Bấm "Phát hành Hóa đơn".
 
 Tab "Hóa đơn bán & Công nợ phải thu" (Quản trị hệ thống, Quản lý kho, Nhân viên bán hàng, Kế toán) hiện tổng công nợ phải thu và danh sách khách; chọn một khách để xem lịch sử hóa đơn.
@@ -439,7 +439,7 @@ Ai dùng được: hàng hóa và nhà cung cấp cho Quản trị hệ thống,
 
 Các bước:
 1. Vào menu "Nhập dữ liệu bằng AI" (hoặc bấm "Nhập bằng AI" trên trang danh mục), chọn loại dữ liệu.
-2. Kéo thả hoặc bấm chọn một file: tối đa 10 MB, 200 dòng (file dài hơn chỉ lấy 200 dòng đầu). Bảng tính nên có một dòng tiêu đề cột, ví dụ "Mã hàng", "Tên hàng", "ĐVT", "Giá nhập".
+2. Kéo thả hoặc bấm chọn một file: tối đa 10 MB (ảnh png, jpg tối đa 7,5 MB), 200 dòng (file dài hơn chỉ lấy 200 dòng đầu). Bảng tính nên có một dòng tiêu đề cột, ví dụ "Mã hàng", "Tên hàng", "ĐVT", "Giá nhập".
 3. Bấm "Trích xuất dữ liệu" và chờ: bảng tính thường xong trong vài chục giây, PDF và ảnh có thể tới khoảng 3 phút. Bấm "Hủy" để thôi chờ. File không đọc được, không có cột phù hợp hoặc sai định dạng sẽ báo lỗi rõ ràng.
 4. Xem lại bảng: mỗi cột là một trường của danh mục (dấu * là bắt buộc); rê chuột lên tiêu đề cột để biết cột đó lấy từ cột nào trong file. Ô nền vàng là ô AI chưa chắc chắn, ô viền đỏ phải sửa trước khi nhập, biểu tượng cảnh báo ở đầu dòng cho biết lý do. Bấm vào ô để sửa (Enter để lưu, Esc để bỏ). Dòng còn lỗi không chọn được; bỏ chọn hoặc xóa những dòng không muốn nhập; bật "Chỉ hiện dòng cần xem lại" để lọc nhanh.
 5. Bấm "Nhập N dòng" và xác nhận. Màn hình hiện tổng số dòng đã tạo mới, bỏ qua (mã đã có trong danh mục, không ghi đè) và lỗi, cùng kết quả từng dòng kèm lý do.

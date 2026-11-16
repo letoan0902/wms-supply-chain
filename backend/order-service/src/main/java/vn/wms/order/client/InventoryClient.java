@@ -26,8 +26,12 @@ public interface InventoryClient {
     @GetMapping("/api/inventory/warehouses/{id}")
     ApiResponse<WarehouseSummary> getWarehouse(@PathVariable("id") Long id);
 
-    /** Thông tin tồn khả dụng ATP của một sản phẩm (ATP = OnHand - Reserved) (WMS-11.1). */
-    @GetMapping("/api/inventory/stock/atp")
+    /**
+     * Thông tin tồn khả dụng ATP của một sản phẩm (ATP = OnHand - Reserved) (WMS-11.1). Gọi endpoint nội bộ không lọc
+     * theo phạm vi kho của người đang thao tác (WMS-20.4): {@code /api/inventory/stock/atp} trả 403 cho tài khoản SALES
+     * chưa được gán kho, trong khi họ vẫn phải lập và xác nhận được đơn.
+     */
+    @GetMapping("/internal/inventory/stock/atp")
     ApiResponse<AtpResponse> getAtp(
             @RequestParam("productId") Long productId,
             @RequestParam(value = "warehouseId", required = false) Long warehouseId

@@ -5356,7 +5356,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "const qa = eval(pm.collectionVariables.get('qaLib'));",
-                  "qa.ok(200, 'Xem dòng'); const line = qa.content().find((l) => String(l.productId) === String(qa.get('o_prodFefo'))); qa.test('Có dòng hàng nhận điều chuyển', () => pm.expect(line, qa.brief()).to.be.an('object')); if (line) qa.set('o_stk2Line', line.lineId);"
+                  "qa.ok(200, 'Xem dòng'); const line = qa.content().find((l) => String(l.productId) === String(qa.get('o_prodFefo'))); qa.test('Có dòng hàng nhận điều chuyển', () => pm.expect(line, qa.brief()).to.be.an('object')); qa.test('Hàng nhận điều chuyển giữ số lô đã xuất ở kho nguồn (L-LATE)', () => pm.expect((line || {}).lotNo, qa.brief()).to.eql('L-LATE')); if (line) qa.set('o_stk2Line', line.lineId);"
                 ]
               }
             }
@@ -5370,7 +5370,7 @@
               }
             ],
             "url": "{{baseUrl}}/api/inventory/stocktakes/{{o_stk2}}/count-lines",
-            "description": "200, một dòng hàng QA-FEFO-01 không có số lô (hàng nhận điều chuyển)"
+            "description": "200, một dòng hàng QA-FEFO-01 số lô L-LATE (hàng nhận điều chuyển giữ số lô, hạn dùng của lô đã xuất ở kho nguồn)"
           }
         },
         {
@@ -5703,11 +5703,11 @@
                 "exec": [
                   "const qa = eval(pm.collectionVariables.get('qaLib'));",
                   "qa.ok(200, 'Xem lô');",
-                  "const m = {}; qa.content().forEach((l) => { m[l.lotNo] = l; });",
+                  "const m = {}; qa.content().forEach((l) => { m[l.lotNo] = { quantity: (m[l.lotNo] ? m[l.lotNo].quantity : 0) + qa.num(l.quantity) }; });",
                   "const blocked = qa.content().filter((l) => l.locked || l.expiryStatus === 'EXPIRED').reduce((s, l) => s + qa.num(l.quantity), 0);",
                   "qa.set('o_blockedFefo', blocked);",
                   "qa.test('Số lượng từng lô sau xuất FEFO và điều chuyển', () => {",
-                  "  qa.expectNum((m['L-LATE'] || {}).quantity, 25, 'L-LATE'); qa.expectNum((m['L-EARLY'] || {}).quantity, 0, 'L-EARLY');",
+                  "  qa.expectNum((m['L-LATE'] || {}).quantity, 27, 'L-LATE (25 ở khu A + 2 nhận điều chuyển ngược vào vị trí kiểm kê)'); qa.expectNum((m['L-EARLY'] || {}).quantity, 0, 'L-EARLY');",
                   "  qa.expectNum((m['L-LOCK'] || {}).quantity, 10, 'L-LOCK'); qa.expectNum((m['L-EXP'] || {}).quantity, 5, 'L-EXP');",
                   "  qa.expectNum(blocked, 15, 'tổng lô khóa và hết hạn');",
                   "});"
@@ -5724,7 +5724,7 @@
               }
             ],
             "url": "{{baseUrl}}/api/inventory/lots?productId={{o_prodFefo}}&warehouseId={{o_whS}}&size=50",
-            "description": "200; lô khóa và lô hết hạn cộng lại 15 (L-LOCK 10, L-EXP 5); L-LATE còn 25, L-EARLY 0"
+            "description": "200; lô khóa và lô hết hạn cộng lại 15 (L-LOCK 10, L-EXP 5); L-LATE 27 (25 ở khu A + 2 nhận điều chuyển ngược giữ số lô), L-EARLY 0"
           }
         },
         {
@@ -5979,7 +5979,7 @@
                   "const s = d.summary || {};",
                   "qa.test('Tổng hợp lô theo sổ kho', () => {",
                   "  qa.expectNum(s.totalReceived, 50, 'totalReceived'); qa.expectNum(s.totalSalesDispatched, 10, 'totalSalesDispatched');",
-                  "  qa.expectNum(s.totalTransferredOut, 15, 'totalTransferredOut'); qa.expectNum(s.ledgerBalance, 25, 'ledgerBalance'); qa.expectNum(s.currentOnHand, 25, 'currentOnHand');",
+                  "  qa.expectNum(s.totalTransferredOut, 17, 'totalTransferredOut'); qa.expectNum(s.ledgerBalance, 37, 'ledgerBalance'); qa.expectNum(s.currentOnHand, 37, 'currentOnHand');",
                   "});",
                   "qa.test('Nguồn gốc là phiếu nhập theo đơn mua', () => pm.expect((d.origins || []).map((o) => o.movementType)).to.include('RECEIPT'));",
                   "qa.test('Nơi đi có đơn bán và điều chuyển', () => pm.expect((d.outflows || []).map((o) => o.movementType)).to.include.members(['SALES_DISPATCH', 'TRANSFER_OUT']));"
@@ -5996,7 +5996,7 @@
               }
             ],
             "url": "{{baseUrl}}/api/inventory/reports/lot-trace?lotNo=L-LATE&productId={{o_prodFefo}}",
-            "description": "200; nhận 50, xuất bán 10, điều chuyển 15, tồn 25; nguồn gốc là phiếu nhập; nơi đi gồm đơn bán và lệnh điều chuyển"
+            "description": "200; nhận 50, xuất bán 10, điều chuyển đi 17 (15 kho nguồn + 2 điều chuyển ngược từ kho đích), tồn 37 (kho nguồn 25 + 2, kho đích 10; hàng điều chuyển giữ số lô, mất 3 do hỏng, thiếu); nguồn gốc là phiếu nhập; nơi đi gồm đơn bán và lệnh điều chuyển"
           }
         }
       ]

@@ -26,9 +26,9 @@ import java.util.List;
 /**
  * Trợ lý AI hỏi đáp có lịch sử ({@code POST /api/ai/chat}, WMS-24.4 gộp WMS-18.2).
  *
- * <p>Mỗi câu hỏi tính đúng một lượt AI, giống {@code POST /api/ai/ask}: kiểm tra hạn mức trước, chỉ tăng bộ đếm sau
- * khi có câu trả lời; lỗi (AI không phản hồi, hết thời gian) và câu bị từ chối không bị tính, dù trong câu hỏi đó
- * Claude đã gọi bao nhiêu lần.
+ * <p>Mỗi câu hỏi tính đúng một lượt AI, giống {@code POST /api/ai/ask}: giữ lượt nguyên tử trước khi gọi Claude
+ * ({@link AiQuotaService#reserve()}), xác nhận khi có câu trả lời; lỗi (AI không phản hồi, hết thời gian) và câu bị
+ * từ chối được trả lại lượt nên không bị tính, dù trong câu hỏi đó Claude đã gọi bao nhiêu lần.
  *
  * <p>Chế độ LIVE: Claude với lời dặn cố định cộng tài liệu hướng dẫn (đánh dấu bộ nhớ đệm prompt) và bộ công cụ chỉ
  * đọc {@link AssistantTools}. Chế độ MOCK: {@link MockAssistant} chạy thẳng các phép tra cứu hoặc trả mục hướng dẫn.
@@ -65,37 +65,38 @@ public class AiChatService {
         long companyId = TenantContext.requireCompanyId();
         String username = UserContext.getCurrentUser().map(CurrentUser::username).orElse(null);
         String message = request.message().strip();
-        quotaService.checkQuota();
-
-        ConversationStore.Conversation conversation = conversations.open(companyId, username,
-                request.conversationId());
-        String answer;
-        boolean truncated = false;
-        boolean refused = false;
-        List<String> lookups = new ArrayList<>();
-        if (runtime.isMock()) {
-            MockAssistant.Answer mock = mockAssistant.answer(message);
-            answer = mock.text();
-            if (mock.lookup() != null) {
-                lookups.add(mock.lookup());
+        try (AiQuotaService.Reservation turn = quotaService.reserve()) {
+            ConversationStore.Conversation conversation = conversations.open(companyId, username,
+                    request.conversationId());
+            String answer;
+            boolean truncated = false;
+            boolean refused = false;
+            List<String> lookups = new ArrayList<>();
+            if (runtime.isMock()) {
+                MockAssistant.Answer mock = mockAssistant.answer(message);
+                answer = mock.text();
+                if (mock.lookup() != null) {
+                    lookups.add(mock.lookup());
+                }
+            } else {
+                AiChatReply reply = aiClient.chat(new AiChatRequest(systemPrompt, conversation.history(), message,
+                        tools.definitions(), properties.maxTokens(), properties.maxToolRounds(),
+                        properties.timeout()), tools);
+                answer = reply.text();
+                truncated = reply.truncated();
+                refused = reply.refused();
+                reply.toolsUsed().stream().distinct().forEach(lookups::add);
+                log.info("Trợ lý AI trả lời: {} lần tra cứu, {} token đầu vào, {} token đầu ra, stop_reason {}",
+                        reply.toolsUsed().size(), reply.inputTokens(), reply.outputTokens(), reply.stopReason());
             }
-        } else {
-            AiChatReply reply = aiClient.chat(new AiChatRequest(systemPrompt, conversation.history(), message,
-                    tools.definitions(), properties.maxTokens(), properties.maxToolRounds(), properties.timeout()),
-                    tools);
-            answer = reply.text();
-            truncated = reply.truncated();
-            refused = reply.refused();
-            reply.toolsUsed().stream().distinct().forEach(lookups::add);
-            log.info("Trợ lý AI trả lời: {} lần tra cứu, {} token đầu vào, {} token đầu ra, stop_reason {}",
-                    reply.toolsUsed().size(), reply.inputTokens(), reply.outputTokens(), reply.stopReason());
-        }
 
-        long used = quotaService.recordAnswer(refused);
-        if (!refused) {
-            conversations.append(companyId, username, conversation, message, answer);
+            long used = turn.confirm(refused);
+            if (!refused) {
+                conversations.append(companyId, username, conversation, message, answer);
+            }
+            return new ChatResponse(answer, conversation.id(), conversation.created(), truncated, refused,
+                    runtime.mode().name(), List.copyOf(lookups),
+                    new AskResponse.Usage(used, quotaService.currentMax()));
         }
-        return new ChatResponse(answer, conversation.id(), conversation.created(), truncated, refused,
-                runtime.mode().name(), List.copyOf(lookups), new AskResponse.Usage(used, quotaService.currentMax()));
     }
 }

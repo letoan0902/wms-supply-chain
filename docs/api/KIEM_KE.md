@@ -138,6 +138,8 @@ và `GET /api/inventory/stock-adjustments/{id}`: phiếu điều chỉnh (`id`, 
 `rejectedAt`, `rejectReason`, `createdAt`, `lines[]` gồm `id`, `stocktakeLineId`, `binLocationId`,
 `binLocationCode`, `productId`, `lotNo`, `systemQuantity`, `countedQuantity`, `differenceQuantity`,
 `quantityBefore`, `quantityAfter` (hai trường sau có giá trị khi đã duyệt), `reason`; `lines` null ở danh sách).
+`fromDate`, `toDate` lọc theo ngày lập phiếu tính giờ Việt Nam (`Asia/Ho_Chi_Minh`, như các báo cáo kho), không theo
+ngày UTC.
 Lọc ngày theo ngày tạo phiếu.
 
 ## 5. Mã lỗi

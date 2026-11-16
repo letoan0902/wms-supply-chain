@@ -67,6 +67,30 @@ class UploadedFileTest {
                 .hasMessageContaining("tối đa 10 MB");
     }
 
+    private static byte[] sized(byte[] signature, int size) {
+        byte[] content = new byte[size];
+        System.arraycopy(signature, 0, content, 0, signature.length);
+        return content;
+    }
+
+    /**
+     * Claude API nhận mỗi ảnh tối đa 10 MB tính trên chuỗi base64 (lớn hơn file gốc 4/3 lần), nên ảnh trên 7,5 MB
+     * phải bị chặn ngay với thông báo rõ, không để lời gọi AI thất bại với lỗi chung. PDF, bảng tính giữ 10 MB.
+     */
+    @Test
+    void imagesAbove7Point5MbAreRejectedWithImageLimitWhilePdfKeeps10Mb() {
+        assertThatThrownBy(() -> UploadedFile.of(file("anh.png", sized(PNG, 8_000_000))))
+                .isInstanceOfSatisfying(ApiException.class, ex -> assertThat(ex.getHttpStatus()).isEqualTo(400))
+                .hasMessage("Hình ảnh vượt quá dung lượng cho phép (ảnh png, jpg tối đa 7,5 MB; pdf, xlsx, xls, csv "
+                        + "tối đa 10 MB). Hãy giảm kích thước ảnh rồi tải lên lại. Lượt này không bị tính.");
+        assertThatThrownBy(() -> UploadedFile.of(file("anh.jpg", sized(JPG, 7_500_001))))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("tối đa 7,5 MB");
+
+        assertThat(UploadedFile.of(file("anh.jpg", sized(JPG, 7_500_000))).bytes()).hasSize(7_500_000);
+        assertThat(UploadedFile.of(file("bang-gia.pdf", sized(PDF, 9_000_000))).type()).isEqualTo(UploadedFileType.PDF);
+    }
+
     @Test
     void fileOfExactly10MbIsAccepted() {
         byte[] content = new byte[(int) ExtractionLimits.MAX_FILE_BYTES];

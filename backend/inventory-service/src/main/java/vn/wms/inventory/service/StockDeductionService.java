@@ -30,8 +30,13 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Service xử lý Trừ tồn kho với Khóa bi quan (PESSIMISTIC_WRITE) chống âm kho tuyệt đối (WMS-12.2 - FR17, NFR03).
@@ -41,6 +46,12 @@ import java.util.Optional;
 public class StockDeductionService {
 
     private static final Logger log = LoggerFactory.getLogger(StockDeductionService.class);
+
+    /** Thứ tự FEFO giống các truy vấn khóa của StockItemRepository: hạn dùng gần trước, không hạn dùng xếp sau, rồi id. */
+    private static final Comparator<StockItem> FEFO = Comparator
+            .comparing((StockItem s) -> s.getExpDate() == null ? 1 : 0)
+            .thenComparing(StockItem::getExpDate, Comparator.nullsLast(Comparator.naturalOrder()))
+            .thenComparing(StockItem::getId);
 
     private final StockItemRepository stockItemRepository;
     private final StockReservationRepository stockReservationRepository;
@@ -199,10 +210,10 @@ public class StockDeductionService {
 
             // Trường hợp 1: Chỉ định vị trí ô/kệ cụ thể (BinLocationId)
             if (itemReq.binLocationId() != null) {
-                DeductedItemDetail detail = deductFromSpecificBinLocation(
+                List<DeductedItemDetail> details = deductFromSpecificBinLocation(
                         productId, itemReq.skuCode(), itemReq.binLocationId(), requiredQty,
                         request.orderId(), request.orderNumber(), warehouse.getId());
-                deductedDetails.add(detail);
+                deductedDetails.addAll(details);
                 grandTotalDeducted = grandTotalDeducted.add(requiredQty);
             }
             // Trường hợp 2: Không chỉ định ô/kệ -> tự động tìm và khóa toàn bộ các vị trí có hàng sẵn có (FIFO)
@@ -252,8 +263,10 @@ public class StockDeductionService {
 
     /**
      * Trừ tồn kho tại một vị trí ô/kệ cụ thể với Khóa bi quan (Row-level lock).
+     * Một vị trí có thể chứa nhiều lô của cùng sản phẩm: khóa mọi dòng tồn của sản phẩm tại vị trí (theo id tăng
+     * dần), bỏ lô khóa, lô hết hạn, rồi phân bổ theo FEFO bằng cùng quy tắc giữ chỗ với luồng tự phân bổ.
      */
-    private DeductedItemDetail deductFromSpecificBinLocation(
+    private List<DeductedItemDetail> deductFromSpecificBinLocation(
             Long productId,
             String skuCode,
             Long binLocationId,
@@ -263,73 +276,60 @@ public class StockDeductionService {
             Long warehouseId
     ) {
         if (stocktakeFreezeGuard != null) stocktakeFreezeGuard.assertNotFrozen(binLocationId, productId, "xuất kho");
-        // Áp dụng Khóa bi quan PESSIMISTIC_WRITE trên đúng dòng StockItem này
-        Optional<StockItem> stockItemOpt = stockItemRepository.findByBinLocationIdAndProductIdWithPessimisticLock(binLocationId, productId);
+        // Áp dụng Khóa bi quan PESSIMISTIC_WRITE trên mọi dòng StockItem của sản phẩm tại vị trí này
+        List<StockItem> rows = stockItemRepository.findAllByBinLocationIdAndProductIdWithPessimisticLock(binLocationId, productId);
 
-        if (stockItemOpt.isEmpty()) {
+        if (rows.isEmpty()) {
             throw ApiException.badRequest(String.format(
                     "Không tìm thấy bản ghi tồn kho của sản phẩm ID %d tại vị trí ô/kệ ID %d để xuất kho",
                     productId, binLocationId));
         }
 
-        StockItem stockItem = stockItemOpt.get();
+        LocalDate today = LocalDate.now();
+        List<StockItem> eligible = rows.stream()
+                .filter(s -> !s.isLocked() && !s.isExpired(today))
+                .sorted(FEFO)
+                .toList();
+        BigDecimal eligibleQty = eligible.stream().map(StockItem::getQuantity).reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        // KHÓA LÔ HÀNG (WMS-10.2 - FR12): Chặn xuất kho nếu lô đang bị khóa hoặc đã hết hạn sử dụng
-        if (stockItem.isLocked()) {
-            throw ApiException.badRequest(String.format(
-                    "Lô hàng %s tại vị trí %s đang bị khóa (%s), không được phép xuất kho",
-                    stockItem.getLotNo() != null ? "'" + stockItem.getLotNo() + "'" : "",
-                    stockItem.getBinLocation().getCode(),
-                    stockItem.getLockedReason() != null ? stockItem.getLockedReason() : "Đã khóa"));
-        }
-
-        if (stockItem.isExpired(java.time.LocalDate.now())) {
-            throw ApiException.badRequest(String.format(
-                    "Lô hàng %s tại vị trí %s đã hết hạn sử dụng (%s), tự động chặn không cho phép xuất kho",
-                    stockItem.getLotNo() != null ? "'" + stockItem.getLotNo() + "'" : "",
-                    stockItem.getBinLocation().getCode(),
-                    stockItem.getExpDate()));
-        }
-
-        BigDecimal currentQty = stockItem.getQuantity();
-
-        // CHỐNG ÂM KHO: Nếu số lượng hiện có nhỏ hơn số lượng yêu cầu xuất -> Ném lỗi từ chối ngay lập tức
-        if (currentQty.compareTo(requiredQty) < 0) {
+        if (eligibleQty.compareTo(requiredQty) < 0) {
+            // KHÓA LÔ HÀNG (WMS-10.2 - FR12): phần thiếu nằm ở lô đang bị khóa hoặc đã hết hạn thì báo đúng lý do đó
+            for (StockItem stockItem : rows) {
+                if (stockItem.isLocked()) {
+                    throw ApiException.badRequest(String.format(
+                            "Lô hàng %s tại vị trí %s đang bị khóa (%s), không được phép xuất kho",
+                            stockItem.getLotNo() != null ? "'" + stockItem.getLotNo() + "'" : "",
+                            stockItem.getBinLocation().getCode(),
+                            stockItem.getLockedReason() != null ? stockItem.getLockedReason() : "Đã khóa"));
+                }
+                if (stockItem.isExpired(today)) {
+                    throw ApiException.badRequest(String.format(
+                            "Lô hàng %s tại vị trí %s đã hết hạn sử dụng (%s), tự động chặn không cho phép xuất kho",
+                            stockItem.getLotNo() != null ? "'" + stockItem.getLotNo() + "'" : "",
+                            stockItem.getBinLocation().getCode(),
+                            stockItem.getExpDate()));
+                }
+            }
+            // CHỐNG ÂM KHO: Nếu số lượng hiện có nhỏ hơn số lượng yêu cầu xuất -> Ném lỗi từ chối ngay lập tức
             throw ApiException.badRequest(String.format(
                     "Không đủ tồn kho để xuất. Sản phẩm ID %d (%s) tại vị trí %s yêu cầu xuất %s, nhưng tồn thực tế chỉ còn %s",
-                    productId, skuCode != null ? skuCode : "", stockItem.getBinLocation().getCode(), requiredQty, currentQty));
+                    productId, skuCode != null ? skuCode : "", rows.get(0).getBinLocation().getCode(), requiredQty, eligibleQty));
         }
 
-        // Trừ tồn OnHand
-        BigDecimal remainingQty = currentQty.subtract(requiredQty);
-        stockItem.setQuantity(remainingQty);
-
-        // Giảm Reserved và hoàn tất bản ghi giữ chỗ nếu có
-        BigDecimal previousReserved = stockItem.getReservedQuantity() != null ? stockItem.getReservedQuantity() : BigDecimal.ZERO;
-        BigDecimal remainingReserved = processReservationFulfillment(orderId, stockItem, requiredQty);
-        BigDecimal fulfilledReserved = previousReserved.subtract(remainingReserved).max(BigDecimal.ZERO);
-
-        stockItemRepository.save(stockItem);
-        deductFromInventoryLot(stockItem, requiredQty, fulfilledReserved);
-
-        log.debug("Đã trừ {} đơn vị sản phẩm {} tại vị trí {}. Tồn OnHand còn: {}, Reserved còn: {}",
-                requiredQty, productId, stockItem.getBinLocation().getCode(), remainingQty, remainingReserved);
-
-        return new DeductedItemDetail(
-                stockItem.getId(),
-                productId,
-                skuCode,
-                binLocationId,
-                stockItem.getBinLocation().getCode(),
-                stockItem.getLotNo(),
-                requiredQty,
-                remainingQty,
-                remainingReserved
-        );
+        BigDecimal[] allocations = allocateRespectingReservations(eligible, orderId, productId, requiredQty);
+        BigDecimal allocated = sum(allocations);
+        if (allocated.compareTo(requiredQty) < 0) {
+            throw ApiException.badRequest(String.format(
+                    "Không đủ tồn kho để xuất. Sản phẩm ID %d (%s) tại vị trí %s yêu cầu xuất %s, nhưng tồn khả dụng "
+                            + "(đã trừ phần giữ chỗ của đơn khác) chỉ còn %s",
+                    productId, skuCode != null ? skuCode : "", rows.get(0).getBinLocation().getCode(), requiredQty, allocated));
+        }
+        return applyDeductions(eligible, allocations, orderId, productId, skuCode);
     }
 
     /**
      * Tự động trừ tồn kho qua các vị trí ô/kệ sẵn có với Khóa bi quan (Row-level locks).
+     * Hoàn tất trước phần giữ chỗ ACTIVE của chính đơn, sau đó chỉ lấy phần chưa giữ cho đơn khác (WMS-20.4).
      */
     private List<DeductedItemDetail> deductFromAvailableStockItems(
             Long productId,
@@ -344,35 +344,90 @@ public class StockDeductionService {
                 .findAvailableStockItemsByProductIdAndWarehouseIdWithPessimisticLock(productId, warehouseId, LocalDate.now());
         if (stocktakeFreezeGuard != null) lockedItems = stocktakeFreezeGuard.excludeFrozen(lockedItems);
 
-        BigDecimal totalOnHand = lockedItems.stream()
-                .map(StockItem::getQuantity)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal[] allocations = allocateRespectingReservations(lockedItems, orderId, productId, requiredQty);
+        BigDecimal allocated = sum(allocations);
 
-        // CHỐNG ÂM KHO: Kiểm tra tổng tồn thực tế trên toàn bộ các ô kệ của kho
-        if (totalOnHand.compareTo(requiredQty) < 0) {
+        // CHỐNG ÂM KHO: tồn lấy được (phần đơn đã giữ + phần chưa ai giữ) phải đủ số lượng yêu cầu
+        if (allocated.compareTo(requiredQty) < 0) {
+            BigDecimal ownOutside = BigDecimal.ZERO;
+            if (orderId != null) {
+                Set<Long> usable = new HashSet<>();
+                lockedItems.forEach(s -> usable.add(s.getId()));
+                ownOutside = stockReservationRepository.findByOrderIdAndProductIdAndStatus(orderId, productId, "ACTIVE").stream()
+                        .filter(r -> !usable.contains(r.getStockItem().getId()))
+                        .map(StockReservation::getReservedQuantity)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+            }
             throw ApiException.badRequest(String.format(
-                    "Không đủ tồn kho để xuất. Sản phẩm ID %d (%s) yêu cầu xuất %s, nhưng tổng tồn kho thực tế tại kho ID %d chỉ còn %s",
-                    productId, skuCode != null ? skuCode : "", requiredQty, warehouseId, totalOnHand));
+                    "Không đủ tồn kho để xuất. Sản phẩm ID %d (%s) yêu cầu xuất %s, nhưng tồn khả dụng tại kho ID %d "
+                            + "(đã trừ phần giữ chỗ của đơn khác) chỉ còn %s%s",
+                    productId, skuCode != null ? skuCode : "", requiredQty, warehouseId, allocated,
+                    ownOutside.signum() > 0
+                            ? String.format("; %s đơn vị đơn đã giữ chỗ đang nằm ở lô bị khóa, hết hạn hoặc vị trí đóng băng kiểm kê", ownOutside)
+                            : ""));
         }
 
-        List<DeductedItemDetail> details = new ArrayList<>();
-        BigDecimal remainingToDeduct = requiredQty;
+        return applyDeductions(lockedItems, allocations, orderId, productId, skuCode);
+    }
 
-        for (StockItem stockItem : lockedItems) {
-            BigDecimal currentQty = stockItem.getQuantity();
-            if (currentQty.compareTo(BigDecimal.ZERO) <= 0) {
+    /**
+     * Phân bổ {@code requiredQty} trên các dòng tồn đã khóa (đã xếp FEFO, đã bỏ lô khóa, hết hạn, đóng băng):
+     * lượt một lấy phần giữ chỗ ACTIVE của chính đơn trên từng dòng; lượt hai lấy phần chưa giữ cho đơn khác
+     * ({@code quantity - reserved của đơn khác}). Xuất không gắn đơn ({@code orderId == null}) coi mọi giữ chỗ là
+     * của đơn khác. Trả về số lượng lấy ở từng dòng theo đúng thứ tự; tổng nhỏ hơn yêu cầu nghĩa là không đủ.
+     */
+    private BigDecimal[] allocateRespectingReservations(List<StockItem> rows, Long orderId, Long productId,
+                                                        BigDecimal requiredQty) {
+        Map<Long, BigDecimal> ownByStockItem = new HashMap<>();
+        if (orderId != null) {
+            for (StockReservation res : stockReservationRepository.findByOrderIdAndProductIdAndStatus(orderId, productId, "ACTIVE")) {
+                ownByStockItem.merge(res.getStockItem().getId(), res.getReservedQuantity(), BigDecimal::add);
+            }
+        }
+        BigDecimal[] alloc = new BigDecimal[rows.size()];
+        BigDecimal remaining = requiredQty;
+        for (int i = 0; i < rows.size(); i++) {
+            StockItem row = rows.get(i);
+            BigDecimal own = ownByStockItem.getOrDefault(row.getId(), BigDecimal.ZERO);
+            BigDecimal take = remaining.min(own).min(row.getQuantity()).max(BigDecimal.ZERO);
+            alloc[i] = take;
+            remaining = remaining.subtract(take);
+        }
+        for (int i = 0; i < rows.size() && remaining.signum() > 0; i++) {
+            StockItem row = rows.get(i);
+            BigDecimal reserved = row.getReservedQuantity() != null ? row.getReservedQuantity() : BigDecimal.ZERO;
+            BigDecimal own = ownByStockItem.getOrDefault(row.getId(), BigDecimal.ZERO);
+            BigDecimal reservedByOthers = reserved.subtract(own).max(BigDecimal.ZERO);
+            BigDecimal free = row.getQuantity().subtract(reservedByOthers).subtract(alloc[i]).max(BigDecimal.ZERO);
+            BigDecimal take = remaining.min(free);
+            alloc[i] = alloc[i].add(take);
+            remaining = remaining.subtract(take);
+        }
+        return alloc;
+    }
+
+    /** Trừ tồn từng dòng theo số lượng đã phân bổ, hoàn tất giữ chỗ của đơn, đồng bộ inventory_lots. */
+    private List<DeductedItemDetail> applyDeductions(List<StockItem> rows, BigDecimal[] allocations, Long orderId,
+                                                     Long productId, String skuCode) {
+        List<DeductedItemDetail> details = new ArrayList<>();
+        for (int i = 0; i < rows.size(); i++) {
+            BigDecimal alloc = allocations[i];
+            if (alloc.signum() <= 0) {
                 continue;
             }
-
-            BigDecimal alloc = remainingToDeduct.min(currentQty);
-            BigDecimal remainingQty = currentQty.subtract(alloc);
+            StockItem stockItem = rows.get(i);
+            BigDecimal remainingQty = stockItem.getQuantity().subtract(alloc);
             stockItem.setQuantity(remainingQty);
 
+            // Giảm Reserved và hoàn tất bản ghi giữ chỗ nếu có
             BigDecimal previousReserved = stockItem.getReservedQuantity() != null ? stockItem.getReservedQuantity() : BigDecimal.ZERO;
             BigDecimal remainingReserved = processReservationFulfillment(orderId, stockItem, alloc);
             BigDecimal fulfilledReserved = previousReserved.subtract(remainingReserved).max(BigDecimal.ZERO);
             stockItemRepository.save(stockItem);
             deductFromInventoryLot(stockItem, alloc, fulfilledReserved);
+
+            log.debug("Đã trừ {} đơn vị sản phẩm {} tại vị trí {}. Tồn OnHand còn: {}, Reserved còn: {}",
+                    alloc, productId, stockItem.getBinLocation().getCode(), remainingQty, remainingReserved);
 
             details.add(new DeductedItemDetail(
                     stockItem.getId(),
@@ -385,14 +440,16 @@ public class StockDeductionService {
                     remainingQty,
                     remainingReserved
             ));
-
-            remainingToDeduct = remainingToDeduct.subtract(alloc);
-            if (remainingToDeduct.compareTo(BigDecimal.ZERO) <= 0) {
-                break;
-            }
         }
-
         return details;
+    }
+
+    private static BigDecimal sum(BigDecimal[] values) {
+        BigDecimal total = BigDecimal.ZERO;
+        for (BigDecimal v : values) {
+            total = total.add(v);
+        }
+        return total;
     }
 
     /**

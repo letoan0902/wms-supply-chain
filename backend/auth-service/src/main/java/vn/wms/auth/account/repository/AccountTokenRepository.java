@@ -21,6 +21,14 @@ public interface AccountTokenRepository extends JpaRepository<AccountToken, Long
 
     Optional<AccountToken> findByTokenHash(String tokenHash);
 
+    /** Doanh nghiệp còn mã loại {@code type} chưa dùng và chưa hết hạn tại {@code now} hay không. */
+    boolean existsByCompanyIdAndTypeAndUsedAtIsNullAndExpiresAtAfter(Long companyId, AccountTokenType type, Instant now);
+
+    /** Xóa mọi mã của một doanh nghiệp (gỡ bản đăng ký bỏ dở). */
+    @Modifying
+    @Query("DELETE FROM AccountToken t WHERE t.companyId = :companyId")
+    int deleteAllByCompanyId(@Param("companyId") Long companyId);
+
     /** Vô hiệu các mã kích hoạt chưa dùng của một doanh nghiệp (khi phát mã mới hoặc đã kích hoạt xong). */
     @Modifying
     @Query("UPDATE AccountToken t SET t.usedAt = :now WHERE t.companyId = :companyId AND t.type = :type "

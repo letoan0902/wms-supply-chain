@@ -103,6 +103,12 @@ app:
       cache-ttl: 30m
       max-tokens: 1500
       timeout: 60s
+    # Thời gian chờ khi gọi service khác (xem vn.wms.ai.config.ServiceClientProperties): tra cứu của trợ lý, số liệu
+    # của bản tóm tắt dừng sau read-timeout và báo "phản hồi quá lâu"; nhập hàng loạt chờ bulk-read-timeout.
+    services:
+      connect-timeout: 3s
+      read-timeout: 10s
+      bulk-read-timeout: 120s
 ---
 # Nạp cấu hình tập trung từ Config Server. Tiền tố optional nghĩa là Config Server chưa chạy thì service vẫn
 # khởi động bằng cấu hình cục bộ ở trên. Tài liệu này bị bỏ qua khi chạy test (profile test) để test không gọi mạng.

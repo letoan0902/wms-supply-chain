@@ -35,6 +35,13 @@ public interface InventoryLotRepository extends JpaRepository<InventoryLot, Long
     Optional<InventoryLot> findByIdWithLock(@Param("id") Long id);
 
     /**
+     * Khóa nghiệp vụ (ID ô, ID sản phẩm, số lô) của một dòng lô, không nạp entity và không khóa. LotService đọc trước để
+     * khóa các dòng stock_items rồi mới khóa dòng lô (WMS-20.4).
+     */
+    @Query("SELECT l.binLocation.id, l.productId, l.lotNumber FROM InventoryLot l WHERE l.id = :id")
+    List<Object[]> findLotKeyById(@Param("id") Long id);
+
+    /**
      * Xuất kho theo thuật toán FEFO (First-Expired, First-Out):
      * Khóa bi quan và sắp xếp lô theo hạn dùng tăng dần (expDate ASC), không có hạn dùng thì xếp theo FIFO (id ASC).
      * Tự động loại trừ các lô đang bị khóa hoặc đã hết hạn sử dụng (so với ngày truyền vào từ Java).

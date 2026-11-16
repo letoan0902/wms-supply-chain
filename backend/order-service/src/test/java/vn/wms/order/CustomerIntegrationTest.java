@@ -357,6 +357,106 @@ class CustomerIntegrationTest {
                 .andExpect(jsonPath("$.data.totalElements").value(3));
     }
 
+    /**
+     * Thu tiền ngay khi phát hành hóa đơn: ghi bút toán hóa đơn rồi bút toán thanh toán cùng số tiền,
+     * công nợ khách giữ nguyên, đơn được tính là đã có hóa đơn nên lần phát hành thứ hai bị chặn.
+     */
+    @Test
+    void salesInvoicePaidImmediatelyRecordsInvoiceAndPaymentAndRejectsDuplicate() throws Exception {
+        Customer c = new Customer();
+        c.setCode("CUS-PAID-NOW");
+        c.setName("Khách Thu Tiền Ngay");
+        c.setCurrentDebt(BigDecimal.ZERO);
+        Customer saved = customerRepository.save(c);
+
+        String body = """
+                {"type":"SALES_INVOICE","amount":5000000.00,"referenceCode":"INV-SO-PAID-01",
+                 "note":"Xuất hóa đơn bán hàng cho đơn SO-PAID-01","paidImmediately":true}
+                """;
+
+        mockMvc.perform(post("/api/orders/customers/" + saved.getId() + "/transactions")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.transactionType").value("PAYMENT"))
+                .andExpect(jsonPath("$.data.balanceAfter").value(0));
+
+        mockMvc.perform(get("/api/orders/customers/" + saved.getId() + "/transactions"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.totalElements").value(2))
+                .andExpect(jsonPath("$.data.content[0].transactionType").value("PAYMENT"))
+                .andExpect(jsonPath("$.data.content[0].referenceCode").value("INV-SO-PAID-01"))
+                .andExpect(jsonPath("$.data.content[0].amount").value(5000000.00))
+                .andExpect(jsonPath("$.data.content[1].transactionType").value("SALES_INVOICE"))
+                .andExpect(jsonPath("$.data.content[1].referenceCode").value("INV-SO-PAID-01"))
+                .andExpect(jsonPath("$.data.content[1].amount").value(5000000.00))
+                .andExpect(jsonPath("$.data.content[1].balanceAfter").value(5000000.00));
+
+        assertThat(customerRepository.findById(saved.getId()).orElseThrow().getCurrentDebt())
+                .isEqualByComparingTo(BigDecimal.ZERO);
+
+        // Lần phát hành thứ hai cho cùng mã chứng từ bị từ chối, không phát sinh thêm bút toán
+        mockMvc.perform(post("/api/orders/customers/" + saved.getId() + "/transactions")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(body))
+                .andExpect(status().isConflict());
+
+        mockMvc.perform(get("/api/orders/customers/" + saved.getId() + "/transactions"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.totalElements").value(2));
+    }
+
+    @Test
+    void salesInvoicePaidImmediatelyKeepsExistingDebtUnchanged() throws Exception {
+        Customer c = new Customer();
+        c.setCode("CUS-PAID-OWE");
+        c.setName("Khách Đang Nợ Thu Tiền Ngay");
+        c.setCreditLimit(new BigDecimal("100000000.00"));
+        c.setCurrentDebt(new BigDecimal("20000000.00"));
+        Customer saved = customerRepository.save(c);
+
+        mockMvc.perform(post("/api/orders/customers/" + saved.getId() + "/transactions")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"type":"SALES_INVOICE","amount":5000000.00,
+                                 "referenceCode":"INV-SO-PAID-02","paidImmediately":true}
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.balanceAfter").value(20000000.00));
+
+        assertThat(customerRepository.findById(saved.getId()).orElseThrow().getCurrentDebt())
+                .isEqualByComparingTo(new BigDecimal("20000000.00"));
+        mockMvc.perform(get("/api/orders/customers/" + saved.getId() + "/transactions"))
+                .andExpect(jsonPath("$.data.totalElements").value(2))
+                .andExpect(jsonPath("$.data.content[1].transactionType").value("SALES_INVOICE"));
+    }
+
+    @Test
+    void paidImmediatelyRequiresSalesInvoiceTypeAndReferenceCode() throws Exception {
+        Customer c = new Customer();
+        c.setCode("CUS-PAID-BAD");
+        c.setName("Khách Sai Tham Số");
+        c.setCurrentDebt(new BigDecimal("1000000.00"));
+        Customer saved = customerRepository.save(c);
+
+        mockMvc.perform(post("/api/orders/customers/" + saved.getId() + "/transactions")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"type":"PAYMENT","amount":500000.00,"referenceCode":"PT-01","paidImmediately":true}
+                                """))
+                .andExpect(status().isBadRequest());
+
+        mockMvc.perform(post("/api/orders/customers/" + saved.getId() + "/transactions")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"type":"SALES_INVOICE","amount":500000.00,"paidImmediately":true}
+                                """))
+                .andExpect(status().isBadRequest());
+
+        assertThat(customerRepository.findById(saved.getId()).orElseThrow().getCurrentDebt())
+                .isEqualByComparingTo(new BigDecimal("1000000.00"));
+    }
+
     @Test
     void customerDebtSummary() throws Exception {
         Customer c1 = new Customer();

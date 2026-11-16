@@ -50,8 +50,11 @@ public class PaymentService {
     public static final long PAYOS_SAMPLE_ORDER_CODE = 123L;
     /** Số nguyên lớn nhất PayOS nhận cho orderCode (Number.MAX_SAFE_INTEGER của JavaScript). */
     public static final long MAX_ORDER_CODE = 9_007_199_254_740_991L;
-    /** PayOS giới hạn nội dung chuyển khoản 25 ký tự. */
-    static final int MAX_DESCRIPTION_LENGTH = 25;
+    /**
+     * Độ dài tối đa của nội dung chuyển khoản. Tài liệu PayOS ({@code POST /v2/payment-requests}): tài khoản ngân hàng
+     * không liên kết qua PayOS chỉ nhận 9 ký tự; dùng mức chặt nhất để mọi loại tài khoản đều tạo được liên kết.
+     */
+    static final int MAX_DESCRIPTION_LENGTH = 9;
     private static final int MAX_ORDER_CODE_ATTEMPTS = 5;
     private static final String PAYOS_SUCCESS_CODE = "00";
     private static final String INVALID_MESSAGE = "Dữ liệu thanh toán không hợp lệ";
@@ -95,7 +98,7 @@ public class PaymentService {
         PayOsClient.PaymentLink link;
         try {
             link = payOsClient.createPaymentLink(new PayOsClient.PaymentLinkRequest(
-                    payment.getOrderCode(), amount, descriptionOf(planCode, payment.getOrderCode()), expiresAt));
+                    payment.getOrderCode(), amount, descriptionOf(planCode), expiresAt));
         } catch (RuntimeException e) {
             // Không tạo được liên kết: đóng giao dịch để nó không treo ở PENDING
             markStatus(payment.getId(), PaymentStatus.CANCELLED);
@@ -302,9 +305,12 @@ public class PaymentService {
         return code;
     }
 
-    /** Nội dung chuyển khoản, ví dụ {@code WMS PRO 1762761600123457} (tối đa 25 ký tự). */
-    static String descriptionOf(String planCode, long orderCode) {
-        String description = "WMS " + planCode + " " + orderCode;
+    /**
+     * Nội dung chuyển khoản, ví dụ {@code WMS PRO} (tối đa 9 ký tự). Không kèm mã đơn: giao dịch được đối chiếu theo
+     * {@code orderCode} của PayOS, không đọc nội dung chuyển khoản.
+     */
+    static String descriptionOf(String planCode) {
+        String description = "WMS " + planCode;
         return description.length() > MAX_DESCRIPTION_LENGTH
                 ? description.substring(0, MAX_DESCRIPTION_LENGTH) : description;
     }

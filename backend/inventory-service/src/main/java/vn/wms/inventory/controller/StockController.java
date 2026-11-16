@@ -56,20 +56,20 @@ public class StockController {
     }
 
     @GetMapping("/atp")
-    @Operation(summary = "Kiểm tra tồn khả dụng ATP của một sản phẩm (ATP = OnHand - Reserved)")
+    @Operation(summary = "Kiểm tra tồn khả dụng ATP của một sản phẩm (ATP = OnHand - Reserved) trong phạm vi kho của người gọi: kho ngoài phạm vi trả 403, bỏ trống kho thì vai trò giới hạn theo kho nhận tổng các kho được gán")
     @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'PURCHASING', 'SALES', 'ACCOUNTANT', 'INTEGRATION')")
     public ApiResponse<StockAtpResponse> getAtp(
             @RequestParam Long productId,
             @RequestParam(required = false) Long warehouseId
     ) {
-        return ApiResponse.ok(stockReadService.getAtp(productId, warehouseId));
+        return ApiResponse.ok(stockReadService.getAtpInUserScope(productId, warehouseId));
     }
 
     @PostMapping("/atp/batch")
-    @Operation(summary = "Kiểm tra tồn khả dụng ATP cho danh sách nhiều sản phẩm cùng lúc (Batch ATP)")
+    @Operation(summary = "Kiểm tra tồn khả dụng ATP cho danh sách nhiều sản phẩm cùng lúc (Batch ATP), cùng quy tắc phạm vi kho như API một sản phẩm")
     @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'PURCHASING', 'SALES', 'ACCOUNTANT')")
     public ApiResponse<BatchAtpResponse> getBatchAtp(@Valid @RequestBody BatchAtpRequest request) {
-        return ApiResponse.ok(stockReadService.getBatchAtp(request.productIds(), request.warehouseId()));
+        return ApiResponse.ok(stockReadService.getBatchAtpInUserScope(request.productIds(), request.warehouseId()));
     }
 
     @PostMapping("/reservations/release")

@@ -135,6 +135,34 @@ class AiSummaryControllerIntegrationTest {
     }
 
     @Test
+    void cachedSummaryOfAnotherWarehouseIsForbiddenForWarehouseBoundRole() throws Exception {
+        // Quản lý kho 5 đã tạo bản tóm tắt của kho 5 (nhóm OPS), còn trong bộ nhớ đệm 30 phút.
+        when(valueOperations.get("wms:ai:summary:701:OPS:w5")).thenReturn("""
+                {"summary":"- Kho 5","bullets":["Kho 5"],"actions":[],"generatedAt":"2026-11-12T02:40:00Z",
+                 "fromCache":false,"mode":"MOCK","warehouseId":5,"financialsIncluded":false,"usage":null}""");
+
+        // Nhân viên chỉ được gán kho 7 xin bản tóm tắt của kho 5: 403 như đường không có bộ nhớ đệm.
+        mockMvc.perform(get("/api/ai/summary").param("warehouseId", "5")
+                        .header(TenantContext.HEADER_COMPANY_ID, COMPANY_ID)
+                        .header(UserContext.HEADER_USER_NAME, "kho_07")
+                        .header(UserContext.HEADER_USER_ROLES, "WAREHOUSE_STAFF")
+                        .header(UserContext.HEADER_USER_WAREHOUSE_IDS, "7"))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.code").value("FORBIDDEN"))
+                .andExpect(jsonPath("$.message").value("Bạn không có quyền xem số liệu điều hành của phạm vi này."));
+        verify(valueOperations, never()).get("wms:ai:summary:701:OPS:w5");
+
+        // Vai trò theo kho chưa được gán kho nào cũng bị chặn trước khi đọc bộ nhớ đệm.
+        mockMvc.perform(get("/api/ai/summary")
+                        .header(TenantContext.HEADER_COMPANY_ID, COMPANY_ID)
+                        .header(UserContext.HEADER_USER_NAME, "kho_moi")
+                        .header(UserContext.HEADER_USER_ROLES, "WAREHOUSE_STAFF"))
+                .andExpect(status().isForbidden());
+        verify(serviceDataClient, never()).get(anyString(), anyString(), anyMap(), anyMap());
+        verify(valueOperations, never()).increment(anyString());
+    }
+
+    @Test
     void forbiddenKpiIsForbidden() throws Exception {
         when(serviceDataClient.get(eq("notification-service"), anyString(), anyMap(), anyMap()))
                 .thenReturn(new ServiceDataClient.Result(ServiceDataClient.Status.FORBIDDEN, null,

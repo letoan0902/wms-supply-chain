@@ -255,8 +255,24 @@ public class StockReservationService {
             return;
         }
 
+        // Khóa bi quan các dòng tồn liên quan TRƯỚC khi đọc số lượng (WMS-20.4): đọc thường rồi lưu cả entity sẽ ghi đè
+        // số lượng vừa bị phiếu xuất khác trừ cùng lúc. Khóa theo productId tăng dần như reserveForOrder, trong mỗi sản
+        // phẩm theo id tăng dần. getStockItem().getId() của proxy lazy không nạp dòng tồn nên dữ liệu đọc sau khóa là mới.
+        Map<Long, List<Long>> stockItemIdsByProduct = new TreeMap<>();
         for (StockReservation reservation : activeReservations) {
-            StockItem stockItem = reservation.getStockItem();
+            if (reservation.getStockItem() != null) {
+                stockItemIdsByProduct.computeIfAbsent(reservation.getProductId(), k -> new ArrayList<>())
+                        .add(reservation.getStockItem().getId());
+            }
+        }
+        Map<Long, StockItem> lockedById = new HashMap<>();
+        for (List<Long> ids : stockItemIdsByProduct.values()) {
+            stockItemRepository.findAllByIdWithPessimisticLock(ids).forEach(s -> lockedById.put(s.getId(), s));
+        }
+
+        for (StockReservation reservation : activeReservations) {
+            StockItem stockItem = reservation.getStockItem() != null
+                    ? lockedById.get(reservation.getStockItem().getId()) : null;
             if (stockItem != null) {
                 BigDecimal newReserved = stockItem.getReservedQuantity()
                         .subtract(reservation.getReservedQuantity())

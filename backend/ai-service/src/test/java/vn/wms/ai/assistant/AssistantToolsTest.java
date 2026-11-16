@@ -18,6 +18,7 @@ import vn.wms.ai.client.AiToolCall;
 import vn.wms.ai.client.AiToolResult;
 import vn.wms.ai.config.AiAssistantProperties;
 import vn.wms.ai.config.ServiceClientConfig;
+import vn.wms.ai.config.ServiceClientProperties;
 import vn.wms.common.security.UserContext;
 import vn.wms.common.tenant.TenantContext;
 
@@ -53,7 +54,8 @@ class AssistantToolsTest {
 
     @BeforeEach
     void setUp() {
-        RestClient.Builder builder = new ServiceClientConfig().loadBalancedRestClientBuilder();
+        RestClient.Builder builder = new ServiceClientConfig().loadBalancedRestClientBuilder(
+                new ServiceClientProperties(null, null, null));
         server = MockRestServiceServer.bindTo(builder).build();
         Clock clock = Clock.fixed(Instant.parse("2026-11-12T03:00:00Z"), ZoneId.of("Asia/Ho_Chi_Minh"));
         AssistantLookups lookups = new AssistantLookups(new ServiceDataClient(builder, MAPPER), MAPPER, PROPERTIES,

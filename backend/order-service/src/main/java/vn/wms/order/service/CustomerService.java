@@ -14,6 +14,7 @@ import vn.wms.order.dto.RecordCustomerTransactionRequest;
 import vn.wms.order.dto.UpdateCustomerRequest;
 import vn.wms.order.entity.Customer;
 import vn.wms.order.entity.CustomerTransaction;
+import vn.wms.order.entity.CustomerTransactionType;
 import vn.wms.order.entity.CustomerType;
 import vn.wms.order.repository.CustomerRepository;
 import vn.wms.order.repository.CustomerTransactionRepository;
@@ -329,6 +330,10 @@ public class CustomerService {
         Customer customer = customerRepository.findByIdForUpdate(customerId)
                 .orElseThrow(() -> ApiException.notFound("Không tìm thấy khách hàng với id: " + customerId));
 
+        if (Boolean.TRUE.equals(request.paidImmediately())) {
+            return recordPaidImmediatelyInvoice(customer, request);
+        }
+
         BigDecimal current = customer.getCurrentDebt() != null ? customer.getCurrentDebt() : BigDecimal.ZERO;
         BigDecimal newDebt;
 
@@ -362,6 +367,57 @@ public class CustomerService {
 
         CustomerTransaction savedTx = transactionRepository.save(tx);
         return CustomerTransactionResponse.from(savedTx);
+    }
+
+    /**
+     * Hóa đơn bán thu tiền ngay: trong cùng giao dịch (dòng khách hàng đã khóa) ghi bút toán hóa đơn
+     * rồi bút toán thanh toán cùng số tiền và cùng mã chứng từ, nên công nợ khách giữ nguyên và chứng từ
+     * được tính là đã có hóa đơn. Mã chứng từ đã có hóa đơn của khách thì từ chối để không ghi hai lần.
+     * Trả về bút toán thanh toán (số dư sau cùng).
+     */
+    private CustomerTransactionResponse recordPaidImmediatelyInvoice(Customer customer,
+                                                                     RecordCustomerTransactionRequest request) {
+        if (request.type() != CustomerTransactionType.SALES_INVOICE) {
+            throw ApiException.badRequest("Thu tiền ngay chỉ áp dụng cho hóa đơn bán hàng (SALES_INVOICE)!");
+        }
+        String referenceCode = normalizeString(request.referenceCode());
+        if (referenceCode == null) {
+            throw ApiException.badRequest("Hóa đơn thu tiền ngay phải có số hóa đơn / mã chứng từ!");
+        }
+        if (transactionRepository.existsByCustomerIdAndTransactionTypeAndReferenceCodeIgnoreCase(
+                customer.getId(), CustomerTransactionType.SALES_INVOICE, referenceCode)) {
+            throw ApiException.conflict("Chứng từ '" + referenceCode + "' đã được phát hành hóa đơn cho khách hàng '"
+                    + customer.getName() + "', không thể phát hành lại!");
+        }
+
+        BigDecimal current = customer.getCurrentDebt() != null ? customer.getCurrentDebt() : BigDecimal.ZERO;
+        BigDecimal afterInvoice = current.add(request.amount());
+        String note = normalizeString(request.note());
+        Instant now = Instant.now();
+
+        CustomerTransaction invoice = new CustomerTransaction();
+        invoice.setCustomer(customer);
+        invoice.setTransactionType(CustomerTransactionType.SALES_INVOICE);
+        invoice.setReferenceCode(referenceCode);
+        invoice.setAmount(request.amount());
+        invoice.setBalanceAfter(afterInvoice);
+        invoice.setNote(note);
+        invoice.setTransactionDate(now);
+        transactionRepository.save(invoice);
+
+        CustomerTransaction payment = new CustomerTransaction();
+        payment.setCustomer(customer);
+        payment.setTransactionType(CustomerTransactionType.PAYMENT);
+        payment.setReferenceCode(referenceCode);
+        payment.setAmount(request.amount());
+        payment.setBalanceAfter(current);
+        payment.setNote("Thu tiền ngay khi phát hành hóa đơn " + referenceCode);
+        payment.setTransactionDate(now);
+        CustomerTransaction savedPayment = transactionRepository.save(payment);
+
+        customer.setCurrentDebt(current);
+        customerRepository.save(customer);
+        return CustomerTransactionResponse.from(savedPayment);
     }
 
     /**

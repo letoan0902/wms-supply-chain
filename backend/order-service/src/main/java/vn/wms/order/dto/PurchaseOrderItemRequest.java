@@ -13,7 +13,10 @@ import java.math.BigDecimal;
  * DTO yêu cầu cho từng dòng sản phẩm trong đơn mua hàng (PO Item).
  */
 public record PurchaseOrderItemRequest(
-        @Schema(description = "ID sản phẩm (nếu đã có trong danh mục)", example = "1")
+        // Bắt buộc: nhận hàng theo dòng không có productId vẫn ghi hóa đơn mua và công nợ nhưng inventory-service không
+        // cộng được tồn (thông điệp vào hàng chết), nên chặn ngay khi lập đơn (WMS-20.4)
+        @NotNull(message = "ID sản phẩm không được để trống")
+        @Schema(description = "ID sản phẩm trong danh mục", example = "1")
         Long productId,
 
         @NotBlank(message = "Mã SKU không được để trống")

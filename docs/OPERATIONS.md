@@ -211,7 +211,7 @@ Khóa chính (xem [SAAS_SPEC.md](SAAS_SPEC.md) mục 2.7 và mục WMS-25.1):
 ```bash
 docker compose exec redis redis-cli --scan --pattern 'wms:*' | head
 docker compose exec redis redis-cli HGETALL wms:subscription:<companyId>
-docker compose exec redis redis-cli DEL login:lock:user:<tên-đăng-nhập>      # mở khóa đăng nhập
+docker compose exec redis redis-cli DEL login:lock:user:<tên-đăng-nhập>      # mở khóa đăng nhập (người dùng tự đặt lại mật khẩu qua email cũng gỡ khóa này)
 ```
 
 Thiếu khóa thuê bao hoặc Redis lỗi thì gateway cho qua (không chặn). Xóa Redis không mất dữ liệu nghiệp vụ: người dùng phải đăng nhập lại, bộ nhớ đệm thuê bao và API key được ghi lại trong khoảng 5 phút.

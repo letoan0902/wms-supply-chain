@@ -41,8 +41,10 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -53,6 +55,9 @@ public class GoodsDeliveryService {
 
     private static final Logger log = LoggerFactory.getLogger(GoodsDeliveryService.class);
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
+    /** Trạng thái đơn bán cho phép xác nhận xuất kho một phiếu đã lập. */
+    private static final Set<OrderStatus> DISPATCHABLE_ORDER_STATUSES =
+            EnumSet.of(OrderStatus.CONFIRMED, OrderStatus.BACKORDER, OrderStatus.COMPLETED);
 
     private final GoodsDeliveryNoteRepository gdnRepository;
     private final GoodsDeliveryNoteItemRepository gdnItemRepository;
@@ -257,12 +262,18 @@ public class GoodsDeliveryService {
     }
 
     /**
-     * Xác nhận xuất xưởng (Dispatch) đối với phiếu xuất kho đang ở trạng thái DRAFT hoặc PICKING.
+     * Xác nhận xuất xưởng (Dispatch) đối với phiếu xuất kho đang ở trạng thái DRAFT hoặc PICKING, chỉ khi đơn bán
+     * đang CONFIRMED, BACKORDER hoặc COMPLETED (đơn đã hủy hoặc còn nháp thì 400, không trừ tồn).
      */
     @Transactional
     public GdnResponse dispatch(Long id, String username) {
-        // Khóa bi quan phiếu xuất: lần xác nhận thứ hai chờ lần đầu commit rồi thấy COMPLETED và trả về luôn,
-        // không phát thêm sự kiện order.dispatched (mỗi sự kiện là một lần trừ tồn bên inventory-service).
+        // Khóa bi quan đơn bán trước, phiếu xuất sau, cùng thứ tự với lập phiếu và hủy đơn để không khóa chéo: hủy đơn
+        // không chen được vào giữa lúc đang xuất (WMS-20.4). Lần xác nhận thứ hai chờ lần đầu commit rồi thấy COMPLETED
+        // và trả về luôn, không phát thêm sự kiện order.dispatched (mỗi sự kiện là một lần trừ tồn bên inventory-service).
+        Long soId = gdnRepository.findSalesOrderIdById(id)
+                .orElseThrow(() -> ApiException.notFound("Không tìm thấy Phiếu xuất kho với ID: " + id));
+        SalesOrder so = salesOrderRepository.findByIdForUpdate(soId)
+                .orElseThrow(() -> ApiException.notFound("Không tìm thấy đơn bán hàng với ID: " + soId));
         GoodsDeliveryNote gdn = gdnRepository.findByIdForUpdate(id)
                 .orElseThrow(() -> ApiException.notFound("Không tìm thấy Phiếu xuất kho với ID: " + id));
 
@@ -271,6 +282,16 @@ public class GoodsDeliveryService {
         }
         if (gdn.getStatus() == GoodsDeliveryStatus.CANCELLED) {
             throw ApiException.badRequest("Không thể xuất kho phiếu đã bị hủy (" + gdn.getGdnNumber() + ")");
+        }
+        // Đơn đã hủy (phiếu còn mở từ trước khi hủy đơn biết hủy phiếu theo) không được trừ tồn và không được lật sang
+        // COMPLETED. Đơn COMPLETED vẫn xuất được: phiếu khác hoàn tất trước đã đủ số lượng đặt tính cả phiếu này.
+        if (so.getStatus() == OrderStatus.CANCELLED) {
+            throw ApiException.badRequest("Đơn bán hàng " + so.getSoNumber() + " đã bị hủy, không thể xuất kho phiếu "
+                    + gdn.getGdnNumber());
+        }
+        if (!DISPATCHABLE_ORDER_STATUSES.contains(so.getStatus())) {
+            throw ApiException.badRequest("Đơn bán hàng " + so.getSoNumber() + " đang ở trạng thái " + so.getStatus()
+                    + ", không thể xuất kho phiếu " + gdn.getGdnNumber());
         }
 
         // Trừ tồn đồng bộ rồi mới hoàn tất (WMS-20.4). Lỗi hay hết thời gian chờ thì phiếu giữ nguyên trạng thái,

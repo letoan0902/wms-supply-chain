@@ -24,11 +24,12 @@ class PaymentServiceHelpersTest {
     }
 
     @Test
-    @DisplayName("Nội dung chuyển khoản dạng WMS PRO <mã đơn>, tối đa 25 ký tự")
+    @DisplayName("Nội dung chuyển khoản là WMS PRO, tối đa 9 ký tự (giới hạn của PayOS với tài khoản ngân hàng không liên kết qua PayOS)")
     void descriptionFormat() {
-        String description = PaymentService.descriptionOf("PRO", 1762761600123457L);
-        assertThat(description).isEqualTo("WMS PRO 1762761600123457").hasSizeLessThanOrEqualTo(25);
-        assertThat(PaymentService.descriptionOf("PRO", PaymentService.MAX_ORDER_CODE)).hasSizeLessThanOrEqualTo(25);
+        String description = PaymentService.descriptionOf("PRO");
+        assertThat(description).isEqualTo("WMS PRO").hasSizeLessThanOrEqualTo(9);
+        // Mã gói dài hơn cũng bị cắt về 9 ký tự
+        assertThat(PaymentService.descriptionOf("ENTERPRISE")).isEqualTo("WMS ENTER").hasSize(9);
     }
 
     @Test

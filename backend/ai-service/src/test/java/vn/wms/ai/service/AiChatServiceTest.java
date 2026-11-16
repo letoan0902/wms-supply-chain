@@ -38,7 +38,6 @@ import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -58,6 +57,7 @@ class AiChatServiceTest {
     private final ConversationStore conversations = mock(ConversationStore.class);
     private final AssistantTools tools = new AssistantTools(mock(AssistantLookups.class), new ObjectMapper());
     private final MockAssistant mockAssistant = mock(MockAssistant.class);
+    private final AiQuotaService.Reservation turn = mock(AiQuotaService.Reservation.class);
     private final ConversationStore.Conversation existing = new ConversationStore.Conversation(CONVERSATION_ID,
             List.of(AiChatMessage.user("Câu trước"), AiChatMessage.assistant("Đáp trước")), false);
 
@@ -75,6 +75,7 @@ class AiChatServiceTest {
         RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request));
         when(conversations.open(7L, "kho_01", CONVERSATION_ID)).thenReturn(existing);
         when(quotaService.currentMax()).thenReturn(500L);
+        when(quotaService.reserve()).thenReturn(turn);
     }
 
     @AfterEach
@@ -87,7 +88,7 @@ class AiChatServiceTest {
     void liveAnswerSendsHistoryGuideAndToolsCountsOnceAndStoresExchange() {
         when(aiClient.chat(any(), any())).thenReturn(AiChatReply.answered("SP001 còn 12 thùng.", "end_turn",
                 900, 40, false, List.of("get_stock", "get_stock")));
-        when(quotaService.recordAnswer(false)).thenReturn(8L);
+        when(turn.confirm(false)).thenReturn(8L);
 
         ChatResponse response = service(AiMode.LIVE).chat(new ChatRequest("  Tồn SP001?  ", CONVERSATION_ID));
 
@@ -112,19 +113,18 @@ class AiChatServiceTest {
         assertThat(sent.tools()).isEqualTo(tools.definitions());
         assertThat(sent.maxToolRounds()).isEqualTo(5);
         assertThat(sent.timeout()).isEqualTo(Duration.ofSeconds(90));
-        verify(quotaService).checkQuota();
-        verify(quotaService, times(1)).recordAnswer(false);
+        verify(quotaService).reserve();
+        verify(turn, times(1)).confirm(false);
         verify(conversations).append(7L, "kho_01", existing, "Tồn SP001?", "SP001 còn 12 thùng.");
     }
 
     @Test
     void overQuotaDoesNotCallTheModel() {
-        doThrow(new ApiException(ErrorCode.PLAN_LIMIT_EXCEEDED)).when(quotaService).checkQuota();
+        when(quotaService.reserve()).thenThrow(new ApiException(ErrorCode.PLAN_LIMIT_EXCEEDED));
 
         assertThatThrownBy(() -> service(AiMode.LIVE).chat(new ChatRequest("Câu hỏi", null)))
                 .isInstanceOf(ApiException.class);
-        verifyNoInteractions(aiClient);
-        verify(quotaService, never()).recordAnswer(anyBoolean());
+        verifyNoInteractions(aiClient, turn);
     }
 
     @Test
@@ -134,19 +134,20 @@ class AiChatServiceTest {
         assertThatThrownBy(() -> service(AiMode.LIVE).chat(new ChatRequest("Câu hỏi", CONVERSATION_ID)))
                 .isInstanceOfSatisfying(ApiException.class,
                         ex -> assertThat(ex.getErrorCode()).isEqualTo(ErrorCode.SERVICE_UNAVAILABLE));
-        verify(quotaService, never()).recordAnswer(anyBoolean());
+        verify(turn, never()).confirm(anyBoolean());
+        verify(turn).close();
         verify(conversations, never()).append(anyLong(), anyString(), any(), anyString(), anyString());
     }
 
     @Test
     void refusalIsNotCountedAndNotStored() {
         when(aiClient.chat(any(), any())).thenReturn(AiChatReply.refusal("refusal", 50, 0, List.of()));
-        when(quotaService.recordAnswer(true)).thenReturn(7L);
+        when(turn.confirm(true)).thenReturn(7L);
 
         ChatResponse response = service(AiMode.LIVE).chat(new ChatRequest("Câu hỏi", CONVERSATION_ID));
 
         assertThat(response.refused()).isTrue();
-        verify(quotaService).recordAnswer(true);
+        verify(turn).confirm(true);
         verify(conversations, never()).append(anyLong(), anyString(), any(), anyString(), anyString());
     }
 
@@ -156,7 +157,7 @@ class AiChatServiceTest {
         when(conversations.open(7L, "kho_01", null)).thenReturn(fresh);
         when(mockAssistant.answer("Tồn SP001?")).thenReturn(
                 new MockAssistant.Answer(MockAssistant.MOCK_NOTICE + "\n\nSP001 ...", AssistantTools.GET_STOCK));
-        when(quotaService.recordAnswer(false)).thenReturn(1L);
+        when(turn.confirm(false)).thenReturn(1L);
 
         ChatResponse response = service(AiMode.MOCK).chat(new ChatRequest("Tồn SP001?", null));
 

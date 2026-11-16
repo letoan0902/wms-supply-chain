@@ -487,7 +487,7 @@ export default function AiImportPage() {
                 <div className="py-4">
                   <CloudUploadOutlined className="text-4xl text-blue-500" />
                   <div className="mt-2 font-medium">Kéo thả file vào đây hoặc bấm để chọn file</div>
-                  <div className="text-xs text-slate-500">xlsx, xls, csv, pdf, png, jpg; tối đa 10 MB, 200 dòng</div>
+                  <div className="text-xs text-slate-500">xlsx, xls, csv, pdf, png, jpg; tối đa 10 MB (ảnh png, jpg tối đa 7,5 MB), 200 dòng</div>
                 </div>
               </Upload.Dragger>
 

@@ -588,6 +588,58 @@ class GoodsDeliveryIntegrationTest {
         verify(wmsEventPublisher, never()).publishAfterCommit(eq(WmsEvents.RoutingKeys.ORDER_DISPATCHED), any());
     }
 
+    @Test
+    @DisplayName("Hủy đơn bán: phiếu xuất chưa hoàn tất bị hủy theo và trả lại số lượng đã xuất đã ghi nhận; phiếu đó không xuất kho được nữa")
+    void cancellingSalesOrderCancelsOpenDeliveryNotesAndBlocksDispatch() throws Exception {
+        Customer customer = createCustomer("KH-GDN-CXL", "Công ty Hủy đơn");
+        SalesOrder so = createConfirmedSo(customer, 1L, new BigDecimal("10"), new BigDecimal("10000"));
+        SalesOrderItem soItem = so.getItems().get(0);
+        Long completedId = goodsDeliveryService.create(new CreateGdnRequest(so.getId(), LocalDate.now(),
+                GoodsDeliveryStatus.COMPLETED, "A", "09", "DC", null, List.of(gdnItem(soItem, "4"))), "thukho").id();
+        Long pickingId = goodsDeliveryService.create(new CreateGdnRequest(so.getId(), LocalDate.now(),
+                GoodsDeliveryStatus.PICKING, "A", "09", "DC", null, List.of(gdnItem(soItem, "6"))), "thukho").id();
+        assertThat(soItem.getDeliveredQuantity()).isEqualByComparingTo("10");
+
+        mockMvc.perform(post("/api/orders/sales/{id}/cancel", so.getId())
+                        .header("X-User-Roles", "ROLE_ADMIN"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status", is("CANCELLED")));
+
+        assertThat(gdnRepository.findById(pickingId).orElseThrow().getStatus()).isEqualTo(GoodsDeliveryStatus.CANCELLED);
+        assertThat(gdnRepository.findById(completedId).orElseThrow().getStatus()).isEqualTo(GoodsDeliveryStatus.COMPLETED);
+        SalesOrder reloaded = salesOrderRepository.findById(so.getId()).orElseThrow();
+        assertThat(reloaded.getItems().get(0).getDeliveredQuantity()).isEqualByComparingTo("4");
+
+        org.mockito.Mockito.clearInvocations(inventoryClient, wmsEventPublisher);
+        mockMvc.perform(post("/api/orders/goods-delivery-notes/{id}/dispatch", pickingId)
+                        .header("X-User-Roles", "ROLE_ADMIN"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.success", is(false)));
+        verify(inventoryClient, never()).dispatchStock(any());
+        verify(wmsEventPublisher, never()).publishAfterCommit(eq(WmsEvents.RoutingKeys.ORDER_DISPATCHED), any());
+        assertThat(salesOrderRepository.findById(so.getId()).orElseThrow().getStatus()).isEqualTo(OrderStatus.CANCELLED);
+    }
+
+    @Test
+    @DisplayName("Phiếu xuất còn mở của đơn đã hủy (dữ liệu trước bản sửa) không xuất kho được: không trừ tồn, đơn không chuyển COMPLETED")
+    void dispatchRefusedWhenSalesOrderCancelled() throws Exception {
+        Customer customer = createCustomer("KH-GDN-CXL2", "Công ty Hủy đơn 2");
+        SalesOrder so = createConfirmedSo(customer, 1L, new BigDecimal("10"), new BigDecimal("10000"));
+        Long gdnId = goodsDeliveryService.create(new CreateGdnRequest(so.getId(), LocalDate.now(),
+                GoodsDeliveryStatus.PICKING, "A", "09", "DC", null, List.of(gdnItem(so.getItems().get(0), "10"))), "thukho").id();
+        so.setStatus(OrderStatus.CANCELLED);
+        salesOrderRepository.save(so);
+
+        mockMvc.perform(post("/api/orders/goods-delivery-notes/{id}/dispatch", gdnId)
+                        .header("X-User-Roles", "ROLE_ADMIN"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message", org.hamcrest.Matchers.containsString("đã bị hủy")));
+
+        verify(inventoryClient, never()).dispatchStock(any());
+        assertThat(gdnRepository.findById(gdnId).orElseThrow().getStatus()).isEqualTo(GoodsDeliveryStatus.PICKING);
+        assertThat(salesOrderRepository.findById(so.getId()).orElseThrow().getStatus()).isEqualTo(OrderStatus.CANCELLED);
+    }
+
     /** Request MockMvc xóa ngữ cảnh doanh nghiệp khi kết thúc; test không có transaction bao ngoài thì đặt lại. */
     private void restoreTestCompany() {
         TenantContext.setCompanyId(TenantTestExecutionListener.DEFAULT_TEST_COMPANY);

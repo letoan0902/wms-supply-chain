@@ -273,7 +273,8 @@ Số lô thuộc nhiều sản phẩm và không truyền `productId`: `409 CONF
 `destinationWarehouseId`, `destinationWarehouseCode`, `destinationWarehouseName`, `lotQuantityShipped` (số lượng của
 lô này đã xuất theo phiếu), `itemReceivedQuantity`, `itemDamagedQuantity` (của cả dòng sản phẩm trên phiếu, có thể gồm
 nhiều lô; `null` khi chưa nhận), `destinationBinLocationCode`, `receivedAt`, `receivedBy`, `lotTrackedAtDestination`
-(luôn `false` hiện nay).
+(`true` khi sổ kho của lô có dòng `TRANSFER_IN` của chính phiếu, tức hàng nhận tại kho đích giữ số lô; `false` khi phiếu
+chưa nhận hoặc nhận trước ngày 16/11/2026).
 
 `tree` (nút `TraceNode`, lồng nhau qua `children`, hợp với `Tree` của Ant Design dùng `key`, `title`, `children`):
 `key`, `nodeType`, `direction`, `title` (tiếng Việt, hiển thị được ngay), `quantity`, `occurredAt`, `documentType`,
@@ -290,8 +291,10 @@ nhiều lô; `null` khi chưa nhận), `destinationBinLocationCode`, `receivedAt
 - Tên nhà cung cấp và khách hàng không lưu ở inventory-service, chưa có client sang order-service: trả ID nhà cung
   cấp, số đơn mua, số đơn bán. Màn hình có thể tra tên qua API đơn hàng hiện có.
 - Xuất bán ghi theo số đơn bán (`SALES_ORDER`) vì sự kiện `order.dispatched` chưa mang mã phiếu xuất GDN.
-- Phiếu điều chuyển chưa lưu số lô: hàng nhận tại kho đích được cộng vào dòng tồn không theo lô, nên chuỗi dừng ở
-  nút `TRANSFER_DESTINATION`; không truy tiếp các lần xuất sau tại kho đích.
+- Từ 16/11/2026 (WMS-20.4) hàng điều chuyển nhận tại kho đích giữ số lô, ngày sản xuất, hạn dùng của các dòng tồn đã
+  trừ ở kho nguồn (dựng lại từ dòng sổ `TRANSFER_OUT` của phiếu), nên lô xuất hiện ở vị trí kho đích, có dòng
+  `TRANSFER_IN` trong `timeline` và truy tiếp được các lần xuất sau. Phiếu chưa nhận hoặc nhận trước ngày đó thì chuỗi
+  dừng ở nút `TRANSFER_DESTINATION` (ghi trong `notes`).
 - Lô có trước khi có sổ kho xuất hiện dưới dạng `OPENING_BALANCE`, không có phiếu nhập gốc.
 
 ### Ví dụ
@@ -324,7 +327,7 @@ nhiều lô; `null` khi chưa nhận), `destinationBinLocationCode`, `receivedAt
           "destinationWarehouseId": 2, "destinationWarehouseCode": "WH02", "destinationWarehouseName": "Kho Đà Nẵng",
           "lotQuantityShipped": 30.000, "itemReceivedQuantity": 30.000, "itemDamagedQuantity": 0.000,
           "destinationBinLocationCode": "WH02-ZB-R01-B01", "receivedAt": "2026-11-07T02:00:00Z",
-          "receivedBy": "quanly02", "lotTrackedAtDestination": false } },
+          "receivedBy": "quanly02", "lotTrackedAtDestination": true } },
       { "movementType": "SALES_DISPATCH", "documentType": "SALES_ORDER", "documentId": 601,
         "documentNumber": "SO-20261108-0601", "warehouseId": 1, "quantity": 50.000, "transfer": null }
     ],
@@ -341,13 +344,12 @@ nhiều lô; `null` khi chưa nhận), `destinationBinLocationCode`, `receivedAt
         { "key": "outflow:1", "nodeType": "TRANSFER", "direction": "DOWNSTREAM",
           "title": "Điều chuyển TRF-20261106-0001 từ Kho Hà Nội", "quantity": 30.000,
           "children": [ { "key": "transfer-dest:1", "nodeType": "TRANSFER_DESTINATION",
-            "title": "Kho đích Kho Đà Nẵng: đã nhận 30.000 (cả dòng sản phẩm của phiếu); số lô không được giữ tại kho đích",
+            "title": "Kho đích Kho Đà Nẵng: đã nhận 30.000 (cả dòng sản phẩm của phiếu); giữ số lô tại kho đích",
             "children": [] } ] },
         { "key": "outflow:2", "nodeType": "SALES_ORDER", "direction": "DOWNSTREAM",
           "title": "Xuất bán theo đơn SO-20261108-0601 từ Kho Hà Nội", "quantity": 50.000, "children": [] }
       ] },
-    "notes": [ "Tên nhà cung cấp và khách hàng không lưu ở dịch vụ kho; ...", "Xuất bán ghi theo số đơn bán ...",
-      "Phiếu điều chuyển chưa lưu số lô: ..." ],
+    "notes": [ "Tên nhà cung cấp và khách hàng không lưu ở dịch vụ kho; ...", "Xuất bán ghi theo số đơn bán ..." ],
     "ledgerStartedAt": null, "generatedAt": "2026-11-11T09:00:00Z"
   }
 }

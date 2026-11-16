@@ -49,6 +49,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+import static vn.wms.common.test.GatewayHeaders.asUser;
 
 /**
  * Kiểm tra cách ly dữ liệu giữa hai doanh nghiệp (Company A và Company B) trong inventory-service (WMS-22.4a, TASK-136).
@@ -203,6 +204,46 @@ class InventoryTenantIsolationTest {
         mockMvc.perform(get("/api/inventory/warehouses/" + warehouseIdOfA)
                         .header("X-Company-Id", COMPANY_B))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    @DisplayName("Kho đích điều chuyển: quản lý kho chỉ được gán một kho vẫn thấy mọi kho đang hoạt động của doanh nghiệp mình, "
+            + "chỉ mã, tên, trạng thái, không thấy kho của doanh nghiệp khác")
+    void transferDestinationsListActiveWarehousesOfOwnCompanyOnly() throws Exception {
+        Long secondWarehouseOfA = TenantContext.callAs(COMPANY_A, () -> warehouseRepository.save(
+                new Warehouse("WH02", "Kho Chi Nhánh Hải Phòng (Doanh nghiệp A)", "Hải Phòng", "Quản lý A2", "0903333333", 300)).getId());
+        TenantContext.runAs(COMPANY_A, () -> {
+            Warehouse inactive = new Warehouse("WH03", "Kho Đã Ngưng (Doanh nghiệp A)", "Nam Định", "Quản lý A3", "0904444444", 100);
+            inactive.setActive(false);
+            warehouseRepository.save(inactive);
+        });
+
+        // Quản lý kho của A chỉ được gán kho WH01: danh sách kho thường chỉ có WH01
+        mockMvc.perform(get("/api/inventory/warehouses")
+                        .with(asUser("manager-a", COMPANY_A, List.of("WAREHOUSE_MANAGER"), List.of(warehouseIdOfA))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data", hasSize(1)));
+
+        // Danh sách kho đích: mọi kho đang hoạt động của A, không có kho ngưng, không có kho của B
+        mockMvc.perform(get("/api/inventory/warehouses/transfer-destinations")
+                        .with(asUser("manager-a", COMPANY_A, List.of("WAREHOUSE_MANAGER"), List.of(warehouseIdOfA))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data", hasSize(2)))
+                .andExpect(jsonPath("$.data[0].id", is(warehouseIdOfA.intValue())))
+                .andExpect(jsonPath("$.data[0].code", is("WH01")))
+                .andExpect(jsonPath("$.data[0].name", is("Kho Tổng Miền Bắc (Doanh nghiệp A)")))
+                .andExpect(jsonPath("$.data[0].active", is(true)))
+                .andExpect(jsonPath("$.data[0].address").doesNotExist())
+                .andExpect(jsonPath("$.data[0].capacity").doesNotExist())
+                .andExpect(jsonPath("$.data[0].managerName").doesNotExist())
+                .andExpect(jsonPath("$.data[1].id", is(secondWarehouseOfA.intValue())));
+
+        // Nhân viên kho của B chỉ thấy kho của B
+        mockMvc.perform(get("/api/inventory/warehouses/transfer-destinations")
+                        .with(asUser("staff-b", COMPANY_B, List.of("WAREHOUSE_STAFF"), List.of(warehouseIdOfB))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data", hasSize(1)))
+                .andExpect(jsonPath("$.data[0].id", is(warehouseIdOfB.intValue())));
     }
 
     @Test

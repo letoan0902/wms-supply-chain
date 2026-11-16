@@ -54,6 +54,7 @@ class AiSummaryServiceTest {
 
     private final AiClient aiClient = mock(AiClient.class);
     private final AiQuotaService quotaService = mock(AiQuotaService.class);
+    private final AiQuotaService.Reservation turn = mock(AiQuotaService.Reservation.class);
     private final ServiceDataClient dataClient = mock(ServiceDataClient.class);
     private final SummaryCache cache = mock(SummaryCache.class);
 
@@ -78,7 +79,8 @@ class AiSummaryServiceTest {
         TenantContext.setCompanyId(701L);
         when(quotaService.currentMax()).thenReturn(500L);
         when(quotaService.currentUsage()).thenReturn(9L);
-        when(quotaService.recordSuccessfulRequest()).thenReturn(10L);
+        when(quotaService.reserve()).thenReturn(turn);
+        when(turn.confirm()).thenReturn(10L);
         when(cache.find(anyString())).thenReturn(Optional.empty());
     }
 
@@ -130,8 +132,8 @@ class AiSummaryServiceTest {
         assertThat(response.generatedAt()).isEqualTo(NOW);
         assertThat(response.usage()).isEqualTo(new AskResponse.Usage(9L, 500L));
         verifyNoInteractions(dataClient, aiClient);
-        verify(quotaService, never()).checkQuota();
-        verify(quotaService, never()).recordSuccessfulRequest();
+        verify(quotaService, never()).reserve();
+        verify(turn, never()).confirm();
     }
 
     @Test
@@ -154,8 +156,8 @@ class AiSummaryServiceTest {
         assertThat(response.summary()).isEqualTo("- 7 đơn bán chờ xuất, 2 đơn gấp.\n- Kho lấp đầy 91,5%.\n"
                 + "- Phải thu 12.500.000 đ.\n\nGợi ý:\n- Ưu tiên 2 đơn gấp.\n- Giải phóng vị trí.");
         assertThat(response.usage()).isEqualTo(new AskResponse.Usage(10L, 500L));
-        verify(quotaService).checkQuota();
-        verify(quotaService).recordSuccessfulRequest();
+        verify(quotaService).reserve();
+        verify(turn).confirm();
         verify(cache).save(eq("wms:ai:summary:701:FIN:all"), any());
 
         ArgumentCaptor<AiJsonRequest> request = ArgumentCaptor.forClass(AiJsonRequest.class);
@@ -196,7 +198,8 @@ class AiSummaryServiceTest {
         assertThatThrownBy(() -> service(AiMode.LIVE).summary(null, false))
                 .isInstanceOfSatisfying(ApiException.class,
                         ex -> assertThat(ex.getErrorCode()).isEqualTo(ErrorCode.SERVICE_UNAVAILABLE));
-        verify(quotaService, never()).recordSuccessfulRequest();
+        verify(turn, never()).confirm();
+        verify(turn).close();
         verify(cache, never()).save(anyString(), any());
     }
 
@@ -210,7 +213,7 @@ class AiSummaryServiceTest {
         assertThatThrownBy(() -> service(AiMode.LIVE).summary(null, false))
                 .isInstanceOfSatisfying(ApiException.class,
                         ex -> assertThat(ex.getErrorCode()).isEqualTo(ErrorCode.FORBIDDEN));
-        verify(quotaService, never()).checkQuota();
+        verify(quotaService, never()).reserve();
         verifyNoInteractions(aiClient);
     }
 
@@ -226,7 +229,7 @@ class AiSummaryServiceTest {
         assertThat(response.bullets()).hasSize(5);
         assertThat(response.bullets().get(0)).contains("7 đơn");
         assertThat(response.actions()).isNotEmpty();
-        verify(quotaService).recordSuccessfulRequest();
+        verify(turn).confirm();
         verify(cache).save(eq("wms:ai:summary:701:FIN:w3"), any());
         verifyNoInteractions(aiClient);
     }

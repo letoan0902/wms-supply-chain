@@ -12,13 +12,17 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
+import vn.wms.common.api.ErrorCode;
+import vn.wms.common.exception.ApiException;
 import vn.wms.common.test.GatewayHeaders;
 import vn.wms.order.client.AtpResponse;
 import vn.wms.order.client.InventoryGateway;
 import vn.wms.order.client.ReserveOrderRequest;
+import vn.wms.order.client.ReserveOrderResponse;
 import vn.wms.order.client.StockShortageException;
 import vn.wms.order.client.WarehouseSummary;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import vn.wms.order.dto.AtpCheckRequest;
 import vn.wms.order.dto.CreateSalesOrderRequest;
 import vn.wms.order.dto.SalesOrderItemRequest;
@@ -40,6 +44,9 @@ import static org.hamcrest.Matchers.is;
 import static org.hamcrest.Matchers.startsWith;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.clearInvocations;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -536,5 +543,139 @@ class SalesOrderIntegrationTest {
                         .content(objectMapper.writeValueAsString(orderRequest(703L, "SKU-RACE", "10.000", OrderStatus.CONFIRMED, false))))
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message", containsString("không cho phép chuyển sang BACKORDER")));
+    }
+
+    private Long createDraft(Long productId, String sku, String quantity) throws Exception {
+        String created = mockMvc.perform(post("/api/orders/sales")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(orderRequest(productId, sku, quantity, OrderStatus.DRAFT, true))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.status", is("DRAFT")))
+                .andReturn().getResponse().getContentAsString();
+        return objectMapper.readTree(created).path("data").path("id").asLong();
+    }
+
+    /** Xác nhận hết thời gian chờ: inventory-service có thể đã giữ chỗ nhưng đơn vẫn DRAFT. */
+    private void confirmTimesOut(Long orderId) throws Exception {
+        when(inventoryGateway.reserveForOrder(any())).thenThrow(new ApiException(ErrorCode.SERVICE_UNAVAILABLE,
+                "Không kết nối được dịch vụ kho để giữ chỗ tồn kho cho đơn"));
+        mockMvc.perform(post("/api/orders/sales/{id}/confirm", orderId))
+                .andExpect(status().isServiceUnavailable());
+        assertThat(salesOrderRepository.findById(orderId).orElseThrow().getStatus()).isEqualTo(OrderStatus.DRAFT);
+    }
+
+    @Test
+    @DisplayName("WMS-20.4: xóa đơn nháp giải phóng giữ chỗ còn treo của lần xác nhận hết thời gian chờ")
+    void deleteDraftReleasesLeftoverReservations() throws Exception {
+        Long orderId = createDraft(801L, "SKU-LEAK", "10.000");
+        confirmTimesOut(orderId);
+        clearInvocations(inventoryGateway);
+
+        mockMvc.perform(delete("/api/orders/sales/{id}", orderId))
+                .andExpect(status().isOk());
+
+        verify(inventoryGateway).releaseReservations(orderId);
+        assertThat(salesOrderRepository.findById(orderId)).isEmpty();
+    }
+
+    @Test
+    @DisplayName("WMS-20.4: sửa đơn nháp còn giữ chỗ cũ rồi xác nhận lại: giải phóng giữ chỗ cũ trước, giữ chỗ theo dòng hàng mới")
+    void reconfirmAfterEditReleasesOldReservationsBeforeReserving() throws Exception {
+        Long orderId = createDraft(802L, "SKU-EDIT", "10.000");
+        confirmTimesOut(orderId);
+
+        UpdateSalesOrderRequest edit = new UpdateSalesOrderRequest(sampleCustomer.getId(), 1L, "Kho Tổng Hà Nội",
+                "Hà Nội", "Người nhận", "0987654321", LocalDate.now(), null, null, true,
+                List.of(new SalesOrderItemRequest(802L, "SKU-EDIT", "Sản phẩm giữ chỗ", "Cái", new BigDecimal("4.000"),
+                        new BigDecimal("10000.00"), BigDecimal.ZERO, null, BigDecimal.ZERO, null, null)));
+        mockMvc.perform(put("/api/orders/sales/{id}", orderId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(edit)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status", is("DRAFT")));
+
+        org.mockito.Mockito.reset(inventoryGateway);
+        when(inventoryGateway.getAtp(anyLong(), anyLong()))
+                .thenReturn(new AtpResponse(1L, 1L, new BigDecimal("100.000"), BigDecimal.ZERO, new BigDecimal("100.000")));
+        when(inventoryGateway.reserveForOrder(any())).thenReturn(new ReserveOrderResponse(orderId, false,
+                List.of(new ReserveOrderResponse.Line(802L, new BigDecimal("4.000")))));
+        mockMvc.perform(post("/api/orders/sales/{id}/confirm", orderId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status", is("CONFIRMED")));
+
+        InOrder order = inOrder(inventoryGateway);
+        order.verify(inventoryGateway).releaseReservations(orderId);
+        ArgumentCaptor<ReserveOrderRequest> sent = ArgumentCaptor.forClass(ReserveOrderRequest.class);
+        order.verify(inventoryGateway).reserveForOrder(sent.capture());
+        assertThat(sent.getValue().items()).containsExactly(
+                new ReserveOrderRequest.Item(802L, "SKU-EDIT", new BigDecimal("4.000")));
+    }
+
+    @Test
+    @DisplayName("WMS-20.4: kho vẫn báo đơn đã có giữ chỗ sau khi đã giải phóng (giữ chỗ cũ chưa trả được) thì 503, đơn không được xác nhận")
+    void confirmRejectsStaleReservationReportedAfterRelease() throws Exception {
+        Long orderId = createDraft(803L, "SKU-STALE", "10.000");
+        when(inventoryGateway.reserveForOrder(any())).thenReturn(new ReserveOrderResponse(orderId, true,
+                List.of(new ReserveOrderResponse.Line(803L, new BigDecimal("7.000")))));
+
+        mockMvc.perform(post("/api/orders/sales/{id}/confirm", orderId))
+                .andExpect(status().isServiceUnavailable())
+                .andExpect(jsonPath("$.code", is("SERVICE_UNAVAILABLE")));
+        assertThat(salesOrderRepository.findById(orderId).orElseThrow().getStatus()).isEqualTo(OrderStatus.DRAFT);
+    }
+
+    @Test
+    @DisplayName("WMS-20.4: đơn chưa chọn kho chỉ lưu được ở DRAFT; xác nhận (lập thẳng, bấm xác nhận, sửa đơn BACKORDER) báo lỗi trường warehouseId")
+    void confirmingRequiresWarehouse() throws Exception {
+        when(inventoryGateway.getAtp(anyLong(), isNull()))
+                .thenReturn(new AtpResponse(1L, null, new BigDecimal("100.000"), BigDecimal.ZERO, new BigDecimal("100.000")));
+        SalesOrderItemRequest item = new SalesOrderItemRequest(804L, "SKU-NOWH", "Sản phẩm", "Cái",
+                new BigDecimal("5.000"), new BigDecimal("10000.00"), BigDecimal.ZERO, null, BigDecimal.ZERO, null, null);
+
+        // Lập đơn xác nhận ngay mà không có kho
+        mockMvc.perform(post("/api/orders/sales")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new CreateSalesOrderRequest(null, sampleCustomer.getId(),
+                                null, null, "Hà Nội", null, null, LocalDate.now(), null, null, OrderStatus.CONFIRMED, true,
+                                List.of(item)))))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code", is("VALIDATION_ERROR")))
+                .andExpect(jsonPath("$.data.warehouseId").exists());
+
+        // Đơn nháp không có kho vẫn lưu được, nhưng không xác nhận được
+        String created = mockMvc.perform(post("/api/orders/sales")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(new CreateSalesOrderRequest(null, sampleCustomer.getId(),
+                                null, null, "Hà Nội", null, null, LocalDate.now(), null, null, OrderStatus.DRAFT, true,
+                                List.of(item)))))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        Long draftId = objectMapper.readTree(created).path("data").path("id").asLong();
+        mockMvc.perform(post("/api/orders/sales/{id}/confirm", draftId))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code", is("VALIDATION_ERROR")))
+                .andExpect(jsonPath("$.data.warehouseId").exists());
+        assertThat(salesOrderRepository.findById(draftId).orElseThrow().getStatus()).isEqualTo(OrderStatus.DRAFT);
+
+        // Đơn BACKORDER (sửa xong có thể được xác nhận) không được bỏ kho
+        when(inventoryGateway.getAtp(805L, 1L))
+                .thenReturn(new AtpResponse(805L, 1L, new BigDecimal("1.000"), BigDecimal.ZERO, new BigDecimal("1.000")));
+        String backorder = mockMvc.perform(post("/api/orders/sales")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(orderRequest(805L, "SKU-BO", "5.000", OrderStatus.CONFIRMED, true))))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.data.status", is("BACKORDER")))
+                .andReturn().getResponse().getContentAsString();
+        Long backorderId = objectMapper.readTree(backorder).path("data").path("id").asLong();
+        UpdateSalesOrderRequest dropWarehouse = new UpdateSalesOrderRequest(sampleCustomer.getId(), null, null,
+                "Hà Nội", null, null, LocalDate.now(), null, null, true, List.of(item));
+        mockMvc.perform(put("/api/orders/sales/{id}", backorderId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(dropWarehouse)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code", is("VALIDATION_ERROR")))
+                .andExpect(jsonPath("$.data.warehouseId").exists());
+
+        verify(inventoryGateway, never()).reserveForOrder(any());
     }
 }

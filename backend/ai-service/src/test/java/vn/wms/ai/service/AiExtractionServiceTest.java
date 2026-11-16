@@ -45,6 +45,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -61,6 +62,7 @@ class AiExtractionServiceTest {
 
     private final ClaudeExtractor claude = mock(ClaudeExtractor.class);
     private final AiQuotaService quota = mock(AiQuotaService.class);
+    private final AiQuotaService.Reservation turn = mock(AiQuotaService.Reservation.class);
     private final ExtractionStore store = mock(ExtractionStore.class);
     private final BulkImportClient bulk = mock(BulkImportClient.class);
 
@@ -75,6 +77,7 @@ class AiExtractionServiceTest {
     void setUp() {
         TenantContext.setCompanyId(COMPANY_ID);
         asUser("PURCHASING");
+        when(quota.reserve()).thenReturn(turn);
     }
 
     @AfterEach
@@ -106,7 +109,7 @@ class AiExtractionServiceTest {
     @Test
     void spreadsheet_aiMapsColumnsServerAppliesToRows_storesThenCountsOnce() {
         when(claude.mapColumns(eq(ExtractionDataType.PRODUCT), any())).thenReturn(productMapping());
-        when(quota.recordSuccessfulRequest()).thenReturn(6L);
+        when(turn.confirm()).thenReturn(6L);
         when(quota.currentMax()).thenReturn(20L);
 
         ExtractionResponse response = live.extract(xlsx(), "product");
@@ -121,20 +124,19 @@ class AiExtractionServiceTest {
         assertThat(response.expiresAt()).isEqualTo(NOW.plus(Duration.ofHours(1)));
         assertThat(response.usage().used()).isEqualTo(6L);
         assertThat(response.usage().max()).isEqualTo(20L);
-        var order = inOrder(quota, claude, store);
-        order.verify(quota).checkQuota();
+        var order = inOrder(quota, claude, store, turn);
+        order.verify(quota).reserve();
         order.verify(claude).mapColumns(eq(ExtractionDataType.PRODUCT), any());
         order.verify(store).save(eq(COMPANY_ID), any());
-        order.verify(quota).recordSuccessfulRequest();
+        order.verify(turn).confirm();
     }
 
     @Test
     void overQuota_doesNotCallAi() {
-        doThrow(new ApiException(ErrorCode.PLAN_LIMIT_EXCEEDED)).when(quota).checkQuota();
+        when(quota.reserve()).thenThrow(new ApiException(ErrorCode.PLAN_LIMIT_EXCEEDED));
 
         assertThatThrownBy(() -> live.extract(xlsx(), "PRODUCT")).isInstanceOf(ApiException.class);
-        verifyNoInteractions(claude, store);
-        verify(quota, never()).recordSuccessfulRequest();
+        verifyNoInteractions(claude, store, turn);
     }
 
     @Test
@@ -153,7 +155,9 @@ class AiExtractionServiceTest {
         doThrow(new ApiException(ErrorCode.SERVICE_UNAVAILABLE, "Redis")).when(store).save(anyLong(), any());
         assertThatThrownBy(() -> live.extract(xlsx(), "PRODUCT")).isInstanceOf(ApiException.class);
 
-        verify(quota, never()).recordSuccessfulRequest();
+        // Mỗi lần lỗi đều trả lại lượt đã giữ, không lần nào được xác nhận
+        verify(turn, never()).confirm();
+        verify(turn, times(4)).close();
     }
 
     @Test
@@ -194,8 +198,8 @@ class AiExtractionServiceTest {
         assertThat(response.rows().get(0).values()).containsEntry("uomName", "Thùng")
                 .containsEntry("vatRate", new BigDecimal("10")).containsEntry("categoryName", "Đồ uống");
         verifyNoInteractions(claude);
-        verify(quota).checkQuota();
-        verify(quota).recordSuccessfulRequest();
+        verify(quota).reserve();
+        verify(turn).confirm();
     }
 
     @Test

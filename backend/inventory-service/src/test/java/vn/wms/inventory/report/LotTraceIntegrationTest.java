@@ -78,12 +78,16 @@ class LotTraceIntegrationTest extends ReportTestSupport {
         assertThat(origins.get(0).path("performedBy").asText()).isEqualTo("thukho01");
         assertThat(dec(origins.get(0).path("quantity"))).isEqualByComparingTo("100");
 
+        // Hàng điều chuyển nhận tại kho 2 giữ số lô LOT-T (WMS-20.4) nên lô có mặt ở cả hai kho
         JsonNode locations = t.path("currentLocations");
-        assertThat(locations).hasSize(1);
+        assertThat(locations).hasSize(2);
         assertThat(locations.get(0).path("warehouseId").asLong()).isEqualTo(wh1.getId());
         assertThat(dec(locations.get(0).path("quantity"))).isEqualByComparingTo("20");
         assertThat(locations.get(0).path("locked").asBoolean()).isFalse();
         assertThat(locations.get(0).path("expired").asBoolean()).isFalse();
+        assertThat(locations.get(1).path("warehouseId").asLong()).isEqualTo(wh2.getId());
+        assertThat(dec(locations.get(1).path("quantity"))).isEqualByComparingTo("30");
+        assertThat(locations.get(1).path("expDate").asText()).isEqualTo("2027-10-01");
 
         JsonNode outflows = t.path("outflows");
         assertThat(outflows).hasSize(2);
@@ -95,7 +99,7 @@ class LotTraceIntegrationTest extends ReportTestSupport {
         assertThat(trf.path("transfer").path("destinationWarehouseName").asText()).isEqualTo("Kho Đà Nẵng");
         assertThat(trf.path("transfer").path("status").asText()).isEqualTo("COMPLETED");
         assertThat(dec(trf.path("transfer").path("itemReceivedQuantity"))).isEqualByComparingTo("30");
-        assertThat(trf.path("transfer").path("lotTrackedAtDestination").asBoolean()).isFalse();
+        assertThat(trf.path("transfer").path("lotTrackedAtDestination").asBoolean()).isTrue();
         JsonNode so = outflows.get(1);
         assertThat(so.path("movementType").asText()).isEqualTo("SALES_DISPATCH");
         assertThat(so.path("documentNumber").asText()).isEqualTo("SO-T-0601");
@@ -103,10 +107,12 @@ class LotTraceIntegrationTest extends ReportTestSupport {
         assertThat(dec(so.path("quantity"))).isEqualByComparingTo("50");
 
         JsonNode timeline = t.path("timeline");
-        assertThat(timeline).hasSize(3);
+        assertThat(timeline).hasSize(4);
         assertThat(dec(timeline.get(0).path("lotBalanceAfter"))).isEqualByComparingTo("100");
         assertThat(dec(timeline.get(1).path("lotBalanceAfter"))).isEqualByComparingTo("70");
-        assertThat(dec(timeline.get(2).path("lotBalanceAfter"))).isEqualByComparingTo("20");
+        assertThat(timeline.get(2).path("movementType").asText()).isEqualTo("TRANSFER_IN");
+        assertThat(dec(timeline.get(2).path("lotBalanceAfter"))).isEqualByComparingTo("100");
+        assertThat(dec(timeline.get(3).path("lotBalanceAfter"))).isEqualByComparingTo("50");
 
         JsonNode summary = t.path("summary");
         assertThat(dec(summary.path("totalReceived"))).isEqualByComparingTo("100");
@@ -118,13 +124,13 @@ class LotTraceIntegrationTest extends ReportTestSupport {
         assertThat(tree.path("nodeType").asText()).isEqualTo("LOT");
         List<String> childTypes = new ArrayList<>();
         tree.path("children").forEach(c -> childTypes.add(c.path("nodeType").asText()));
-        assertThat(childTypes).containsExactly("GOODS_RECEIPT", "LOCATION", "TRANSFER", "SALES_ORDER");
+        assertThat(childTypes).containsExactly("GOODS_RECEIPT", "LOCATION", "LOCATION", "TRANSFER", "SALES_ORDER");
         JsonNode grnNode = tree.path("children").get(0);
         assertThat(grnNode.path("children").get(0).path("nodeType").asText()).isEqualTo("PURCHASE_ORDER");
         assertThat(grnNode.path("children").get(0).path("children").get(0).path("nodeType").asText()).isEqualTo("SUPPLIER");
-        assertThat(tree.path("children").get(2).path("children").get(0).path("nodeType").asText())
+        assertThat(tree.path("children").get(3).path("children").get(0).path("nodeType").asText())
                 .isEqualTo("TRANSFER_DESTINATION");
-        assertThat(t.path("notes").toString()).contains("chưa lưu số lô").contains("Tên nhà cung cấp");
+        assertThat(t.path("notes").toString()).contains("Tên nhà cung cấp").doesNotContain("chưa mang số lô");
     }
 
     @Test

@@ -19,6 +19,7 @@ import vn.wms.common.messaging.event.OrderType;
 import vn.wms.order.client.AtpResponse;
 import vn.wms.order.client.InventoryGateway;
 import vn.wms.order.client.ReserveOrderRequest;
+import vn.wms.order.client.ReserveOrderResponse;
 import vn.wms.order.client.StockShortageException;
 import vn.wms.order.client.WarehouseSummary;
 import vn.wms.order.dto.AtpCheckRequest;
@@ -30,10 +31,14 @@ import vn.wms.order.dto.SalesOrderResponse;
 import vn.wms.order.dto.SalesOrderSummaryResponse;
 import vn.wms.order.dto.UpdateSalesOrderRequest;
 import vn.wms.order.entity.Customer;
+import vn.wms.order.entity.GoodsDeliveryNote;
+import vn.wms.order.entity.GoodsDeliveryNoteItem;
+import vn.wms.order.entity.GoodsDeliveryStatus;
 import vn.wms.order.entity.OrderStatus;
 import vn.wms.order.entity.SalesOrder;
 import vn.wms.order.entity.SalesOrderItem;
 import vn.wms.order.repository.CustomerRepository;
+import vn.wms.order.repository.GoodsDeliveryNoteRepository;
 import vn.wms.order.repository.SalesOrderRepository;
 
 import java.math.BigDecimal;
@@ -43,6 +48,7 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Service Quản lý Đơn bán hàng (Sales Order - SO) & Tồn khả dụng (ATP) (FR15 - WMS-11.1).
@@ -62,17 +68,20 @@ public class SalesOrderService {
     private WmsEventPublisher wmsEventPublisher;
 
     private final DocumentNumberService documentNumberService;
+    private final GoodsDeliveryNoteRepository goodsDeliveryNoteRepository;
 
     public SalesOrderService(SalesOrderRepository salesOrderRepository,
                              CustomerRepository customerRepository,
                              CustomerService customerService,
                              InventoryGateway inventoryGateway,
-                             DocumentNumberService documentNumberService) {
+                             DocumentNumberService documentNumberService,
+                             GoodsDeliveryNoteRepository goodsDeliveryNoteRepository) {
         this.salesOrderRepository = salesOrderRepository;
         this.customerRepository = customerRepository;
         this.customerService = customerService;
         this.inventoryGateway = inventoryGateway;
         this.documentNumberService = documentNumberService;
+        this.goodsDeliveryNoteRepository = goodsDeliveryNoteRepository;
     }
 
     /**
@@ -164,6 +173,9 @@ public class SalesOrderService {
     public SalesOrderResponse create(CreateSalesOrderRequest request, String username) {
         if (request.status() != null && request.status() != OrderStatus.DRAFT && request.status() != OrderStatus.CONFIRMED) {
             throw ApiException.badRequest("Trạng thái khởi tạo đơn bán chỉ chấp nhận DRAFT hoặc CONFIRMED");
+        }
+        if (request.status() != OrderStatus.DRAFT) {
+            requireWarehouseForConfirmation(request.warehouseId());
         }
 
         Customer customer = customerRepository.findById(request.customerId())
@@ -264,6 +276,10 @@ public class SalesOrderService {
         if (so.getStatus() != OrderStatus.DRAFT && so.getStatus() != OrderStatus.BACKORDER) {
             throw ApiException.badRequest("Chỉ được chỉnh sửa đơn bán hàng khi đang ở trạng thái DRAFT hoặc BACKORDER");
         }
+        // Đơn BACKORDER đủ hàng sau khi sửa sẽ được xác nhận ngay nên phải có kho như khi xác nhận
+        if (so.getStatus() == OrderStatus.BACKORDER) {
+            requireWarehouseForConfirmation(request.warehouseId());
+        }
 
         Customer customer = customerRepository.findById(request.customerId())
                 .orElseThrow(() -> ApiException.badRequest("Không tìm thấy khách hàng với ID: " + request.customerId()));
@@ -287,6 +303,10 @@ public class SalesOrderService {
         so.setOrderDate(request.orderDate());
         so.setExpectedDate(request.expectedDate());
         so.setNote(normalizeString(request.note()));
+
+        // Đơn DRAFT/BACKORDER không có giữ chỗ hợp lệ, nhưng có thể còn giữ chỗ của một lần xác nhận hết thời gian chờ
+        // sau khi kho đã giữ (WMS-20.4): giữ chỗ đó theo dòng hàng cũ nên trả lại trước khi đổi dòng hàng.
+        inventoryGateway.releaseReservations(so.getId());
 
         so.clearItems();
         List<String> backorderReasons = new ArrayList<>();
@@ -333,6 +353,7 @@ public class SalesOrderService {
         if (so.getStatus() != OrderStatus.DRAFT && so.getStatus() != OrderStatus.BACKORDER) {
             throw ApiException.badRequest("Không thể xác nhận đơn bán hàng đang ở trạng thái: " + so.getStatus());
         }
+        requireWarehouseForConfirmation(so.getWarehouseId());
 
         // Re-check ATP cho toàn bộ dòng hàng
         List<String> shortages = new ArrayList<>();
@@ -363,6 +384,9 @@ public class SalesOrderService {
 
         // Giữ chỗ là một phần của xác nhận: hai đơn xác nhận cùng lúc có thể cùng qua bước ATP ở trên, inventory-service
         // giữ dưới khóa bi quan nên đơn sau không giữ đủ và bị từ chối thay vì CONFIRMED mà thiếu giữ chỗ.
+        // Giữ chỗ còn sót của một lần xác nhận hết thời gian chờ được trả trước: inventory-service gặp giữ chỗ cũ thì
+        // trả "đã giữ" mà không giữ theo dòng hàng hiện tại (có thể đã sửa).
+        inventoryGateway.releaseReservations(so.getId());
         try {
             reserveStockForConfirmation(so);
         } catch (StockShortageException ex) {
@@ -383,7 +407,8 @@ public class SalesOrderService {
 
     /**
      * Hủy đơn bán hàng (chuyển sang trạng thái CANCELLED).
-     * Giải phóng tồn kho giữ chỗ (soft reservation) nếu đơn đã xác nhận trước đó (WMS-11.2).
+     * Giải phóng tồn kho giữ chỗ (soft reservation) nếu đơn đã xác nhận trước đó (WMS-11.2). Phiếu xuất chưa hoàn tất
+     * (DRAFT, PICKING) của đơn bị hủy theo và trả lại số lượng đã xuất chúng đã ghi nhận trên dòng đơn (WMS-20.4).
      */
     @Transactional
     public SalesOrderResponse cancel(Long id) {
@@ -399,6 +424,7 @@ public class SalesOrderService {
 
         OrderStatus oldStatus = so.getStatus();
         so.setStatus(OrderStatus.CANCELLED);
+        cancelOpenDeliveryNotes(so);
         SalesOrder cancelled = salesOrderRepository.save(so);
 
         // Giải phóng giữ chỗ bên inventory-service (WMS-11.2). Đơn CONFIRMED có giữ chỗ; đơn DRAFT, BACKORDER thường
@@ -416,11 +442,51 @@ public class SalesOrderService {
      */
     @Transactional
     public void delete(Long id) {
-        SalesOrder so = findOrder(id);
+        // Khóa đơn để xóa không chen giữa lúc đơn đang được xác nhận (giữ chỗ)
+        SalesOrder so = findOrderForUpdate(id);
         if (so.getStatus() != OrderStatus.DRAFT && so.getStatus() != OrderStatus.CANCELLED) {
             throw ApiException.badRequest("Chỉ được xóa đơn bán hàng khi đang ở trạng thái DRAFT hoặc CANCELLED");
         }
         salesOrderRepository.delete(so);
+        // Đơn nháp có thể còn giữ chỗ của một lần xác nhận hết thời gian chờ sau khi kho đã giữ (WMS-20.4); xóa đơn mà
+        // không trả thì hàng bị giữ mãi. Giải phóng là idempotent, không có gì thì không đổi.
+        inventoryGateway.releaseReservations(so.getId());
+    }
+
+    /**
+     * Hủy các phiếu xuất chưa hoàn tất (DRAFT, PICKING) của đơn đang bị hủy và trả lại số lượng chúng đã cộng vào phần
+     * đã xuất của dòng đơn khi lập phiếu. Gọi khi đang giữ khóa đơn: lập phiếu và xác nhận xuất kho cũng khóa đơn này
+     * trước nên không chen được vào giữa (WMS-20.4). Phiếu đã COMPLETED giữ nguyên.
+     */
+    private void cancelOpenDeliveryNotes(SalesOrder so) {
+        for (GoodsDeliveryNote gdn : goodsDeliveryNoteRepository.findBySalesOrderIdOrderByIdDesc(so.getId())) {
+            if (gdn.getStatus() != GoodsDeliveryStatus.DRAFT && gdn.getStatus() != GoodsDeliveryStatus.PICKING) {
+                continue;
+            }
+            for (GoodsDeliveryNoteItem gdnItem : gdn.getItems()) {
+                SalesOrderItem soItem = gdnItem.getSalesOrderItem();
+                if (soItem != null && soItem.getDeliveredQuantity() != null) {
+                    soItem.setDeliveredQuantity(soItem.getDeliveredQuantity()
+                            .subtract(gdnItem.getDeliveredQuantity()).max(BigDecimal.ZERO));
+                }
+            }
+            gdn.setStatus(GoodsDeliveryStatus.CANCELLED);
+            goodsDeliveryNoteRepository.save(gdn);
+            log.info("Hủy phiếu xuất {} theo đơn bán {} bị hủy", gdn.getGdnNumber(), so.getSoNumber());
+        }
+    }
+
+    /**
+     * Đơn chỉ được xác nhận khi đã chọn kho xuất (WMS-20.4): giữ chỗ không có kho giữ trên mọi kho, còn phiếu xuất luôn
+     * trừ tồn ở kho của đơn nên mọi phiếu xuất của đơn đó đều thất bại. Lỗi cùng dạng lỗi kiểm tra dữ liệu (data nêu
+     * trường).
+     */
+    private static void requireWarehouseForConfirmation(Long warehouseId) {
+        if (warehouseId == null) {
+            throw ApiException.withData(ErrorCode.VALIDATION_ERROR,
+                    "Phải chọn kho xuất hàng trước khi xác nhận đơn bán",
+                    Map.of("warehouseId", "Kho xuất hàng không được để trống khi xác nhận đơn bán"));
+        }
     }
 
     /**
@@ -625,14 +691,22 @@ public class SalesOrderService {
      * <p>
      * Không có giao dịch phân tán: giữ chỗ đã commit bên inventory-service trước khi transaction này commit. Nếu sau đó
      * transaction này rollback (lỗi CSDL lúc commit, lỗi phát sinh sau bước giữ chỗ) thì sau khi rollback gọi giải
-     * phóng giữ chỗ của đơn để không treo hàng; lỗi khi giải phóng chỉ ghi log, giữ chỗ còn lại được trả khi xác nhận
-     * lại (dùng lại giữ chỗ cũ) hoặc khi hủy đơn.
+     * phóng giữ chỗ của đơn để không treo hàng; lỗi khi giải phóng chỉ ghi log, giữ chỗ còn lại được trả khi sửa, xác
+     * nhận lại (giải phóng trước khi giữ), xóa hoặc hủy đơn.
+     * <p>
+     * Nơi gọi đã giải phóng giữ chỗ cũ của đơn (nếu có) trước khi gọi hàm này, nên inventory-service còn báo
+     * {@code alreadyReserved} nghĩa là giữ chỗ cũ (theo dòng hàng cũ) chưa trả được: ném 503, đơn không được xác nhận.
      */
     private void reserveStockForConfirmation(SalesOrder so) {
         List<ReserveOrderRequest.Item> items = so.getItems().stream()
                 .map(i -> new ReserveOrderRequest.Item(i.getProductId(), i.getSkuCode(), i.getQuantity()))
                 .toList();
-        inventoryGateway.reserveForOrder(new ReserveOrderRequest(so.getId(), so.getSoNumber(), so.getWarehouseId(), items));
+        ReserveOrderResponse reserved = inventoryGateway.reserveForOrder(
+                new ReserveOrderRequest(so.getId(), so.getSoNumber(), so.getWarehouseId(), items));
+        if (reserved != null && reserved.alreadyReserved()) {
+            throw new ApiException(ErrorCode.SERVICE_UNAVAILABLE, "Dịch vụ kho chưa giải phóng giữ chỗ cũ của đơn "
+                    + so.getSoNumber() + ", đơn chưa được xác nhận, vui lòng thử lại sau");
+        }
 
         Long orderId = so.getId();
         String soNumber = so.getSoNumber();

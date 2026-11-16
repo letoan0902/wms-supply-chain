@@ -1,5 +1,5 @@
-import { DeleteOutlined, WarningOutlined } from '@ant-design/icons'
-import { Button, Input, Select, Table, Tooltip } from 'antd'
+import { DeleteOutlined } from '@ant-design/icons'
+import { Button, Input, Select, Table, Tag, Tooltip } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import type { KeyboardEvent } from 'react'
 import { useState } from 'react'
@@ -15,18 +15,22 @@ import {
   OPTION_LABELS,
 } from '../aiImport'
 import type { PreviewRow } from '../aiImport'
+import { fieldWarnings, ROW_STATUS_META } from '../aiImportStatus'
+import type { RowAssessment } from '../aiImportStatus'
 import type { CellValue, ExtractionColumn } from '../types'
 
 interface EditableCellProps {
   column: ExtractionColumn
   row: PreviewRow
   error: string | undefined
+  /** Ô mã trùng với một dòng phía trên đang được chọn */
+  duplicate: string | undefined
   disabled: boolean
   onCommit: (value: CellValue) => void
 }
 
 /** Ô sửa được: bấm (hoặc Enter khi đang chọn ô) để sửa, Enter hoặc rời ô để lưu, Esc để bỏ. */
-function EditableCell({ column, row, error, disabled, onCommit }: EditableCellProps) {
+function EditableCell({ column, row, error, duplicate, disabled, onCommit }: EditableCellProps) {
   const value = row.values[column.field]
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
@@ -88,16 +92,20 @@ function EditableCell({ column, row, error, disabled, onCommit }: EditableCellPr
 
   const tooltipLines: string[] = []
   if (error) tooltipLines.push(error)
+  if (duplicate) tooltipLines.push(duplicate)
   if (low) {
+    tooltipLines.push(...fieldWarnings(row.warnings, column.label))
     tooltipLines.push(`Độ tin cậy ${formatConfidence(row.confidence[column.field]) ?? ''}: hãy kiểm tra lại ô này`)
   }
   if (edited) tooltipLines.push('Bạn đã sửa ô này')
 
   const tone = error
     ? 'bg-red-50 ring-1 ring-red-300'
-    : low
-      ? 'bg-yellow-100'
-      : ''
+    : duplicate
+      ? 'bg-purple-50 ring-1 ring-purple-300'
+      : low
+        ? 'bg-yellow-100'
+        : ''
   const display = formatCell(column, value)
   const cell = (
     <div
@@ -179,11 +187,64 @@ function ColumnTitle({ column, method }: { column: ExtractionColumn; method: str
   )
 }
 
+interface StatusCellProps {
+  row: PreviewRow
+  assessment: RowAssessment | undefined
+}
+
+/** Thẻ trạng thái đầu dòng: màu và nhãn theo bảng màu chung, rê chuột hoặc Tab tới để đọc lý do. */
+function StatusCell({ row, assessment }: StatusCellProps) {
+  if (!assessment) return null
+  const meta = ROW_STATUS_META[assessment.status]
+  const lines: string[] = []
+  if (assessment.status === 'excluded') {
+    lines.push('Bạn đã bỏ chọn dòng này: không gửi đi khi nhập. Tích lại ô chọn để nhập.')
+    if (assessment.problem !== 'ready') lines.push(...assessment.reasons)
+  } else if (assessment.status === 'ready') {
+    lines.push('Đủ thông tin, AI đọc chắc chắn: sẵn sàng nhập.')
+  } else {
+    lines.push(...assessment.reasons)
+    if (assessment.status === 'review') lines.push('Vẫn nhập được; hãy so lại với file gốc.')
+    else lines.push('Phải sửa hoặc bỏ chọn dòng này trước khi nhập.')
+  }
+  return (
+    <Tooltip
+      trigger={['hover', 'focus']}
+      title={
+        <div className="space-y-0.5">
+          {lines.map((line, index) => (
+            <div key={index}>{line}</div>
+          ))}
+        </div>
+      }
+    >
+      <div
+        tabIndex={0}
+        aria-label={`Dòng ${row.row}: ${meta.label}. ${lines.join(' ')}`}
+        className="cursor-help rounded leading-tight focus-visible:outline-2 focus-visible:outline-blue-500"
+      >
+        <Tag color={meta.tagColor} className="m-0 whitespace-nowrap">
+          {meta.label}
+        </Tag>
+        {assessment.shortReason && (
+          <div className="mt-1 line-clamp-2 text-[11px] text-slate-500">{assessment.shortReason}</div>
+        )}
+      </div>
+    </Tooltip>
+  )
+}
+
 interface AiImportPreviewTableProps {
   columns: ExtractionColumn[]
   rows: PreviewRow[]
   /** Lỗi theo dòng (số dòng xem trước) và trường */
   errorsByRow: Map<number, Record<string, string>>
+  /** Trạng thái từng dòng (aiImportStatus.assessRows) */
+  assessments: Map<number, RowAssessment>
+  /** Trường mã để đánh dấu ô trùng */
+  identityField: string
+  /** Trường đang ẩn (cột trống) */
+  hiddenFields: ReadonlySet<string>
   selectedKeys: number[]
   method: string
   disabled: boolean
@@ -193,13 +254,17 @@ interface AiImportPreviewTableProps {
 }
 
 /**
- * Bảng xem trước sửa được: mỗi cột một trường của API nhập hàng loạt; ô độ tin cậy thấp nền vàng, ô lỗi viền đỏ; dòng
- * còn lỗi không chọn được để nhập.
+ * Bảng xem trước sửa được: mỗi cột một trường của API nhập hàng loạt. Cột đầu là thẻ trạng thái của dòng; ô độ tin
+ * cậy thấp nền vàng, ô lỗi viền đỏ, ô mã trùng viền tím. Ô chọn ở đầu dòng quyết định dòng có được gửi đi hay không;
+ * dòng bỏ chọn vẫn nằm trong bảng.
  */
 export default function AiImportPreviewTable({
   columns,
   rows,
   errorsByRow,
+  assessments,
+  identityField,
+  hiddenFields,
   selectedKeys,
   method,
   disabled,
@@ -209,10 +274,17 @@ export default function AiImportPreviewTable({
 }: AiImportPreviewTableProps) {
   const tableColumns: ColumnsType<PreviewRow> = [
     {
+      title: 'Trạng thái',
+      key: 'status',
+      width: 168,
+      className: 'ai-preview-status-cell',
+      fixed: 'left',
+      render: (_, row) => <StatusCell row={row} assessment={assessments.get(row.row)} />,
+    },
+    {
       title: 'Dòng',
       key: 'row',
-      width: 80,
-      fixed: 'left',
+      width: 76,
       render: (_, row) => (
         <div className="leading-tight">
           <div className="font-medium">{row.row}</div>
@@ -220,70 +292,37 @@ export default function AiImportPreviewTable({
         </div>
       ),
     },
-    {
-      title: 'Cảnh báo',
-      key: 'warnings',
-      width: 90,
-      render: (_, row) => {
-        const errors = Object.values(errorsByRow.get(row.row) ?? {})
-        if (errors.length === 0 && row.warnings.length === 0 && !row.lastError) return null
-        return (
-          <Tooltip
-            title={
-              <div className="space-y-1">
-                {row.lastError && <div>Lần nhập trước lỗi: {row.lastError}</div>}
-                {errors.length > 0 && (
-                  <div>
-                    Cần sửa trước khi nhập:
-                    {errors.map((text) => (
-                      <div key={text}>- {text}</div>
-                    ))}
-                  </div>
-                )}
-                {row.warnings.length > 0 && (
-                  <div>
-                    Cảnh báo khi đọc file:
-                    {row.warnings.map((text) => (
-                      <div key={text}>- {text}</div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            }
-          >
-            <span
-              className={`inline-flex cursor-help items-center gap-1 text-xs ${
-                errors.length > 0 || row.lastError ? 'text-red-600' : 'text-amber-600'
-              }`}
-            >
-              <WarningOutlined />
-              {errors.length + row.warnings.length + (row.lastError ? 1 : 0)}
-            </span>
-          </Tooltip>
-        )
-      },
-    },
-    ...columns.map<ColumnsType<PreviewRow>[number]>((column) => ({
-      title: <ColumnTitle column={column} method={method} />,
-      key: column.field,
-      width: isNumericColumn(column) ? 130 : column.maxLength && column.maxLength > 200 ? 240 : 170,
-      render: (_: unknown, row: PreviewRow) => (
-        <EditableCell
-          column={column}
-          row={row}
-          error={errorsByRow.get(row.row)?.[column.field]}
-          disabled={disabled}
-          onCommit={(value) => onCellChange(row.row, column.field, value)}
-        />
-      ),
-    })),
+    ...columns
+      .filter((column) => !hiddenFields.has(column.field))
+      .map<ColumnsType<PreviewRow>[number]>((column) => ({
+        title: <ColumnTitle column={column} method={method} />,
+        key: column.field,
+        width: isNumericColumn(column) ? 130 : column.maxLength && column.maxLength > 200 ? 240 : 170,
+        render: (_: unknown, row: PreviewRow) => {
+          const assessment = assessments.get(row.row)
+          const duplicate =
+            column.field === identityField && assessment?.duplicateOf != null
+              ? `Mã trùng với dòng ${assessment.duplicateOf}: mỗi mã chỉ nhập được một dòng. Sửa mã hoặc bỏ chọn một trong hai dòng.`
+              : undefined
+          return (
+            <EditableCell
+              column={column}
+              row={row}
+              error={errorsByRow.get(row.row)?.[column.field]}
+              duplicate={duplicate}
+              disabled={disabled}
+              onCommit={(value) => onCellChange(row.row, column.field, value)}
+            />
+          )
+        },
+      })),
     {
       title: '',
       key: 'actions',
       width: 56,
       fixed: 'right',
       render: (_, row) => (
-        <Tooltip title="Xóa dòng khỏi bảng (không nhập dòng này)">
+        <Tooltip title="Xóa hẳn dòng khỏi bảng (muốn giữ lại thì chỉ bỏ chọn)">
           {/* Xóa dòng chỉ đổi bảng trên trình duyệt, không ghi dữ liệu nên vẫn dùng được ở chế độ chỉ đọc */}
           <span data-read-only-allowed>
             <Button
@@ -306,18 +345,20 @@ export default function AiImportPreviewTable({
       rowKey="row"
       size="small"
       bordered
+      className="ai-preview-table"
       columns={tableColumns}
       dataSource={rows}
       scroll={{ x: 'max-content' }}
+      rowClassName={(row) => (assessments.get(row.row)?.status === 'excluded' ? 'ai-preview-row-excluded' : '')}
       pagination={{ defaultPageSize: 50, showSizeChanger: true, pageSizeOptions: [20, 50, 100, 200], hideOnSinglePage: false }}
-      locale={{ emptyText: 'Không có dòng nào' }}
+      locale={{ emptyText: 'Không có dòng nào trong nhóm này' }}
       rowSelection={{
         selectedRowKeys: selectedKeys,
         preserveSelectedRowKeys: true,
         fixed: true,
         getCheckboxProps: (row) => ({
-          disabled: disabled || Object.keys(errorsByRow.get(row.row) ?? {}).length > 0,
-          title: Object.keys(errorsByRow.get(row.row) ?? {}).length > 0 ? 'Sửa lỗi của dòng trước khi chọn' : undefined,
+          disabled,
+          'aria-label': `Nhập dòng ${row.row}`,
         }),
         onChange: (keys) => onSelectionChange(keys.map((key) => Number(key))),
       }}

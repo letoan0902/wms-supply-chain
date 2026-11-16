@@ -391,8 +391,4 @@ export function formatConfidence(value: number | null | undefined): string | nul
   return `${Math.round(value * 100)}%`
 }
 
-export const STATUS_LABELS: Record<string, { label: string; color: string }> = {
-  CREATED: { label: 'Đã tạo', color: 'green' },
-  SKIPPED: { label: 'Bỏ qua (mã đã có)', color: 'gold' },
-  FAILED: { label: 'Lỗi', color: 'red' },
-}
+// Nhãn và màu kết quả nhập từng dòng: RESULT_STATUS_META trong aiImportStatus.ts (cùng bảng màu với bước xem trước).

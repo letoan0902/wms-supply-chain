@@ -21,7 +21,7 @@ import {
   Tooltip,
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
-import { ROLE_CONFIG, type UserDetail } from '../types'
+import { ASSIGNABLE_ROLES, ROLE_CONFIG, type UserDetail } from '../types'
 import { formatDateTime } from '../../../utils/format'
 import type { Warehouse } from '../../warehouses/types'
 
@@ -310,8 +310,8 @@ export default function UserTable({
             onChange={onRoleFilterChange}
             allowClear
             className="w-48"
-            options={Object.entries(ROLE_CONFIG).map(([key, val]) => ({
-              label: val.label,
+            options={ASSIGNABLE_ROLES.map((key) => ({
+              label: ROLE_CONFIG[key].label,
               value: key,
             }))}
           />

@@ -63,10 +63,11 @@ export interface CanFn {
 }
 
 /**
- * Hook xét quyền theo bảng ở permissions.ts: `const can = useCan(); can('transfer.receive', transfer.destinationWarehouseId)`.
- * Tính lại khi access token đổi (làm mới token có thể đổi danh sách kho) hoặc khi thông tin người dùng được cập nhật.
+ * Danh tính của người đang đăng nhập dùng trong component (vai trò, kho được gán), theo cùng thứ tự ưu tiên với
+ * {@link buildPermissionSubject}. Tính lại khi access token đổi (làm mới token có thể đổi danh sách kho) hoặc khi
+ * thông tin người dùng được cập nhật.
  */
-export function useCan(): CanFn {
+export function usePermissionSubject(): PermissionSubject {
   const token = getToken()
   const [user, setUser] = useState<AuthUser | null>(() => getStoredUser())
 
@@ -80,12 +81,25 @@ export function useCan(): CanFn {
     }
   }, [])
 
-  return useMemo(() => {
-    const subject = buildPermissionSubject(token, user)
-    const can = ((capability: Capability, warehouseId?: number | null) =>
-      isAllowed(subject, capability, warehouseId)) as CanFn
-    can.global = (capability: Capability) => hasGlobalScope(subject, capability)
-    can.warehouseIds = subject.warehouseIds
-    return can
-  }, [token, user])
+  return useMemo(() => buildPermissionSubject(token, user), [token, user])
+}
+
+/**
+ * Hook xét quyền theo bảng ở permissions.ts: `const can = useCan(); can('transfer.receive', transfer.destinationWarehouseId)`.
+ * Tính lại khi access token đổi (làm mới token có thể đổi danh sách kho) hoặc khi thông tin người dùng được cập nhật.
+ */
+export function useCan(): CanFn {
+  const subject = usePermissionSubject()
+
+  return useMemo(
+    (): CanFn =>
+      Object.assign(
+        (capability: Capability, warehouseId?: number | null) => isAllowed(subject, capability, warehouseId),
+        {
+          global: (capability: Capability) => hasGlobalScope(subject, capability),
+          warehouseIds: subject.warehouseIds,
+        },
+      ),
+    [subject],
+  )
 }

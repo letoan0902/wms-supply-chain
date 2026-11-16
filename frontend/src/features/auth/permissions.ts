@@ -10,7 +10,17 @@
  * Tệp không phụ thuộc React hay localStorage để kiểm tra được bằng Node (hook đọc phiên đăng nhập ở useCan.ts).
  */
 
-export type Role = 'ADMIN' | 'WAREHOUSE_MANAGER' | 'WAREHOUSE_STAFF' | 'PURCHASING' | 'SALES' | 'ACCOUNTANT'
+/** Sáu vai trò bên trong một doanh nghiệp: chỉ các vai trò này có quyền nghiệp vụ trong bảng dưới đây. */
+export type CompanyRole = 'ADMIN' | 'WAREHOUSE_MANAGER' | 'WAREHOUSE_STAFF' | 'PURCHASING' | 'SALES' | 'ACCOUNTANT'
+
+/**
+ * Quản trị nền tảng (vận hành SaaS, quản lý các doanh nghiệp khách hàng). Không có quyền nghiệp vụ nào của doanh
+ * nghiệp: `CapabilityRule.roles` chỉ nhận {@link CompanyRole}, nên vai trò này không thể vô tình được thêm vào bảng.
+ * Cách nhận biết và điều hướng của khu vực nền tảng nằm ở platformAccess.ts.
+ */
+export type PlatformRole = 'SUPER_ADMIN'
+
+export type Role = CompanyRole | PlatformRole
 
 /**
  * Cách backend giới hạn theo kho:
@@ -23,15 +33,15 @@ export type WarehouseScope = 'read' | 'write' | 'count'
 
 export interface CapabilityRule {
   /** Vai trò được gọi API (khớp `hasAnyRole` của backend) */
-  roles: readonly Role[]
+  roles: readonly CompanyRole[]
   /** Bỏ trống: không giới hạn theo kho */
   scope?: WarehouseScope
 }
 
-const ALL: readonly Role[] = ['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'PURCHASING', 'SALES', 'ACCOUNTANT']
+const ALL: readonly CompanyRole[] = ['ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF', 'PURCHASING', 'SALES', 'ACCOUNTANT']
 
 /** Vai trò dùng mọi kho của doanh nghiệp theo từng kiểu phạm vi. */
-export const GLOBAL_SCOPE_ROLES: Record<WarehouseScope, readonly Role[]> = {
+export const GLOBAL_SCOPE_ROLES: Record<WarehouseScope, readonly CompanyRole[]> = {
   read: ['ADMIN', 'ACCOUNTANT'],
   write: ['ADMIN'],
   count: ['ADMIN'],

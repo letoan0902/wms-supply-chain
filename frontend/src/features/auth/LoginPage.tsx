@@ -7,6 +7,8 @@ import type { LoginRequest } from '../../types/auth'
 import { getToken, saveAuth } from '../../utils/storage'
 import ResendActivationForm from './ResendActivationForm'
 import { REDIRECT_PARAM, safeRedirectPath } from './loginRedirect'
+import { postLoginPath } from './platformAccess'
+import { getPermissionSubject } from './useCan'
 import { getAuthErrorCode, getInactiveCompanyStatus, login } from './authApi'
 
 interface LocationState {
@@ -63,15 +65,15 @@ export default function LoginPage() {
   // Trang cần quay lại: state của router (chuyển trong ứng dụng) hoặc tham số `redirect` (phiên hết hạn, tải lại
   // trang). Giữ cả query string, ví dụ /payment/result?orderCode=... khi quay lại từ PayOS; chỉ nhận đường dẫn
   // nội bộ, không bao giờ chuyển sang URL tuyệt đối lấy từ query string.
+  // Quản trị nền tảng luôn vào khu vực nền tảng, trang nghiệp vụ trong `redirect` bị bỏ qua (platformAccess.ts).
   const from = locationState?.from
-  const redirectTo =
+  const requestedPath =
     safeRedirectPath(from ? `${from.pathname}${from.search ?? ''}${from.hash ?? ''}` : null) ??
-    safeRedirectPath(new URLSearchParams(location.search).get(REDIRECT_PARAM)) ??
-    '/'
+    safeRedirectPath(new URLSearchParams(location.search).get(REDIRECT_PARAM))
 
   // Đã đăng nhập thì vào thẳng hệ thống
   if (getToken()) {
-    return <Navigate to={redirectTo} replace />
+    return <Navigate to={postLoginPath(getPermissionSubject().roles, requestedPath)} replace />
   }
 
   const handleFinish = async (values: LoginRequest) => {
@@ -85,7 +87,7 @@ export default function LoginPage() {
         result.refreshToken,
       )
       message.success('Đăng nhập thành công')
-      navigate(redirectTo, { replace: true })
+      navigate(postLoginPath(result.roles, requestedPath), { replace: true })
     } catch (error) {
       // Doanh nghiệp vừa đăng ký chưa bấm liên kết kích hoạt trong email: hiện hướng dẫn và nút gửi lại
       if (getAuthErrorCode(error) === 'COMPANY_INACTIVE' && getInactiveCompanyStatus(error) === 'PENDING') {

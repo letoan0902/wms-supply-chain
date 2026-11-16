@@ -11,16 +11,20 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.TestExecutionListeners;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
+import vn.wms.common.api.ErrorCode;
+import vn.wms.common.exception.ApiException;
 import vn.wms.product.dto.BarcodeType;
 import vn.wms.product.dto.BatchBarcodeRequest;
 import vn.wms.product.entity.Product;
 import vn.wms.product.entity.Uom;
 import vn.wms.product.repository.ProductRepository;
 import vn.wms.product.repository.UomRepository;
+import vn.wms.product.service.BarcodeService;
 
 import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -46,6 +50,9 @@ class BarcodeIntegrationTest {
 
     @Autowired
     private UomRepository uomRepository;
+
+    @Autowired
+    private BarcodeService barcodeService;
 
     private Product testProduct;
 
@@ -143,5 +150,71 @@ class BarcodeIntegrationTest {
                 .andExpect(jsonPath("$.data.batchNumber").value("LOT-20261028-001"))
                 .andExpect(jsonPath("$.data.encodedContent").value("SKU:SKU-MILK-TH-1L|LOT:LOT-20261028-001|EXP:2027-10-28"))
                 .andExpect(jsonPath("$.data.base64Image").value(org.hamcrest.Matchers.startsWith("data:image/png;base64,")));
+    }
+
+    // Giới hạn kích thước ảnh 50 đến 2000 pixel mỗi chiều (WMS-20.4): kích thước lớn tùy ý cấp phát hàng GB bộ nhớ.
+
+    @Test
+    void genericBarcodeRejectsOversizedOrTooSmallImage() throws Exception {
+        mockMvc.perform(get("/api/products/barcodes/generate")
+                        .param("text", "SKU-GAO-ST25").param("width", "2001"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+        mockMvc.perform(get("/api/products/barcodes/generate")
+                        .param("text", "SKU-GAO-ST25").param("type", "QR_CODE").param("height", "49"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+        mockMvc.perform(get("/api/products/barcodes/generate/image")
+                        .param("text", "PALLET-A01-02").param("width", "100").param("height", "20000"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    void productBarcodeRejectsOversizedImage() throws Exception {
+        mockMvc.perform(get("/api/products/" + testProduct.getId() + "/barcode").param("width", "3000"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+        mockMvc.perform(get("/api/products/" + testProduct.getId() + "/barcode/image").param("height", "2500"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
+    }
+
+    @Test
+    void sizesAtTheLimitsAndDefaultsStillWork() throws Exception {
+        mockMvc.perform(get("/api/products/barcodes/generate")
+                        .param("text", "SKU-GAO-ST25").param("width", "2000").param("height", "50"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.width").value(2000))
+                .andExpect(jsonPath("$.data.height").value(50));
+        mockMvc.perform(get("/api/products/barcodes/generate")
+                        .param("text", "SKU-GAO-ST25").param("width", "0"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.width").value(300));
+    }
+
+    @Test
+    void batchLabelRejectsOversizedImage() throws Exception {
+        BatchBarcodeRequest request = new BatchBarcodeRequest("LOT-20261028-001", LocalDate.of(2027, 10, 28),
+                BarcodeType.QR_CODE, 2500, 250);
+        mockMvc.perform(post("/api/products/" + testProduct.getId() + "/barcode/batch")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"))
+                .andExpect(jsonPath("$.data.width").exists());
+    }
+
+    @Test
+    void serviceEnforcesTheLimitWithoutControllerValidation() {
+        BatchBarcodeRequest request = new BatchBarcodeRequest("LOT-20261028-001", LocalDate.of(2027, 10, 28),
+                BarcodeType.QR_CODE, 250, 2001);
+        assertThatThrownBy(() -> barcodeService.generateProductBatchBarcode(testProduct.getId(), request))
+                .isInstanceOfSatisfying(ApiException.class,
+                        ex -> assertThat(ex.getErrorCode()).isEqualTo(ErrorCode.VALIDATION_ERROR));
+        assertThatThrownBy(() -> barcodeService.generatePng("SKU-1", BarcodeType.CODE_128, 2001, 100, true))
+                .isInstanceOf(ApiException.class);
+        assertThatThrownBy(() -> barcodeService.generatePng("SKU-1", BarcodeType.CODE_128, 300, 10, true))
+                .isInstanceOf(ApiException.class);
     }
 }

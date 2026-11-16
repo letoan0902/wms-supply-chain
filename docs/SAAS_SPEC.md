@@ -986,7 +986,7 @@ Hỏi "tạo kho thế nào" nhận hướng dẫn đúng các bước trên gia
 | Công cụ | Gọi API | Trả cho Claude |
 | --- | --- | --- |
 | `find_product(keyword)` | `GET /api/products?keyword=&size=10` | `sku`, `name`, `uom`, `active` |
-| `get_stock(sku, warehouse?)` | `GET /api/products/sku/{sku}` rồi `GET /api/inventory/stock/atp?productId=&warehouseId=` | `onHandQuantity`, `reservedQuantity`, `availableQuantity` trên mọi kho hoặc một kho |
+| `get_stock(sku, warehouse?)` | `GET /api/products/sku/{sku}` rồi `GET /api/inventory/stock/atp?productId=&warehouseId=` | `onHandQuantity`, `reservedQuantity`, `availableQuantity` trên mọi kho người hỏi được xem (vai trò giới hạn theo kho chỉ cộng các kho được gán, kho ngoài phạm vi bị từ chối) hoặc một kho |
 | `get_warehouse_stock(warehouse, keyword?)` | `GET /api/inventory/reports/in-out-balance` từ hôm nay đến hôm nay, sắp `closingQuantity` giảm dần, 20 dòng | số mặt hàng, tổng tồn, từng dòng `sku`, `name`, `uom`, `quantity` |
 | `list_warehouses()` | `GET /api/inventory/warehouses` | `id`, `code`, `name`, `active` |
 | `get_purchase_order(poNumber)` | `GET /api/orders/purchase/number/{poNumber}` | trạng thái và nhãn tiếng Việt, nhà cung cấp, kho, ngày, tổng tiền, tối đa 30 dòng hàng |

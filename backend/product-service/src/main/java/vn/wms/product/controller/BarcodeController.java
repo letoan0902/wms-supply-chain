@@ -41,9 +41,9 @@ public class BarcodeController {
             @RequestParam String text,
             @Parameter(description = "Loại mã (CODE_128, EAN_13, QR_CODE; mặc định CODE_128)")
             @RequestParam(required = false) BarcodeType type,
-            @Parameter(description = "Chiều rộng ảnh (pixel)")
+            @Parameter(description = "Chiều rộng ảnh (50 đến 2000 pixel, bỏ trống là mặc định)")
             @RequestParam(required = false) Integer width,
-            @Parameter(description = "Chiều cao ảnh (pixel)")
+            @Parameter(description = "Chiều cao ảnh (50 đến 2000 pixel, bỏ trống là mặc định)")
             @RequestParam(required = false) Integer height,
             @Parameter(description = "Kèm nhãn chữ bên dưới cho mã 1D (mặc định true)")
             @RequestParam(required = false, defaultValue = "true") Boolean includeLabel) {
@@ -58,9 +58,9 @@ public class BarcodeController {
             @RequestParam String text,
             @Parameter(description = "Loại mã (CODE_128, EAN_13, QR_CODE)")
             @RequestParam(required = false) BarcodeType type,
-            @Parameter(description = "Chiều rộng ảnh")
+            @Parameter(description = "Chiều rộng ảnh (50 đến 2000 pixel, bỏ trống là mặc định)")
             @RequestParam(required = false) Integer width,
-            @Parameter(description = "Chiều cao ảnh")
+            @Parameter(description = "Chiều cao ảnh (50 đến 2000 pixel, bỏ trống là mặc định)")
             @RequestParam(required = false) Integer height,
             @Parameter(description = "Kèm nhãn chữ bên dưới")
             @RequestParam(required = false, defaultValue = "true") Boolean includeLabel) {
@@ -82,9 +82,9 @@ public class BarcodeController {
             @Parameter(description = "ID sản phẩm") @PathVariable Long id,
             @Parameter(description = "Loại mã (CODE_128, EAN_13, QR_CODE; mặc định CODE_128)")
             @RequestParam(required = false) BarcodeType type,
-            @Parameter(description = "Chiều rộng")
+            @Parameter(description = "Chiều rộng (50 đến 2000 pixel, bỏ trống là mặc định)")
             @RequestParam(required = false) Integer width,
-            @Parameter(description = "Chiều cao")
+            @Parameter(description = "Chiều cao (50 đến 2000 pixel, bỏ trống là mặc định)")
             @RequestParam(required = false) Integer height,
             @Parameter(description = "Kèm nhãn chữ")
             @RequestParam(required = false, defaultValue = "true") Boolean includeLabel) {
@@ -98,9 +98,9 @@ public class BarcodeController {
             @Parameter(description = "ID sản phẩm") @PathVariable Long id,
             @Parameter(description = "Loại mã (CODE_128, EAN_13, QR_CODE)")
             @RequestParam(required = false) BarcodeType type,
-            @Parameter(description = "Chiều rộng")
+            @Parameter(description = "Chiều rộng (50 đến 2000 pixel, bỏ trống là mặc định)")
             @RequestParam(required = false) Integer width,
-            @Parameter(description = "Chiều cao")
+            @Parameter(description = "Chiều cao (50 đến 2000 pixel, bỏ trống là mặc định)")
             @RequestParam(required = false) Integer height,
             @Parameter(description = "Kèm nhãn chữ")
             @RequestParam(required = false, defaultValue = "true") Boolean includeLabel) {

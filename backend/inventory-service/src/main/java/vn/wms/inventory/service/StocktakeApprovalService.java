@@ -37,11 +37,11 @@ import vn.wms.inventory.repository.StockAdjustmentRepository;
 import vn.wms.inventory.repository.StockItemRepository;
 import vn.wms.inventory.repository.StocktakeLineRepository;
 import vn.wms.inventory.repository.StocktakeSessionRepository;
+import vn.wms.inventory.service.report.StockReportService;
 
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -454,11 +454,12 @@ public class StocktakeApprovalService {
             spec = spec.and((root, query, cb) -> cb.equal(root.get("status"), status));
         }
         if (fromDate != null) {
-            Instant from = fromDate.atStartOfDay().toInstant(ZoneOffset.UTC);
+            // Ngày lọc theo giờ Việt Nam như các báo cáo kho khác (WMS-20.4), không theo ngày UTC
+            Instant from = fromDate.atStartOfDay(StockReportService.REPORT_ZONE).toInstant();
             spec = spec.and((root, query, cb) -> cb.greaterThanOrEqualTo(root.get("createdAt"), from));
         }
         if (toDate != null) {
-            Instant to = toDate.plusDays(1).atStartOfDay().toInstant(ZoneOffset.UTC);
+            Instant to = toDate.plusDays(1).atStartOfDay(StockReportService.REPORT_ZONE).toInstant();
             spec = spec.and((root, query, cb) -> cb.lessThan(root.get("createdAt"), to));
         }
         String kw = StocktakeService.trimToNull(keyword);

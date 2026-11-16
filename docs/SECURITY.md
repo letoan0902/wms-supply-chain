@@ -74,6 +74,9 @@ ADMIN là quản trị của một doanh nghiệp nên có mọi quyền nghiệ
 | `POST .../conversions/convert-to-base`, `.../calculate` (tính toán, không ghi) | R | R | R | R | R | R | - |
 | `POST /api/products/{id}/barcode/batch` (in tem lô) | W | W | W | - | - | - | - |
 
+Ảnh mã vạch (cả `GET` và in tem lô) chỉ nhận chiều rộng, chiều cao từ 50 đến 2000 pixel; ngoài khoảng đó trả
+`400 VALIDATION_ERROR` (kiểm tra trong `BarcodeService`, không chỉ bằng ràng buộc của DTO).
+
 Đường dẫn bí danh `/api/categories`, `/api/uoms` cùng vai trò nhưng nằm ngoài `/api/products/**` nên API key không gọi được.
 
 ### inventory-service
@@ -89,8 +92,8 @@ ADMIN là quản trị của một doanh nghiệp nên có mọi quyền nghiệ
 | `GET /api/inventory/incoming-stocks/**` | R | R | R | R | R | R | R |
 | `GET /api/inventory/lots/**` | R | R | R | R | R | R | R |
 | Khóa, mở khóa lô, khóa lô hết hạn | W | W (kho được gán) | - | - | - | - | - |
-| `GET /api/inventory/stock/atp` | R | R | R | R | R | R | R |
-| `POST /api/inventory/stock/atp/batch` (đọc) | R | R | R | R | R | R | - |
+| `GET /api/inventory/stock/atp` (theo phạm vi kho của người gọi: kho ngoài phạm vi trả 403, bỏ trống kho thì vai trò giới hạn theo kho nhận tổng các kho được gán, tài khoản chưa gán kho nhận 403) | R | R | R | R | R | R | R |
+| `POST /api/inventory/stock/atp/batch` (đọc, cùng phạm vi kho như trên) | R | R | R | R | R | R | - |
 | `POST /api/inventory/stock/picking-list` (order-service gọi khi lập phiếu xuất, xem lấy hàng) | R | R | R | - | R | - | - |
 | `POST /api/inventory/stock/reservations/release` (order-service gọi khi hủy, xóa, sửa và xác nhận lại đơn bán) | W | W | - | - | W | - | - |
 | `POST /api/inventory/stock/deduct`, `/dispatch` (trừ tồn trực tiếp, giao diện không gọi) | W | W | - | - | - | - | - |
@@ -191,6 +194,7 @@ order-service gọi đồng bộ các endpoint tồn kho nội bộ của invent
 
 | Endpoint | Gọi từ | Việc làm |
 | --- | --- | --- |
+| `GET /internal/inventory/stock/atp` | lập, xác nhận, sửa đơn bán, kiểm tra ATP của đơn bán | Tồn khả dụng theo kho hoặc mọi kho, không lọc theo phạm vi kho của người được chuyển tiếp (SALES thường chưa được gán kho); `/api/inventory/stock/atp` cho người dùng thì có lọc |
 | `POST /internal/inventory/receipts/location-check` | lập, xác nhận phiếu nhập | Trả các dòng sẽ cộng tồn vào vị trí đang đóng băng kiểm kê (không đổi dữ liệu) |
 | `POST /internal/inventory/reservations` | xác nhận đơn bán (cả lập đơn CONFIRMED, sửa đơn BACKORDER) | Giữ chỗ toàn bộ đơn, tất cả hoặc không, idempotent theo đơn; thiếu hàng trả 409 |
 | `POST /internal/inventory/dispatches` | lập phiếu xuất COMPLETED, xác nhận xuất phiếu | Trừ tồn theo phiếu, mỗi `dispatchKey` một lần; thiếu tồn, ô đóng băng trả 4xx |

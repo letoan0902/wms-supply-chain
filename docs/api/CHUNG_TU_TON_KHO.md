@@ -49,6 +49,13 @@ và phản hồi không đổi; giữ chỗ nay là một phần của xác nh�
 
 Hàng ở lô khóa, lô hết hạn và ô đang đóng băng kiểm kê không được giữ, nên có thể thiếu dù ATP trên màn hình đủ.
 
+order-service đọc ATP khi lập, xác nhận, sửa đơn bán qua endpoint nội bộ `GET /internal/inventory/stock/atp` (không lọc
+theo phạm vi kho của người bán), nên tài khoản SALES chưa được gán kho vẫn xác nhận được đơn. API
+`GET /api/inventory/stock/atp` và `POST /api/inventory/stock/atp/batch` mà màn hình gọi trực tiếp thì lọc theo phạm vi
+kho của người dùng: kho ngoài phạm vi trả `403 FORBIDDEN`, bỏ trống kho thì vai trò giới hạn theo kho (WAREHOUSE_MANAGER,
+WAREHOUSE_STAFF, PURCHASING, SALES) nhận tổng các kho được gán và `warehouseId` của kết quả là `null`; ADMIN, ACCOUNTANT,
+INTEGRATION không đổi.
+
 ## 3. Phiếu xuất kho
 
 Áp dụng cho `POST /api/orders/goods-delivery-notes` khi `status` là COMPLETED hoặc bỏ trống, và

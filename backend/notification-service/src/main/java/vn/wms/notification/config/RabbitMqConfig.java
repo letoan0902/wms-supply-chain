@@ -6,12 +6,10 @@ import org.springframework.amqp.core.BindingBuilder;
 import org.springframework.amqp.core.Queue;
 import org.springframework.amqp.core.QueueBuilder;
 import org.springframework.amqp.core.TopicExchange;
-import org.springframework.amqp.support.converter.DefaultJackson2JavaTypeMapper;
-import org.springframework.amqp.support.converter.Jackson2JavaTypeMapper;
-import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import vn.wms.common.config.WmsMessagingAutoConfiguration;
 import vn.wms.common.messaging.WmsEvents;
 
 /**
@@ -75,15 +73,17 @@ public class RabbitMqConfig {
     }
 
     /**
-     * Chuyển đổi JSON hai chiều. Dùng INFERRED để kiểu đích lấy từ tham số của phương thức @RabbitListener,
-     * nhờ đó không phụ thuộc header __TypeId__ (tên class Java của service gửi, service nhận không có).
+     * Chuyển đổi JSON hai chiều, cùng quy tắc với các service khác (module common): INFERRED và tin cậy gói chứa các
+     * record sự kiện.
+     *
+     * <p>Các listener ở đây nhận {@code Message} thô rồi tự đọc nội dung, nhưng container vẫn chạy bộ chuyển đổi trước
+     * khi gọi listener: không suy được kiểu từ tham số thì nó dùng header {@code __TypeId__} do service gửi đặt
+     * (ví dụ {@code vn.wms.common.messaging.event.OrderCreatedEvent}). Thiếu gói tin cậy thì mọi tin bị từ chối với lỗi
+     * "not in the trusted packages", thử lại ba lần rồi vào dead-letter: thông báo thời gian thực, email kích hoạt, đặt
+     * lại mật khẩu và cảnh báo tồn kho đều không chạy (sự cố trên máy chủ ngày 16/11/2026).
      */
     @Bean
     MessageConverter jsonMessageConverter(ObjectMapper objectMapper) {
-        Jackson2JsonMessageConverter converter = new Jackson2JsonMessageConverter(objectMapper);
-        DefaultJackson2JavaTypeMapper typeMapper = new DefaultJackson2JavaTypeMapper();
-        typeMapper.setTypePrecedence(Jackson2JavaTypeMapper.TypePrecedence.INFERRED);
-        converter.setJavaTypeMapper(typeMapper);
-        return converter;
+        return WmsMessagingAutoConfiguration.createJsonMessageConverter(objectMapper);
     }
 }

@@ -23,6 +23,6 @@ build/
 *.iml
 .DS_Store
 
-demo/
+/demo/
 untitled/
 unslop/

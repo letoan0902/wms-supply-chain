@@ -11,6 +11,7 @@ import vn.wms.common.security.CurrentUser;
 import vn.wms.common.security.UserContext;
 import vn.wms.inventory.dto.CreateWarehouseRequest;
 import vn.wms.inventory.dto.UpdateWarehouseRequest;
+import vn.wms.inventory.dto.WarehouseOptionResponse;
 import vn.wms.inventory.dto.WarehouseResponse;
 import vn.wms.inventory.dto.WarehouseSummaryResponse;
 import vn.wms.inventory.entity.Warehouse;
@@ -83,6 +84,18 @@ public class WarehouseService {
         }
 
         return warehouses.stream().map(this::toResponseWithStats).toList();
+    }
+
+    /**
+     * Danh sách kho đích để chọn khi lập lệnh điều chuyển: mọi kho đang hoạt động của doanh nghiệp hiện tại
+     * (Hibernate tự lọc theo company_id), không giới hạn theo kho được gán vì kho đích thường là kho khác
+     * kho của người lập. Chỉ trả mã, tên, trạng thái; kho nguồn vẫn kiểm tra theo kho được gán khi tạo lệnh.
+     */
+    @Transactional(readOnly = true)
+    public List<WarehouseOptionResponse> listTransferDestinations() {
+        return warehouseRepository.findByActiveTrueOrderByCodeAsc().stream()
+                .map(WarehouseOptionResponse::from)
+                .toList();
     }
 
     /**

@@ -27,6 +27,17 @@ public record RecordCustomerTransactionRequest(
 
         @Size(max = 500, message = "Ghi chú tối đa 500 ký tự")
         @Schema(description = "Diễn giải / lý do giao dịch", example = "Xuất bán hàng đợt 1 theo đơn SO-20261103-01")
-        String note
+        String note,
+
+        @Schema(description = "Chỉ dùng với SALES_INVOICE: khách thanh toán ngay khi phát hành hóa đơn. "
+                + "Hệ thống ghi bút toán hóa đơn rồi bút toán thanh toán cùng số tiền, công nợ giữ nguyên; "
+                + "bắt buộc có mã chứng từ và mã này chưa từng có hóa đơn của khách.", example = "false")
+        Boolean paidImmediately
 ) {
+
+    /** Giữ hình thức tạo cũ (không thu tiền ngay). */
+    public RecordCustomerTransactionRequest(CustomerTransactionType type, BigDecimal amount,
+                                            String referenceCode, String note) {
+        this(type, amount, referenceCode, note, null);
+    }
 }

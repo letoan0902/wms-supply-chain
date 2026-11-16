@@ -80,7 +80,8 @@ ADMIN là quản trị của một doanh nghiệp nên có mọi quyền nghiệ
 
 | API | ADMIN | MANAGER | STAFF | PURCHASING | SALES | ACCOUNTANT | INTEGRATION |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `GET /api/inventory/warehouses/**` | R | R | R | R | R | R | R |
+| `GET /api/inventory/warehouses/**` (trừ kho đích điều chuyển) | R | R | R | R | R | R | R |
+| `GET /api/inventory/warehouses/transfer-destinations` (kho đích khi lập lệnh điều chuyển: mọi kho đang hoạt động của doanh nghiệp, không giới hạn theo kho được gán; chỉ trả `id`, `code`, `name`, `active`) | R | R | R | - | - | - | - |
 | `POST`, `DELETE /api/inventory/warehouses` | W | - | - | - | - | - | - |
 | `PUT /api/inventory/warehouses/{id}`, `PATCH .../status` | W | W (kho được gán) | - | - | - | - | - |
 | `GET /api/inventory/locations/**` (kể cả tem mã vạch vị trí) | R | R | R | - | - | - | R |

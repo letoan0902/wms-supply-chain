@@ -57,6 +57,8 @@ class InventoryAuthorizationTest {
 
     private static final List<Endpoint> ENDPOINTS = List.of(
             endpoint("GET /api/inventory/warehouses", () -> get("/api/inventory/warehouses"), A, M, S, P, L, C, I),
+            endpoint("GET /api/inventory/warehouses/transfer-destinations",
+                    () -> get("/api/inventory/warehouses/transfer-destinations"), A, M, S),
             endpoint("PATCH /api/inventory/warehouses/{id}/status",
                     () -> patch("/api/inventory/warehouses/" + WAREHOUSE + "/status")
                             .contentType(MediaType.APPLICATION_JSON).content("{\"active\":false}"), A, M),

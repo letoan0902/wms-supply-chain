@@ -19,6 +19,7 @@ import org.springframework.web.bind.annotation.RestController;
 import vn.wms.common.api.ApiResponse;
 import vn.wms.inventory.dto.CreateWarehouseRequest;
 import vn.wms.inventory.dto.UpdateWarehouseRequest;
+import vn.wms.inventory.dto.WarehouseOptionResponse;
 import vn.wms.inventory.dto.WarehouseResponse;
 import vn.wms.inventory.dto.WarehouseSummaryResponse;
 import vn.wms.inventory.service.WarehouseService;
@@ -48,6 +49,13 @@ public class WarehouseController {
             @RequestParam(required = false) Boolean active
     ) {
         return ApiResponse.ok(warehouseService.listWarehouses(keyword, active));
+    }
+
+    @GetMapping("/transfer-destinations")
+    @Operation(summary = "Danh sách kho đích cho lệnh điều chuyển: mọi kho đang hoạt động của doanh nghiệp, chỉ mã, tên, trạng thái")
+    @PreAuthorize("hasAnyRole('ADMIN', 'WAREHOUSE_MANAGER', 'WAREHOUSE_STAFF')")
+    public ApiResponse<List<WarehouseOptionResponse>> listTransferDestinations() {
+        return ApiResponse.ok(warehouseService.listTransferDestinations());
     }
 
     @GetMapping("/summary")

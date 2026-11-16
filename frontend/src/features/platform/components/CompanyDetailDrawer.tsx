@@ -1,5 +1,5 @@
-import { LockOutlined, UnlockOutlined } from '@ant-design/icons'
-import { Alert, Button, Descriptions, Drawer, Empty, Skeleton, Table, Tag } from 'antd'
+import { CheckOutlined, CloseOutlined, LockOutlined, UnlockOutlined } from '@ant-design/icons'
+import { Alert, Button, Descriptions, Drawer, Empty, Skeleton, Space, Table, Tag } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import type { ReactNode } from 'react'
 import { useCallback } from 'react'
@@ -19,6 +19,10 @@ interface Props {
   reloadToken: number
   onClose: () => void
   onRequestStatusChange: (target: StatusTarget) => void
+  /** Duyệt bản đăng ký đang chờ (chỉ hiện khi PENDING) */
+  onRequestApprove: (target: StatusTarget) => void
+  /** Từ chối bản đăng ký đang chờ (chỉ hiện khi PENDING) */
+  onRequestReject: (target: StatusTarget) => void
 }
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -50,7 +54,14 @@ const paymentColumns: ColumnsType<PlatformPayment> = [
 ]
 
 /** Chi tiết một doanh nghiệp: thông tin, gói và hạn, mức dùng, quản trị viên, 10 thanh toán gần nhất. */
-export default function CompanyDetailDrawer({ companyId, reloadToken, onClose, onRequestStatusChange }: Props) {
+export default function CompanyDetailDrawer({
+  companyId,
+  reloadToken,
+  onClose,
+  onRequestStatusChange,
+  onRequestApprove,
+  onRequestReject,
+}: Props) {
   const load = useCallback(() => fetchPlatformCompany(companyId ?? 0), [companyId])
   const { data, error, loading } = useKeyedRequest(
     companyId === null ? null : `${companyId}:${reloadToken}`,
@@ -62,7 +73,16 @@ export default function CompanyDetailDrawer({ companyId, reloadToken, onClose, o
   const company = detail?.company
 
   const action =
-    company?.status === 'ACTIVE' ? (
+    company?.status === 'PENDING' ? (
+      <Space>
+        <Button type="primary" size="small" icon={<CheckOutlined />} onClick={() => onRequestApprove(company)}>
+          Duyệt
+        </Button>
+        <Button danger size="small" icon={<CloseOutlined />} onClick={() => onRequestReject(company)}>
+          Từ chối
+        </Button>
+      </Space>
+    ) : company?.status === 'ACTIVE' ? (
       <Button danger size="small" icon={<LockOutlined />} onClick={() => onRequestStatusChange(company)}>
         Tạm khóa
       </Button>

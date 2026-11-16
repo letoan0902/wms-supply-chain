@@ -1,12 +1,14 @@
 import { ReloadOutlined, SearchOutlined } from '@ant-design/icons'
-import { Alert, Breadcrumb, Button, Card, Input, Select, Table, Typography } from 'antd'
+import { Alert, Breadcrumb, Button, Card, Input, Select, Space, Table, Typography } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
 import { useCallback, useState } from 'react'
 import { formatNumber } from '../../utils/format'
 import { formatInstantDate } from '../inventory/inventoryUtils'
 import { useDebouncedValue } from '../inventory/useDebouncedValue'
+import ApproveCompanyModal from './components/ApproveCompanyModal'
 import CompanyDetailDrawer from './components/CompanyDetailDrawer'
 import CompanyStatusModal, { type StatusTarget } from './components/CompanyStatusModal'
+import RejectCompanyModal from './components/RejectCompanyModal'
 import { CompanyStatusTag, SubscriptionStatusTag } from './components/StatusTags'
 import { fetchPlatformCompanies, type PlatformCompanySummary } from './platformApi'
 import { COMPANY_STATUS_LABELS, formatVietnamDateTime, PLAN_LABELS, PLAN_ORDER, planLabel } from './platformFormat'
@@ -21,7 +23,10 @@ const SEARCH_DEBOUNCE_MS = 400
 const STATUS_OPTIONS = ['ACTIVE', 'PENDING', 'SUSPENDED'].map((value) => ({ value, label: COMPANY_STATUS_LABELS[value] }))
 const PLAN_OPTIONS = PLAN_ORDER.map((value) => ({ value, label: PLAN_LABELS[value] }))
 
-/** Danh sách doanh nghiệp khách hàng: tìm kiếm, lọc theo trạng thái và gói, xem chi tiết, tạm khóa và mở khóa. */
+/**
+ * Danh sách doanh nghiệp khách hàng: tìm kiếm, lọc theo trạng thái và gói, xem chi tiết, duyệt hoặc từ chối bản đăng ký
+ * đang chờ, tạm khóa và mở khóa.
+ */
 export default function PlatformCompaniesPage() {
   const [keyword, setKeyword] = useState('')
   const debouncedKeyword = useDebouncedValue(keyword.trim(), SEARCH_DEBOUNCE_MS)
@@ -34,6 +39,8 @@ export default function PlatformCompaniesPage() {
   const [selectedId, setSelectedId] = useState<number | null>(null)
   const [detailReloadToken, setDetailReloadToken] = useState(0)
   const [statusTarget, setStatusTarget] = useState<StatusTarget | null>(null)
+  const [approveTarget, setApproveTarget] = useState<StatusTarget | null>(null)
+  const [rejectTarget, setRejectTarget] = useState<StatusTarget | null>(null)
 
   const load = useCallback(
     () => fetchPlatformCompanies({ keyword: debouncedKeyword, status, plan, page, size: pageSize }),
@@ -51,8 +58,11 @@ export default function PlatformCompaniesPage() {
     setPage(0)
   }
 
-  const handleStatusChanged = () => {
+  // Sau khi đổi trạng thái, duyệt hoặc từ chối: tải lại danh sách và chi tiết đang mở
+  const handleCompanyChanged = () => {
     setStatusTarget(null)
+    setApproveTarget(null)
+    setRejectTarget(null)
     setReloadToken((token) => token + 1)
     setDetailReloadToken((token) => token + 1)
   }
@@ -97,7 +107,33 @@ export default function PlatformCompaniesPage() {
       key: 'actions',
       fixed: 'right',
       render: (_, row) =>
-        row.status === 'ACTIVE' || row.status === 'SUSPENDED' ? (
+        row.status === 'PENDING' ? (
+          <Space size="middle">
+            <Button
+              type="link"
+              size="small"
+              className="px-0"
+              onClick={(event) => {
+                event.stopPropagation()
+                setApproveTarget(row)
+              }}
+            >
+              Duyệt
+            </Button>
+            <Button
+              type="link"
+              size="small"
+              danger
+              className="px-0"
+              onClick={(event) => {
+                event.stopPropagation()
+                setRejectTarget(row)
+              }}
+            >
+              Từ chối
+            </Button>
+          </Space>
+        ) : row.status === 'ACTIVE' || row.status === 'SUSPENDED' ? (
           <Button
             type="link"
             size="small"
@@ -211,9 +247,13 @@ export default function PlatformCompaniesPage() {
         reloadToken={detailReloadToken}
         onClose={() => setSelectedId(null)}
         onRequestStatusChange={setStatusTarget}
+        onRequestApprove={setApproveTarget}
+        onRequestReject={setRejectTarget}
       />
 
-      <CompanyStatusModal target={statusTarget} onCancel={() => setStatusTarget(null)} onDone={handleStatusChanged} />
+      <CompanyStatusModal target={statusTarget} onCancel={() => setStatusTarget(null)} onDone={handleCompanyChanged} />
+      <ApproveCompanyModal target={approveTarget} onCancel={() => setApproveTarget(null)} onDone={handleCompanyChanged} />
+      <RejectCompanyModal target={rejectTarget} onCancel={() => setRejectTarget(null)} onDone={handleCompanyChanged} />
     </div>
   )
 }

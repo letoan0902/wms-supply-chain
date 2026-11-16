@@ -173,6 +173,15 @@ Lỗi API (không phải 2xx, trừ trường hợp "đã có" ở trên) làm c
 rồi thoát với mã 1. Sửa nguyên nhân rồi chạy lại cùng lệnh. Công cụ giãn nhịp khoảng 14 request mỗi giây (gateway giới hạn
 20/giây theo người dùng) và tự thử lại khi gặp 429.
 
+Máy chủ chậm (đã gặp trên production ngày 16/11/2026) được xử lý như sau, không cần can thiệp:
+
+- Lập phiếu xuất kho trả 503 `SERVICE_UNAVAILABLE` vì order-service không kịp nhận xác nhận trừ tồn từ inventory-service
+  trong 5 giây: phiếu đã được lưu ở PICKING, công cụ gọi `POST /api/orders/goods-delivery-notes/{id}/dispatch` cho đúng
+  phiếu đó (tối đa 6 lần, giãn dần), không lập phiếu mới. Thao tác xuất lại dùng chung một khóa nên tồn không bị trừ
+  hai lần. Phiếu PICKING còn sót từ lần chạy trước cũng được xuất lại khi chạy lại `populate`.
+- Lỗi tạm thời khác (rớt mạng, 502, 503, 504): chờ rồi chạy lại cả doanh nghiệp đang dở, tối đa 4 lần; các bước đều kiểm
+  tra cái đã có nên không tạo trùng.
+
 ## 8. Ngày tháng
 
 Mọi ngày trong file dữ liệu tính tương đối với ngày chạy theo giờ Việt Nam (`daysAgo`, `expInDays`, `mfgDaysAgo`,

@@ -83,6 +83,8 @@ class ApiError extends Error {
   }
 }
 class SeedError extends Error {}
+// Lỗi tạm thời của máy chủ (quá tải, hết thời gian chờ giữa các dịch vụ, rớt mạng): chạy lại là qua
+const isTransient = (e) => e instanceof ApiError && [0, 502, 503, 504].includes(e.status);
 
 // ------------------------------------------------------------------------------------------------
 // Gọi HTTP: giãn nhịp, thử lại khi 429 theo Retry-After, đăng nhập lại khi token hết hạn
@@ -812,6 +814,8 @@ class Populator {
   async deliveries(so, cur) {
     const s = this.admin;
     const done = (await s.get(`/api/orders/goods-delivery-notes/so/${cur.id}`)).filter((g) => g.status !== 'CANCELLED');
+    // Phiếu còn PICKING là phiếu của lần chạy trước mà order-service chưa xác nhận được việc trừ tồn: xuất lại đúng phiếu đó
+    if (await this.redispatch(done)) cur = await s.get(`/api/orders/sales/${cur.id}`);
     const plan = so.deliveries && so.deliveries.length ? so.deliveries : [{ daysAgo: Math.max(0, (so.daysAgo || 0) - 1) }];
     for (let i = done.length; i < plan.length; i++) {
       if (cur.status === 'COMPLETED') break;
@@ -827,13 +831,42 @@ class Populator {
         if (qty > 0) items.push({ soItemId: it.id, productId: it.productId, skuCode: it.skuCode, productName: it.productName, uom: it.uom, deliveredQuantity: qty });
       }
       if (!items.length) continue;
-      await s.post('/api/orders/goods-delivery-notes', {
-        soId: cur.id, deliveryDate: vnDate(-(d.daysAgo || 0)), note: d.note || `Giao hàng cho đơn ${so.number}`, items
-      });
+      try {
+        await s.post('/api/orders/goods-delivery-notes', {
+          soId: cur.id, deliveryDate: vnDate(-(d.daysAgo || 0)), note: d.note || `Giao hàng cho đơn ${so.number}`, items
+        });
+      } catch (e) {
+        // 503: phiếu đã được lưu ở PICKING nhưng chưa xác nhận được việc trừ tồn (dịch vụ kho trả lời chậm).
+        // Không lập phiếu mới, xuất lại đúng phiếu đó; thao tác này dùng chung một khóa nên không trừ tồn hai lần.
+        if (!(e instanceof ApiError) || e.status !== 503) throw e;
+        const open = (await s.get(`/api/orders/goods-delivery-notes/so/${cur.id}`)).filter((g) => g.status !== 'CANCELLED');
+        if (!(await this.redispatch(open))) throw e;
+      }
       this.t.created('Phiếu xuất kho');
       cur = await s.get(`/api/orders/sales/${cur.id}`);
     }
     return cur;
+  }
+
+  // Xuất lại các phiếu xuất kho đang PICKING, thử vài lần khi máy chủ còn chậm. Trả về số phiếu đã xuất lại.
+  async redispatch(gdns) {
+    let n = 0;
+    for (const g of gdns.filter((x) => x.status === 'PICKING')) {
+      for (let attempt = 1; ; attempt++) {
+        try {
+          await this.admin.post(`/api/orders/goods-delivery-notes/${g.id}/dispatch`);
+          break;
+        } catch (e) {
+          if (!isTransient(e) || attempt >= 6) throw e;
+          this.log(`phiếu xuất ${g.gdnNumber} chưa xác nhận được việc trừ tồn, thử lại lần ${attempt + 1}`);
+          await sleep(5000 * attempt);
+        }
+      }
+      this.t.updated('Phiếu xuất kho: xuất lại');
+      this.log(`phiếu xuất ${g.gdnNumber} đã xuất lại xong`);
+      n++;
+    }
+    return n;
   }
 
   async invoice(so, cur, cus) {
@@ -946,8 +979,18 @@ async function main() {
   const started = Date.now();
   let created = 0;
   for (const c of companies) {
-    const t = await new Populator(http, c, opts, password).run();
-    created += t.totalCreated();
+    // Lỗi tạm thời thì chạy lại cả doanh nghiệp: mọi bước đều kiểm tra cái đã có nên không tạo trùng
+    for (let attempt = 1; ; attempt++) {
+      try {
+        const t = await new Populator(http, c, opts, password).run();
+        created += t.totalCreated();
+        break;
+      } catch (e) {
+        if (!isTransient(e) || attempt >= 4) throw e;
+        step(c, `máy chủ trả lỗi tạm thời (${e.method} ${e.path}, HTTP ${e.status}); chờ ${20 * attempt} giây rồi chạy lại doanh nghiệp này (lần ${attempt + 1})`);
+        await sleep(20000 * attempt);
+      }
+    }
   }
   console.log(`\nXong populate sau ${Math.round((Date.now() - started) / 1000)} giây, ${http.count} request, ${created} bản ghi tạo mới hoặc chuyển trạng thái.`);
   return 0;

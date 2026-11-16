@@ -1,14 +1,20 @@
-import { Alert, Skeleton, Tag, Tooltip, Typography } from 'antd'
-import { KIND_LABELS, KIND_ORDER, SEVERITY_COLORS, SEVERITY_LABELS, SEVERITY_ORDER } from '../inventoryUtils'
+import { Alert, Skeleton, Tooltip, Typography } from 'antd'
+import { KIND_LABELS, KIND_ORDER, SEVERITY_LABELS, SEVERITY_ORDER } from '../inventoryUtils'
 import type { StockAlertKind, StockAlertSeverity, StockAlertSummary } from '../types'
 import type { ViewError } from '../viewError'
 
-/** Màu chip theo loại: hết hạn đỏ, tồn thấp đỏ (gồm cả mức vàng), cận hạn vàng, tồn lâu xanh dương. */
-const KIND_COLORS: Record<StockAlertKind, string> = {
-  EXPIRED: SEVERITY_COLORS.CRITICAL,
-  LOW_STOCK: SEVERITY_COLORS.CRITICAL,
-  NEAR_EXPIRY: SEVERITY_COLORS.WARNING,
-  DEAD_STOCK: SEVERITY_COLORS.INFO,
+/** Màu nền và chữ cho mỗi loại cảnh báo – tông slate trung tính, chỉ điểm nhấn bằng dot nhỏ. */
+const KIND_DOT: Record<StockAlertKind, string> = {
+  EXPIRED: 'bg-red-500',
+  LOW_STOCK: 'bg-amber-500',
+  NEAR_EXPIRY: 'bg-yellow-500',
+  DEAD_STOCK: 'bg-slate-400',
+}
+
+const SEVERITY_DOT: Record<StockAlertSeverity, string> = {
+  CRITICAL: 'bg-red-500',
+  WARNING: 'bg-amber-500',
+  INFO: 'bg-blue-500',
 }
 
 interface AlertSummaryBarProps {
@@ -52,57 +58,74 @@ export default function AlertSummaryBar({
   }
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="flex flex-col gap-3">
+      {/* Thanh cảnh báo gọn, đồng nhất */}
       <div className="flex flex-wrap items-center gap-2">
-        <Typography.Text type="secondary">Cảnh báo ngày {summary.alertDate.split('-').reverse().join('/')}:</Typography.Text>
-        {KIND_ORDER.map((kind) => {
-          const unavailable = kind === 'LOW_STOCK' && !summary.lowStockAvailable
-          const count = summary.countsByKind?.[kind] ?? 0
-          const active = activeKind === kind
-          return (
-            <Tooltip key={kind} title={unavailable ? summary.note : kindHint(kind, summary)}>
-              <Tag.CheckableTag
-                checked={active}
-                onChange={() => onSelectKind(active ? undefined : kind)}
-                style={{
-                  border: '1px solid',
-                  borderColor: active ? 'transparent' : 'var(--ant-color-border, #d9d9d9)',
-                  opacity: unavailable ? 0.6 : 1,
-                }}
-              >
-                <Tag color={KIND_COLORS[kind]} style={{ marginInlineEnd: 6 }}>
+        <span className="text-sm font-medium text-slate-500">
+          Cảnh báo ngày {summary.alertDate.split('-').reverse().join('/')}:
+        </span>
+
+        <div className="flex flex-wrap items-center gap-1.5">
+          {KIND_ORDER.map((kind) => {
+            const unavailable = kind === 'LOW_STOCK' && !summary.lowStockAvailable
+            const count = summary.countsByKind?.[kind] ?? 0
+            const active = activeKind === kind
+            return (
+              <Tooltip key={kind} title={unavailable ? summary.note : kindHint(kind, summary)}>
+                <button
+                  type="button"
+                  onClick={() => onSelectKind(active ? undefined : kind)}
+                  className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-sm font-medium transition-colors ${
+                    active
+                      ? 'border-slate-900 bg-slate-900 text-white'
+                      : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                  } ${unavailable ? 'opacity-50' : ''}`}
+                >
+                  <span className={`inline-block h-2 w-2 rounded-full ${KIND_DOT[kind]}`} />
                   {KIND_LABELS[kind]}
-                </Tag>
-                {unavailable ? 'chưa tính được' : count}
-              </Tag.CheckableTag>
-            </Tooltip>
-          )
-        })}
-        <span className="mx-1 text-gray-300">|</span>
-        {SEVERITY_ORDER.map((severity) => {
-          const active = activeSeverity === severity
-          return (
-            <Tag.CheckableTag
-              key={severity}
-              checked={active}
-              onChange={() => onSelectSeverity(active ? undefined : severity)}
-              style={{ border: '1px solid', borderColor: active ? 'transparent' : 'var(--ant-color-border, #d9d9d9)' }}
-            >
-              <Tag color={SEVERITY_COLORS[severity]} style={{ marginInlineEnd: 6 }}>
-                {SEVERITY_LABELS[severity]}
-              </Tag>
-              {summary.countsBySeverity?.[severity] ?? 0}
-            </Tag.CheckableTag>
-          )
-        })}
+                  <span className={`font-semibold tabular-nums ${active ? 'text-white' : 'text-slate-900'}`}>
+                    {unavailable ? '—' : count}
+                  </span>
+                </button>
+              </Tooltip>
+            )
+          })}
+        </div>
+
+        <span className="mx-0.5 text-slate-300">|</span>
+
+        <div className="flex flex-wrap items-center gap-1.5">
+          {SEVERITY_ORDER.map((sev) => {
+            const active = activeSeverity === sev
+            return (
+              <Tooltip key={sev} title={SEVERITY_LABELS[sev]}>
+                <button
+                  type="button"
+                  onClick={() => onSelectSeverity(active ? undefined : sev)}
+                  className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-sm font-medium transition-colors ${
+                    active
+                      ? 'border-slate-900 bg-slate-900 text-white'
+                      : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                  }`}
+                >
+                  <span className={`inline-block h-2 w-2 rounded-full ${SEVERITY_DOT[sev]}`} />
+                  {SEVERITY_LABELS[sev]}
+                  <span className={`font-semibold tabular-nums ${active ? 'text-white' : 'text-slate-900'}`}>
+                    {summary.countsBySeverity?.[sev] ?? 0}
+                  </span>
+                </button>
+              </Tooltip>
+            )
+          })}
+        </div>
       </div>
+
       {!summary.lowStockAvailable ? (
-        <Alert
-          type="warning"
-          showIcon
-          message="Chưa tính được cảnh báo tồn thấp"
-          description={`${summary.note ?? 'Không đọc được mức tồn an toàn từ danh mục hàng hóa.'} Bảng vẫn hiển thị các cảnh báo khác; thiếu thẻ "Cháy hàng", "Sắp hết" không có nghĩa là tồn đủ.`}
-        />
+        <div className="rounded-lg border border-amber-200 bg-amber-50/60 px-4 py-3">
+          <Typography.Text className="text-sm font-medium text-amber-800">
+            Chưa tính được cảnh báo tồn thấp — {summary.note ?? 'Không đọc được mức tồn an toàn từ danh mục hàng hóa.'}
+          </Typography.Text>
+        </div>
       ) : null}
     </div>
   )

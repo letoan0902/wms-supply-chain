@@ -3,6 +3,7 @@ import {
   FileExcelOutlined,
   PlusOutlined,
   ReloadOutlined,
+  ShopOutlined,
 } from '@ant-design/icons'
 import {
   App,
@@ -234,93 +235,111 @@ export default function GoodsReceiptTable({ onOpenCreateGrn }: GoodsReceiptTable
 
   const columns: ColumnsType<GrnResponse> = [
     {
-      title: 'STT',
-      width: 50,
+      title: <span className="whitespace-nowrap font-medium text-slate-700">#</span>,
+      key: 'idx',
+      width: 44,
       align: 'center',
-      render: (_, __, idx) => page * pageSize + idx + 1,
+      render: (_, __, idx) => (
+        <span className="text-xs font-mono text-slate-400">{page * pageSize + idx + 1}</span>
+      ),
     },
     {
-      title: 'Mã Phiếu Nhập',
-      width: 170,
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">Mã phiếu nhập (GRN)</span>,
+      width: 155,
       render: (_, r) => (
-        <div>
-          <a
-            className="font-mono font-semibold text-emerald-700 hover:underline"
+        <div className="py-0.5">
+          <button
+            type="button"
             onClick={() => {
               setSelectedGrn(r)
               setIsDetailOpen(true)
             }}
+            className="font-mono text-sm font-semibold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer text-left transition-colors"
           >
             {r.grnNumber}
-          </a>
-          <div className="text-xs text-slate-500 mt-0.5">PO: {r.poNumber}</div>
+          </button>
+          <div className="text-xs text-slate-500 font-mono mt-0.5">PO: {r.poNumber}</div>
         </div>
       ),
     },
     {
-      title: 'Nhà cung cấp',
-      width: 220,
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">Nhà cung cấp</span>,
+      width: 200,
       render: (_, r) => (
-        <span className="font-medium text-slate-800">{r.supplierName || '---'}</span>
+        <span className="font-semibold text-slate-900 text-sm leading-snug line-clamp-1" title={r.supplierName || '---'}>
+          {r.supplierName || '---'}
+        </span>
       ),
     },
     {
-      title: 'Kho nhận',
-      width: 160,
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">Kho nhận hàng</span>,
+      width: 145,
       render: (_, r) => (
-        <span className="text-slate-700">{r.warehouseName || `Kho #${r.warehouseId}`}</span>
+        <div className="flex items-center gap-1.5 text-sm text-slate-700 font-medium">
+          <ShopOutlined className="text-slate-400 text-sm shrink-0" />
+          <span className="truncate" title={r.warehouseName || `Kho #${r.warehouseId}`}>
+            {r.warehouseName || `Kho #${r.warehouseId}`}
+          </span>
+        </div>
       ),
     },
     {
-      title: 'Ngày nhập',
-      width: 110,
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">Ngày nhập</span>,
+      width: 105,
       dataIndex: 'receiptDate',
+      render: (val: string) => (
+        <span className="text-xs text-slate-700 font-medium">{val ? new Date(val).toLocaleDateString('vi-VN') : '-'}</span>
+      ),
     },
     {
-      title: 'Người nhận',
-      width: 120,
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">Người nhận</span>,
+      width: 115,
       dataIndex: 'receivedBy',
-      render: (val) => val || 'Hệ thống',
+      render: (val: string) => <span className="text-xs text-slate-700">{val || 'Hệ thống'}</span>,
     },
     {
-      title: 'SL Đạt',
-      width: 100,
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">SL Đạt</span>,
+      width: 95,
       align: 'right',
       render: (_, r) => (
-        <strong className="text-emerald-700 font-mono">
-          {formatNumber(r.totalAcceptedQuantity)}
-        </strong>
+        <span className="text-sm text-slate-900 font-mono font-bold tabular-nums">
+          +{formatNumber(r.totalAcceptedQuantity)}
+        </span>
       ),
     },
     {
-      title: 'SL Hỏng',
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">SL Hỏng</span>,
       width: 90,
       align: 'right',
       render: (_, r) =>
         r.totalRejectedQuantity > 0 ? (
-          <span className="text-amber-700 font-semibold font-mono">
+          <span className="text-sm text-rose-700 font-mono font-bold tabular-nums">
             {formatNumber(r.totalRejectedQuantity)}
           </span>
         ) : (
-          <span className="text-slate-400">0</span>
+          <span className="text-sm text-slate-400 font-mono">0</span>
         ),
     },
     {
-      title: 'Trạng thái',
-      width: 120,
+      title: <span className="whitespace-nowrap font-medium text-slate-700">Trạng thái</span>,
+      width: 125,
+      align: 'center',
       render: (_, r) => {
         const conf = GRN_STATUS_CONFIG[r.status] || {
           label: r.status,
           color: 'default',
         }
-        return <Tag color={conf.color}>{conf.label}</Tag>
+        return (
+          <Tag color={conf.color} className="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full border m-0">
+            {conf.label}
+          </Tag>
+        )
       },
     },
     {
-      title: 'Thao tác',
-      width: 90,
+      title: <span className="whitespace-nowrap font-medium text-slate-700">Thao tác</span>,
+      width: 80,
       align: 'center',
-      fixed: 'right',
       render: (_, r) => (
         <Button
           size="small"
@@ -330,7 +349,7 @@ export default function GoodsReceiptTable({ onOpenCreateGrn }: GoodsReceiptTable
             setSelectedGrn(r)
             setIsDetailOpen(true)
           }}
-          className="text-blue-600 hover:bg-blue-50"
+          className="text-slate-500 hover:text-blue-600 text-xs"
         >
           Xem
         </Button>
@@ -343,37 +362,69 @@ export default function GoodsReceiptTable({ onOpenCreateGrn }: GoodsReceiptTable
       {/* 4 Cards Thống kê Nhập kho */}
       <Row gutter={[16, 16]}>
         <Col xs={12} sm={6}>
-          <Card size="small" className="border-l-4 border-l-blue-500 shadow-2xs">
-            <div className="text-xs text-slate-500">Tổng Phiếu Nhập (GRN)</div>
-            <div className="text-xl font-bold text-slate-800 mt-1">
-              {formatNumber(summary?.totalGrn ?? total)}
+          <Card variant="borderless" className="shadow-xs border border-slate-200/80 bg-white">
+            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Tổng Phiếu Nhập (GRN)
+            </div>
+            <div className="mt-2 flex items-baseline gap-1.5">
+              <span className="text-2xl font-bold text-slate-900 tracking-tight tabular-nums">
+                {formatNumber(summary?.totalGrn ?? total)}
+              </span>
+              <span className="text-xs text-slate-500 font-normal">phiếu</span>
+            </div>
+            <div className="mt-3 pt-2 border-t border-slate-100 text-xs text-slate-500">
+              Tổng số đợt nhập kho đã ghi nhận
             </div>
           </Card>
         </Col>
 
         <Col xs={12} sm={6}>
-          <Card size="small" className="border-l-4 border-l-emerald-500 shadow-2xs">
-            <div className="text-xs text-slate-500">Đã hoàn tất</div>
-            <div className="text-xl font-bold text-emerald-600 mt-1">
-              {formatNumber(summary?.completedGrn ?? 0)}
+          <Card variant="borderless" className="shadow-xs border border-slate-200/80 bg-white">
+            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Đã hoàn tất
+            </div>
+            <div className="mt-2 flex items-baseline gap-1.5">
+              <span className="text-2xl font-bold text-slate-900 tracking-tight tabular-nums">
+                {formatNumber(summary?.completedGrn ?? 0)}
+              </span>
+              <span className="text-xs text-slate-500 font-normal">phiếu</span>
+            </div>
+            <div className="mt-3 pt-2 border-t border-slate-100 text-xs text-slate-500">
+              Nhập kho thành công, đã tăng tồn
             </div>
           </Card>
         </Col>
 
         <Col xs={12} sm={6}>
-          <Card size="small" className="border-l-4 border-l-teal-500 shadow-2xs">
-            <div className="text-xs text-slate-500">Tổng SL thực nhận đạt</div>
-            <div className="text-xl font-bold text-teal-700 mt-1">
-              {formatNumber(summary?.totalAcceptedQuantity ?? 0)}
+          <Card variant="borderless" className="shadow-xs border border-slate-200/80 bg-white">
+            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Tổng SL đạt chuẩn
+            </div>
+            <div className="mt-2 flex items-baseline gap-1.5">
+              <span className="text-2xl font-bold text-slate-900 tracking-tight tabular-nums">
+                {formatNumber(summary?.totalAcceptedQuantity ?? 0)}
+              </span>
+              <span className="text-xs text-slate-500 font-normal">đơn vị</span>
+            </div>
+            <div className="mt-3 pt-2 border-t border-slate-100 text-xs text-slate-500">
+              Hàng hóa hợp lệ đưa vào lưu kho
             </div>
           </Card>
         </Col>
 
         <Col xs={12} sm={6}>
-          <Card size="small" className="border-l-4 border-l-amber-500 shadow-2xs">
-            <div className="text-xs text-slate-500">Tổng SL từ chối / hỏng</div>
-            <div className="text-xl font-bold text-amber-700 mt-1">
-              {formatNumber(summary?.totalRejectedQuantity ?? 0)}
+          <Card variant="borderless" className="shadow-xs border border-slate-200/80 bg-white">
+            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Tổng SL từ chối / hỏng
+            </div>
+            <div className="mt-2 flex items-baseline gap-1.5">
+              <span className="text-2xl font-bold text-slate-900 tracking-tight tabular-nums">
+                {formatNumber(summary?.totalRejectedQuantity ?? 0)}
+              </span>
+              <span className="text-xs text-slate-500 font-normal">đơn vị</span>
+            </div>
+            <div className="mt-3 pt-2 border-t border-slate-100 text-xs text-slate-500">
+              Hàng không đạt, trả lại nhà cung cấp
             </div>
           </Card>
         </Col>
@@ -485,7 +536,7 @@ export default function GoodsReceiptTable({ onOpenCreateGrn }: GoodsReceiptTable
             icon={<FileExcelOutlined />}
             onClick={handleExportExcel}
             loading={exporting}
-            className="hover:border-green-600 hover:text-green-600"
+            className="rounded-md text-xs font-medium"
           >
             Xuất Excel
           </Button>
@@ -494,6 +545,7 @@ export default function GoodsReceiptTable({ onOpenCreateGrn }: GoodsReceiptTable
             icon={<ReloadOutlined />}
             onClick={reloadData}
             loading={loading || loadingSummary}
+            className="rounded-md text-xs font-medium"
           >
             Làm mới
           </Button>
@@ -503,7 +555,7 @@ export default function GoodsReceiptTable({ onOpenCreateGrn }: GoodsReceiptTable
               type="primary"
               icon={<PlusOutlined />}
               onClick={() => onOpenCreateGrn()}
-              className="bg-emerald-600 hover:bg-emerald-700 font-semibold"
+              className="font-medium rounded-md shadow-xs"
             >
               Lập phiếu nhập kho
             </Button>
@@ -517,7 +569,6 @@ export default function GoodsReceiptTable({ onOpenCreateGrn }: GoodsReceiptTable
         columns={columns}
         dataSource={grnList}
         loading={loading}
-        scroll={{ x: 1100 }}
         pagination={{
           current: page + 1,
           pageSize,

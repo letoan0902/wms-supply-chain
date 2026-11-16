@@ -17,7 +17,7 @@ import {
   Tooltip,
 } from 'antd'
 import type { ColumnsType } from 'antd/es/table'
-import { useCallback, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { fetchCompanies } from './companyApi'
 import ApproveCompanyModal from './components/ApproveCompanyModal'
 import CompanyDetailDrawer from './components/CompanyDetailDrawer'
@@ -49,30 +49,41 @@ export default function CompaniesPage() {
   const [approveModalOpen, setApproveModalOpen] = useState(false)
   const [rejectModalOpen, setRejectModalOpen] = useState(false)
   const [statusModalOpen, setStatusModalOpen] = useState(false)
+  const [refreshKey, setRefreshKey] = useState(0)
+  const reloadData = () => setRefreshKey((k) => k + 1)
 
   // Load danh sách doanh nghiệp
-  const loadData = useCallback(async () => {
-    setLoading(true)
-    try {
-      const res = await fetchCompanies({
-        keyword: searchKeyword,
-        status: statusFilter,
-        page: currentPage - 1,
-        size: pageSize,
-      })
-      setCompanies(res.content)
-      setTotalElements(res.totalElements)
-    } catch (err: unknown) {
-      const msg = getApiErrorMessage(err, 'Không thể tải danh sách doanh nghiệp.')
-      message.error(msg)
-    } finally {
-      setLoading(false)
-    }
-  }, [currentPage, pageSize, searchKeyword, statusFilter, message])
-
   useEffect(() => {
-    loadData()
-  }, [loadData])
+    let ignore = false
+    const load = async () => {
+      setLoading(true)
+      try {
+        const res = await fetchCompanies({
+          keyword: searchKeyword,
+          status: statusFilter,
+          page: currentPage - 1,
+          size: pageSize,
+        })
+        if (!ignore) {
+          setCompanies(res.content)
+          setTotalElements(res.totalElements)
+        }
+      } catch (err: unknown) {
+        if (!ignore) {
+          const msg = getApiErrorMessage(err, 'Không thể tải danh sách doanh nghiệp.')
+          message.error(msg)
+        }
+      } finally {
+        if (!ignore) {
+          setLoading(false)
+        }
+      }
+    }
+    void load()
+    return () => {
+      ignore = true
+    }
+  }, [currentPage, pageSize, searchKeyword, statusFilter, refreshKey, message])
 
   // Thống kê nhanh từ danh sách hiện tại
   const pendingCount = companies.filter((c) => c.status === 'PENDING').length
@@ -250,7 +261,7 @@ export default function CompaniesPage() {
         <div>
           <Button
             icon={<ReloadOutlined />}
-            onClick={() => loadData()}
+            onClick={() => reloadData()}
             loading={loading}
             className="text-xs font-medium"
           >
@@ -395,7 +406,7 @@ export default function CompaniesPage() {
           setSelectedCompany(null)
         }}
         onSuccess={() => {
-          loadData()
+          reloadData()
         }}
       />
 
@@ -408,7 +419,7 @@ export default function CompaniesPage() {
           setSelectedCompany(null)
         }}
         onSuccess={() => {
-          loadData()
+          reloadData()
         }}
       />
 
@@ -421,7 +432,7 @@ export default function CompaniesPage() {
           setSelectedCompany(null)
         }}
         onSuccess={() => {
-          loadData()
+          reloadData()
         }}
       />
     </div>

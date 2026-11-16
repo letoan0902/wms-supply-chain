@@ -42,49 +42,49 @@ export default function GoodsReceiptDetailModal({
 
   const columns: ColumnsType<GrnItemResponse> = [
     {
-      title: 'STT',
-      width: 55,
+      title: <span className="whitespace-nowrap font-medium text-slate-700">#</span>,
+      width: 48,
       align: 'center',
-      render: (_, __, idx) => idx + 1,
+      render: (_, __, idx) => <span className="text-xs font-mono text-slate-400">{idx + 1}</span>,
     },
     {
-      title: 'Mặt hàng & SKU',
+      title: <span className="whitespace-nowrap font-medium text-slate-700">Mặt hàng & SKU</span>,
       render: (_, r) => (
-        <div>
-          <div className="font-semibold text-slate-800">{r.productName}</div>
-          <div className="text-xs text-slate-500 flex items-center gap-2 mt-0.5">
-            <span className="font-mono bg-slate-100 px-1 py-0.5 rounded border border-slate-200">
+        <div className="py-0.5">
+          <div className="font-medium text-slate-900 text-xs leading-snug">{r.productName}</div>
+          <div className="text-xs text-slate-500 flex items-center gap-2 mt-1">
+            <span className="font-mono text-[11px] font-semibold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200/80">
               {r.skuCode}
             </span>
-            <span>ĐVT: {r.uom}</span>
+            <span className="text-[11px] text-slate-500">ĐVT: {r.uom}</span>
           </div>
         </div>
       ),
     },
     {
-      title: 'SL Đạt chuẩn',
+      title: <span className="whitespace-nowrap font-medium text-slate-700">SL Đạt chuẩn</span>,
       width: 130,
       align: 'right',
       render: (_, r) => (
-        <span className="font-bold text-emerald-700">
-          {formatNumber(r.acceptedQuantity)} {r.uom}
+        <span className="font-mono font-semibold text-emerald-700 text-xs tabular-nums">
+          +{formatNumber(r.acceptedQuantity)} {r.uom}
         </span>
       ),
     },
     {
-      title: 'SL Từ chối / Hỏng',
+      title: <span className="whitespace-nowrap font-medium text-slate-700">SL Từ chối / Hỏng</span>,
       width: 170,
       render: (_, r) => {
         if (!r.rejectedQuantity || r.rejectedQuantity <= 0) {
-          return <span className="text-slate-400">0</span>
+          <span className="text-slate-400 font-mono text-xs">0</span>
         }
         return (
-          <div>
-            <span className="font-bold text-amber-700">
+          <div className="py-0.5">
+            <span className="font-mono font-semibold text-rose-700 text-xs tabular-nums">
               {formatNumber(r.rejectedQuantity)} {r.uom}
             </span>
             {r.rejectedReason && (
-              <div className="text-[11px] text-amber-600 mt-0.5 italic">
+              <div className="text-[11px] text-amber-700 mt-0.5 italic">
                 Lý do: {r.rejectedReason}
               </div>
             )}
@@ -93,14 +93,14 @@ export default function GoodsReceiptDetailModal({
       },
     },
     {
-      title: 'Số Lô & Hạn sử dụng',
+      title: <span className="whitespace-nowrap font-medium text-slate-700">Số Lô & Hạn sử dụng</span>,
       width: 180,
       render: (_, r) => (
-        <div className="text-xs space-y-0.5">
+        <div className="text-xs space-y-0.5 py-0.5">
           {r.batchNumber ? (
             <div>
               <span className="text-slate-500">Lô:</span>{' '}
-              <strong className="font-mono">{r.batchNumber}</strong>
+              <strong className="font-mono text-slate-800 text-[11px]">{r.batchNumber}</strong>
             </div>
           ) : (
             <span className="text-slate-400 italic">Không có số lô</span>
@@ -115,13 +115,13 @@ export default function GoodsReceiptDetailModal({
       ),
     },
     {
-      title: 'Vị trí cất hàng',
+      title: <span className="whitespace-nowrap font-medium text-slate-700">Vị trí cất hàng</span>,
       width: 130,
       render: (_, r) =>
         r.locationCode ? (
-          <Tag color="cyan" className="font-mono">
+          <span className="font-mono text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200/80 font-medium">
             {r.locationCode}
-          </Tag>
+          </span>
         ) : (
           <span className="text-slate-400 text-xs">Mặc định kho</span>
         ),

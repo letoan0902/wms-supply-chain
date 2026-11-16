@@ -1,4 +1,4 @@
-import { CloseOutlined, MessageOutlined, RobotOutlined, SendOutlined } from '@ant-design/icons'
+import { CloseOutlined, MessageOutlined, SendOutlined } from '@ant-design/icons'
 import { Alert, Button, Input, Tag, Tooltip, Typography } from 'antd'
 import type { TextAreaRef } from 'antd/es/input/TextArea'
 import type { KeyboardEvent } from 'react'
@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from 'react'
 import { formatUsage, lookupLabels, MAX_MESSAGE_LENGTH, normalizeQuestion, placeholderRange, SUGGESTED_QUESTIONS } from '../aiFormat'
 import type { AskOutcome, ChatError, ChatMessage } from '../useAiChat'
 import type { AiUsage } from '../types'
+import { FriendlyChatIcon } from './AiChatWidget'
 
 const { Text } = Typography
 
@@ -114,15 +115,24 @@ export default function AiChatPanel({
         if (event.key === 'Escape') onClose()
       }}
     >
-      <header className="flex items-start justify-between gap-2 border-b border-slate-200 px-4 py-3">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-            <RobotOutlined className="text-blue-600" />
-            Trợ lý AI
+      <header className="flex items-center justify-between gap-2 border-b border-slate-200/90 px-4 py-3 bg-white">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <div className="w-8 h-8 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 text-white flex items-center justify-center shadow-xs shrink-0">
+            <FriendlyChatIcon className="w-5 h-5" />
           </div>
-          {usageText !== null && (
-            <div className="mt-0.5 text-[11px] text-slate-500">Lượt AI tháng này: {usageText}</div>
-          )}
+          <div className="min-w-0">
+            <div className="flex items-center gap-1.5 leading-none">
+              <span className="text-sm font-bold text-slate-900">Trợ lý ảo WMS</span>
+              <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded-full border border-emerald-200/60">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" /> Sẵn sàng
+              </span>
+            </div>
+            {usageText !== null ? (
+              <div className="mt-1 text-[11px] text-slate-500 truncate">Lượt AI tháng này: {usageText}</div>
+            ) : (
+              <div className="mt-1 text-[11px] text-slate-500 truncate">Hỗ trợ tra cứu kho & đơn hàng</div>
+            )}
+          </div>
         </div>
         <div className="flex shrink-0 items-center gap-1">
           <Tooltip title="Xóa nội dung đang hiện và bắt đầu cuộc trò chuyện mới">
@@ -132,11 +142,19 @@ export default function AiChatPanel({
               icon={<MessageOutlined />}
               onClick={onReset}
               disabled={pending || (messages.length === 0 && error === null)}
+              className="text-xs text-slate-600 rounded-lg hover:bg-slate-100"
             >
-              Cuộc trò chuyện mới
+              Mới
             </Button>
           </Tooltip>
-          <Button size="small" type="text" icon={<CloseOutlined />} onClick={onClose} aria-label="Đóng trợ lý AI" />
+          <Button
+            size="small"
+            type="text"
+            icon={<CloseOutlined />}
+            onClick={onClose}
+            aria-label="Đóng trợ lý AI"
+            className="rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100"
+          />
         </div>
       </header>
 

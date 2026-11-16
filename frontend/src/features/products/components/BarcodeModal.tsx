@@ -169,7 +169,7 @@ export default function BarcodeModal({ open, product, onClose }: BarcodeModalPro
     <Modal
       title={
         <div className="flex items-center gap-2">
-          <span className="text-lg font-semibold">In & Xem trước Tem Mã Vạch (ZXing)</span>
+          <span className="text-lg font-semibold">In & Xem trước Tem Mã Vạch</span>
           <Tag color="blue">{product.sku}</Tag>
         </div>
       }

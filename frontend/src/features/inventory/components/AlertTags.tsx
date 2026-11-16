@@ -1,4 +1,4 @@
-import { Tag, Tooltip, Typography } from 'antd'
+import { Tag, Tooltip } from 'antd'
 import { alertReason, isLotAlertKind, SEVERITY_LABELS } from '../inventoryUtils'
 import type { RowTag } from '../inventoryUtils'
 
@@ -29,13 +29,13 @@ function TagTooltip({ tag }: { tag: RowTag }) {
 /** Các thẻ màu cảnh báo của một dòng tồn, mỗi thẻ có tooltip ghi lý do. */
 export default function AlertTags({ tags }: { tags: RowTag[] }) {
   if (tags.length === 0) {
-    return <Typography.Text type="secondary">—</Typography.Text>
+    return <span className="text-sm text-slate-400">—</span>
   }
   return (
     <div className="flex flex-wrap gap-1">
       {tags.map((tag) => (
         <Tooltip key={tag.key} title={<TagTooltip tag={tag} />}>
-          <Tag color={tag.color} style={{ marginInlineEnd: 0, cursor: 'help', fontWeight: 600 }}>
+          <Tag color={tag.color} style={{ marginInlineEnd: 0, cursor: 'help', fontWeight: 600, fontSize: 12 }}>
             {tag.label}
             {tag.count > 1 && isLotAlertKind(tag.kind) ? ` (${tag.count} lô)` : ''}
           </Tag>

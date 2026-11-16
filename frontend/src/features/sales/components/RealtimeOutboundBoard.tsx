@@ -3,12 +3,10 @@ import {
   ClockCircleOutlined,
   EyeOutlined,
   FileExcelOutlined,
-  InboxOutlined,
   PrinterOutlined,
   ReloadOutlined,
   RocketOutlined,
   SearchOutlined,
-  SyncOutlined,
 } from '@ant-design/icons'
 import {
   App,
@@ -22,7 +20,6 @@ import {
   Row,
   Select,
   Space,
-  Statistic,
   Table,
   Tag,
   Tooltip,
@@ -265,30 +262,41 @@ export default function RealtimeOutboundBoard({ onOpenOrderDetail }: RealtimeOut
 
   const columns: ColumnsType<SalesOrder> = [
     {
-      title: 'Mã SO',
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">#</span>,
+      key: 'index',
+      width: 44,
+      align: 'center',
+      render: (_, __, idx) => (
+        <span className="text-xs font-mono text-slate-400">{idx + 1}</span>
+      ),
+    },
+    {
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">Mã SO</span>,
       dataIndex: 'soNumber',
       key: 'soNumber',
       width: 140,
       render: (soNumber, r) =>
         canPick ? (
-          <a
+          <button
+            type="button"
             onClick={() => handleOpenPicking(r)}
-            className="font-mono font-bold text-blue-600 hover:text-blue-800"
+            className="font-mono text-sm font-semibold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer text-left transition-colors"
           >
             {soNumber}
-          </a>
+          </button>
         ) : (
-          <span className="font-mono font-bold text-slate-700">{soNumber}</span>
+          <span className="font-mono text-sm font-semibold text-slate-800">{soNumber}</span>
         ),
     },
     {
-      title: 'Khách hàng & Nơi giao',
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">Khách hàng & Nơi giao</span>,
       key: 'customer',
+      width: 200,
       render: (_, r) => (
-        <div>
-          <div className="font-semibold text-slate-800">{r.customerName || 'N/A'}</div>
+        <div className="py-0.5">
+          <div className="font-semibold text-slate-900 text-sm leading-snug line-clamp-1">{r.customerName || 'N/A'}</div>
           {r.deliveryAddress && (
-            <div className="text-xs text-slate-500 truncate max-w-xs">
+            <div className="text-xs text-slate-500 truncate max-w-xs mt-0.5">
               {r.deliveryAddress}
             </div>
           )}
@@ -296,33 +304,33 @@ export default function RealtimeOutboundBoard({ onOpenOrderDetail }: RealtimeOut
       ),
     },
     {
-      title: 'Kho xuất hàng',
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">Kho xuất hàng</span>,
       dataIndex: 'warehouseName',
       key: 'warehouseName',
-      width: 140,
-      render: (name) => <span className="text-xs font-medium text-slate-700">{name || '-'}</span>,
+      width: 130,
+      render: (name) => <span className="text-sm font-medium text-slate-700">{name || '-'}</span>,
     },
     {
-      title: 'Số mặt hàng / Tổng SP',
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">Mặt hàng & Tổng SP</span>,
       key: 'itemsCount',
       width: 160,
       align: 'center',
       render: (_, r) => {
         const totalQty = (r.items || []).reduce((s, it) => s + (it.quantity || 0), 0)
         return (
-          <div>
-            <span className="font-semibold text-slate-800">{r.items?.length || 0}</span> mặt hàng
-            <div className="text-[11px] text-slate-500 font-bold text-emerald-700">
-              = {formatNumber(totalQty)} sản phẩm
+          <div className="py-0.5">
+            <span className="font-semibold text-slate-900 text-sm">{r.items?.length || 0}</span> mặt hàng
+            <div className="text-xs text-slate-600 font-mono font-semibold tabular-nums mt-0.5">
+              = {formatNumber(totalQty)} SP
             </div>
           </div>
         )
       },
     },
     {
-      title: 'Tiến độ lấy hàng',
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">Tiến độ lấy hàng</span>,
       key: 'progress',
-      width: 170,
+      width: 150,
       render: (_, r) => {
         const isDone = r.status === 'COMPLETED'
         return (
@@ -331,9 +339,9 @@ export default function RealtimeOutboundBoard({ onOpenOrderDetail }: RealtimeOut
               percent={isDone ? 100 : 0}
               size="small"
               status={isDone ? 'success' : 'active'}
-              strokeColor={isDone ? '#10b981' : '#f97316'}
+              strokeColor={isDone ? '#10b981' : '#3b82f6'}
             />
-            <div className="text-[11px] text-slate-500 flex justify-between">
+            <div className="text-xs text-slate-500 flex justify-between font-medium">
               <span>{isDone ? 'Đã hoàn tất 100%' : 'Chờ lấy vào xe'}</span>
             </div>
           </div>
@@ -341,7 +349,7 @@ export default function RealtimeOutboundBoard({ onOpenOrderDetail }: RealtimeOut
       },
     },
     {
-      title: 'Trạng thái',
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">Trạng thái</span>,
       dataIndex: 'status',
       key: 'status',
       width: 130,
@@ -349,40 +357,36 @@ export default function RealtimeOutboundBoard({ onOpenOrderDetail }: RealtimeOut
       render: (status) => {
         if (status === 'COMPLETED') {
           return (
-            <Tag color="success" className="m-0 font-medium">
+            <Tag color="success" className="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full border m-0 font-medium">
               <CheckCircleOutlined /> Đã xuất kho
             </Tag>
           )
         }
         return (
-          <Tag color="warning" className="m-0 font-medium">
+          <Tag color="warning" className="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full border m-0 font-medium">
             <ClockCircleOutlined /> Chờ lấy hàng
           </Tag>
         )
       },
     },
     {
-      title: 'Thao tác',
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">Thao tác</span>,
       key: 'actions',
-      width: 240,
-      fixed: 'right',
+      width: 180,
+      align: 'center',
       render: (_, r) => (
-        <Space size="small">
+        <Space size={2}>
           <Tooltip
             title={canPick ? 'Lấy hàng thông minh' : 'Chỉ dành cho Quản trị viên, Quản lý kho, Nhân viên kho và Bán hàng'}
           >
             <Button
               data-write-action
               size="small"
-              type="primary"
+              type={r.status === 'COMPLETED' ? 'default' : 'primary'}
               icon={<RocketOutlined />}
               disabled={!canPick}
               onClick={() => handleOpenPicking(r)}
-              className={
-                r.status === 'COMPLETED'
-                  ? 'bg-slate-500'
-                  : 'bg-orange-500 hover:bg-orange-600'
-              }
+              className="font-medium shadow-xs"
             >
               {r.status === 'COMPLETED' ? 'Lộ trình' : 'Lấy hàng'}
             </Button>
@@ -402,7 +406,7 @@ export default function RealtimeOutboundBoard({ onOpenOrderDetail }: RealtimeOut
                 icon={<CheckCircleOutlined />}
                 disabled={!canDispatch}
                 onClick={() => handleOpenDelivery(r)}
-                className="bg-emerald-600 hover:bg-emerald-700"
+                className="font-medium shadow-xs"
               >
                 Xuất kho
               </Button>
@@ -412,7 +416,8 @@ export default function RealtimeOutboundBoard({ onOpenOrderDetail }: RealtimeOut
           <Tooltip title="In phiếu lấy hàng">
             <Button
               size="small"
-              icon={<PrinterOutlined />}
+              type="text"
+              icon={<PrinterOutlined className="text-slate-500 hover:text-slate-800" />}
               loading={printLoadingId === r.id}
               onClick={() => void handleOpenPrint(r)}
             />
@@ -422,7 +427,8 @@ export default function RealtimeOutboundBoard({ onOpenOrderDetail }: RealtimeOut
             <Tooltip title="Xem chi tiết đơn bán hàng">
               <Button
                 size="small"
-                icon={<EyeOutlined />}
+                type="text"
+                icon={<EyeOutlined className="text-slate-500 hover:text-blue-600" />}
                 onClick={() => onOpenOrderDetail(r)}
               />
             </Tooltip>
@@ -437,9 +443,9 @@ export default function RealtimeOutboundBoard({ onOpenOrderDetail }: RealtimeOut
       {/* 1. Header Bảng xuất kho thời gian thực */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-3.5 rounded-lg border border-slate-200">
         <div className="flex items-center gap-2.5">
-          <RocketOutlined className="text-orange-500 text-xl" />
+          <RocketOutlined className="text-slate-600 text-xl" />
           <div>
-            <h3 className="font-bold text-slate-800 text-base m-0 flex items-center gap-2">
+            <h3 className="font-bold text-slate-900 text-base m-0 flex items-center gap-2">
               <span>Bảng Xuất Kho & Lấy Hàng Thời Gian Thực</span>
               <Badge
                 status={isRealtimeActive ? 'processing' : 'default'}
@@ -460,7 +466,7 @@ export default function RealtimeOutboundBoard({ onOpenOrderDetail }: RealtimeOut
           <Button
             icon={<FileExcelOutlined />}
             onClick={handleExportExcel}
-            className="text-emerald-700 hover:text-emerald-800"
+            className="font-medium"
           >
             Xuất Excel
           </Button>
@@ -475,53 +481,72 @@ export default function RealtimeOutboundBoard({ onOpenOrderDetail }: RealtimeOut
         </Space>
       </div>
 
-      {/* 2. Thẻ thống kê thời gian thực */}
+      {/* 2. Thẻ thống kê thời gian thực chuẩn Enterprise */}
       <Row gutter={[16, 16]}>
-        <Col xs={24} sm={12} lg={6}>
-          <Card size="small" className="border-l-4 border-l-orange-500 shadow-2xs">
-            <Statistic
-              title={<span className="text-xs text-slate-500">Đơn chờ lấy hàng</span>}
-              value={waitingOrdersCount}
-              valueStyle={{ color: '#ea580c', fontWeight: 'bold' }}
-              prefix={<ClockCircleOutlined />}
-              suffix="đơn"
-            />
+        <Col xs={12} sm={6}>
+          <Card variant="borderless" className="shadow-xs border border-slate-200/80 bg-white">
+            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Đơn chờ lấy hàng
+            </div>
+            <div className="mt-2 flex items-baseline gap-1.5">
+              <span className="text-3xl font-bold text-slate-900 tracking-tight tabular-nums">
+                {waitingOrdersCount}
+              </span>
+              <span className="text-sm text-slate-500 font-normal">đơn</span>
+            </div>
+            <div className="mt-3 pt-2 border-t border-slate-100 text-xs text-slate-600">
+              Cần nhặt hàng theo lộ trình
+            </div>
           </Card>
         </Col>
 
-        <Col xs={24} sm={12} lg={6}>
-          <Card size="small" className="border-l-4 border-l-emerald-500 shadow-2xs">
-            <Statistic
-              title={<span className="text-xs text-slate-500">Đã xuất kho hoàn tất</span>}
-              value={completedOrdersCount}
-              valueStyle={{ color: '#059669', fontWeight: 'bold' }}
-              prefix={<CheckCircleOutlined />}
-              suffix="đơn"
-            />
+        <Col xs={12} sm={6}>
+          <Card variant="borderless" className="shadow-xs border border-slate-200/80 bg-white">
+            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Đã xuất kho hoàn tất
+            </div>
+            <div className="mt-2 flex items-baseline gap-1.5">
+              <span className="text-3xl font-bold text-slate-900 tracking-tight tabular-nums">
+                {completedOrdersCount}
+              </span>
+              <span className="text-sm text-slate-500 font-normal">đơn</span>
+            </div>
+            <div className="mt-3 pt-2 border-t border-slate-100 text-xs text-slate-600">
+              Đã kiểm tra & hoàn tất GDN
+            </div>
           </Card>
         </Col>
 
-        <Col xs={24} sm={12} lg={6}>
-          <Card size="small" className="border-l-4 border-l-blue-500 shadow-2xs">
-            <Statistic
-              title={<span className="text-xs text-slate-500">Tổng sản phẩm cần xuất</span>}
-              value={totalOutboundUnits}
-              valueStyle={{ color: '#2563eb', fontWeight: 'bold' }}
-              prefix={<InboxOutlined />}
-              formatter={(v) => formatNumber(Number(v))}
-            />
+        <Col xs={12} sm={6}>
+          <Card variant="borderless" className="shadow-xs border border-slate-200/80 bg-white">
+            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Sản phẩm cần xuất
+            </div>
+            <div className="mt-2 flex items-baseline gap-1.5">
+              <span className="text-3xl font-bold text-slate-900 tracking-tight tabular-nums">
+                {formatNumber(totalOutboundUnits)}
+              </span>
+              <span className="text-sm text-slate-500 font-normal">SP</span>
+            </div>
+            <div className="mt-3 pt-2 border-t border-slate-100 text-xs text-slate-600">
+              Tổng số lượng các dòng đặt
+            </div>
           </Card>
         </Col>
 
-        <Col xs={24} sm={12} lg={6}>
-          <Card size="small" className="border-l-4 border-l-purple-500 shadow-2xs">
-            <Statistic
-              title={<span className="text-xs text-slate-500">Tỷ lệ hoàn thành xuất kho</span>}
-              value={completionRate}
-              valueStyle={{ color: '#7c3aed', fontWeight: 'bold' }}
-              prefix={<SyncOutlined />}
-              suffix="%"
-            />
+        <Col xs={12} sm={6}>
+          <Card variant="borderless" className="shadow-xs border border-slate-200/80 bg-white">
+            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Tỷ lệ hoàn thành
+            </div>
+            <div className="mt-2 flex items-baseline gap-1.5">
+              <span className="text-3xl font-bold text-slate-900 tracking-tight tabular-nums">
+                {completionRate}%
+              </span>
+            </div>
+            <div className="mt-3 pt-2 border-t border-slate-100 text-xs text-slate-600">
+              Tiến độ xuất kho trong ngày
+            </div>
           </Card>
         </Col>
       </Row>
@@ -596,7 +621,7 @@ export default function RealtimeOutboundBoard({ onOpenOrderDetail }: RealtimeOut
           columns={columns}
           dataSource={filteredOrders}
           loading={loading}
-          scroll={{ x: 1000 }}
+          scroll={{ x: 1134 }}
           pagination={{
             pageSize: 10,
             showSizeChanger: true,

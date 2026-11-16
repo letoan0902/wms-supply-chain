@@ -121,6 +121,26 @@ export default function InventoryPage() {
   const [kind, setKind] = useState<StockAlertKind | undefined>(initialKind)
   const [severity, setSeverity] = useState<StockAlertSeverity | undefined>(initialSeverity)
 
+  // Đang ở trang mà bấm liên kết cảnh báo khác (chuông thông báo) thì địa chỉ đổi nhưng trang không mở lại:
+  // áp lại bộ lọc theo tham số mới ngay khi render (cách React khuyên dùng khi trạng thái phụ thuộc giá trị đổi)
+  const alertQueryKey = ['kind', 'severity', 'warehouseId'].map((name) => searchParams.get(name) ?? '').join('|')
+  const [appliedAlertQueryKey, setAppliedAlertQueryKey] = useState(alertQueryKey)
+  if (appliedAlertQueryKey !== alertQueryKey) {
+    setAppliedAlertQueryKey(alertQueryKey)
+    const nextKind = parseKind(searchParams.get('kind'))
+    const nextSeverity = parseSeverity(searchParams.get('severity'))
+    const nextWarehouseId = parseId(searchParams.get('warehouseId'))
+    setKind(nextKind)
+    setSeverity(nextSeverity)
+    setAlertOnly(Boolean(nextKind || nextSeverity))
+    if (isGlobalScope) {
+      setWarehouseId(nextWarehouseId)
+    } else if (nextWarehouseId !== undefined && warehouses.some((w) => w.id === nextWarehouseId)) {
+      // Vai trò theo kho chỉ chuyển sang kho được phân công
+      setWarehouseId(nextWarehouseId)
+    }
+  }
+
   // Bộ lọc theo hàng hóa (và từ khóa của danh sách cảnh báo)
   const [keywordInput, setKeywordInput] = useState('')
   const keyword = useDebouncedValue(keywordInput.trim(), SEARCH_DEBOUNCE_MS) || undefined

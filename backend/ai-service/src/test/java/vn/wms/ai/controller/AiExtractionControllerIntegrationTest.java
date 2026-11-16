@@ -282,8 +282,15 @@ class AiExtractionControllerIntegrationTest {
                 .andExpect(jsonPath("$.message").value(containsString("cần AI thật")));
         upload(xlsx(1), "KHO", COMPANY_A, "ADMIN")
                 .andExpect(status().isBadRequest());
+        byte[] largeImage = new byte[8_000_000];
+        System.arraycopy(new byte[]{(byte) 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A}, 0, largeImage, 0, 8);
+        upload(new MockMultipartFile("file", "anh.png", "image/png", largeImage), "PRODUCT", COMPANY_A, "ADMIN")
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(containsString("ảnh png, jpg tối đa 7,5 MB")));
 
-        verify(valueOperations, never()).increment(anyString());
+        // Chỉ lần "không có cột nào phù hợp" đã giữ lượt (lỗi sau khi đọc file), và lượt đó được trả lại
+        verify(valueOperations, times(1)).increment(startsWith(AI_COUNTER_PREFIX));
+        verify(valueOperations, times(1)).decrement(startsWith(AI_COUNTER_PREFIX));
         assertThat(redisData).isEmpty();
     }
 

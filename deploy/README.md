@@ -49,7 +49,7 @@ Các tệp trong thư mục `deploy/`:
 
 ## 2. Yêu cầu
 
-- VPS Ubuntu 24.04 LTS, quyền root (hoặc sudo). Cấu hình 12 vCPU, 47 GB RAM là dư dả: stack gồm 12 container, ước lượng tối thiểu khoảng 8 GB RAM.
+- VPS Ubuntu 24.04 LTS, quyền root (hoặc sudo). Cấu hình 12 vCPU, 47 GB RAM là dư dả: stack gồm 14 container thường trực (kể cả Caddy) và một container chạy một lần (`rabbitmq-init`), ước lượng tối thiểu khoảng 8 GB RAM.
 - Ổ đĩa còn trống từ 20 GB trở lên (image Docker, bộ nhớ đệm build và dữ liệu MySQL).
 - Tên miền `wms.toanmarket.me` và quyền chỉnh bản ghi DNS.
 - Cổng 80 và 443 của máy chủ chưa bị chương trình khác chiếm, và không bị firewall của nhà cung cấp VPS chặn.
@@ -230,9 +230,16 @@ bash deploy/deploy.sh
 ```
 
 Script thực hiện lần lượt: kiểm tra Docker và Compose, `git fetch` rồi `git reset --hard origin/develop` (in ra commit đang triển khai), kiểm tra `.env`
-(thiếu biến, còn giá trị `change_me`, JWT quá ngắn), `docker compose config`, `build --pull`, `up -d --remove-orphans`, chờ mọi container healthy
-(tối đa 600 giây), kiểm tra `http://127.0.0.1:8080/actuator/health` và `https://wms.toanmarket.me/`, rồi `docker image prune -f`.
-Lần đầu việc build 8 service Java và frontend mất vài phút đến vài chục phút tùy tốc độ mạng và máy.
+(thiếu biến, còn giá trị `change_me`, JWT quá ngắn), `docker compose config`, tải image CI đã dựng cho đúng commit từ GHCR,
+`up -d --remove-orphans`, chờ mọi container healthy (tối đa 900 giây), kiểm tra `http://127.0.0.1:8080/actuator/health` và
+`https://wms.toanmarket.me/`, rồi `docker image prune -f`.
+
+Image: sau mỗi lần merge vào `develop`, CI dựng và đẩy image của chín service Java và frontend lên
+`ghcr.io/letoan0902/wms-supply-chain/<service>:sha-<7 ký tự commit>` (công khai, không cần đăng nhập). `deploy.sh` tải các
+image này (khoảng một phút mỗi image) rồi gắn tên mà Compose dùng, nên không phải biên dịch trên máy chủ. Service nào chưa
+có image (CI chưa chạy xong hoặc lỗi) thì script build riêng service đó tại chỗ. Vì vậy hãy chờ CI của commit trên
+`develop` xanh rồi mới chạy `deploy.sh`. `bash deploy/deploy.sh --build` ép build mọi thứ trên máy chủ: trên VPS hiện tại
+(CPU chậm) việc này mất khoảng 40 phút cho chín service Java.
 
 Nếu kiểm tra HTTPS chưa đạt (DNS chưa trỏ hoặc Caddy đang xin chứng chỉ), script chỉ cảnh báo chứ không dừng. Nếu `.env` chưa có, script dừng và in hướng dẫn tạo file.
 Có thể chạy lại script nhiều lần. Vì lần build đầu khá lâu, nên chạy trong `tmux` (`apt install -y tmux`) để không mất tiến trình khi phiên SSH bị ngắt;
@@ -266,7 +273,7 @@ Mở `https://wms.toanmarket.me` trong trình duyệt và đăng nhập bằng t
 Kiểm tra tự động bằng script `deploy/smoke-test.sh` (đăng nhập, gọi API có token, kiểm tra chặn request không token): xem hướng dẫn chi tiết tại [SMOKE_TEST.md](SMOKE_TEST.md).
 
 ```bash
-SMOKE_PASSWORD='<mật khẩu tài khoản admin>' bash deploy/smoke-test.sh https://wms.toanmarket.me
+SMOKE_PASSWORD='<mật khẩu tài khoản admin_a>' bash deploy/smoke-test.sh https://wms.toanmarket.me
 ```
 
 ## 7. Tài khoản đăng nhập mẫu
@@ -276,7 +283,8 @@ mật khẩu của tất cả là `Demopassword`:
 
 | Tên đăng nhập | Vai trò | Email |
 | --- | --- | --- |
-| `admin` | `ADMIN` | admin@wms.vn |
+| `admin` | `SUPER_ADMIN` (quản trị nền tảng, từ migration V9) | admin@wms.vn |
+| `admin_a` | `ADMIN` của Công ty mẫu A (tạo ở V9, cùng mật khẩu với `admin`) | admin_a@wms.local |
 | `manager` | `WAREHOUSE_MANAGER` | manager@wms.vn |
 | `staff` | `WAREHOUSE_STAFF` | staff@wms.vn |
 | `purchasing` | `PURCHASING` | purchasing@wms.vn |
@@ -295,7 +303,7 @@ docker compose exec caddy caddy hash-password
 
 # 2. Ghi hash vào CSDL (thay <hash> bằng chuỗi vừa chép)
 docker compose exec -T mysql sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" auth_db' <<'SQL'
-UPDATE users SET password_hash = '<hash>' WHERE username = 'admin';
+UPDATE users SET password_hash = '<hash>' WHERE username IN ('admin', 'admin_a');
 UPDATE users SET enabled = FALSE WHERE username = 'demo';
 SQL
 ```
@@ -325,9 +333,20 @@ cd /opt/wms-supply-chain
 bash deploy/deploy.sh
 ```
 
-`deploy.sh` kéo mã nguồn mới của nhánh `develop`, build lại các lớp Docker có thay đổi, rồi `up -d` chỉ tạo lại những service có image hoặc cấu hình mới. File `.env` được giữ nguyên.
+`deploy.sh` kéo mã nguồn mới của nhánh `develop`, tải image CI đã dựng cho commit đó, rồi `up -d` chỉ tạo lại những service có image hoặc cấu hình mới. File `.env` được giữ nguyên.
 Vì dùng `git reset --hard`, mọi chỉnh sửa trực tiếp trên VPS vào file đã được Git theo dõi (ví dụ sửa `deploy/Caddyfile`) sẽ bị xóa ở lần chạy sau: hãy sửa qua Git hoặc qua `.env`.
-Migration CSDL (Flyway) tự chạy khi service tương ứng khởi động. Service Java mất khoảng một đến hai phút để khởi động lại nên người dùng có thể gặp gián đoạn ngắn.
+Migration CSDL (Flyway) tự chạy khi service tương ứng khởi động. Trên VPS hiện tại một service Java mất 5 đến 9 phút để khởi động lại (đo ngày 13 và 16/11/2026), nên khi nhiều service cùng được tạo lại người dùng sẽ gặp gián đoạn chừng đó thời gian; triển khai vào lúc vắng người dùng.
+
+Chỉ cập nhật một service (ví dụ sửa nóng notification-service) mà không đụng các service khác:
+
+```bash
+cd /opt/wms-supply-chain
+git fetch origin && git reset --hard origin/develop
+SHA=$(git rev-parse --short=7 HEAD)
+docker pull ghcr.io/letoan0902/wms-supply-chain/notification-service:sha-$SHA
+docker tag ghcr.io/letoan0902/wms-supply-chain/notification-service:sha-$SHA wms-supply-chain-notification-service
+docker compose up -d --no-deps notification-service
+```
 
 Quay lại phiên bản trước (khi bản mới lỗi): `deploy.sh` luôn đưa mã nguồn về `origin/<BRANCH>`, nên để lùi về một commit cũ hãy thao tác tay:
 
@@ -565,5 +584,7 @@ docker compose logs --tail 100 <tên-service>   # nguyên nhân thường nằm 
 
 ## 12. Hướng phát triển tiếp
 
-Hiện `deploy.sh` build image ngay trên VPS từ mã nguồn. Khi CI đã publish image lên GHCR (xem [docs/CI_CD.md](../docs/CI_CD.md)), có thể bỏ bước build tại chỗ bằng cách khai báo
-`image: ghcr.io/letoan0902/wms-supply-chain/<service>:<thẻ>` cho các service trong `deploy/docker-compose.prod.yml` rồi chạy `docker compose pull && docker compose up -d`.
+- `deploy.sh` đã tải image từ GHCR (mục 5.3). Có thể đi tiếp bằng cách khai báo thẳng `image:` trong
+  `deploy/docker-compose.prod.yml` để bỏ hẳn phần `build:` trên máy chủ.
+- Thời gian khởi động 5 đến 9 phút mỗi service là do CPU của VPS: giảm bằng cách khởi động lần lượt từng nhóm service,
+  hoặc chuyển sang máy chủ có CPU nhanh hơn.

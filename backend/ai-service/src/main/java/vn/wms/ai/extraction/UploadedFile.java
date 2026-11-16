@@ -9,8 +9,9 @@ import java.util.Arrays;
 import java.util.Locale;
 
 /**
- * File người dùng tải lên đã qua kiểm tra: có tên, không rỗng, không quá {@link ExtractionLimits#MAX_FILE_BYTES},
- * phần mở rộng được hỗ trợ và nội dung khớp phần mở rộng (chữ ký đầu file).
+ * File người dùng tải lên đã qua kiểm tra: có tên, không rỗng, không quá {@link ExtractionLimits#MAX_FILE_BYTES}
+ * (hình ảnh không quá {@link ExtractionLimits#MAX_IMAGE_BYTES}, giới hạn ảnh của Claude API), phần mở rộng được hỗ
+ * trợ và nội dung khớp phần mở rộng (chữ ký đầu file).
  *
  * @param fileName tên file gốc (chỉ phần tên, bỏ đường dẫn)
  * @param type     định dạng
@@ -25,6 +26,8 @@ public record UploadedFile(String fileName, UploadedFileType type, byte[] bytes)
     private static final byte[] JPEG_SIGNATURE = {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF};
     private static final byte[] PDF_SIGNATURE = "%PDF-".getBytes(StandardCharsets.US_ASCII);
     private static final String SUPPORTED = "xlsx, xls, csv, pdf, png, jpg";
+    static final String IMAGE_TOO_LARGE_MESSAGE = "Hình ảnh vượt quá dung lượng cho phép (ảnh png, jpg tối đa 7,5 MB; "
+            + "pdf, xlsx, xls, csv tối đa 10 MB). Hãy giảm kích thước ảnh rồi tải lên lại. Lượt này không bị tính.";
 
     /** Kiểm tra file tải lên; mọi lỗi là {@code 400 BAD_REQUEST} với thông báo tiếng Việt. */
     public static UploadedFile of(MultipartFile file) {
@@ -47,6 +50,10 @@ public record UploadedFile(String fileName, UploadedFileType type, byte[] bytes)
         }
         if (bytes.length > ExtractionLimits.MAX_FILE_BYTES) {
             throw ApiException.badRequest("File vượt quá dung lượng cho phép (tối đa 10 MB).");
+        }
+        if (type.mediaType() != null && type.mediaType().startsWith("image/")
+                && bytes.length > ExtractionLimits.MAX_IMAGE_BYTES) {
+            throw ApiException.badRequest(IMAGE_TOO_LARGE_MESSAGE);
         }
         if (!contentMatches(type, bytes)) {
             throw ApiException.badRequest("Nội dung file không đúng định dạng ." + extension

@@ -8,6 +8,7 @@ import com.google.zxing.common.BitMatrix;
 import com.google.zxing.qrcode.decoder.ErrorCorrectionLevel;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import vn.wms.common.api.ErrorCode;
 import vn.wms.common.exception.ApiException;
 import vn.wms.product.dto.BarcodeResponse;
 import vn.wms.product.dto.BarcodeType;
@@ -33,6 +34,13 @@ import java.util.Map;
 @Service
 public class BarcodeService {
 
+    /**
+     * Kích thước ảnh nhỏ nhất và lớn nhất (pixel mỗi chiều) được phép yêu cầu (WMS-20.4). Không có giới hạn trên thì
+     * {@code width=40000&height=40000} cấp phát hàng GB bộ nhớ và có thể làm sập JVM.
+     */
+    public static final int MIN_IMAGE_SIZE = 50;
+    public static final int MAX_IMAGE_SIZE = 2000;
+
     private final ProductRepository productRepository;
 
     public BarcodeService(ProductRepository productRepository) {
@@ -46,6 +54,7 @@ public class BarcodeService {
         if (rawContent == null || rawContent.trim().isEmpty()) {
             throw ApiException.badRequest("Nội dung tạo mã không được để trống");
         }
+        requireImageSize(width, height);
         String content = rawContent.trim();
         BarcodeType resolvedType = (type != null) ? type : BarcodeType.CODE_128;
 
@@ -85,6 +94,17 @@ public class BarcodeService {
             throw e;
         } catch (Exception e) {
             throw ApiException.badRequest("Không thể sinh mã vạch với nội dung '" + content + "': " + e.getMessage());
+        }
+    }
+
+    /**
+     * Mọi đường sinh ảnh đều đi qua đây (kể cả khi controller không kiểm tra): chiều rộng, chiều cao ngoài khoảng
+     * {@value #MIN_IMAGE_SIZE} đến {@value #MAX_IMAGE_SIZE} pixel trả 400 VALIDATION_ERROR.
+     */
+    private static void requireImageSize(int width, int height) {
+        if (width < MIN_IMAGE_SIZE || width > MAX_IMAGE_SIZE || height < MIN_IMAGE_SIZE || height > MAX_IMAGE_SIZE) {
+            throw new ApiException(ErrorCode.VALIDATION_ERROR, "Kích thước ảnh mã vạch phải từ " + MIN_IMAGE_SIZE
+                    + " đến " + MAX_IMAGE_SIZE + " pixel mỗi chiều (đang yêu cầu " + width + " x " + height + ")");
         }
     }
 

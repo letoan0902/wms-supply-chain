@@ -7,8 +7,10 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import vn.wms.common.exception.ApiException;
 import vn.wms.common.messaging.event.OrderDispatchedEvent;
 import vn.wms.common.messaging.event.OrderLine;
@@ -17,19 +19,25 @@ import vn.wms.common.tenant.TenantContext;
 import vn.wms.inventory.dto.DeductStockItemRequest;
 import vn.wms.inventory.dto.DeductStockRequest;
 import vn.wms.inventory.dto.DeductStockResponse;
+import vn.wms.inventory.dto.LockLotRequest;
 import vn.wms.inventory.entity.BinLocation;
+import vn.wms.inventory.entity.InventoryLot;
 import vn.wms.inventory.entity.StockItem;
 import vn.wms.inventory.entity.StockReservation;
 import vn.wms.inventory.entity.Warehouse;
 import vn.wms.inventory.messaging.DispatchStockHandler;
 import vn.wms.inventory.repository.BinLocationRepository;
+import vn.wms.inventory.repository.InventoryLotRepository;
 import vn.wms.inventory.repository.StockItemRepository;
 import vn.wms.inventory.repository.StockReservationRepository;
 import vn.wms.inventory.repository.WarehouseRepository;
+import vn.wms.inventory.service.LotService;
 import vn.wms.inventory.service.StockDeductionService;
+import vn.wms.inventory.service.StockReservationService;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -64,6 +72,18 @@ class StockPessimisticLockTest {
     @Autowired
     private StockReservationRepository stockReservationRepository;
 
+    @Autowired
+    private InventoryLotRepository inventoryLotRepository;
+
+    @Autowired
+    private StockReservationService stockReservationService;
+
+    @Autowired
+    private LotService lotService;
+
+    @Autowired
+    private PlatformTransactionManager transactionManager;
+
     private Warehouse warehouse;
     private BinLocation binLocation;
     private final Long testProductId = 8801L;
@@ -72,6 +92,7 @@ class StockPessimisticLockTest {
     void setUp() {
         TenantContext.setCompanyId(1L);
         stockReservationRepository.deleteAll();
+        inventoryLotRepository.deleteAll();
         stockItemRepository.deleteAll();
         binLocationRepository.deleteAll();
         warehouseRepository.deleteAll();
@@ -324,11 +345,13 @@ class StockPessimisticLockTest {
         secondBin.setActive(true);
         secondBin = binLocationRepository.save(secondBin);
 
-        // Vị trí thứ nhất không ai giữ chỗ; vị trí thứ hai giữ 20 cho đơn 5002 và 10 cho đơn 5003
+        // Vị trí thứ nhất không ai giữ chỗ; vị trí thứ hai giữ 20 cho đơn 5002 và 10 cho đơn 5003. Lô ở vị trí thứ
+        // hai bị khóa sau khi giữ chỗ nên đơn 5002 phải lấy hàng chưa ai giữ ở vị trí thứ nhất (WMS-20.4)
         StockItem first = newStockItem(binLocation, "50.000", "0.000");
         StockItem second = newStockItem(secondBin, "50.000", "30.000");
         StockReservation own = newReservation(5002L, second, "20.000");
         StockReservation other = newReservation(5003L, second, "10.000");
+        lockStockItem(second);
 
         DeductStockRequest request = new DeductStockRequest(
                 5002L, "SO-5002", warehouse.getId(), "SALES_DISPATCH", "Xuất đơn 5002",
@@ -338,7 +361,7 @@ class StockPessimisticLockTest {
 
         StockItem firstReloaded = stockItemRepository.findById(first.getId()).orElseThrow();
         StockItem secondReloaded = stockItemRepository.findById(second.getId()).orElseThrow();
-        // Hàng được lấy ở vị trí thứ nhất (ID nhỏ hơn)
+        // Hàng được lấy ở vị trí thứ nhất (vị trí giữ chỗ đang bị khóa lô)
         assertThat(firstReloaded.getQuantity()).isEqualByComparingTo(new BigDecimal("30.000"));
         assertThat(firstReloaded.getReservedQuantity()).isEqualByComparingTo(BigDecimal.ZERO);
         // Vị trí thứ hai: tồn giữ nguyên, chỉ trả lại 20 của đơn 5002, còn 10 của đơn 5003
@@ -389,10 +412,12 @@ class StockPessimisticLockTest {
         secondBin.setActive(true);
         secondBin = binLocationRepository.save(secondBin);
 
-        // Vị trí thứ nhất không ai giữ (được lấy trước), vị trí thứ hai giữ 20 cho đơn 6001
+        // Vị trí thứ nhất không ai giữ, vị trí thứ hai giữ 20 cho đơn 6001 nhưng lô ở đó bị khóa sau khi giữ chỗ,
+        // nên các đợt xuất lấy hàng ở vị trí thứ nhất và trả dần phần giữ chỗ ở vị trí thứ hai
         StockItem first = newStockItem(binLocation, "50.000", "0.000");
         StockItem second = newStockItem(secondBin, "50.000", "20.000");
         StockReservation own = newReservation(6001L, second, "20.000");
+        lockStockItem(second);
 
         DeductStockRequest request = new DeductStockRequest(
                 6001L, "SO-6001", warehouse.getId(), "SALES_DISPATCH", "Xuất đợt 1 của đơn 6001",
@@ -441,6 +466,198 @@ class StockPessimisticLockTest {
 
         assertThat(stockItemRepository.findById(stockItem.getId()).orElseThrow().getQuantity())
                 .isEqualByComparingTo(new BigDecimal("55.000"));
+    }
+
+    @Test
+    @DisplayName("Lô giữ chỗ của đơn bị khóa: xuất đơn không được lấy sang lô đang giữ cho đơn khác (WMS-20.4)")
+    void testDispatchDoesNotTakeStockReservedByAnotherOrder() {
+        // L1 hết hạn sớm hơn giữ 10 cho đơn 7001, L2 giữ 10 cho đơn 7002; sau đó L1 bị khóa
+        StockItem l1 = newLotStockItem(binLocation, "L1", LocalDate.now().plusDays(10), "10.000", "10.000");
+        StockItem l2 = newLotStockItem(binLocation, "L2", LocalDate.now().plusDays(60), "10.000", "10.000");
+        newReservation(7001L, l1, "10.000");
+        StockReservation resB = newReservation(7002L, l2, "10.000");
+        lockStockItem(l1);
+
+        DeductStockRequest requestA = new DeductStockRequest(
+                7001L, "SO-7001", warehouse.getId(), "SALES_DISPATCH", "Xuất đơn 7001",
+                List.of(new DeductStockItemRequest(testProductId, "SKU-TEST-01", new BigDecimal("10.000"), null, null)));
+        assertThatThrownBy(() -> stockDeductionService.deductStock(requestA, "operator"))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("Không đủ tồn kho để xuất");
+
+        StockItem l2After = stockItemRepository.findById(l2.getId()).orElseThrow();
+        assertThat(l2After.getQuantity()).isEqualByComparingTo(new BigDecimal("10.000"));
+        assertThat(l2After.getReservedQuantity()).isEqualByComparingTo(new BigDecimal("10.000"));
+
+        // Đơn 7002 vẫn xuất được đúng phần đã giữ
+        DeductStockRequest requestB = new DeductStockRequest(
+                7002L, "SO-7002", warehouse.getId(), "SALES_DISPATCH", "Xuất đơn 7002",
+                List.of(new DeductStockItemRequest(testProductId, "SKU-TEST-01", new BigDecimal("10.000"), null, null)));
+        stockDeductionService.deductStock(requestB, "operator");
+        StockItem l2Final = stockItemRepository.findById(l2.getId()).orElseThrow();
+        assertThat(l2Final.getQuantity()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(l2Final.getReservedQuantity()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(stockReservationRepository.findById(resB.getId()).orElseThrow().getStatus()).isEqualTo("FULFILLED");
+    }
+
+    @Test
+    @DisplayName("Xuất đơn lấy trước dòng tồn đơn đã giữ chỗ, kể cả khi có lô chưa ai giữ hết hạn sớm hơn (WMS-20.4)")
+    void testDispatchConsumesOwnReservationFirst() {
+        StockItem early = newLotStockItem(binLocation, "L-EARLY", LocalDate.now().plusDays(10), "10.000", "0.000");
+        StockItem late = newLotStockItem(binLocation, "L-LATE", LocalDate.now().plusDays(60), "10.000", "10.000");
+        StockReservation own = newReservation(7101L, late, "10.000");
+
+        DeductStockRequest request = new DeductStockRequest(
+                7101L, "SO-7101", warehouse.getId(), "SALES_DISPATCH", "Xuất đơn 7101",
+                List.of(new DeductStockItemRequest(testProductId, "SKU-TEST-01", new BigDecimal("10.000"), null, null)));
+        DeductStockResponse response = stockDeductionService.deductStock(request, "operator");
+
+        assertThat(response.deductedItems()).extracting(d -> d.lotNo()).containsExactly("L-LATE");
+        assertThat(stockItemRepository.findById(early.getId()).orElseThrow().getQuantity())
+                .isEqualByComparingTo(new BigDecimal("10.000"));
+        StockItem lateAfter = stockItemRepository.findById(late.getId()).orElseThrow();
+        assertThat(lateAfter.getQuantity()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(lateAfter.getReservedQuantity()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(stockReservationRepository.findById(own.getId()).orElseThrow().getStatus()).isEqualTo("FULFILLED");
+    }
+
+    @Test
+    @DisplayName("Xuất từ một vị trí chỉ định chứa hai lô cùng sản phẩm: phân bổ theo FEFO, thiếu thì báo lỗi nghiệp vụ")
+    void testDeductFromChosenBinWithTwoLots() {
+        StockItem late = newLotStockItem(binLocation, "B-LATE", LocalDate.now().plusDays(60), "10.000", "0.000");
+        StockItem early = newLotStockItem(binLocation, "B-EARLY", LocalDate.now().plusDays(10), "5.000", "0.000");
+
+        DeductStockRequest request = new DeductStockRequest(
+                null, "TRF-TEST", warehouse.getId(), "ADJUSTMENT", "Xuất từ ô chỉ định",
+                List.of(new DeductStockItemRequest(testProductId, "SKU-TEST-01", new BigDecimal("8.000"), binLocation.getId(), null)));
+        DeductStockResponse response = stockDeductionService.deductStock(request, "operator");
+
+        assertThat(response.deductedItems()).extracting(d -> d.lotNo()).containsExactly("B-EARLY", "B-LATE");
+        assertThat(stockItemRepository.findById(early.getId()).orElseThrow().getQuantity()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(stockItemRepository.findById(late.getId()).orElseThrow().getQuantity()).isEqualByComparingTo(new BigDecimal("7.000"));
+
+        DeductStockRequest tooMuch = new DeductStockRequest(
+                null, "TRF-TEST", warehouse.getId(), "ADJUSTMENT", "Xuất vượt tồn ô",
+                List.of(new DeductStockItemRequest(testProductId, "SKU-TEST-01", new BigDecimal("8.000"), binLocation.getId(), null)));
+        assertThatThrownBy(() -> stockDeductionService.deductStock(tooMuch, "operator"))
+                .isInstanceOf(ApiException.class)
+                .hasMessageContaining("Không đủ tồn kho để xuất");
+        assertThat(stockItemRepository.findById(late.getId()).orElseThrow().getQuantity()).isEqualByComparingTo(new BigDecimal("7.000"));
+    }
+
+    @Test
+    @DisplayName("Hủy đơn giải phóng giữ chỗ trong lúc đơn khác đang xuất cùng dòng tồn: không ghi đè số lượng vừa trừ")
+    void testReleaseReservationDoesNotOverwriteConcurrentDeduction() throws Exception {
+        StockItem stockItem = newStockItem(binLocation, "50.000", "30.000");
+        newReservation(8001L, stockItem, "30.000");
+
+        DeductStockRequest dispatchOther = new DeductStockRequest(
+                8002L, "SO-8002", warehouse.getId(), "SALES_DISPATCH", "Xuất đơn 8002",
+                List.of(new DeductStockItemRequest(testProductId, "SKU-TEST-01", new BigDecimal("20.000"), null, null)));
+        List<Throwable> errors = runWhileRowIsHeld(
+                () -> stockDeductionService.deductStock(dispatchOther, "operator"),
+                () -> stockReservationService.releaseReservationsByOrderId(8001L));
+
+        assertThat(errors).isEmpty();
+        StockItem reloaded = stockItemRepository.findById(stockItem.getId()).orElseThrow();
+        assertThat(reloaded.getQuantity()).isEqualByComparingTo(new BigDecimal("30.000"));
+        assertThat(reloaded.getReservedQuantity()).isEqualByComparingTo(BigDecimal.ZERO);
+    }
+
+    @Test
+    @DisplayName("Khóa lô trong lúc phiếu xuất đang trừ cùng dòng tồn: không ghi đè số lượng, không khóa chéo")
+    void testLockLotDoesNotOverwriteConcurrentDeduction() throws Exception {
+        StockItem stockItem = newLotStockItem(binLocation, "LOT-RACE", LocalDate.now().plusDays(30), "50.000", "0.000");
+        InventoryLot lot = new InventoryLot();
+        lot.setLotNumber("LOT-RACE");
+        lot.setProductId(testProductId);
+        lot.setBinLocation(binLocation);
+        lot.setExpDate(LocalDate.now().plusDays(30));
+        lot.setQuantity(new BigDecimal("50.000"));
+        lot.setReservedQuantity(BigDecimal.ZERO);
+        lot = inventoryLotRepository.save(lot);
+        Long lotId = lot.getId();
+
+        DeductStockRequest deduct = new DeductStockRequest(
+                null, "ADJ-RACE", warehouse.getId(), "ADJUSTMENT", "Điều chỉnh giảm",
+                List.of(new DeductStockItemRequest(testProductId, "SKU-TEST-01", new BigDecimal("20.000"), binLocation.getId(), null)));
+        List<Throwable> errors = runWhileRowIsHeld(
+                () -> stockDeductionService.deductStock(deduct, "operator"),
+                () -> lotService.lockLot(lotId, new LockLotRequest("Phong tỏa kiểm định"), "manager"));
+
+        assertThat(errors).isEmpty();
+        StockItem reloaded = stockItemRepository.findById(stockItem.getId()).orElseThrow();
+        assertThat(reloaded.getQuantity()).isEqualByComparingTo(new BigDecimal("30.000"));
+        assertThat(reloaded.isLocked()).isTrue();
+        InventoryLot lotAfter = inventoryLotRepository.findById(lotId).orElseThrow();
+        assertThat(lotAfter.getQuantity()).isEqualByComparingTo(new BigDecimal("30.000"));
+        assertThat(lotAfter.isLocked()).isTrue();
+    }
+
+    /**
+     * Chạy {@code holder} trong một transaction và giữ transaction đó mở (đang giữ khóa dòng tồn) trong lúc
+     * {@code contender} chạy ở luồng khác; sau 500 ms mới cho {@code holder} commit. Trả về các lỗi của hai luồng.
+     */
+    private List<Throwable> runWhileRowIsHeld(Runnable holder, Runnable contender) throws InterruptedException {
+        List<Throwable> errors = Collections.synchronizedList(new ArrayList<>());
+        CountDownLatch holding = new CountDownLatch(1);
+        CountDownLatch proceed = new CountDownLatch(1);
+        TransactionTemplate tx = new TransactionTemplate(transactionManager);
+        Thread holderThread = new Thread(() -> {
+            TenantContext.setCompanyId(1L);
+            try {
+                tx.executeWithoutResult(status -> {
+                    holder.run();
+                    holding.countDown();
+                    try {
+                        proceed.await(10, TimeUnit.SECONDS);
+                    } catch (InterruptedException e) {
+                        Thread.currentThread().interrupt();
+                    }
+                });
+            } catch (Throwable e) {
+                errors.add(e);
+            } finally {
+                holding.countDown();
+                TenantContext.clear();
+            }
+        });
+        Thread contenderThread = new Thread(() -> {
+            TenantContext.setCompanyId(1L);
+            try {
+                contender.run();
+            } catch (Throwable e) {
+                errors.add(e);
+            } finally {
+                TenantContext.clear();
+            }
+        });
+        holderThread.start();
+        assertThat(holding.await(10, TimeUnit.SECONDS)).isTrue();
+        contenderThread.start();
+        Thread.sleep(500);
+        proceed.countDown();
+        holderThread.join(15000);
+        contenderThread.join(15000);
+        return errors;
+    }
+
+    private void lockStockItem(StockItem stockItem) {
+        StockItem reloaded = stockItemRepository.findById(stockItem.getId()).orElseThrow();
+        reloaded.setLocked(true);
+        reloaded.setLockedReason("Khóa thủ công khi kiểm thử");
+        stockItemRepository.save(reloaded);
+    }
+
+    private StockItem newLotStockItem(BinLocation bin, String lotNo, LocalDate expDate, String quantity, String reserved) {
+        StockItem stockItem = new StockItem();
+        stockItem.setProductId(testProductId);
+        stockItem.setBinLocation(bin);
+        stockItem.setLotNo(lotNo);
+        stockItem.setExpDate(expDate);
+        stockItem.setQuantity(new BigDecimal(quantity));
+        stockItem.setReservedQuantity(new BigDecimal(reserved));
+        return stockItemRepository.save(stockItem);
     }
 
     private StockItem newStockItem(BinLocation bin, String quantity, String reserved) {

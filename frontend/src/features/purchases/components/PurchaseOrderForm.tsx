@@ -310,6 +310,10 @@ export default function PurchaseOrderForm({
 
     for (let i = 0; i < items.length; i++) {
       const it = items[i]
+      if (!it.productId) {
+        message.error(`Dòng #${i + 1}: Vui lòng chọn mặt hàng từ danh mục hàng hóa`)
+        return
+      }
       if (!it.skuCode || !it.skuCode.trim()) {
         message.error(`Dòng #${i + 1}: Mã SKU không được để trống`)
         return

@@ -74,13 +74,17 @@ ADMIN là quản trị của một doanh nghiệp nên có mọi quyền nghiệ
 | `POST .../conversions/convert-to-base`, `.../calculate` (tính toán, không ghi) | R | R | R | R | R | R | - |
 | `POST /api/products/{id}/barcode/batch` (in tem lô) | W | W | W | - | - | - | - |
 
+Ảnh mã vạch (cả `GET` và in tem lô) chỉ nhận chiều rộng, chiều cao từ 50 đến 2000 pixel; ngoài khoảng đó trả
+`400 VALIDATION_ERROR` (kiểm tra trong `BarcodeService`, không chỉ bằng ràng buộc của DTO).
+
 Đường dẫn bí danh `/api/categories`, `/api/uoms` cùng vai trò nhưng nằm ngoài `/api/products/**` nên API key không gọi được.
 
 ### inventory-service
 
 | API | ADMIN | MANAGER | STAFF | PURCHASING | SALES | ACCOUNTANT | INTEGRATION |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `GET /api/inventory/warehouses/**` | R | R | R | R | R | R | R |
+| `GET /api/inventory/warehouses/**` (trừ kho đích điều chuyển) | R | R | R | R | R | R | R |
+| `GET /api/inventory/warehouses/transfer-destinations` (kho đích khi lập lệnh điều chuyển: mọi kho đang hoạt động của doanh nghiệp, không giới hạn theo kho được gán; chỉ trả `id`, `code`, `name`, `active`) | R | R | R | - | - | - | - |
 | `POST`, `DELETE /api/inventory/warehouses` | W | - | - | - | - | - | - |
 | `PUT /api/inventory/warehouses/{id}`, `PATCH .../status` | W | W (kho được gán) | - | - | - | - | - |
 | `GET /api/inventory/locations/**` (kể cả tem mã vạch vị trí) | R | R | R | - | - | - | R |
@@ -88,10 +92,10 @@ ADMIN là quản trị của một doanh nghiệp nên có mọi quyền nghiệ
 | `GET /api/inventory/incoming-stocks/**` | R | R | R | R | R | R | R |
 | `GET /api/inventory/lots/**` | R | R | R | R | R | R | R |
 | Khóa, mở khóa lô, khóa lô hết hạn | W | W (kho được gán) | - | - | - | - | - |
-| `GET /api/inventory/stock/atp` | R | R | R | R | R | R | R |
-| `POST /api/inventory/stock/atp/batch` (đọc) | R | R | R | R | R | R | - |
+| `GET /api/inventory/stock/atp` (theo phạm vi kho của người gọi: kho ngoài phạm vi trả 403, bỏ trống kho thì vai trò giới hạn theo kho nhận tổng các kho được gán, tài khoản chưa gán kho nhận 403) | R | R | R | R | R | R | R |
+| `POST /api/inventory/stock/atp/batch` (đọc, cùng phạm vi kho như trên) | R | R | R | R | R | R | - |
 | `POST /api/inventory/stock/picking-list` (order-service gọi khi lập phiếu xuất, xem lấy hàng) | R | R | R | - | R | - | - |
-| `POST /api/inventory/stock/reservations/release` (order-service gọi khi hủy, xóa đơn bán) | W | W | - | - | W | - | - |
+| `POST /api/inventory/stock/reservations/release` (order-service gọi khi hủy, xóa, sửa và xác nhận lại đơn bán) | W | W | - | - | W | - | - |
 | `POST /api/inventory/stock/deduct`, `/dispatch` (trừ tồn trực tiếp, giao diện không gọi) | W | W | - | - | - | - | - |
 | `GET /api/inventory/reports/**` (nhập-xuất-tồn, thẻ kho, truy vết lô, kèm `/export` tải file Excel của nhập-xuất-tồn và thẻ kho: cùng quyền và phạm vi kho) | R | R (kho được gán) | R (kho được gán) | - | - | R | - |
 | `GET /api/inventory/alerts`, `/alerts/summary` (cảnh báo tồn kho, theo phạm vi kho của người gọi) | R | R | R | R | R | R | R |
@@ -155,6 +159,32 @@ Mọi API của product, inventory, order, notification đều có `@PreAuthoriz
 service thất bại nếu có API mới thiếu khai báo. Test `*AuthorizationTest` gọi API đại diện của mọi controller với từng
 vai trò ở chế độ máy chủ; dùng `vn.wms.common.test.GatewayHeaders` (test fixtures của `common`) để gắn danh tính.
 
+### auth-service và quản trị nền tảng
+
+`SUPER_ADMIN` là quản trị nền tảng ([SAAS_SPEC.md](SAAS_SPEC.md) mục 6): thuộc doanh nghiệp hệ thống `PLATFORM`, không
+có kho, không nằm trong `Roles.ALL` nên không gán được qua API quản lý người dùng. Cột "Vai trò khác" là năm vai trò
+nghiệp vụ còn lại.
+
+| API | ADMIN | Vai trò khác | SUPER_ADMIN |
+| --- | --- | --- | --- |
+| `GET /api/auth/me`, `/api/auth/users/profile`, `PUT /api/auth/users/profile`, `POST /api/auth/users/change-password` | W | W | W |
+| `/api/auth/users/**` (quản lý người dùng), `POST /api/auth/register` | W | - | - |
+| `GET /api/auth/company` | R | R | - |
+| `PUT /api/auth/company` | W | - | - |
+| `GET /api/auth/subscription` | R | R | 404 (không có thuê bao) |
+| `/api/auth/subscription/**` (gia hạn giả lập, về gói Khởi Đầu, công cụ demo) | W | - | - |
+| `/api/auth/payments/**` (trừ webhook PayOS công khai) | W | - | - |
+| `/api/auth/api-keys/**` | W | - | - |
+| `/api/auth/platform/**` (tổng quan, doanh nghiệp, tạm khóa và mở khóa, thanh toán) | - | - | W |
+
+`/api/auth/platform/**` chặn ở cả `SecurityConfig` (`hasRole("SUPER_ADMIN")`) và `@PreAuthorize` của từng phương thức
+(`PlatformController`), giống cách `ApiKeyController` chặn `ADMIN`. Đây là chỗ duy nhất đọc dữ liệu của mọi doanh
+nghiệp; truy vấn nằm ở `vn.wms.auth.platform.repository` và luôn loại `PLATFORM`. Test `PlatformAdminIntegrationTest`
+gọi cả năm API khi chưa đăng nhập (401), bằng ADMIN và nhân viên của doanh nghiệp (403) và bằng `SUPER_ADMIN` (200).
+
+Ở product, inventory, order, notification, `SUPER_ADMIN` không có trong danh sách `@PreAuthorize` nào nên mọi API
+nghiệp vụ trả 403; dù có lọt qua thì dữ liệu cũng lọc theo doanh nghiệp `PLATFORM` (rỗng).
+
 ### Quyết định khi đặt vai trò
 
 - WAREHOUSE_STAFF đọc được danh sách và chi tiết đơn bán, đơn mua (SRS 2.5.1: nhân viên kho "xem" đơn mua, đơn bán):
@@ -190,6 +220,7 @@ order-service gọi đồng bộ các endpoint tồn kho nội bộ của invent
 
 | Endpoint | Gọi từ | Việc làm |
 | --- | --- | --- |
+| `GET /internal/inventory/stock/atp` | lập, xác nhận, sửa đơn bán, kiểm tra ATP của đơn bán | Tồn khả dụng theo kho hoặc mọi kho, không lọc theo phạm vi kho của người được chuyển tiếp (SALES thường chưa được gán kho); `/api/inventory/stock/atp` cho người dùng thì có lọc |
 | `POST /internal/inventory/receipts/location-check` | lập, xác nhận phiếu nhập | Trả các dòng sẽ cộng tồn vào vị trí đang đóng băng kiểm kê (không đổi dữ liệu) |
 | `POST /internal/inventory/reservations` | xác nhận đơn bán (cả lập đơn CONFIRMED, sửa đơn BACKORDER) | Giữ chỗ toàn bộ đơn, tất cả hoặc không, idempotent theo đơn; thiếu hàng trả 409 |
 | `POST /internal/inventory/dispatches` | lập phiếu xuất COMPLETED, xác nhận xuất phiếu | Trừ tồn theo phiếu, mỗi `dispatchKey` một lần; thiếu tồn, ô đóng băng trả 4xx |
@@ -229,7 +260,8 @@ kiện RabbitMQ và lời gọi OpenFeign mang theo doanh nghiệp, SQL gốc ph
 
 **Chống dò mật khẩu** (auth-service, `AuthService.login`): sai 5 lần thì khóa 30 phút theo cả địa chỉ IP
 (`login:attempts:ip:*`, `login:lock:ip:*`) lẫn tên đăng nhập (`login:attempts:user:*`, `login:lock:user:*`, chỉ đếm khi
-tài khoản tồn tại); bộ đếm hết hạn sau 30 phút, đăng nhập đúng thì xóa bộ đếm. Lần sai trả `401 UNAUTHORIZED` kèm số
+tài khoản tồn tại); bộ đếm hết hạn sau 30 phút, đăng nhập đúng thì xóa bộ đếm. Đặt lại mật khẩu bằng liên kết email
+(`PasswordResetService.reset`) xóa khóa và bộ đếm theo tên đăng nhập, không xóa khóa theo IP. Lần sai trả `401 UNAUTHORIZED` kèm số
 lần thử còn lại; khi bị khóa trả `400 BAD_REQUEST` kèm số phút phải chờ. Khớp FR01 ("khóa tài khoản 30 phút khi sai quá
 5 lần"), nên WMS-20.3 không thêm bộ giới hạn mới.
 
@@ -263,7 +295,13 @@ WebSocket của notification-service dùng cùng danh sách origin.
   doanh nghiệp trong mô hình SaaS và các kiểm tra viết tay sẵn có đều cho ADMIN ghi.
 - API trò chuyện và tóm tắt của ai-service (`/api/ai/chat`, `/api/ai/summary`) không dùng `@PreAuthorize`: mọi vai trò
   đã đăng nhập gọi được, quyền xem dữ liệu do service được tra cứu quyết định vì ai-service chuyển tiếp nguyên danh
-  tính của người hỏi.
+  tính của người hỏi. Riêng `/api/ai/summary` có bộ nhớ đệm 30 phút nên ai-service tự kiểm tra phạm vi kho (vai trò
+  theo kho phải được gán kho, kho đã chọn phải nằm trong số kho được gán, sai thì 403) trước khi đọc bộ nhớ đệm.
 - Lời gọi giữa các service từ tác vụ định kỳ hoặc listener không có người dùng: trên máy chủ chỉ gọi được đường dẫn
   `/internal/**`. Thêm lời gọi nền mới tới `/api/**` của service khác sẽ nhận 401.
 - Chưa kiểm thử xâm nhập; giao diện chưa ẩn nút theo đúng bảng trên ở mọi màn hình.
+- Tạm khóa doanh nghiệp (`PUT /api/auth/platform/companies/{id}/status`) chặn đăng nhập và làm mới token, nhưng access
+  token đã cấp vẫn dùng được tới khi hết hạn (tối đa 15 phút) vì gateway và service không kiểm tra trạng thái doanh
+  nghiệp ở mỗi request.
+- ai-service không có `@PreAuthorize` nên `SUPER_ADMIN` gọi được trợ lý và tóm tắt; dữ liệu tra cứu thuộc doanh nghiệp
+  `PLATFORM` (rỗng). Giao diện không hiện trợ lý trong khu vực nền tảng.

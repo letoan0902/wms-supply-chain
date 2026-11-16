@@ -18,10 +18,14 @@ import vn.wms.inventory.dto.ReceiveStockTransferItemRequest;
 import vn.wms.inventory.dto.ReceiveStockTransferRequest;
 import vn.wms.inventory.entity.BinLocation;
 import vn.wms.inventory.entity.StockItem;
+import vn.wms.inventory.entity.StockMovement;
+import vn.wms.inventory.entity.StockMovementType;
 import vn.wms.inventory.entity.StockReservation;
 import vn.wms.inventory.entity.Warehouse;
 import vn.wms.inventory.repository.BinLocationRepository;
+import vn.wms.inventory.repository.InventoryLotRepository;
 import vn.wms.inventory.repository.StockItemRepository;
+import vn.wms.inventory.repository.StockMovementRepository;
 import vn.wms.inventory.repository.StockReservationRepository;
 import vn.wms.inventory.repository.StockTransferItemRepository;
 import vn.wms.inventory.repository.StockTransferRepository;
@@ -29,6 +33,7 @@ import vn.wms.inventory.repository.WarehouseRepository;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -74,6 +79,12 @@ class StockTransferIntegrationTest {
 
     @Autowired
     private StockTransferItemRepository stockTransferItemRepository;
+
+    @Autowired
+    private StockMovementRepository stockMovementRepository;
+
+    @Autowired
+    private InventoryLotRepository inventoryLotRepository;
 
     private Warehouse warehouseSource;
     private Warehouse warehouseDest;
@@ -123,6 +134,7 @@ class StockTransferIntegrationTest {
             stockTransferItemRepository.deleteAll();
             stockTransferRepository.deleteAll();
             stockReservationRepository.deleteAll();
+            inventoryLotRepository.deleteAll();
             stockItemRepository.deleteAll();
             binLocationRepository.deleteAll();
             warehouseRepository.deleteAll();
@@ -131,6 +143,7 @@ class StockTransferIntegrationTest {
             stockTransferItemRepository.deleteAll();
             stockTransferRepository.deleteAll();
             stockReservationRepository.deleteAll();
+            inventoryLotRepository.deleteAll();
             stockItemRepository.deleteAll();
             binLocationRepository.deleteAll();
             warehouseRepository.deleteAll();
@@ -504,5 +517,149 @@ class StockTransferIntegrationTest {
                         .reduce(BigDecimal.ZERO, BigDecimal::add));
         assertThat(destTotal).isEqualByComparingTo(new BigDecimal("10.000"));
     }
-}
 
+    @Test
+    @DisplayName("Xuất điều chuyển từ vị trí chỉ định đang chứa hai lô cùng sản phẩm: trừ theo FEFO, không lỗi 500")
+    void dispatchTransfer_FromChosenBinWithTwoLots_AllocatesFefo() throws Exception {
+        seedTwoLots();
+        Long transferId = createTransfer(lotProductId, binSource.getId(), "12.000");
+
+        mockMvc.perform(post("/api/inventory/transfers/" + transferId + "/dispatch")
+                        .header("X-Company-Id", COMPANY_A))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status", is("IN_TRANSIT")));
+
+        assertThat(lotQuantityAt(binSource, "LOT-A")).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(lotQuantityAt(binSource, "LOT-B")).isEqualByComparingTo(new BigDecimal("48.000"));
+    }
+
+    @Test
+    @DisplayName("Nhận đủ hàng điều chuyển: kho đích giữ số lô, hạn dùng, ngày sản xuất của các lô đã xuất ở kho nguồn")
+    void receiveTransfer_Full_KeepsLotExpiryAndMfgDate() throws Exception {
+        seedTwoLots();
+        Long transferId = createTransfer(lotProductId, null, "25.000");
+        Long itemId = firstItemId(transferId);
+        mockMvc.perform(post("/api/inventory/transfers/" + transferId + "/dispatch")
+                        .header("X-Company-Id", COMPANY_A))
+                .andExpect(status().isOk());
+
+        receive(transferId, itemId, "25.000", "0.000")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status", is("COMPLETED")));
+
+        List<StockItem> dest = destRows(lotProductId);
+        assertThat(dest).hasSize(2);
+        StockItem a = dest.stream().filter(s -> "LOT-A".equals(s.getLotNo())).findFirst().orElseThrow();
+        StockItem b = dest.stream().filter(s -> "LOT-B".equals(s.getLotNo())).findFirst().orElseThrow();
+        assertThat(a.getQuantity()).isEqualByComparingTo(new BigDecimal("10.000"));
+        assertThat(a.getExpDate()).isEqualTo(EXP_A);
+        assertThat(a.getMfgDate()).isEqualTo(MFG_A);
+        assertThat(b.getQuantity()).isEqualByComparingTo(new BigDecimal("15.000"));
+        assertThat(b.getExpDate()).isEqualTo(EXP_B);
+        assertThat(b.getMfgDate()).isEqualTo(MFG_B);
+
+        // Sổ kho tại kho đích ghi số lô, hạn dùng nên truy vết lô đi tiếp được
+        List<StockMovement> transferIn = TenantContext.callAs(COMPANY_A, () -> stockMovementRepository.findAll().stream()
+                .filter(m -> m.getMovementType() == StockMovementType.TRANSFER_IN && transferId.equals(m.getDocumentId()))
+                .toList());
+        assertThat(transferIn).extracting(StockMovement::getLotNo).containsExactlyInAnyOrder("LOT-A", "LOT-B");
+        assertThat(transferIn).extracting(StockMovement::getExpDate).containsExactlyInAnyOrder(EXP_A, EXP_B);
+    }
+
+    @Test
+    @DisplayName("Nhận thiếu, hỏng hàng điều chuyển: số thực nhận được chia theo đúng thứ tự lô đã xuất, giữ số lô và hạn dùng")
+    void receiveTransfer_PartialWithDamage_KeepsLotsInDispatchOrder() throws Exception {
+        seedTwoLots();
+        Long transferId = createTransfer(lotProductId, null, "15.000");
+        Long itemId = firstItemId(transferId);
+        mockMvc.perform(post("/api/inventory/transfers/" + transferId + "/dispatch")
+                        .header("X-Company-Id", COMPANY_A))
+                .andExpect(status().isOk());
+
+        // Xuất 10 của LOT-A và 5 của LOT-B; nhận 12, hỏng 2, thiếu 1
+        receive(transferId, itemId, "12.000", "2.000")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status", is("PARTIAL_RECEIVED")));
+
+        List<StockItem> dest = destRows(lotProductId);
+        assertThat(dest).hasSize(2);
+        StockItem a = dest.stream().filter(s -> "LOT-A".equals(s.getLotNo())).findFirst().orElseThrow();
+        StockItem b = dest.stream().filter(s -> "LOT-B".equals(s.getLotNo())).findFirst().orElseThrow();
+        assertThat(a.getQuantity()).isEqualByComparingTo(new BigDecimal("10.000"));
+        assertThat(a.getExpDate()).isEqualTo(EXP_A);
+        assertThat(b.getQuantity()).isEqualByComparingTo(new BigDecimal("2.000"));
+        assertThat(b.getExpDate()).isEqualTo(EXP_B);
+    }
+
+    private static final LocalDate EXP_A = LocalDate.now().plusDays(20);
+    private static final LocalDate EXP_B = LocalDate.now().plusDays(90);
+    private static final LocalDate MFG_A = LocalDate.now().minusDays(30);
+    private static final LocalDate MFG_B = LocalDate.now().minusDays(5);
+    private final Long lotProductId = 6002L;
+
+    /** Ô nguồn chứa hai lô cùng sản phẩm: LOT-A 10 (hết hạn trước), LOT-B 50. */
+    private void seedTwoLots() {
+        TenantContext.runAs(COMPANY_A, () -> {
+            stockItemRepository.save(lotRow("LOT-B", MFG_B, EXP_B, "50.000"));
+            stockItemRepository.save(lotRow("LOT-A", MFG_A, EXP_A, "10.000"));
+        });
+    }
+
+    private StockItem lotRow(String lotNo, LocalDate mfg, LocalDate exp, String quantity) {
+        StockItem s = new StockItem();
+        s.setProductId(lotProductId);
+        s.setBinLocation(binSource);
+        s.setLotNo(lotNo);
+        s.setMfgDate(mfg);
+        s.setExpDate(exp);
+        s.setQuantity(new BigDecimal(quantity));
+        s.setReservedQuantity(BigDecimal.ZERO);
+        return s;
+    }
+
+    private Long createTransfer(Long productId, Long sourceBinId, String quantity) throws Exception {
+        CreateStockTransferItemRequest itemRequest = new CreateStockTransferItemRequest(
+                productId, "SKU-LOT-" + productId, "Sữa chua lô", "Hộp", sourceBinId, new BigDecimal(quantity), null);
+        CreateStockTransferRequest createRequest = new CreateStockTransferRequest(
+                warehouseSource.getId(), warehouseDest.getId(), Instant.now(), null, List.of(itemRequest));
+        String createRes = mockMvc.perform(post("/api/inventory/transfers")
+                        .header("X-Company-Id", COMPANY_A)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(createRequest)))
+                .andExpect(status().isCreated())
+                .andReturn().getResponse().getContentAsString();
+        return objectMapper.readTree(createRes).path("data").path("id").asLong();
+    }
+
+    private Long firstItemId(Long transferId) throws Exception {
+        String res = mockMvc.perform(get("/api/inventory/transfers/" + transferId)
+                        .header("X-Company-Id", COMPANY_A))
+                .andExpect(status().isOk())
+                .andReturn().getResponse().getContentAsString();
+        return objectMapper.readTree(res).path("data").path("items").get(0).path("id").asLong();
+    }
+
+    private org.springframework.test.web.servlet.ResultActions receive(Long transferId, Long itemId, String received,
+                                                                       String damaged) throws Exception {
+        ReceiveStockTransferRequest receiveRequest = new ReceiveStockTransferRequest(List.of(
+                new ReceiveStockTransferItemRequest(itemId, new BigDecimal(received), new BigDecimal(damaged), binDest.getId(), null)
+        ), null);
+        return mockMvc.perform(post("/api/inventory/transfers/" + transferId + "/receive")
+                .header("X-Company-Id", COMPANY_A)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(objectMapper.writeValueAsString(receiveRequest)));
+    }
+
+    private List<StockItem> destRows(Long productId) {
+        return TenantContext.callAs(COMPANY_A, () -> stockItemRepository.findByBinLocationId(binDest.getId()).stream()
+                .filter(s -> s.getProductId().equals(productId))
+                .toList());
+    }
+
+    private BigDecimal lotQuantityAt(BinLocation bin, String lotNo) {
+        return TenantContext.callAs(COMPANY_A, () -> stockItemRepository.findByBinLocationId(bin.getId()).stream()
+                .filter(s -> lotNo.equals(s.getLotNo()))
+                .map(StockItem::getQuantity)
+                .reduce(BigDecimal.ZERO, BigDecimal::add));
+    }
+}

@@ -130,4 +130,6 @@ export interface RecordCustomerTransactionPayload {
   amount: number
   referenceCode?: string
   note?: string
+  /** Chỉ dùng với SALES_INVOICE: ghi hóa đơn và phiếu thu cùng số tiền, công nợ khách giữ nguyên. */
+  paidImmediately?: boolean
 }

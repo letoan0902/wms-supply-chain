@@ -8,7 +8,8 @@
 #   BASE_URL  mặc định https://wms.toanmarket.me (hoặc biến môi trường BASE_URL)
 #               https://...             đi đúng đường của người dùng: Caddy -> nginx của frontend -> api-gateway
 #               http://127.0.0.1:8080   kiểm tra nội bộ trên máy chủ: gọi thẳng api-gateway
-#   USERNAME  mặc định admin (hoặc biến môi trường SMOKE_USERNAME)
+#   USERNAME  mặc định admin_a, admin của Công ty mẫu A (hoặc biến môi trường SMOKE_USERNAME). Không dùng admin: từ
+#             migration auth V9, admin là quản trị nền tảng (SUPER_ADMIN), gọi API kho và sản phẩm nhận 403.
 #   PASSWORD  mặc định lấy từ biến môi trường SMOKE_PASSWORD; nếu trống và đang chạy trong terminal thì script hỏi.
 #             Truyền mật khẩu qua tham số sẽ lộ trong lịch sử lệnh và danh sách tiến trình.
 #
@@ -43,7 +44,7 @@ set -uo pipefail
 
 # --- Cấu hình ---------------------------------------------------------------
 DEFAULT_BASE_URL="https://wms.toanmarket.me"
-DEFAULT_USERNAME="admin"
+DEFAULT_USERNAME="admin_a"
 USER_AGENT="wms-smoke-test"
 TIMEOUT="${SMOKE_TIMEOUT:-10}"
 CURL_INSECURE=""
@@ -91,7 +92,7 @@ Cách dùng: bash deploy/smoke-test.sh [BASE_URL] [USERNAME] [PASSWORD]
   BASE_URL   mặc định https://wms.toanmarket.me (hoặc biến môi trường BASE_URL)
                https://...            kiểm tra qua tên miền: Caddy -> nginx -> api-gateway, có bước trang chủ
                http://127.0.0.1:8080  kiểm tra nội bộ trên máy chủ: gọi thẳng api-gateway, có bước /actuator/health
-  USERNAME   mặc định admin (hoặc biến môi trường SMOKE_USERNAME)
+  USERNAME   mặc định admin_a (hoặc biến môi trường SMOKE_USERNAME); admin là quản trị nền tảng, không gọi được API kho
   PASSWORD   mặc định lấy từ biến môi trường SMOKE_PASSWORD; trống thì script hỏi khi chạy trong terminal
 
 Biến môi trường tùy chọn:
@@ -99,7 +100,7 @@ Biến môi trường tùy chọn:
   SMOKE_INSECURE=1   bỏ kiểm tra chứng chỉ TLS (chỉ khi Caddy dùng CA staging của Let's Encrypt)
 
 Ví dụ:
-  bash deploy/smoke-test.sh                                    # hỏi mật khẩu của admin
+  bash deploy/smoke-test.sh                                    # hỏi mật khẩu của admin_a
   bash deploy/smoke-test.sh http://127.0.0.1:8080              # kiểm tra nội bộ trên máy chủ
   SMOKE_PASSWORD='<mật khẩu>' bash deploy/smoke-test.sh https://wms.toanmarket.me manager
 

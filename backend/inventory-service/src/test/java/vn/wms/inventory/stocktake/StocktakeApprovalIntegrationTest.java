@@ -7,6 +7,7 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import vn.wms.common.messaging.WmsEventPublisher;
 import vn.wms.common.messaging.WmsEvents;
@@ -23,6 +24,7 @@ import vn.wms.inventory.entity.StocktakeLine;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -62,6 +64,9 @@ class StocktakeApprovalIntegrationTest extends StocktakeTestSupport {
 
     @Autowired
     private StockMovementRepository stockMovementRepository;
+
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
 
     private StockItem itemA1;
     private StockItem itemA2;
@@ -460,5 +465,25 @@ class StocktakeApprovalIntegrationTest extends StocktakeTestSupport {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status", is("CANCELLED")));
         assertThat(onHand(COMPANY_A, itemA1.getId())).isEqualByComparingTo("10.000");
+    }
+
+    @Test
+    @DisplayName("Lọc phiếu điều chỉnh theo ngày giờ Việt Nam: phiếu lập lúc 01:30 ngày 13/11 (18:30 UTC ngày 12/11) thuộc ngày 13/11")
+    void adjustmentDateFilterUsesVietnamDays() throws Exception {
+        long id = prepareCountingSession();
+        finishConfirmed(id, COMPANY_A, manager1);
+        long adjustmentId = data(postJson(BASE + "/" + id + "/approve", null, COMPANY_A, manager1)
+                .andExpect(status().isOk())).path("adjustmentId").asLong();
+        // Ghi kèm múi giờ để H2 (cột TIMESTAMP WITH TIME ZONE do Hibernate sinh) không hiểu theo giờ của máy chạy test
+        jdbcTemplate.update("UPDATE stock_adjustments SET created_at = ? WHERE id = ?",
+                OffsetDateTime.parse("2026-11-12T18:30:00Z"), adjustmentId);
+
+        getAs("/api/inventory/stock-adjustments?fromDate=2026-11-13&toDate=2026-11-13", COMPANY_A, manager1)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content", hasSize(1)))
+                .andExpect(jsonPath("$.data.content[0].id", is((int) adjustmentId)));
+        getAs("/api/inventory/stock-adjustments?fromDate=2026-11-12&toDate=2026-11-12", COMPANY_A, manager1)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content", hasSize(0)));
     }
 }

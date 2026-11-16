@@ -10,6 +10,19 @@ export type UserRole =
   | 'SALES'
   | 'ACCOUNTANT'
 
+/**
+ * Vai trò admin doanh nghiệp được gán cho tài khoản, theo thứ tự hiển thị trong ô chọn và bộ lọc.
+ * Không có `SUPER_ADMIN`: quản trị nền tảng không thuộc doanh nghiệp nào và không tạo được từ màn hình này.
+ */
+export const ASSIGNABLE_ROLES: readonly UserRole[] = [
+  'ADMIN',
+  'WAREHOUSE_MANAGER',
+  'WAREHOUSE_STAFF',
+  'PURCHASING',
+  'SALES',
+  'ACCOUNTANT',
+]
+
 export interface RoleConfigItem {
   label: string
   color: string
@@ -49,6 +62,12 @@ export const ROLE_CONFIG: Record<string, RoleConfigItem> = {
     label: 'Kế toán',
     color: 'gold',
     description: 'Quản lý công nợ, đối soát hóa đơn và duyệt kiểm kê',
+  },
+  // Chỉ để hiển thị nhãn (menu tài khoản, hồ sơ cá nhân); ô chọn vai trò dùng ASSIGNABLE_ROLES
+  SUPER_ADMIN: {
+    label: 'Quản trị nền tảng',
+    color: 'purple',
+    description: 'Vận hành nền tảng: thống kê và quản lý các doanh nghiệp khách hàng',
   },
 }
 

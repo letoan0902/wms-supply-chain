@@ -4,6 +4,9 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.cloud.client.loadbalancer.LoadBalanced;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.boot.web.client.ClientHttpRequestFactories;
+import org.springframework.boot.web.client.ClientHttpRequestFactorySettings;
+import org.springframework.http.client.ClientHttpRequestFactory;
 import org.springframework.http.client.ClientHttpRequestInterceptor;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.context.request.RequestAttributes;
@@ -12,6 +15,7 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 import vn.wms.common.security.UserContext;
 import vn.wms.common.tenant.TenantContext;
 
+import java.time.Duration;
 import java.util.List;
 
 /**
@@ -19,6 +23,9 @@ import java.util.List;
  * (WMS-24.2). Mỗi lời gọi mang nguyên danh tính của người đang thao tác để service phía sau tự kiểm tra quyền, giới
  * hạn gói và lọc theo doanh nghiệp: X-Company-Id lấy từ {@link TenantContext}, X-User-Name, X-User-Roles,
  * X-User-Warehouse-Ids và X-Plan chép từ request đang xử lý (đều do api-gateway gắn).
+ *
+ * <p>Mọi lời gọi có thời gian chờ ({@link ServiceClientProperties}, {@code app.ai.services.*}): mở kết nối 3 giây, đọc
+ * phản hồi 10 giây (nhập hàng loạt 120 giây), để service phía sau treo không giữ request của người dùng.
  */
 @Configuration(proxyBeanMethods = false)
 public class ServiceClientConfig {
@@ -31,8 +38,20 @@ public class ServiceClientConfig {
 
     @Bean
     @LoadBalanced
-    public RestClient.Builder loadBalancedRestClientBuilder() {
-        return RestClient.builder().requestInterceptor(identityForwardingInterceptor());
+    public RestClient.Builder loadBalancedRestClientBuilder(ServiceClientProperties properties) {
+        return RestClient.builder()
+                .requestFactory(requestFactory(properties.connectTimeout(), properties.readTimeout()))
+                .requestInterceptor(identityForwardingInterceptor());
+    }
+
+    /**
+     * Bộ tạo request có thời gian chờ mở kết nối và đọc phản hồi, dùng thư viện HTTP Spring Boot tự chọn theo classpath
+     * (giống {@code RestClient.builder()} mặc định). Hết thời gian chờ thì lời gọi ném {@code ResourceAccessException}.
+     */
+    public static ClientHttpRequestFactory requestFactory(Duration connectTimeout, Duration readTimeout) {
+        return ClientHttpRequestFactories.get(ClientHttpRequestFactorySettings.DEFAULTS
+                .withConnectTimeout(connectTimeout)
+                .withReadTimeout(readTimeout));
     }
 
     static ClientHttpRequestInterceptor identityForwardingInterceptor() {

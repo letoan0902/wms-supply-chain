@@ -42,6 +42,7 @@ import { getApiErrorMessage } from '../../services/api'
 import type { CompanySummary } from '../../types/auth'
 import { getStoredUser, updateStoredUser } from '../../utils/storage'
 import { fetchCurrentUser } from '../auth/authApi'
+import { usePlatformAdmin } from '../auth/usePlatformAdmin'
 
 const { Title, Text } = Typography
 
@@ -49,6 +50,8 @@ export default function ProfilePage() {
   const { message } = App.useApp()
   const [searchParams, setSearchParams] = useSearchParams()
   const currentTab = searchParams.get('tab') || 'info'
+  // Quản trị nền tảng không thuộc doanh nghiệp khách hàng nào: không có kho, không gọi API kho của doanh nghiệp
+  const platformAdmin = usePlatformAdmin()
 
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [warehouses, setWarehouses] = useState<Warehouse[]>([])
@@ -70,7 +73,7 @@ export default function ProfilePage() {
       try {
         const [profileData, whList, me] = await Promise.all([
           fetchProfile(),
-          fetchWarehouses().catch(() => []),
+          platformAdmin ? Promise.resolve<Warehouse[]>([]) : fetchWarehouses().catch(() => []),
           fetchCurrentUser().catch(() => null),
         ])
         if (!ignore) {
@@ -96,7 +99,7 @@ export default function ProfilePage() {
     return () => {
       ignore = true
     }
-  }, [message, updateForm])
+  }, [message, updateForm, platformAdmin])
 
   // Xử lý Cập nhật thông tin cá nhân
   const handleUpdateProfile = async (values: UpdateProfilePayload) => {
@@ -270,7 +273,8 @@ export default function ProfilePage() {
                     </Descriptions.Item>
                   </Descriptions>
 
-                  {/* Kho phụ trách */}
+                  {/* Kho phụ trách (quản trị nền tảng không có kho nên không hiện) */}
+                  {!platformAdmin && (
                   <div>
                     <div className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2 flex items-center gap-1.5">
                       <ShopOutlined />
@@ -311,6 +315,7 @@ export default function ProfilePage() {
                       </div>
                     )}
                   </div>
+                  )}
                 </div>
               ),
             },

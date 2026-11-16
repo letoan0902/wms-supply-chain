@@ -723,7 +723,7 @@ export default function SmartGoodsReceiptForm({
             />
             <InputNumber
               min={0}
-              precision={2}
+              precision={3}
               value={r.acceptedQuantity}
               onChange={(val) => handleItemFieldChange(idx, 'acceptedQuantity', val || 0)}
               className="w-24 font-bold text-center text-slate-900 font-mono"
@@ -748,7 +748,7 @@ export default function SmartGoodsReceiptForm({
         <div className="space-y-1.5">
           <InputNumber
             min={0}
-            precision={2}
+            precision={3}
             placeholder="SL hỏng"
             value={r.rejectedQuantity}
             onChange={(val) => handleItemFieldChange(idx, 'rejectedQuantity', val || 0)}

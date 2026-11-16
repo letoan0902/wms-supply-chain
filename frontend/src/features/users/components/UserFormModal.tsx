@@ -1,6 +1,7 @@
 import { Form, Input, Modal, Select, Typography } from 'antd'
 import { useEffect } from 'react'
 import {
+  ASSIGNABLE_ROLES,
   ROLE_CONFIG,
   type AdminUpdateUserPayload,
   type CreateUserPayload,
@@ -150,8 +151,8 @@ export default function UserFormModal({
           <Select
             mode="multiple"
             placeholder="Chọn một hoặc nhiều vai trò"
-            options={Object.entries(ROLE_CONFIG).map(([key, val]) => ({
-              label: `${val.label} (${key})`,
+            options={ASSIGNABLE_ROLES.map((key) => ({
+              label: `${ROLE_CONFIG[key].label} (${key})`,
               value: key,
             }))}
           />

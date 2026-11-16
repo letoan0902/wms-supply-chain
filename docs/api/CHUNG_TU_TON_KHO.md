@@ -43,9 +43,18 @@ và phản hồi không đổi; giữ chỗ nay là một phần của xác nh�
 | Lập đơn xác nhận ngay, không giữ đủ, `allowBackorder = true` | `201`, `status` BACKORDER, `backorderReason` là thông báo thiếu hàng |
 | Lập đơn xác nhận ngay, không giữ đủ, `allowBackorder = false` | `400`, đơn không được lưu |
 | Sửa đơn BACKORDER, ATP đủ nhưng không giữ đủ | `200`, đơn vẫn BACKORDER, `backorderReason` cập nhật |
-| Không gọi được inventory-service hoặc hết thời gian chờ | `503 SERVICE_UNAVAILABLE`, đơn không đổi; bấm xác nhận lại là an toàn (inventory-service không giữ hai lần cho cùng đơn) |
+| Không gọi được inventory-service hoặc hết thời gian chờ | `503 SERVICE_UNAVAILABLE`, đơn không đổi; bấm xác nhận lại là an toàn: trước khi giữ, order-service giải phóng giữ chỗ còn sót của đơn rồi giữ lại theo dòng hàng hiện tại (kể cả khi đơn đã được sửa) |
+| inventory-service vẫn báo đơn đã có giữ chỗ sau khi đã giải phóng | `503 SERVICE_UNAVAILABLE` "Dịch vụ kho chưa giải phóng giữ chỗ cũ của đơn ...", đơn không đổi, bấm lại sau |
+| Đơn chưa chọn kho (`warehouseId` trống): lập đơn với `status` CONFIRMED hoặc bỏ trống, `confirm`, sửa đơn BACKORDER | `400 VALIDATION_ERROR` "Phải chọn kho xuất hàng trước khi xác nhận đơn bán", `data` là `{"warehouseId": "..."}`; không gọi inventory-service. Đơn DRAFT vẫn lưu được khi chưa chọn kho |
 
 Hàng ở lô khóa, lô hết hạn và ô đang đóng băng kiểm kê không được giữ, nên có thể thiếu dù ATP trên màn hình đủ.
+
+order-service đọc ATP khi lập, xác nhận, sửa đơn bán qua endpoint nội bộ `GET /internal/inventory/stock/atp` (không lọc
+theo phạm vi kho của người bán), nên tài khoản SALES chưa được gán kho vẫn xác nhận được đơn. API
+`GET /api/inventory/stock/atp` và `POST /api/inventory/stock/atp/batch` mà màn hình gọi trực tiếp thì lọc theo phạm vi
+kho của người dùng: kho ngoài phạm vi trả `403 FORBIDDEN`, bỏ trống kho thì vai trò giới hạn theo kho (WAREHOUSE_MANAGER,
+WAREHOUSE_STAFF, PURCHASING, SALES) nhận tổng các kho được gán và `warehouseId` của kết quả là `null`; ADMIN, ACCOUNTANT,
+INTEGRATION không đổi.
 
 ## 3. Phiếu xuất kho
 
@@ -57,8 +66,32 @@ Hàng ở lô khóa, lô hết hạn và ô đang đóng băng kiểm kê không
 | --- | --- |
 | Trừ tồn thành công | Như trước: `201` (lập) hoặc `200` (`dispatch`), `status` COMPLETED |
 | Không đủ tồn thực tế, lô khóa, kho ngừng hoạt động | Mã và thông báo của inventory-service (thường `400 BAD_REQUEST` "Không đủ tồn kho để xuất..."). Lập phiếu: không có phiếu nào được lưu. `dispatch`: phiếu giữ nguyên DRAFT/PICKING |
+| Phần đơn đã giữ chỗ nằm ở lô vừa bị khóa, hết hạn hoặc ô đóng băng, và ngoài phần đang giữ cho đơn khác không còn đủ hàng | `400 BAD_REQUEST` "Không đủ tồn kho để xuất ... tồn khả dụng ... (đã trừ phần giữ chỗ của đơn khác) chỉ còn ...", kèm số lượng đơn đã giữ ở lô không xuất được. Từ WMS-20.4 phiếu xuất lấy trước đúng các dòng tồn đơn đã giữ chỗ, phần còn lại chỉ lấy hàng chưa giữ cho đơn khác (theo hạn dùng), không bao giờ lấy sang hàng đang giữ cho đơn khác |
 | Xuất từ ô đang đóng băng kiểm kê | `409 CONFLICT` với `data` của đợt kiểm kê; phiếu không hoàn tất |
 | Lập phiếu mà hết thời gian chờ hoặc mất kết nối tới inventory-service | `503 SERVICE_UNAVAILABLE`, thông báo nêu mã phiếu: phiếu **đã được lưu ở PICKING**. Giao diện tải lại danh sách phiếu của đơn và cho người dùng bấm Xuất kho (`dispatch`) trên phiếu đó; không lập phiếu mới (số lượng của phiếu PICKING đã tính vào phần đã xuất của đơn) |
 | `dispatch` mà hết thời gian chờ | `503`, phiếu giữ nguyên; bấm lại an toàn, tồn chỉ bị trừ một lần |
+| `dispatch` khi đơn bán đã hủy (CANCELLED) hoặc còn DRAFT | `400 BAD_REQUEST` "Đơn bán hàng ... đã bị hủy, không thể xuất kho phiếu ..."; không gọi inventory-service, phiếu và đơn giữ nguyên. Đơn CONFIRMED, BACKORDER, COMPLETED xuất được |
 
-Phiếu lập ở DRAFT hoặc PICKING không gọi inventory-service, như trước.
+Phiếu lập ở DRAFT hoặc PICKING không gọi inventory-service, như trước. `dispatch` khóa đơn bán rồi mới khóa phiếu
+(cùng thứ tự với lập phiếu và hủy đơn).
+
+## 4. Hủy, sửa, xóa đơn bán
+
+| Thao tác | Ảnh hưởng tới tồn và phiếu xuất |
+| --- | --- |
+| `POST /api/orders/sales/{id}/cancel` | Giải phóng giữ chỗ như trước. Phiếu xuất DRAFT, PICKING của đơn chuyển CANCELLED, số lượng của chúng được trừ khỏi `deliveredQuantity` của dòng đơn; phiếu COMPLETED giữ nguyên. Phản hồi không đổi |
+| `PUT /api/orders/sales/{id}` (đơn DRAFT, BACKORDER) | Giải phóng giữ chỗ còn sót của một lần xác nhận hết thời gian chờ trước khi đổi dòng hàng. Phản hồi không đổi |
+| `DELETE /api/orders/sales/{id}` (đơn DRAFT, CANCELLED) | Giải phóng giữ chỗ còn sót của đơn. Phản hồi không đổi |
+
+Giải phóng giữ chỗ gọi `POST /api/inventory/stock/reservations/release`, idempotent; lỗi khi gọi chỉ ghi log, không
+chặn thao tác.
+
+## 5. Dòng đơn mua phải có mã hàng
+
+`POST /api/orders/purchase` và `PUT /api/orders/purchase/{id}`: `items[].productId` bắt buộc (trước đây tùy chọn). Thiếu
+thì `400 VALIDATION_ERROR`, `data` là `{"items[0].productId": "ID sản phẩm không được để trống"}`. Dòng không có mã hàng
+trước đây vẫn nhận hàng được, ghi hóa đơn mua và công nợ nhưng inventory-service không cộng được tồn. Dòng đơn bán vốn
+đã bắt buộc `productId`.
+
+Số lượng trên dòng đơn mua, đơn bán và phiếu nhập, phiếu xuất được hiểu theo đơn vị tính gốc của hàng hóa; `uom` chỉ
+là nhãn hiển thị, không có quy đổi (xem `docs/TEST_PLAN.md` mục 2.5).

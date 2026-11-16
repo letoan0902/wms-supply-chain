@@ -36,8 +36,8 @@ public class AiExtractionController {
     }
 
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    @Operation(summary = "Trích xuất một file (xlsx, xls, csv, pdf, png, jpg; tối đa 10 MB, 200 dòng) thành bảng xem "
-            + "trước. Tính một lượt AI khi thành công, chưa ghi gì vào danh mục")
+    @Operation(summary = "Trích xuất một file (xlsx, xls, csv, pdf, png, jpg; tối đa 10 MB, ảnh 7,5 MB, 200 dòng) "
+            + "thành bảng xem trước. Tính một lượt AI khi thành công, chưa ghi gì vào danh mục")
     public ApiResponse<ExtractionResponse> extract(
             @RequestPart(value = "file", required = false) MultipartFile file,
             @RequestParam(value = "dataType", required = false) String dataType) {

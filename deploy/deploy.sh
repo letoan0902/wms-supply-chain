@@ -3,11 +3,12 @@
 # deploy.sh - Triển khai hoặc cập nhật WMS Supply Chain trên VPS Ubuntu (Docker Compose + Caddy).
 #
 # Chạy bằng root trên máy chủ:
-#   bash deploy/deploy.sh                # lấy mã nguồn mới nhất, build image, khởi động lại stack
-#   bash deploy/deploy.sh --no-build     # bỏ qua bước build, dùng lại image đã có
+#   bash deploy/deploy.sh                # lấy mã nguồn mới nhất, tải image CI đã dựng (GHCR), khởi động lại stack
+#   bash deploy/deploy.sh --build        # build image ngay trên máy chủ thay vì tải (chậm: 9 service Java)
+#   bash deploy/deploy.sh --no-build     # không tải, không build, dùng lại image đang có trên máy chủ
 #   BRANCH=main bash deploy/deploy.sh    # triển khai nhánh khác
 #
-# Các bước: kiểm tra Docker -> đồng bộ mã nguồn (git) -> kiểm tra .env -> build -> up -d
+# Các bước: kiểm tra Docker -> đồng bộ mã nguồn (git) -> kiểm tra .env -> tải image (hoặc build) -> up -d
 #           -> chờ container healthy -> kiểm tra gateway và làm nóng vài request đầu
 #           -> kiểm tra HTTPS và API qua tên miền -> dọn image cũ.
 #
@@ -15,7 +16,8 @@
 #   APP_DIR       thư mục chứa mã nguồn trên VPS            mặc định /opt/wms-supply-chain
 #   BRANCH        nhánh Git cần triển khai                  mặc định develop
 #   REPO_URL      địa chỉ repository Git                    mặc định https://github.com/letoan0902/wms-supply-chain.git
-#   WAIT_TIMEOUT  số giây tối đa chờ container healthy      mặc định 600
+#   WAIT_TIMEOUT  số giây tối đa chờ container healthy      mặc định 900
+#   IMAGE_REPO    kho image trên GHCR                       mặc định ghcr.io/letoan0902/wms-supply-chain
 #
 # Lần chạy đầu tiên: nếu chưa có file .env, script dừng lại và hướng dẫn tạo từ deploy/.env.production.example.
 # Lưu ý: script dùng git reset --hard nên mọi chỉnh sửa cục bộ trong file đã theo dõi của APP_DIR sẽ bị xóa
@@ -28,7 +30,13 @@ set -Eeuo pipefail
 APP_DIR="${APP_DIR:-/opt/wms-supply-chain}"
 BRANCH="${BRANCH:-develop}"
 REPO_URL="${REPO_URL:-https://github.com/letoan0902/wms-supply-chain.git}"
-WAIT_TIMEOUT="${WAIT_TIMEOUT:-600}"
+WAIT_TIMEOUT="${WAIT_TIMEOUT:-900}"
+# CI (.github/workflows/ci.yml) đẩy image của từng service lên đây sau mỗi lần merge vào develop hoặc main,
+# gắn thẻ sha-<7 ký tự commit>; xem docs/CI_CD.md.
+IMAGE_REPO="${IMAGE_REPO:-ghcr.io/letoan0902/wms-supply-chain}"
+# Các service có image do CI dựng (trùng tên service trong docker-compose.yml)
+CI_SERVICES=(config-server discovery-server api-gateway auth-service product-service inventory-service
+  order-service notification-service ai-service frontend)
 
 # Phiên bản Docker Compose tối thiểu: deploy/docker-compose.prod.yml dùng thẻ !reset và !override
 MIN_COMPOSE_VERSION="2.24.4"
@@ -37,6 +45,7 @@ COMPOSE_ARGS=(-f docker-compose.yml -f deploy/docker-compose.prod.yml)
 COMPOSE_HINT="docker compose -f docker-compose.yml -f deploy/docker-compose.prod.yml"
 
 SKIP_BUILD=0
+FORCE_BUILD=0
 FAILED=0
 DOMAIN=""
 CADDYFILE_HASH_BEFORE=""
@@ -55,9 +64,12 @@ trap 'on_error $? $LINENO' ERR
 
 usage() {
   cat <<'EOF'
-Cách dùng: bash deploy/deploy.sh [--no-build]
+Cách dùng: bash deploy/deploy.sh [--build | --no-build]
 
-  --no-build   bỏ qua bước build image, dùng lại image đã build ở lần trước
+  (mặc định)   tải image CI đã dựng cho đúng commit đang triển khai từ GHCR (vài phút);
+               service nào chưa có image trên GHCR thì build riêng service đó trên máy chủ
+  --build      build mọi image ngay trên máy chủ (chậm, chỉ dùng khi không tải được từ GHCR)
+  --no-build   không tải, không build, dùng lại image đang có trên máy chủ
                (docker compose up vẫn tự build những image còn thiếu)
   -h, --help   hiển thị hướng dẫn này
 
@@ -65,10 +77,12 @@ Biến môi trường (đều tùy chọn):
   APP_DIR       thư mục chứa mã nguồn trên VPS          (mặc định /opt/wms-supply-chain)
   BRANCH        nhánh Git cần triển khai                (mặc định develop)
   REPO_URL      địa chỉ repository Git                  (mặc định https://github.com/letoan0902/wms-supply-chain.git)
-  WAIT_TIMEOUT  số giây tối đa chờ container healthy    (mặc định 600)
+  WAIT_TIMEOUT  số giây tối đa chờ container healthy    (mặc định 900)
+  IMAGE_REPO    kho image trên GHCR                     (mặc định ghcr.io/letoan0902/wms-supply-chain)
 
 Ví dụ:
   bash deploy/deploy.sh
+  bash deploy/deploy.sh --build
   bash deploy/deploy.sh --no-build
   BRANCH=main bash deploy/deploy.sh
 EOF
@@ -78,6 +92,7 @@ parse_args() {
   while (( $# > 0 )); do
     case "$1" in
       --no-build) SKIP_BUILD=1 ;;
+      --build) FORCE_BUILD=1 ;;
       -h | --help) usage; exit 0 ;;
       *) usage >&2; die "Tham số không hợp lệ: $1" ;;
     esac
@@ -277,14 +292,52 @@ EOF
 }
 
 # --- Build và khởi động -----------------------------------------------------
+# Tên project của Compose (tiền tố tên image mà `docker compose up` tìm cho service có `build:`).
+compose_project_name() {
+  local name
+  name="$(compose config --format json 2>/dev/null \
+    | python3 -c 'import json,sys; print(json.load(sys.stdin).get("name",""))' 2>/dev/null || true)"
+  [[ -n "$name" ]] || name="$(basename "$APP_DIR")"
+  printf '%s' "$name"
+}
+
+# Tải image CI đã dựng cho đúng commit đang triển khai rồi gắn tên mà Compose dùng, để `up -d` không phải build.
+# In ra stdout danh sách service KHÔNG tải được (CI chưa chạy xong, chạy lỗi hoặc không có mạng tới GHCR).
+pull_ci_images() {
+  local sha project svc remote missing=()
+  sha="$(git -C "$APP_DIR" rev-parse --short=7 HEAD)"
+  project="$(compose_project_name)"
+  for svc in "${CI_SERVICES[@]}"; do
+    remote="${IMAGE_REPO}/${svc}:sha-${sha}"
+    if docker pull --quiet "$remote" > /dev/null 2>&1 && docker tag "$remote" "${project}-${svc}"; then
+      log "Đã tải ${svc} (sha-${sha})." >&2
+    else
+      missing+=("$svc")
+    fi
+  done
+  printf '%s\n' "${missing[@]}"
+}
+
 build_images() {
-  step "Bước 4/7: Build image"
+  step "Bước 4/7: Chuẩn bị image"
   if (( SKIP_BUILD )); then
-    log "Bỏ qua bước build theo tham số --no-build."
+    log "Bỏ qua bước tải và build theo tham số --no-build."
     return 0
   fi
-  log "Build image với --pull. Lần đầu mất khá lâu vì phải biên dịch 9 service Java và frontend."
-  compose build --pull
+  if (( FORCE_BUILD )); then
+    log "Build mọi image trên máy chủ với --pull (tham số --build). Mất khá lâu vì phải biên dịch 9 service Java và frontend."
+    compose build --pull
+    return 0
+  fi
+  log "Tải image CI đã dựng từ ${IMAGE_REPO} cho commit $(git -C "$APP_DIR" rev-parse --short=7 HEAD)."
+  local missing=()
+  mapfile -t missing < <(pull_ci_images | sed '/^$/d')
+  if (( ${#missing[@]} == 0 )); then
+    log "Đã tải đủ ${#CI_SERVICES[@]} image, không cần build trên máy chủ."
+    return 0
+  fi
+  warn "Chưa có image trên GHCR cho: ${missing[*]} (CI chưa chạy xong hoặc lỗi). Build riêng các service này trên máy chủ."
+  compose build --pull "${missing[@]}"
 }
 
 # In mỗi container một dòng: <service>|<trạng thái>|<health>|<mã thoát> (health rỗng nếu container không có healthcheck).
@@ -312,10 +365,18 @@ show_diagnostics() {
 
 start_stack() {
   step "Bước 5/7: Khởi động stack"
-  if ! compose up -d --remove-orphans; then
-    show_diagnostics
-    die "docker compose up thất bại, xem trạng thái và log phía trên."
-  fi
+  # `compose up` trả lỗi khi một service phụ thuộc chưa healthy kịp (service Java khởi động chậm), dù service đó vẫn đang
+  # lên bình thường; khi ấy các container phía sau (frontend) chưa được khởi động. Thử lại cho tới hết WAIT_TIMEOUT thay vì
+  # dừng ngay: lần gọi sau chỉ khởi động phần còn thiếu.
+  local up_deadline=$(( SECONDS + WAIT_TIMEOUT ))
+  until compose up -d --remove-orphans; do
+    if (( SECONDS >= up_deadline )); then
+      show_diagnostics
+      die "docker compose up thất bại sau ${WAIT_TIMEOUT} giây, xem trạng thái và log phía trên."
+    fi
+    warn "docker compose up chưa xong (có service chưa healthy), thử lại sau 20 giây."
+    sleep 20
+  done
 
   # Caddyfile được mount dạng tệp đơn lẻ. Khi git thay file (đổi inode), container đang chạy vẫn thấy bản cũ,
   # nên phải khởi động lại caddy để nạp cấu hình mới.

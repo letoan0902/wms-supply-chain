@@ -20,6 +20,9 @@ export const LOW_CONFIDENCE_THRESHOLD = 0.8
 
 /** Dung lượng file tối đa (ExtractionLimits.MAX_FILE_BYTES). */
 export const MAX_FILE_BYTES = 10 * 1024 * 1024
+/** Dung lượng ảnh tối đa (ExtractionLimits.MAX_IMAGE_BYTES): ảnh gửi cho AI dạng base64 nên giới hạn thấp hơn. */
+export const MAX_IMAGE_BYTES = 7_500_000
+const IMAGE_EXTENSIONS: readonly string[] = ['png', 'jpg', 'jpeg']
 
 /** Số dòng tối đa của một lần nhập (ImportRequest). */
 export const MAX_IMPORT_ROWS = 200
@@ -92,6 +95,9 @@ export function checkFile(file: { name: string; size: number }): string | null {
     return 'Định dạng file không được hỗ trợ. Chỉ nhận xlsx, xls, csv, pdf, png, jpg.'
   }
   if (file.size <= 0) return 'File rỗng, hãy chọn file khác.'
+  if (IMAGE_EXTENSIONS.includes(extension) && file.size > MAX_IMAGE_BYTES) {
+    return 'Ảnh vượt quá dung lượng cho phép (tối đa 7,5 MB). Hãy giảm kích thước ảnh hoặc dùng file PDF.'
+  }
   if (file.size > MAX_FILE_BYTES) return 'File vượt quá dung lượng cho phép (tối đa 10 MB).'
   return null
 }

@@ -184,13 +184,15 @@ export default function PurchaseOrderItemsTable({
       title: 'ĐVT',
       key: 'uom',
       width: 90,
-      render: (_, record, index) => (
+      render: (_, record) => (
+        // Chỉ đọc: số lượng trên chứng từ luôn tính theo đơn vị cơ bản của hàng hóa, hệ thống không quy đổi đơn vị khác
         <Input
           size="middle"
           placeholder="ĐVT"
           value={record.uom ?? ''}
           disabled={disabled}
-          onChange={(e) => handleFieldChange(index, 'uom', e.target.value)}
+          readOnly
+          title="Đơn vị tính lấy theo hàng hóa; số lượng nhập theo đơn vị này"
           className="text-center text-xs"
         />
       ),
@@ -208,6 +210,7 @@ export default function PurchaseOrderItemsTable({
         <InputNumber
           min={0.001}
           step={1}
+          precision={3}
           // Chưa nhập (0) thì để ô trống cho người dùng tự điền, không hiện số 0 như một giá trị đã chọn
           value={record.quantity > 0 ? record.quantity : null}
           placeholder="Nhập"

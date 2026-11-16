@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import vn.wms.auth.entity.User;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface UserRepository extends JpaRepository<User, Long> {
@@ -21,6 +22,14 @@ public interface UserRepository extends JpaRepository<User, Long> {
     boolean existsByUsername(String username);
 
     boolean existsByEmail(String email);
+
+    /** Id doanh nghiệp của các tài khoản mang tên đăng nhập hoặc email này (đăng ký lại khi bản đăng ký cũ bỏ dở). */
+    @Query("SELECT u.company.id FROM User u WHERE u.username = :username OR u.email = :email")
+    List<Long> findCompanyIdsByUsernameOrEmail(@Param("username") String username, @Param("email") String email);
+
+    /** Mọi tài khoản của một doanh nghiệp. */
+    @Query("SELECT u FROM User u WHERE u.company.id = :companyId")
+    List<User> findAllByCompanyId(@Param("companyId") Long companyId);
 
     /** Tìm tài khoản theo ID trong phạm vi một doanh nghiệp; tài khoản của doanh nghiệp khác coi như không tồn tại. */
     @Query("SELECT u FROM User u WHERE u.id = :id AND u.company.id = :companyId")

@@ -17,7 +17,9 @@ import vn.wms.inventory.repository.WarehouseRepository;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Xử lý nghiệp vụ quản lý Tồn hàng đang trên đường về kho (Incoming Stock - WMS-09.2).
@@ -38,7 +40,8 @@ public class IncomingStockService {
 
     /**
      * Xử lý sự kiện Đơn mua hàng (PO) được duyệt (APPROVED) từ RabbitMQ:
-     * Tự động cộng dồn số lượng hàng sắp về kho vào chỉ tiêu 'Incoming Stock' (FR10, WMS-09.2).
+     * Tự động cộng dồn số lượng hàng sắp về kho vào chỉ tiêu 'Incoming Stock' (FR10, WMS-09.2); các dòng cùng sản
+     * phẩm được cộng thành một bản ghi (WMS-20.4).
      * Đảm bảo tính Idempotent: nhận lại cùng đơn mua sẽ không bị cộng dồn trùng lặp.
      */
     @Transactional
@@ -74,33 +77,43 @@ public class IncomingStockService {
             return List.of();
         }
 
+        // Cộng dồn số lượng theo sản phẩm: một đơn mua có thể có cùng sản phẩm trên nhiều dòng (50 + 50 là 100),
+        // và bảng incoming_stocks chỉ cho một dòng mỗi cặp (order_id, product_id).
+        Map<Long, OrderLine> firstLineByProduct = new LinkedHashMap<>();
+        Map<Long, BigDecimal> quantityByProduct = new LinkedHashMap<>();
         for (OrderLine item : items) {
             if (item.productId() == null) {
                 log.warn("Bỏ qua dòng hàng không có productId trong đơn {}", event.orderNumber());
                 continue;
             }
-
-            // Kiểm tra trùng lặp (Idempotency check theo order_id và product_id)
-            if (incomingStockRepository.existsByOrderIdAndProductId(event.orderId(), item.productId())) {
-                log.info("Dòng sản phẩm productId={} của đơn mua {} đã được ghi nhận incoming stock trước đó, bỏ qua",
-                        item.productId(), event.orderNumber());
-                continue;
-            }
-
             BigDecimal qty = item.quantity() != null ? item.quantity() : BigDecimal.ZERO;
             if (qty.compareTo(BigDecimal.ZERO) <= 0) {
                 log.warn("Số lượng dòng sản phẩm {} trong đơn {} <= 0, bỏ qua", item.skuCode(), event.orderNumber());
                 continue;
             }
+            firstLineByProduct.putIfAbsent(item.productId(), item);
+            quantityByProduct.merge(item.productId(), qty, BigDecimal::add);
+        }
+
+        for (Map.Entry<Long, BigDecimal> entry : quantityByProduct.entrySet()) {
+            Long productId = entry.getKey();
+            OrderLine item = firstLineByProduct.get(productId);
+
+            // Kiểm tra trùng lặp (Idempotency check theo order_id và product_id): nhận lại sự kiện không cộng thêm
+            if (incomingStockRepository.existsByOrderIdAndProductId(event.orderId(), productId)) {
+                log.info("Dòng sản phẩm productId={} của đơn mua {} đã được ghi nhận incoming stock trước đó, bỏ qua",
+                        productId, event.orderNumber());
+                continue;
+            }
 
             IncomingStock incomingStock = IncomingStock.builder()
                     .warehouse(warehouse)
-                    .productId(item.productId())
+                    .productId(productId)
                     .skuCode(item.skuCode() != null ? item.skuCode() : "UNKNOWN")
                     .productName(item.productName())
                     .orderId(event.orderId())
                     .orderNumber(event.orderNumber() != null ? event.orderNumber() : "PO-" + event.orderId())
-                    .quantity(qty)
+                    .quantity(entry.getValue())
                     .uom(item.uom())
                     .status("INCOMING")
                     .messageId(messageId)

@@ -1,14 +1,15 @@
 package vn.wms.auth.company.repository;
 
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.Pageable;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 import vn.wms.auth.company.entity.Company;
 import vn.wms.auth.company.entity.CompanyStatus;
 
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -20,14 +21,12 @@ public interface CompanyRepository extends JpaRepository<Company, Long> {
 
     boolean existsByTaxCode(String taxCode);
 
-    @Query("SELECT c FROM Company c WHERE " +
-            "(:status IS NULL OR c.status = :status) AND " +
-            "(:keyword IS NULL OR :keyword = '' OR " +
-            " LOWER(c.name) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
-            " LOWER(c.code) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
-            " LOWER(c.email) LIKE LOWER(CONCAT('%', :keyword, '%')) OR " +
-            " LOWER(c.phone) LIKE LOWER(CONCAT('%', :keyword, '%')))")
-    Page<Company> searchCompanies(@Param("keyword") String keyword,
-                                 @Param("status") CompanyStatus status,
-                                 Pageable pageable);
+    /** Id các doanh nghiệp mang mã số thuế này (đăng ký lại khi bản đăng ký cũ bỏ dở). */
+    @Query("SELECT c.id FROM Company c WHERE c.taxCode = :taxCode")
+    List<Long> findIdsByTaxCode(@Param("taxCode") String taxCode);
+
+    /** Đọc doanh nghiệp và khóa dòng (SELECT ... FOR UPDATE) trước khi gỡ một bản đăng ký bỏ dở. */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT c FROM Company c WHERE c.id = :id")
+    Optional<Company> findByIdForUpdate(@Param("id") Long id);
 }

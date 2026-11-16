@@ -190,7 +190,6 @@ export default function RegisterPage() {
       <Form<RegisterCompanyFormValues>
         form={form}
         layout="vertical"
-        requiredMark="optional"
         onFinish={handleFinish}
         autoComplete="off"
         initialValues={{ agreement: false }}
@@ -199,6 +198,7 @@ export default function RegisterPage() {
         <Form.Item
           label={fieldLabel('Tên doanh nghiệp')}
           name="companyName"
+          required
           rules={[
             requiredRule('Vui lòng nhập tên doanh nghiệp'),
             lengthRule(L.companyNameMin, L.companyNameMax, 'Tên doanh nghiệp phải từ 2 đến 150 ký tự'),
@@ -238,6 +238,7 @@ export default function RegisterPage() {
           <Form.Item
             label={fieldLabel('Họ và tên người quản trị')}
             name="fullName"
+          required
             rules={[
               requiredRule('Vui lòng nhập họ và tên người quản trị'),
               lengthRule(0, L.fullNameMax, 'Họ và tên tối đa 100 ký tự'),
@@ -253,6 +254,7 @@ export default function RegisterPage() {
           <Form.Item
             label={fieldLabel('Tên đăng nhập')}
             name="username"
+          required
             rules={[
               requiredRule('Vui lòng nhập tên đăng nhập'),
               lengthRule(L.usernameMin, L.usernameMax, 'Tên đăng nhập từ 3 đến 50 ký tự'),
@@ -278,6 +280,7 @@ export default function RegisterPage() {
         <Form.Item
           label={fieldLabel('Email')}
           name="email"
+          required
           extra={<span className="text-[11px]">Liên kết kích hoạt doanh nghiệp được gửi tới email này.</span>}
           rules={[
             requiredRule('Vui lòng nhập email'),
@@ -302,6 +305,7 @@ export default function RegisterPage() {
           <Form.Item
             label={fieldLabel('Mật khẩu')}
             name="password"
+          required
             rules={[
               requiredRule('Vui lòng nhập mật khẩu'),
               {

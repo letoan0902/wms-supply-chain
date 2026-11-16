@@ -56,7 +56,7 @@ public class AccountEmailService {
     private final EmailService emailService;
     private final NotificationLogRepository logRepository;
     private final StringRedisTemplate redis;
-    private final boolean smtpConfigured;
+    private final boolean deliveryConfigured;
 
     public AccountEmailService(EmailService emailService, NotificationLogRepository logRepository,
                                StringRedisTemplate redis,
@@ -65,7 +65,8 @@ public class AccountEmailService {
         this.emailService = emailService;
         this.logRepository = logRepository;
         this.redis = redis;
-        this.smtpConfigured = isSmtpConfigured(mailHost, mailUsername);
+        // Có Brevo thì luôn gửi được, không phụ thuộc cấu hình SMTP (EmailService ưu tiên Brevo).
+        this.deliveryConfigured = emailService.usesBrevo() || isSmtpConfigured(mailHost, mailUsername);
     }
 
     /** SMTP dùng được: có host và có tài khoản, hoặc host cục bộ không cần xác thực. */
@@ -94,8 +95,8 @@ public class AccountEmailService {
         entry.setEventType(eventTypeOf(event.kind()));
         entry.setRecipient(truncate(event.recipientEmail(), MAX_TEXT_LENGTH));
         entry.setSubject(truncate(subject, MAX_TEXT_LENGTH));
-        if (!smtpConfigured) {
-            log.info("SMTP chưa cấu hình, không gửi email {}. Người nhận: {}, liên kết: {}", event.kind(),
+        if (!deliveryConfigured) {
+            log.info("Chưa cấu hình gửi email (Brevo hoặc SMTP), không gửi email {}. Người nhận: {}, liên kết: {}", event.kind(),
                     event.recipientEmail(), event.link());
             entry.setStatus(NotificationStatus.LOGGED);
             entry.setErrorMessage(SMTP_NOT_CONFIGURED);

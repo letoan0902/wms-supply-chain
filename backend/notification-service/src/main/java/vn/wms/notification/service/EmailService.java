@@ -73,10 +73,11 @@ public class EmailService {
 
     /** Đã cấu hình một cách gửi email: API Brevo hoặc SMTP. */
     public boolean isConfigured() {
-        return brevoConfigured() || smtpConfigured();
+        return usesBrevo() || smtpConfigured();
     }
 
-    private boolean brevoConfigured() {
+    /** Email đi qua API Brevo (có BREVO_API_KEY); khi đó cấu hình SMTP không được dùng. */
+    public boolean usesBrevo() {
         return brevo != null && brevo.isConfigured();
     }
 
@@ -96,7 +97,7 @@ public class EmailService {
 
     /** Gửi một email văn bản thuần; ném MailException nếu Brevo hoặc SMTP lỗi. */
     public DeliveryResult send(String to, String subject, String content) {
-        if (brevoConfigured()) {
+        if (usesBrevo()) {
             brevo.send(fromAddress(), properties.mail().fromName(), to, subject, content, false);
             return DeliveryResult.SENT;
         }
@@ -118,7 +119,7 @@ public class EmailService {
      * ném MailException nếu Brevo hoặc SMTP lỗi hoặc không dựng được thư.
      */
     public DeliveryResult sendHtml(String to, String subject, String html) {
-        if (brevoConfigured()) {
+        if (usesBrevo()) {
             brevo.send(fromAddress(), properties.mail().fromName(), to, subject, html, true);
             return DeliveryResult.SENT;
         }

@@ -15,7 +15,7 @@ import {
   OPTION_LABELS,
 } from '../aiImport'
 import type { PreviewRow } from '../aiImport'
-import { fieldWarnings, ROW_STATUS_META } from '../aiImportStatus'
+import { ROW_STATUS_META } from '../aiImportStatus'
 import type { RowAssessment } from '../aiImportStatus'
 import type { CellValue, ExtractionColumn } from '../types'
 
@@ -94,7 +94,6 @@ function EditableCell({ column, row, error, duplicate, disabled, onCommit }: Edi
   if (error) tooltipLines.push(error)
   if (duplicate) tooltipLines.push(duplicate)
   if (low) {
-    tooltipLines.push(...fieldWarnings(row.warnings, column.label))
     tooltipLines.push(`Độ tin cậy ${formatConfidence(row.confidence[column.field]) ?? ''}: hãy kiểm tra lại ô này`)
   }
   if (edited) tooltipLines.push('Bạn đã sửa ô này')
@@ -227,7 +226,14 @@ function StatusCell({ row, assessment }: StatusCellProps) {
           {meta.label}
         </Tag>
         {assessment.shortReason && (
-          <div className="mt-1 line-clamp-2 text-[11px] text-slate-500">{assessment.shortReason}</div>
+          <div className="mt-1 flex items-start gap-1 text-[11px] text-slate-500">
+            <span className="line-clamp-2 min-w-0">{assessment.shortReason}</span>
+            {assessment.moreNotes > 0 && (
+              <span className="shrink-0 rounded bg-slate-100 px-1 font-medium text-slate-600">
+                +{assessment.moreNotes}
+              </span>
+            )}
+          </div>
         )}
       </div>
     </Tooltip>

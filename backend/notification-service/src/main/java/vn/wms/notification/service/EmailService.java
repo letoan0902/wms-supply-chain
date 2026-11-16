@@ -16,6 +16,8 @@ import org.springframework.util.StringUtils;
 import vn.wms.notification.config.NotificationProperties;
 
 import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.Locale;
 
 /**
  * Gửi email. Thứ tự chọn đường gửi:
@@ -28,12 +30,18 @@ import java.nio.charset.StandardCharsets;
  *       thân thư) được ghi vào log để nhóm kiểm tra, kết quả là {@link DeliveryResult#LOGGED}.</li>
  * </ol>
  * Gửi lỗi thì ném {@code MailException}, người gọi ghi nhật ký FAILED và không ném tiếp (tránh requeue vô hạn).
+ *
+ * <p>Người nhận thuộc tên miền dành riêng cho thử nghiệm ({@link #RESERVED_SUFFIXES}, ví dụ tài khoản demo
+ * {@code quantri@trai-cay.example}) không bao giờ được chuyển cho Brevo hay SMTP: địa chỉ loại này không có hộp thư
+ * thật, gửi đi chỉ tạo thư trả lại làm xấu uy tín người gửi. Kết quả là {@link DeliveryResult#LOGGED}.
  */
 @Service
 public class EmailService {
 
     private static final Logger log = LoggerFactory.getLogger(EmailService.class);
     private static final String DEFAULT_FROM = "no-reply@wms.local";
+    /** Tên miền cấp cao dành riêng cho tài liệu và thử nghiệm (RFC 2606, RFC 6761): không có hộp thư thật. */
+    static final List<String> RESERVED_SUFFIXES = List.of(".example", ".test", ".invalid", ".localhost");
 
     /** Kết quả gửi một email. */
     public enum DeliveryResult {
@@ -97,6 +105,10 @@ public class EmailService {
 
     /** Gửi một email văn bản thuần; ném MailException nếu Brevo hoặc SMTP lỗi. */
     public DeliveryResult send(String to, String subject, String content) {
+        if (isReservedAddress(to)) {
+            logReservedRecipient(subject);
+            return DeliveryResult.LOGGED;
+        }
         if (usesBrevo()) {
             brevo.send(fromAddress(), properties.mail().fromName(), to, subject, content, false);
             return DeliveryResult.SENT;
@@ -119,6 +131,10 @@ public class EmailService {
      * ném MailException nếu Brevo hoặc SMTP lỗi hoặc không dựng được thư.
      */
     public DeliveryResult sendHtml(String to, String subject, String html) {
+        if (isReservedAddress(to)) {
+            logReservedRecipient(subject);
+            return DeliveryResult.LOGGED;
+        }
         if (usesBrevo()) {
             brevo.send(fromAddress(), properties.mail().fromName(), to, subject, html, true);
             return DeliveryResult.SENT;
@@ -140,6 +156,19 @@ public class EmailService {
         }
         sender.send(message);
         return DeliveryResult.SENT;
+    }
+
+    /** Địa chỉ thuộc tên miền dành riêng cho thử nghiệm (so khớp phần đuôi, không phân biệt hoa thường). */
+    static boolean isReservedAddress(String to) {
+        if (!StringUtils.hasText(to)) {
+            return false;
+        }
+        String normalized = to.trim().toLowerCase(Locale.ROOT);
+        return RESERVED_SUFFIXES.stream().anyMatch(normalized::endsWith);
+    }
+
+    private static void logReservedRecipient(String subject) {
+        log.info("Không gửi email ra ngoài: người nhận thuộc tên miền dành riêng cho thử nghiệm (tiêu đề='{}')", subject);
     }
 
     private static void logInsteadOfSending(String to, String subject, String body) {

@@ -1,5 +1,8 @@
 package vn.wms.auth.subscription.service;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
+import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -36,6 +39,9 @@ public class SubscriptionService {
     private final SubscriptionCacheWriter cacheWriter;
     private final SubscriptionUsageReader usageReader;
 
+    @PersistenceContext
+    private EntityManager entityManager;
+
     @Transactional
     public Subscription startTrial(Company company) {
         Plan trialPlan = planRepository.findById(PLAN_TRIAL)
@@ -63,6 +69,9 @@ public class SubscriptionService {
      * Công thức mục 2.6: {@code expires_at = max(hiện tại, mốc hết hạn đang còn hiệu lực) + 30 hoặc 365 ngày};
      * mốc đang còn hiệu lực là ngày hết dùng thử (TRIAL) hoặc ngày hết hạn (PRO) khi thuê bao còn ACTIVE.
      * Sau đó đặt gói, trạng thái ACTIVE và ghi lại bộ nhớ đệm Redis.
+     *
+     * <p>Thuê bao được đọc dưới khóa dòng ({@code SELECT ... FOR UPDATE}): một lần kích hoạt khác hoặc một lần chuyển
+     * EXPIRED đang chạy song song phải commit xong trước, và mốc hết hạn được tính từ dữ liệu mới nhất.
      */
     @Transactional
     public Subscription activate(Long companyId, String planCode, BillingCycle cycle) {
@@ -72,7 +81,7 @@ public class SubscriptionService {
         if (cycle == null) {
             throw ApiException.badRequest("Chu kỳ thanh toán không được để trống");
         }
-        Subscription subscription = subscriptionRepository.findByCompanyId(companyId)
+        Subscription subscription = subscriptionRepository.findByCompanyIdForUpdate(companyId)
                 .orElseThrow(() -> ApiException.notFound("Không tìm thấy thông tin thuê bao của doanh nghiệp"));
 
         Plan plan = planRepository.findById(planCode)
@@ -99,7 +108,7 @@ public class SubscriptionService {
 
     @Transactional
     public Subscription downgradeToFree(Long companyId) {
-        Subscription subscription = subscriptionRepository.findByCompanyId(companyId)
+        Subscription subscription = subscriptionRepository.findByCompanyIdForUpdate(companyId)
                 .orElseThrow(() -> ApiException.notFound("Không tìm thấy thông tin thuê bao của doanh nghiệp"));
 
         // Gói đã quá hạn nhưng tác vụ định kỳ chưa chạy thì chuyển EXPIRED trước khi xét
@@ -127,14 +136,24 @@ public class SubscriptionService {
         return subscription;
     }
 
-    /** Chuyển thuê bao sang EXPIRED nếu đã quá hạn và ghi lại Redis; trả true khi có thay đổi. */
+    /**
+     * Chuyển thuê bao sang EXPIRED nếu đã quá hạn và ghi lại Redis; trả true khi có thay đổi.
+     *
+     * <p>Bản thuê bao người gọi đang giữ có thể đã cũ (đọc trước khi webhook PayOS commit gói PRO). Vì vậy khi bản đó
+     * trông như đã quá hạn, thuê bao được đọc lại dưới khóa dòng ({@code SELECT ... FOR UPDATE}, cập nhật luôn đối
+     * tượng của người gọi) rồi mới quyết định; gói vừa được thanh toán không bao giờ bị ghi đè thành EXPIRED.
+     * {@code subscription} phải là thực thể đang được quản lý trong giao dịch của người gọi.
+     */
     @Transactional
     public boolean expireIfDue(Subscription subscription) {
         if (subscription == null || subscription.getStatus() == SubscriptionStatus.EXPIRED) {
             return false;
         }
-        Instant now = Instant.now();
-        if (subscription.isExpired(now)) {
+        if (!subscription.isExpired(Instant.now())) {
+            return false;
+        }
+        entityManager.refresh(subscription, LockModeType.PESSIMISTIC_WRITE);
+        if (subscription.getStatus() != SubscriptionStatus.EXPIRED && subscription.isExpired(Instant.now())) {
             subscription.setStatus(SubscriptionStatus.EXPIRED);
             subscriptionRepository.save(subscription);
             syncToRedis(subscription);
@@ -147,10 +166,11 @@ public class SubscriptionService {
     /**
      * Dùng khi đăng nhập và làm mới token: đọc thuê bao của doanh nghiệp, chuyển EXPIRED nếu đã quá hạn
      * và luôn ghi lại bộ nhớ đệm Redis (mục 2.7). Doanh nghiệp chưa có thuê bao thì trả rỗng.
+     * Đọc dưới khóa dòng để bản chụp ghi lên Redis không cũ hơn gói vừa được thanh toán.
      */
     @Transactional
     public Optional<Subscription> refreshForLogin(Long companyId) {
-        Optional<Subscription> subscription = subscriptionRepository.findByCompanyId(companyId);
+        Optional<Subscription> subscription = subscriptionRepository.findByCompanyIdForUpdate(companyId);
         subscription.ifPresent(sub -> {
             if (!expireIfDue(sub)) {
                 syncToRedis(sub);
@@ -167,7 +187,7 @@ public class SubscriptionService {
 
     @Transactional
     public Subscription demoExpire(Long companyId) {
-        Subscription subscription = subscriptionRepository.findByCompanyId(companyId)
+        Subscription subscription = subscriptionRepository.findByCompanyIdForUpdate(companyId)
                 .orElseThrow(() -> ApiException.notFound("Không tìm thấy thông tin thuê bao của doanh nghiệp"));
 
         Instant past = Instant.now().minus(1, ChronoUnit.MINUTES);
@@ -229,6 +249,24 @@ public class SubscriptionService {
                         .aiRequests(usage.aiRequests())
                         .build())
                 .build();
+    }
+
+    /**
+     * Dùng cho tác vụ định kỳ: đọc lại một thuê bao dưới khóa dòng, chuyển EXPIRED nếu đã quá hạn, rồi ghi lại bộ nhớ
+     * đệm Redis từ chính dữ liệu vừa đọc, để không ghi lên Redis một bản chụp cũ hơn gói vừa được thanh toán.
+     * Trả true khi vừa chuyển EXPIRED.
+     */
+    @Transactional
+    public boolean expireOrResync(Long subscriptionId) {
+        Subscription subscription = subscriptionRepository.findByIdForUpdate(subscriptionId).orElse(null);
+        if (subscription == null) {
+            return false;
+        }
+        if (expireIfDue(subscription)) {
+            return true;
+        }
+        syncToRedis(subscription);
+        return false;
     }
 
     /** Ghi lại hash {@code wms:subscription:{companyId}} (xem {@link SubscriptionCacheWriter}). */

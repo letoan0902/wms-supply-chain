@@ -230,7 +230,8 @@ kiện RabbitMQ và lời gọi OpenFeign mang theo doanh nghiệp, SQL gốc ph
 
 **Chống dò mật khẩu** (auth-service, `AuthService.login`): sai 5 lần thì khóa 30 phút theo cả địa chỉ IP
 (`login:attempts:ip:*`, `login:lock:ip:*`) lẫn tên đăng nhập (`login:attempts:user:*`, `login:lock:user:*`, chỉ đếm khi
-tài khoản tồn tại); bộ đếm hết hạn sau 30 phút, đăng nhập đúng thì xóa bộ đếm. Lần sai trả `401 UNAUTHORIZED` kèm số
+tài khoản tồn tại); bộ đếm hết hạn sau 30 phút, đăng nhập đúng thì xóa bộ đếm. Đặt lại mật khẩu bằng liên kết email
+(`PasswordResetService.reset`) xóa khóa và bộ đếm theo tên đăng nhập, không xóa khóa theo IP. Lần sai trả `401 UNAUTHORIZED` kèm số
 lần thử còn lại; khi bị khóa trả `400 BAD_REQUEST` kèm số phút phải chờ. Khớp FR01 ("khóa tài khoản 30 phút khi sai quá
 5 lần"), nên WMS-20.3 không thêm bộ giới hạn mới.
 

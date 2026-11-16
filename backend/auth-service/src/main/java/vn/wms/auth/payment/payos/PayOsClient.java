@@ -20,7 +20,7 @@ public interface PayOsClient {
      *
      * @param orderCode   mã đơn (số nguyên dương, duy nhất)
      * @param amount      số tiền VND
-     * @param description nội dung chuyển khoản, tối đa 25 ký tự
+     * @param description nội dung chuyển khoản, tối đa 9 ký tự (giới hạn của PayOS với tài khoản không liên kết)
      * @param expiredAt   thời điểm liên kết hết hạn
      */
     record PaymentLinkRequest(long orderCode, long amount, String description, Instant expiredAt) {

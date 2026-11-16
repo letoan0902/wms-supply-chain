@@ -135,6 +135,7 @@ TRIAL/ACTIVE --(chọn gói Khởi Đầu)--> FREE/ACTIVE --(thanh toán)--> PRO
 ```
 
 - Mỗi lần thanh toán thành công: `expires_at = max(thời điểm hiện tại, mốc hết hạn đang còn hiệu lực) + 30 hoặc 365 ngày`. Thanh toán sớm không bị mất ngày còn lại.
+- Mọi thao tác ghi thuê bao (kích hoạt, chuyển `EXPIRED`, hạ về `FREE`, ghi lại bộ nhớ đệm khi đăng nhập và ở tác vụ định kỳ) đọc lại dòng `subscriptions` dưới khóa `SELECT ... FOR UPDATE` rồi mới quyết định, nên gói vừa được thanh toán không bị một thao tác đọc trước đó ghi đè thành `TRIAL`/`EXPIRED`, và hai lần thanh toán cùng lúc đều được cộng ngày.
 - Chuyển về `FREE` chỉ được phép khi đang `TRIAL` hoặc khi thuê bao đã `EXPIRED`. Đang `PRO` còn hạn thì chờ hết hạn.
 - Khi `EXPIRED`: mọi request `POST`, `PUT`, `PATCH`, `DELETE` trả `SUBSCRIPTION_EXPIRED`, trừ đăng nhập, làm mới token, đăng xuất, đổi mật khẩu, thu hồi API key (`DELETE /api/auth/api-keys/{id}`) và các API dưới `/api/auth/subscription/**`, `/api/auth/payments/**`. Request `GET` vẫn chạy bình thường.
 
@@ -533,6 +534,7 @@ Phần `data` của `GET /api/auth/subscription` ngay sau khi đăng ký:
 **Quy tắc nghiệp vụ**
 
 - Tên đăng nhập hoặc email đã tồn tại trả `409 CONFLICT`, nêu rõ trường nào trùng. Mỗi email chỉ đăng ký được một doanh nghiệp.
+- Ngoại lệ: bản đăng ký bỏ dở không giữ chỗ mãi. Doanh nghiệp còn `PENDING`, chưa từng kích hoạt (`activated_at` rỗng), đăng ký từ quá thời hạn liên kết kích hoạt (24 giờ) và không còn liên kết kích hoạt nào dùng được (liên kết vừa gửi lại vẫn giữ chỗ tới khi hết hạn) bị gỡ hẳn (doanh nghiệp, ADMIN đầu tiên, thuê bao dùng thử, mã email) trong giao dịch của lần đăng ký mới trùng tên đăng nhập, email hoặc mã số thuế; lần đăng ký mới trả `201`. Trường hợp thường gặp: người đăng ký gõ nhầm email nên không nhận được liên kết. Doanh nghiệp đang hoặc từng hoạt động và bản chờ kích hoạt còn trong hạn vẫn trả `409` như trên.
 - Mã doanh nghiệp do hệ thống sinh, người dùng không nhập.
 - Trạng thái doanh nghiệp sau đăng ký: từ WMS-23.6 là `PENDING` cho tới khi bấm liên kết kích hoạt trong email (tắt được bằng `REGISTRATION_REQUIRE_ACTIVATION=false` trên máy phát triển, xem WMS-23.6).
 - Việc chuyển sang `EXPIRED` do một tác vụ định kỳ 5 phút một lần thực hiện, đồng thời kiểm tra lại khi đăng nhập và khi gọi `GET /api/auth/subscription`.
@@ -591,7 +593,7 @@ Người làm: Toàn. Ngày: 10/11. Jira: TASK-143. Phụ thuộc: WMS-23.1.
   - `UserPlanLimitGuard` kiểm tra `USERS` (số tài khoản `enabled = true` của doanh nghiệp) trước khi tạo tài khoản (`POST /api/auth/users`, `POST /api/auth/register`) và trước khi mở khóa (`PATCH .../status` hoặc `PUT` có `enabled: true`); sau mỗi lần tạo, mở khóa, khóa thì ghi lại `users` vào `wms:usage:{companyId}` sau khi commit. auth-service không dùng `TenantContext` nên gọi bản nhận doanh nghiệp trực tiếp `assertCanCreate(companyId, limit, currentCount)`, `reportUsage(companyId, limit, count)` (thêm vào `PlanLimitChecker`, bản cũ giữ nguyên). Đăng ký doanh nghiệp mới không bị chặn.
   - `GET /api/auth/subscription` trả đủ bốn số `usage` (cách đọc ở mục API của WMS-23.1); Redis lỗi thì ba số đọc từ Redis là `null`.
   - `SubscriptionCacheWriter` dùng tên khóa, tên trường của `SubscriptionCacheKeys`; test hợp đồng kiểm tra hash ghi ra được `SubscriptionSnapshot.fromHash` đọc lại đúng.
-  - Tác vụ định kỳ 5 phút, sau khi chuyển `EXPIRED`, ghi lại hash của mọi thuê bao để Redis mất dữ liệu thì tự lành trong 5 phút; Redis không chạy chỉ ghi cảnh báo.
+  - Tác vụ định kỳ 5 phút, sau khi chuyển `EXPIRED`, ghi lại hash của mọi thuê bao để Redis mất dữ liệu thì tự lành trong 5 phút; Redis không chạy chỉ ghi cảnh báo. Mỗi thuê bao được xử lý trong một giao dịch ngắn riêng, đọc lại dưới khóa dòng rồi mới chuyển `EXPIRED` và ghi hash (`SubscriptionService#expireOrResync`), nên gói PRO commit trong lúc quét không bị ghi đè và Redis không nhận bản chụp cũ.
 
 ### WMS-23.3a [Frontend] Trang giới thiệu và bảng giá
 
@@ -656,7 +658,7 @@ Người làm: Toàn. Ngày: 10/11. Jira: TASK-147. Phụ thuộc: WMS-23.1.
 Bảng `payments` ở auth-service (migration `V6__create_payments.sql`): `company_id`, `order_code` (số, duy nhất toàn hệ thống), `plan_code`, `cycle`, `amount` (VND, số nguyên), `status` (`PENDING`, `PAID`, `CANCELLED`, `EXPIRED`), `checkout_url`, `qr_code`, `payment_link_id`, `reference` (mã giao dịch ngân hàng), `paid_at`, `expires_at`, `created_by_user` (ID tài khoản tạo), bốn cột audit.
 
 - Mã đơn `order_code`: mili giây epoch nhân 1000 cộng ba chữ số ngẫu nhiên, ví dụ `1762761600123457` (16 chữ số, dưới giới hạn `9007199254740991` của PayOS). Trùng thì sinh lại.
-- Nội dung chuyển khoản gửi PayOS: `WMS PRO <orderCode>` (24 ký tự, PayOS giới hạn 25).
+- Nội dung chuyển khoản gửi PayOS: `WMS PRO` (7 ký tự). Tài liệu PayOS (`POST /v2/payment-requests`) giới hạn `description` 9 ký tự khi tài khoản ngân hàng nhận tiền không liên kết qua PayOS, nên dùng mức chặt nhất và không kèm mã đơn; giao dịch được đối chiếu theo `orderCode`, không đọc nội dung chuyển khoản.
 - Không tạo được liên kết ở PayOS: giao dịch chuyển `CANCELLED`, API trả `503 SERVICE_UNAVAILABLE`.
 
 **Cấu hình** (`app.payos.*` trong application.yml của auth-service)
@@ -749,11 +751,11 @@ Người làm: Toàn. Ngày: 11/11. Jira: TASK-149. Phụ thuộc: WMS-23.1.
 
 | API | Ai gọi | Mô tả |
 | --- | --- | --- |
-| `POST /api/auth/companies/register` (sửa) | Công khai | Doanh nghiệp tạo ra ở trạng thái `PENDING`, `activated_at` rỗng; phát sự kiện `auth.activation-requested` để notification-service gửi liên kết `{APP_FRONTEND_URL}/activate?token=...` (hiệu lực 24 giờ) tới email đăng ký. `data` thêm `activationRequired` (`true`); `company.status` là `PENDING`. Không trả token |
+| `POST /api/auth/companies/register` (sửa) | Công khai | Bản đăng ký bỏ dở quá 24 giờ trùng tên đăng nhập, email hoặc mã số thuế được gỡ thay vì trả `409` (quy tắc ở WMS-23.1). Doanh nghiệp tạo ra ở trạng thái `PENDING`, `activated_at` rỗng; phát sự kiện `auth.activation-requested` để notification-service gửi liên kết `{APP_FRONTEND_URL}/activate?token=...` (hiệu lực 24 giờ) tới email đăng ký. `data` thêm `activationRequired` (`true`); `company.status` là `PENDING`. Không trả token |
 | `POST /api/auth/companies/activate` | Công khai | Body: `token`. Hợp lệ: `200`, doanh nghiệp thành `ACTIVE`, ghi `activated_at`, ghi lại bộ nhớ đệm thuê bao; `data`: `companyCode`, `companyName`, `status`, `activatedAt`, `username` (ADMIN nhận liên kết, để điền sẵn ở trang đăng nhập). Sai, đã dùng, quá 24 giờ, hoặc doanh nghiệp đã bị tạm khóa: `400 TOKEN_INVALID`. Thiếu `token`: `400 VALIDATION_ERROR` |
 | `POST /api/auth/companies/resend-activation` | Công khai | Body: `email`. Luôn `200` với cùng thông báo, không có `data`. Chỉ gửi khi email thuộc tài khoản đang bật của doanh nghiệp còn `PENDING`; liên kết mới làm liên kết cũ hết dùng được. Mỗi email tối đa một lần mỗi phút. Email sai định dạng: `400 VALIDATION_ERROR` |
 | `POST /api/auth/password/forgot` | Công khai | Body: `email`. Luôn `200` với cùng thông báo. Chỉ tài khoản đang bật của doanh nghiệp `ACTIVE` nhận liên kết `{APP_FRONTEND_URL}/reset-password?token=...`, hiệu lực 30 phút; liên kết đặt lại cũ hết dùng được. Mỗi email tối đa một lần mỗi phút |
-| `POST /api/auth/password/reset` | Công khai | Body: `token`, `newPassword` (6 đến 72 ký tự như đổi mật khẩu). Hợp lệ: `200`, đổi mật khẩu, vô hiệu mọi liên kết đặt lại khác và refresh token của tài khoản (xóa `refresh:{username}` trên Redis). Mã sai, đã dùng, quá 30 phút, tài khoản bị khóa hoặc doanh nghiệp không còn hoạt động: `400 TOKEN_INVALID`. Mật khẩu không hợp lệ: `400 VALIDATION_ERROR` |
+| `POST /api/auth/password/reset` | Công khai | Body: `token`, `newPassword` (6 đến 72 ký tự như đổi mật khẩu). Hợp lệ: `200`, đổi mật khẩu, vô hiệu mọi liên kết đặt lại khác và refresh token của tài khoản (xóa `refresh:{username}` trên Redis), gỡ khóa đăng nhập 30 phút và bộ đếm lần sai của tài khoản (`login:lock:user:{username}`, `login:attempts:user:{username}`; khóa theo IP giữ nguyên). Mã sai, đã dùng, quá 30 phút, tài khoản bị khóa hoặc doanh nghiệp không còn hoạt động: `400 TOKEN_INVALID`. Mật khẩu không hợp lệ: `400 VALIDATION_ERROR` |
 
 Đăng nhập (và làm mới token) khi doanh nghiệp còn `PENDING`: `403 COMPANY_INACTIVE`, thông báo hướng dẫn mở email kích hoạt, `data` là `{"companyStatus": "PENDING"}` để giao diện phân biệt với doanh nghiệp bị tạm khóa (`SUSPENDED` giữ thông báo cũ, không có `data`). Mật khẩu sai vẫn trả `401` như trước, nên chỉ người biết mật khẩu mới thấy trạng thái `PENDING`.
 

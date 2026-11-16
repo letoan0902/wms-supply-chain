@@ -3,9 +3,7 @@ import type { ApiErrorResponse, ApiResponse } from '../types/api'
 import type { RefreshTokenResponse } from '../types/auth'
 import {
   clearAuth,
-  getRefreshToken,
   getToken,
-  saveRefreshToken,
   saveToken,
 } from '../utils/storage'
 import { loginPathWithRedirect } from '../features/auth/loginRedirect'
@@ -25,11 +23,13 @@ declare module 'axios' {
 /**
  * Axios instance dùng chung cho toàn bộ ứng dụng.
  * baseURL mặc định là '/api': Vite proxy (dev) hoặc Nginx (Docker) chuyển tiếp tới API Gateway.
+ * withCredentials: true cho phép trình duyệt tự động gửi và nhận HttpOnly Cookie (chứa Refresh Token - SRS UC-01).
  */
 export const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || '/api',
   timeout: 15000,
   headers: { 'Content-Type': 'application/json' },
+  withCredentials: true,
 })
 
 // Gắn Bearer token (nếu có) vào mọi request
@@ -123,18 +123,17 @@ api.interceptors.response.use(
 )
 
 /**
- * Sau khi làm mới token thất bại: trả access token mới nếu tab khác đã lưu refresh token khác token vừa dùng
- * (tab kia ghi access token trước refresh token nên hai giá trị đi cùng nhau). Phản hồi của tab kia có thể về
+ * Sau khi làm mới token thất bại: trả access token mới nếu tab khác đã lưu access token mới
+ * (tab kia đã refresh thành công và lưu access token mới vào localStorage). Phản hồi của tab kia có thể về
  * sau lỗi của tab này nên đọc lại một lần nữa sau 1 giây; không có thì trả null để đăng xuất như cũ.
  */
-async function waitForTokensFromOtherTab(usedRefreshToken: string): Promise<string | null> {
+async function waitForTokensFromOtherTab(previousAccessToken: string | null): Promise<string | null> {
   for (let attempt = 0; attempt < 2; attempt++) {
     if (attempt > 0) {
       await new Promise((resolve) => setTimeout(resolve, 1000))
     }
-    const latestRefreshToken = getRefreshToken()
     const latestAccessToken = getToken()
-    if (latestRefreshToken && latestAccessToken && latestRefreshToken !== usedRefreshToken) {
+    if (latestAccessToken && latestAccessToken !== previousAccessToken) {
       return latestAccessToken
     }
   }
@@ -182,37 +181,27 @@ api.interceptors.response.use(
 
       originalRequest._retry = true
       isRefreshing = true
-
-      const currentRefreshToken = getRefreshToken()
-      if (!currentRefreshToken) {
-        clearAuth()
-        if (window.location.pathname !== LOGIN_PATH) {
-          window.location.assign(loginPathWithRedirect())
-        }
-        return Promise.reject(error)
-      }
+      const previousAccessToken = getToken()
 
       try {
         // Gọi API refresh qua axios độc lập (không qua instance `api` để tránh đệ quy interceptor)
         const refreshResponse = await axios.post<ApiResponse<RefreshTokenResponse>>(
           `${api.defaults.baseURL || '/api'}/auth/refresh`,
-          { refreshToken: currentRefreshToken },
-          { headers: { 'Content-Type': 'application/json' } },
+          {},
+          {
+            headers: { 'Content-Type': 'application/json' },
+            withCredentials: true,
+          },
         )
-
         const data = refreshResponse.data?.data
         const newAccessToken = data?.accessToken
-        const newRefreshToken = data?.refreshToken
 
         if (!newAccessToken) {
           throw new Error('Không nhận được Access Token mới từ máy chủ')
         }
 
-        // Cập nhật Access Token mới (và Refresh Token mới nếu backend xoay vòng RTR)
+        // Cập nhật Access Token mới vào localStorage
         saveToken(newAccessToken)
-        if (newRefreshToken) {
-          saveRefreshToken(newRefreshToken)
-        }
 
         // Giải phóng hàng đợi và thông báo token mới cho các request đang chờ
         processQueue(null, newAccessToken)
@@ -224,8 +213,8 @@ api.interceptors.response.use(
         return api(originalRequest)
       } catch (refreshErr) {
         // Máy chủ chỉ giữ một refresh token cho mỗi người dùng và xoay vòng sau mỗi lần làm mới: tab khác làm mới
-        // cùng lúc thì lần của tab này thua. Nếu tab kia đã lưu cặp token mới thì gửi lại request, không xóa phiên.
-        const latestAccessToken = await waitForTokensFromOtherTab(currentRefreshToken)
+        // cùng lúc thì lần của tab này thua. Nếu tab kia đã lưu token mới thì gửi lại request, không xóa phiên.
+        const latestAccessToken = await waitForTokensFromOtherTab(previousAccessToken)
         if (latestAccessToken) {
           processQueue(null, latestAccessToken)
           if (originalRequest.headers) {

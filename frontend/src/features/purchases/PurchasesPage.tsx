@@ -10,12 +10,12 @@ import {
   FileTextOutlined,
   PlusOutlined,
   ReloadOutlined,
+  ShopOutlined,
   ShoppingCartOutlined,
   StopOutlined,
 } from '@ant-design/icons'
 import {
   App,
-  Badge,
   Button,
   Card,
   Col,
@@ -364,10 +364,19 @@ export default function PurchasesPage() {
 
   const columns: ColumnsType<PurchaseOrder> = [
     {
-      title: 'Mã PO',
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">#</span>,
+      key: 'index',
+      width: 44,
+      align: 'center',
+      render: (_, __, idx) => (
+        <span className="text-xs font-mono text-slate-400">{page * pageSize + idx + 1}</span>
+      ),
+    },
+    {
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">Mã PO</span>,
       dataIndex: 'poNumber',
       key: 'poNumber',
-      width: 155,
+      width: 135,
       render: (val: string, r) => (
         <button
           type="button"
@@ -375,79 +384,87 @@ export default function PurchasesPage() {
             setSelectedOrder(r)
             setIsDetailModalOpen(true)
           }}
-          className="font-mono font-semibold text-blue-700 bg-blue-50 hover:bg-blue-100 px-2 py-0.5 rounded text-xs cursor-pointer text-left transition-colors"
+          className="font-mono text-sm font-semibold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer text-left transition-colors"
         >
           {val}
         </button>
       ),
     },
     {
-      title: 'Nhà cung cấp',
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">Nhà cung cấp</span>,
       key: 'supplier',
-      width: 220,
+      width: 200,
       render: (_, r) => (
-        <div>
-          <div className="font-semibold text-slate-800 text-xs sm:text-sm">{r.supplierName || 'NCC'}</div>
-          <div className="text-[11px] text-slate-400">ID: {r.supplierId}</div>
+        <div className="py-0.5">
+          <div className="font-semibold text-slate-900 text-sm leading-snug line-clamp-1" title={r.supplierName || 'NCC'}>
+            {r.supplierName || 'NCC'}
+          </div>
+          <div className="text-xs text-slate-500 font-mono mt-0.5">ID: {r.supplierId}</div>
         </div>
       ),
     },
     {
-      title: 'Kho nhận',
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">Kho nhận hàng</span>,
       dataIndex: 'warehouseName',
       key: 'warehouseName',
-      width: 160,
+      width: 145,
       render: (wh: string | null, r) => (
-        <span className="text-xs text-slate-600">
-          {wh || (r.warehouseId ? `Kho #${r.warehouseId}` : 'Chưa chỉ định')}
-        </span>
+        <div className="py-0.5 flex items-center gap-1.5 text-sm text-slate-700 font-medium">
+          <ShopOutlined className="text-slate-400 text-sm shrink-0" />
+          <span className="leading-snug truncate" title={wh || (r.warehouseId ? `Kho #${r.warehouseId}` : 'Chưa chỉ định')}>
+            {wh || (r.warehouseId ? `Kho #${r.warehouseId}` : 'Chưa chỉ định')}
+          </span>
+        </div>
       ),
     },
     {
-      title: 'Ngày đặt / Nhận dự kiến',
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">Ngày đặt / Nhận</span>,
       key: 'dates',
-      width: 180,
+      width: 140,
       render: (_, r) => (
-        <div className="text-xs space-y-0.5">
-          <div className="text-slate-700">
+        <div className="text-xs space-y-0.5 py-0.5">
+          <div className="text-slate-800 font-medium">
             Đặt: {r.orderDate ? new Date(r.orderDate).toLocaleDateString('vi-VN') : '-'}
           </div>
-          <div className="text-slate-400 text-[11px]">
+          <div className="text-slate-500">
             Dự kiến: {r.expectedDate ? new Date(r.expectedDate).toLocaleDateString('vi-VN') : 'Chưa có'}
           </div>
         </div>
       ),
     },
     {
-      title: 'Mặt hàng',
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">Mặt hàng</span>,
       key: 'itemsCount',
-      width: 95,
+      width: 85,
       align: 'center',
       render: (_, r) => (
-        <span className="text-xs font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-full">
+        <span className="font-mono text-xs font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200/80">
           {r.items?.length || 0} dòng
         </span>
       ),
     },
     {
-      title: 'Tổng tiền (VNĐ)',
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">Tổng tiền (VNĐ)</span>,
       dataIndex: 'totalAmount',
       key: 'totalAmount',
-      width: 160,
+      width: 135,
       align: 'right',
       render: (val: number) => (
-        <span className="font-semibold text-slate-800 text-sm tabular-nums">{formatCurrency(val || 0)}</span>
+        <span className="font-mono font-bold text-slate-900 text-sm tabular-nums">
+          {formatCurrency(val || 0)}
+        </span>
       ),
     },
     {
-      title: 'Trạng thái',
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">Trạng thái</span>,
       dataIndex: 'status',
       key: 'status',
-      width: 140,
+      width: 130,
+      align: 'center',
       render: (st: OrderStatus) => {
         const conf = STATUS_CONFIG[st] ?? { label: st, color: 'default', icon: null }
         return (
-          <Tag color={conf.color} className="flex items-center gap-1 w-fit text-xs px-2 py-0.5">
+          <Tag color={conf.color} className="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full border m-0 font-medium">
             {conf.icon}
             <span>{conf.label}</span>
           </Tag>
@@ -455,21 +472,21 @@ export default function PurchasesPage() {
       },
     },
     {
-      title: 'Thao tác',
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">Thao tác</span>,
       key: 'actions',
-      width: 150,
-      fixed: 'right',
+      width: 100,
+      align: 'center',
       render: (_, r) => {
         const isPending = r.status === 'PENDING'
         const isCancellable = r.status === 'DRAFT' || r.status === 'PENDING'
 
         return (
-          <Space size="small">
-            <Tooltip title="Xem chi tiết đơn mua hàng">
+          <Space size={2}>
+            <Tooltip title="Xem chi tiết đơn mua">
               <Button
                 size="small"
                 type="text"
-                icon={<EyeOutlined className="text-blue-600" />}
+                icon={<EyeOutlined className="text-slate-500 hover:text-blue-600" />}
                 onClick={() => {
                   setSelectedOrder(r)
                   setIsDetailModalOpen(true)
@@ -478,12 +495,12 @@ export default function PurchasesPage() {
             </Tooltip>
 
             {canCreateGrn && (r.status === 'APPROVED' || r.status === 'PARTIALLY_RECEIVED') && (
-              <Tooltip title="Lập phiếu nhập kho cho đơn này">
+              <Tooltip title="Nhập kho">
                 <Button
                   data-write-action
                   size="small"
                   type="text"
-                  icon={<BarcodeOutlined className="text-emerald-600" />}
+                  icon={<BarcodeOutlined className="text-emerald-600 hover:text-emerald-700" />}
                   onClick={() => handleOpenCreateGrnTab(r.id)}
                 />
               </Tooltip>
@@ -491,25 +508,25 @@ export default function PurchasesPage() {
 
             {isPending && canApprove && (
               <>
-                <Tooltip title="Phê duyệt đơn mua ngay">
+                <Tooltip title="Phê duyệt">
                   <Popconfirm
                     title="Phê duyệt đơn mua?"
-                    description={`Xác nhận phê duyệt đơn "${r.poNumber}"?`}
-                    icon={<ExclamationCircleOutlined className="text-green-500" />}
+                    description={`Xác nhận duyệt đơn "${r.poNumber}"?`}
+                    icon={<ExclamationCircleOutlined className="text-emerald-500" />}
                     onConfirm={() => handleQuickApprove(r)}
                     okText="Duyệt"
                     cancelText="Hủy"
-                    okButtonProps={{ className: 'bg-green-600 hover:bg-green-700' }}
+                    okButtonProps={{ className: 'bg-emerald-600 hover:bg-emerald-700 text-white' }}
                   >
                     <Button
                       size="small"
                       type="text"
-                      icon={<CheckCircleOutlined className="text-green-600" />}
+                      icon={<CheckCircleOutlined className="text-emerald-600 hover:text-emerald-700" />}
                     />
                   </Popconfirm>
                 </Tooltip>
 
-                <Tooltip title="Từ chối phê duyệt đơn này">
+                <Tooltip title="Từ chối">
                   <Button
                     size="small"
                     type="text"
@@ -525,10 +542,10 @@ export default function PurchasesPage() {
             )}
 
             {isCancellable && canCancel && (
-              <Tooltip title="Hủy đơn mua">
+              <Tooltip title="Hủy đơn">
                 <Popconfirm
-                  title="Hủy đơn mua hàng?"
-                  description={`Bạn có chắc muốn hủy đơn "${r.poNumber}"?`}
+                  title="Hủy đơn mua?"
+                  description={`Hủy đơn "${r.poNumber}"?`}
                   onConfirm={() => handleQuickCancel(r)}
                   okText="Hủy đơn"
                   cancelText="Bỏ qua"
@@ -538,7 +555,7 @@ export default function PurchasesPage() {
                     size="small"
                     type="text"
                     danger
-                    icon={<StopOutlined className="text-slate-400 hover:text-red-600" />}
+                    icon={<StopOutlined className="text-slate-400 hover:text-rose-600" />}
                   />
                 </Popconfirm>
               </Tooltip>
@@ -554,18 +571,7 @@ export default function PurchasesPage() {
     { key: 'ALL', label: `Tất cả (${summary?.totalOrders ?? total})` },
     {
       key: 'PENDING',
-      label: (
-        <span className="flex items-center gap-1.5">
-          <span>Chờ duyệt</span>
-          {(summary?.pendingOrders ?? 0) > 0 && (
-            <Badge
-              count={summary?.pendingOrders}
-              className="site-badge-count-4"
-              style={{ backgroundColor: '#fa8c16' }}
-            />
-          )}
-        </span>
-      ),
+      label: `Chờ duyệt${(summary?.pendingOrders ?? 0) > 0 ? ` (${summary?.pendingOrders})` : ''}`,
     },
     { key: 'APPROVED', label: `Đã duyệt (${summary?.approvedOrders ?? 0})` },
     { key: 'PARTIALLY_RECEIVED', label: 'Nhập dở dang' },
@@ -601,7 +607,7 @@ export default function PurchasesPage() {
             icon={<FileExcelOutlined />}
             onClick={handleExportExcel}
             loading={exporting}
-            className="hover:border-green-600 hover:text-green-600"
+            className="rounded-md text-xs font-medium bg-white hover:bg-slate-50 text-slate-700 border-slate-300"
           >
             Xuất Excel
           </Button>
@@ -610,6 +616,7 @@ export default function PurchasesPage() {
             icon={<ReloadOutlined />}
             onClick={reloadData}
             loading={loading || loadingSummary}
+            className="rounded-md text-xs font-medium bg-white hover:bg-slate-50 text-slate-700 border-slate-300"
           >
             Làm mới
           </Button>
@@ -617,12 +624,11 @@ export default function PurchasesPage() {
           {canCreateGrn && (
             <Button
               data-write-action
-              type="primary"
               icon={<BarcodeOutlined />}
               onClick={() => handleOpenCreateGrnTab()}
-              className="bg-emerald-600 hover:bg-emerald-700 font-semibold"
+              className="rounded-md text-xs font-medium bg-white hover:bg-slate-50 text-slate-700 border-slate-300"
             >
-              Nhập kho thông minh
+              Nhập kho quét mã
             </Button>
           )}
 
@@ -631,7 +637,7 @@ export default function PurchasesPage() {
               type="primary"
               icon={<PlusOutlined />}
               onClick={handleOpenCreateTab}
-              className="bg-blue-600 font-semibold"
+              className="!bg-blue-600 hover:!bg-blue-700 !border-blue-600 text-white font-medium rounded-md text-xs shadow-xs"
             >
               Lập đơn mua hàng mới
             </Button>
@@ -642,40 +648,73 @@ export default function PurchasesPage() {
       {/* 4 Cards Thống kê Tình hình đơn mua */}
       <Row gutter={[16, 16]}>
         <Col xs={12} sm={6}>
-          <Card size="small" className="border-l-4 border-l-blue-500 shadow-2xs">
-            <div className="text-xs text-slate-500">Tổng số đơn PO</div>
-            <div className="text-xl font-semibold text-slate-800 mt-1 tabular-nums">
-              {formatNumber(summary?.totalOrders ?? total)}
+          <Card variant="borderless" className="shadow-xs border border-slate-200/80 bg-white">
+            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Tổng số đơn PO
+            </div>
+            <div className="mt-2 flex items-baseline gap-1.5">
+              <span className="text-3xl font-bold text-slate-900 tracking-tight tabular-nums">
+                {formatNumber(summary?.totalOrders ?? total)}
+              </span>
+              <span className="text-sm text-slate-500 font-normal">đơn</span>
+            </div>
+            <div className="mt-3 pt-2 border-t border-slate-100 text-xs text-slate-600">
+              Toàn bộ đơn mua trong hệ thống
             </div>
           </Card>
         </Col>
 
         <Col xs={12} sm={6}>
-          <Card size="small" className="border-l-4 border-l-amber-500 shadow-2xs">
-            <div className="text-xs text-slate-500">Đơn chờ duyệt</div>
-            <div className="text-xl font-semibold text-amber-600 mt-1 flex items-center gap-2 tabular-nums">
-              <span>{formatNumber(summary?.pendingOrders ?? 0)}</span>
+          <Card variant="borderless" className="shadow-xs border border-slate-200/80 bg-white">
+            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 flex items-center justify-between">
+              <span>Đơn chờ duyệt</span>
               {(summary?.pendingOrders ?? 0) > 0 && (
-                <Tag color="warning" className="text-[10px] m-0">Cần xử lý</Tag>
+                <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200/80">
+                  Cần xử lý
+                </span>
               )}
             </div>
-          </Card>
-        </Col>
-
-        <Col xs={12} sm={6}>
-          <Card size="small" className="border-l-4 border-l-green-500 shadow-2xs">
-            <div className="text-xs text-slate-500">Đã phê duyệt</div>
-            <div className="text-xl font-semibold text-green-600 mt-1 tabular-nums">
-              {formatNumber(summary?.approvedOrders ?? 0)}
+            <div className="mt-2 flex items-baseline gap-1.5">
+              <span className="text-3xl font-bold text-slate-900 tracking-tight tabular-nums">
+                {formatNumber(summary?.pendingOrders ?? 0)}
+              </span>
+              <span className="text-sm text-slate-500 font-normal">đơn</span>
+            </div>
+            <div className="mt-3 pt-2 border-t border-slate-100 text-xs text-slate-600">
+              Đơn đang chờ Quản lý duyệt
             </div>
           </Card>
         </Col>
 
         <Col xs={12} sm={6}>
-          <Card size="small" className="border-l-4 border-l-purple-500 shadow-2xs">
-            <div className="text-xs text-slate-500">Ngân sách đã duyệt</div>
-            <div className="text-xl font-semibold text-purple-700 mt-1 tabular-nums">
-              {formatCurrency(summary?.totalApprovedAmount ?? 0)}
+          <Card variant="borderless" className="shadow-xs border border-slate-200/80 bg-white">
+            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Đã phê duyệt
+            </div>
+            <div className="mt-2 flex items-baseline gap-1.5">
+              <span className="text-3xl font-bold text-slate-900 tracking-tight tabular-nums">
+                {formatNumber(summary?.approvedOrders ?? 0)}
+              </span>
+              <span className="text-sm text-slate-500 font-normal">đơn</span>
+            </div>
+            <div className="mt-3 pt-2 border-t border-slate-100 text-xs text-slate-600">
+              Đã duyệt, sẵn sàng nhận hàng
+            </div>
+          </Card>
+        </Col>
+
+        <Col xs={12} sm={6}>
+          <Card variant="borderless" className="shadow-xs border border-slate-200/80 bg-white">
+            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Ngân sách đã duyệt
+            </div>
+            <div className="mt-2 flex items-baseline gap-1.5">
+              <span className="text-3xl font-bold text-slate-900 tracking-tight tabular-nums truncate">
+                {formatCurrency(summary?.totalApprovedAmount ?? 0)}
+              </span>
+            </div>
+            <div className="mt-3 pt-2 border-t border-slate-100 text-xs text-slate-600">
+              Tổng giá trị các đơn mua đã duyệt
             </div>
           </Card>
         </Col>
@@ -686,27 +725,41 @@ export default function PurchasesPage() {
         activeKey={activeTab}
         destroyInactiveTabPane
         onChange={handleTabChange}
+        className="purchases-main-tabs"
         items={[
           {
             key: 'list',
             label: (
               <span className="flex items-center gap-1.5 px-1 font-medium">
                 <FileTextOutlined />
-                <span>Danh sách đơn mua hàng</span>
+                <span>Đơn mua hàng (PO)</span>
               </span>
             ),
             children: (
-              <Card variant="borderless" className="shadow-2xs space-y-4">
-                {/* Thanh Tabs phân loại theo trạng thái */}
-                <Tabs
-                  activeKey={selectedStatusTab}
-                  onChange={(key) => {
-                    setSelectedStatusTab(key)
-                    setPage(0)
-                  }}
-                  items={statusFilterTabs}
-                  className="mb-3"
-                />
+              <Card variant="borderless" className="shadow-xs border border-slate-200/80 bg-white">
+                {/* Thanh lọc trạng thái dạng Pills hiện đại */}
+                <div className="flex flex-wrap items-center gap-1.5 p-1 bg-slate-100/90 rounded-lg w-fit border border-slate-200/60 mb-4">
+                  {statusFilterTabs.map((tab) => {
+                    const isActive = selectedStatusTab === tab.key
+                    return (
+                      <button
+                        key={tab.key}
+                        type="button"
+                        onClick={() => {
+                          setSelectedStatusTab(tab.key)
+                          setPage(0)
+                        }}
+                        className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all cursor-pointer ${
+                          isActive
+                            ? 'bg-white text-slate-900 shadow-xs font-semibold'
+                            : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                        }`}
+                      >
+                        {tab.label}
+                      </button>
+                    )
+                  })}
+                </div>
 
                 {/* Bộ lọc đa tiêu chí */}
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
@@ -717,7 +770,7 @@ export default function PurchasesPage() {
                         setKeyword(val.trim() || undefined)
                         setPage(0)
                       }}
-                      className="w-full sm:w-64"
+                      className="w-full sm:w-60"
                       allowClear
                     />
 
@@ -752,7 +805,7 @@ export default function PurchasesPage() {
                       filterOption={(input, opt) =>
                         String(opt?.label ?? '').toLowerCase().includes(input.toLowerCase())
                       }
-                      className="w-48"
+                      className="w-44"
                       options={warehouses.map((w) => ({
                         value: w.id,
                         label: `[${w.code}] ${w.name}`,
@@ -790,6 +843,7 @@ export default function PurchasesPage() {
                           setDateRange([undefined, undefined])
                           setPage(0)
                         }}
+                        className="rounded-md text-xs font-medium"
                       >
                         Xóa bộ lọc
                       </Button>
@@ -803,7 +857,6 @@ export default function PurchasesPage() {
                   columns={columns}
                   dataSource={orders}
                   loading={loading}
-                  scroll={{ x: 1200 }}
                   pagination={{
                     current: page + 1,
                     pageSize,
@@ -823,13 +876,13 @@ export default function PurchasesPage() {
           {
             key: 'grn',
             label: (
-              <span className="flex items-center gap-1.5 px-1 font-medium text-emerald-700">
+              <span className="flex items-center gap-1.5 px-1 font-medium">
                 <FileDoneOutlined />
-                <span>Phiếu nhập kho</span>
+                <span>Phiếu nhập kho (GRN)</span>
               </span>
             ),
             children: (
-              <Card variant="borderless" className="shadow-2xs">
+              <Card variant="borderless" className="shadow-xs border border-slate-200/80 bg-white">
                 <GoodsReceiptTable onOpenCreateGrn={handleOpenCreateGrnTab} />
               </Card>
             ),
@@ -839,13 +892,13 @@ export default function PurchasesPage() {
                 {
                   key: 'bills',
                   label: (
-                    <span className="flex items-center gap-1.5 px-1 font-medium text-amber-700">
+                    <span className="flex items-center gap-1.5 px-1 font-medium">
                       <DollarOutlined />
-                      <span>Hóa đơn mua & Công nợ</span>
+                      <span>Hóa đơn & Công nợ</span>
                     </span>
                   ),
                   children: (
-                    <Card variant="borderless" className="shadow-2xs">
+                    <Card variant="borderless" className="shadow-xs border border-slate-200/80 bg-white">
                       <PurchaseBillsTable />
                     </Card>
                   ),
@@ -855,13 +908,13 @@ export default function PurchasesPage() {
           ...(canCreatePo ? [{
             key: 'create',
             label: (
-              <span className="flex items-center gap-1.5 px-1 text-blue-600 font-semibold">
+              <span className="flex items-center gap-1.5 px-1 font-medium">
                 <PlusOutlined />
-                <span>Lập đơn mua hàng</span>
+                <span>Lập đơn mua mới</span>
               </span>
             ),
             children: (
-              <Card variant="borderless" className="shadow-2xs">
+              <Card variant="borderless" className="shadow-xs border border-slate-200/80 bg-white">
                 <PurchaseOrderForm
                   key={formKey}
                   prefill={prefill}
@@ -874,13 +927,13 @@ export default function PurchasesPage() {
           ...(canCreateGrn ? [{
             key: 'create-grn',
             label: (
-              <span className="flex items-center gap-1.5 px-1 text-emerald-600 font-semibold">
+              <span className="flex items-center gap-1.5 px-1 font-medium">
                 <BarcodeOutlined />
-                <span>Nhập kho thông minh (Quét mã)</span>
+                <span>Nhập kho quét mã</span>
               </span>
             ),
             children: (
-              <Card variant="borderless" className="shadow-2xs">
+              <Card variant="borderless" className="shadow-xs border border-slate-200/80 bg-white">
                 <SmartGoodsReceiptForm
                   key={grnFormKey}
                   initialPoId={selectedPoIdForGrn}

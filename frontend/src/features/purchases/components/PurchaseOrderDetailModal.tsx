@@ -89,81 +89,83 @@ export default function PurchaseOrderDetailModal({
 
   const columns: ColumnsType<PurchaseOrderItem> = [
     {
-      title: '#',
+      title: <span className="whitespace-nowrap font-medium text-slate-700">#</span>,
       key: 'idx',
       width: 45,
       align: 'center',
-      render: (_, __, i) => <span className="text-slate-400 text-xs">{i + 1}</span>,
+      render: (_, __, i) => <span className="text-slate-400 text-xs font-mono">{i + 1}</span>,
     },
     {
-      title: 'Mặt hàng / SKU',
+      title: <span className="whitespace-nowrap font-medium text-slate-700">Mặt hàng / SKU</span>,
       key: 'sku',
       render: (_, item) => (
-        <div>
-          <div className="font-semibold text-slate-800 text-xs sm:text-sm">
+        <div className="py-0.5">
+          <div className="font-medium text-slate-900 text-xs leading-snug">
             {item.productName}
           </div>
-          <span className="font-mono text-xs text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded">
-            {item.skuCode}
-          </span>
+          <div className="mt-1 flex items-center gap-1.5">
+            <span className="font-mono text-[11px] font-semibold text-slate-700 bg-slate-100 px-1.5 py-0.5 rounded border border-slate-200/80">
+              {item.skuCode}
+            </span>
+          </div>
           {item.note && <div className="text-[11px] text-slate-400 mt-0.5">Ghi chú: {item.note}</div>}
         </div>
       ),
     },
     {
-      title: 'ĐVT',
+      title: <span className="whitespace-nowrap font-medium text-slate-700">ĐVT</span>,
       dataIndex: 'uom',
       key: 'uom',
-      width: 80,
+      width: 75,
       align: 'center',
-      render: (uom: string | null) => <span className="text-xs">{uom || '-'}</span>,
+      render: (uom: string | null) => <span className="text-xs text-slate-600">{uom || '-'}</span>,
     },
     {
-      title: 'Số lượng',
+      title: <span className="whitespace-nowrap font-medium text-slate-700">Số lượng</span>,
       dataIndex: 'quantity',
       key: 'quantity',
       width: 90,
       align: 'right',
-      render: (qty: number) => <span className="font-semibold">{formatNumber(qty)}</span>,
+      render: (qty: number) => <span className="font-mono font-medium text-slate-800 text-xs tabular-nums">{formatNumber(qty)}</span>,
     },
     {
-      title: 'Đơn giá mua',
+      title: <span className="whitespace-nowrap font-medium text-slate-700">Đơn giá</span>,
       dataIndex: 'unitPrice',
       key: 'unitPrice',
       width: 120,
       align: 'right',
-      render: (p: number) => <span>{formatCurrency(p)}</span>,
+      render: (p: number) => <span className="font-mono text-slate-700 text-xs tabular-nums">{formatCurrency(p)}</span>,
     },
     {
-      title: 'Chiết khấu',
+      title: <span className="whitespace-nowrap font-medium text-slate-700">Chiết khấu</span>,
       key: 'discount',
-      width: 110,
+      width: 120,
       align: 'right',
       render: (_, it) => (
-        <span className={it.discountAmount ? 'text-amber-600 font-medium' : 'text-slate-400'}>
+        <span className={`font-mono text-xs tabular-nums ${it.discountAmount ? 'text-amber-700 font-medium' : 'text-slate-400'}`}>
           {it.discountAmount ? `-${formatCurrency(it.discountAmount)} (${it.discountPercent ?? 0}%)` : '0 đ'}
         </span>
       ),
     },
     {
-      title: 'Thuế VAT',
+      title: <span className="whitespace-nowrap font-medium text-slate-700">Thuế VAT</span>,
       key: 'tax',
       width: 110,
       align: 'right',
       render: (_, it) => (
-        <span className={it.taxAmount ? 'text-blue-600' : 'text-slate-400'}>
+        <span className={`font-mono text-xs tabular-nums ${it.taxAmount ? 'text-blue-600' : 'text-slate-400'}`}>
           {it.taxAmount ? `+${formatCurrency(it.taxAmount)} (${it.taxRate ?? 0}%)` : '0 đ'}
         </span>
       ),
     },
     {
-      title: 'Thành tiền',
+      title: <span className="whitespace-nowrap font-medium text-slate-700">Thành tiền</span>,
       dataIndex: 'lineTotal',
       key: 'lineTotal',
-      width: 140,
+      width: 135,
       align: 'right',
       render: (total: number) => (
-        <span className="font-bold text-slate-800 text-sm">{formatCurrency(total || 0)}</span>
+        <span className="font-mono font-semibold text-slate-900 text-xs tabular-nums">{formatCurrency(total || 0)}</span>
       ),
     },
   ]

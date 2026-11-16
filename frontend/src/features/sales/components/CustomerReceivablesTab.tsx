@@ -1,6 +1,5 @@
 import {
   CheckCircleOutlined,
-  ClockCircleOutlined,
   DollarOutlined,
   EyeOutlined,
   FileDoneOutlined,
@@ -9,7 +8,6 @@ import {
   ReloadOutlined,
   SearchOutlined,
   UserOutlined,
-  WarningOutlined,
 } from '@ant-design/icons'
 import {
   Alert,
@@ -23,7 +21,6 @@ import {
   Modal,
   Row,
   Space,
-  Statistic,
   Table,
   Tag,
   Tooltip,
@@ -172,15 +169,14 @@ export default function CustomerReceivablesTab() {
   // Cột bảng công nợ khách hàng
   const customerColumns: ColumnsType<Customer> = [
     {
-      title: 'Mã KH',
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">Mã KH</span>,
       dataIndex: 'code',
       key: 'code',
-      width: 110,
+      width: 90,
       render: (val: string, r) => (
         <span
-          className={`font-semibold cursor-pointer ${
-            activeCustomerId === r.id ? 'text-blue-600 underline' : 'text-slate-700 hover:text-blue-500'
-          }`}
+          className={`font-mono text-sm font-semibold cursor-pointer ${activeCustomerId === r.id ? 'text-blue-600 underline' : 'text-slate-700 hover:text-blue-500'
+            }`}
           onClick={() => setSelectedCustomerId(r.id)}
         >
           {val}
@@ -188,102 +184,106 @@ export default function CustomerReceivablesTab() {
       ),
     },
     {
-      title: 'Tên Khách hàng / Đại lý',
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">Tên Khách hàng / Đại lý</span>,
       dataIndex: 'name',
       key: 'name',
+      width: 170,
       render: (val: string, r) => (
-        <div>
+        <div className="py-0.5">
           <div
-            className={`font-medium cursor-pointer ${
-              activeCustomerId === r.id ? 'text-blue-700' : 'text-slate-800'
-            }`}
+            className={`font-semibold cursor-pointer text-sm leading-snug ${activeCustomerId === r.id ? 'text-blue-700' : 'text-slate-900'
+              }`}
             onClick={() => setSelectedCustomerId(r.id)}
           >
             {val}
           </div>
-          <div className="text-xs text-gray-500">{r.phone || r.email || '—'}</div>
+          <div className="text-xs text-slate-500 font-mono mt-0.5">{r.phone || r.email || '—'}</div>
         </div>
       ),
     },
     {
-      title: 'Hạn mức nợ',
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">Hạn mức nợ</span>,
       dataIndex: 'creditLimit',
       key: 'creditLimit',
-      width: 130,
+      width: 115,
       align: 'right',
-      render: (val: number) => formatCurrency(val),
+      render: (val: number) => (
+        <span className="font-mono text-sm text-slate-700 font-medium tabular-nums">
+          {formatCurrency(val)}
+        </span>
+      ),
     },
     {
-      title: 'Công nợ phải thu',
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">Công nợ phải thu</span>,
       dataIndex: 'currentDebt',
       key: 'currentDebt',
-      width: 140,
+      width: 125,
       align: 'right',
       render: (val: number, r) => {
         const isOver = r.creditLimit > 0 && val > r.creditLimit
         return (
-          <span className={`font-bold ${isOver ? 'text-red-600' : val > 0 ? 'text-amber-600' : 'text-slate-700'}`}>
+          <span className={`font-mono font-bold text-sm tabular-nums ${isOver ? 'text-rose-600' : 'text-slate-900'}`}>
             {formatCurrency(val)}
           </span>
         )
       },
     },
     {
-      title: 'Trạng thái',
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">Trạng thái</span>,
       key: 'status',
-      width: 120,
+      width: 110,
       align: 'center',
       render: (_val, r) => {
         if (r.debtLocked) {
-          return <Tag color="error">Bị khóa nợ</Tag>
+          return <Tag color="error" className="text-xs px-2.5 py-0.5 rounded-full border m-0 font-medium">Bị khóa nợ</Tag>
         }
         if (r.creditLimit > 0 && r.currentDebt > r.creditLimit) {
-          return <Tag color="error">Vượt hạn mức</Tag>
+          return <Tag color="error" className="text-xs px-2.5 py-0.5 rounded-full border m-0 font-medium">Vượt hạn mức</Tag>
         }
         if (r.creditLimit > 0 && r.currentDebt >= r.creditLimit * 0.8) {
-          return <Tag color="warning">Cận hạn mức</Tag>
+          return <Tag color="warning" className="text-xs px-2.5 py-0.5 rounded-full border m-0 font-medium">Cận hạn mức</Tag>
         }
-        return <Tag color="success">An toàn</Tag>
+        return <Tag color="success" className="text-xs px-2.5 py-0.5 rounded-full border m-0 font-medium">An toàn</Tag>
       },
     },
     {
-      title: 'Thao tác',
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">Thao tác</span>,
       key: 'action',
-      width: 130,
+      width: 100,
       align: 'center',
       render: (_val, r) => (
         <Space size="small">
           {canRecord && (
-          <Tooltip title="Lập hóa đơn bán (Bán nợ)">
-            <Button
-              data-write-action
-              size="small"
-              type="text"
-              icon={<FileTextOutlined className="text-blue-600" />}
-              onClick={() => {
-                setCustomerForInvoice(r)
-                setInvoiceModalOpen(true)
-              }}
-            />
-          </Tooltip>
+            <Tooltip title="Lập hóa đơn bán (Bán nợ)">
+              <Button
+                data-write-action
+                size="small"
+                type="text"
+                icon={<FileTextOutlined className="text-blue-600" />}
+                onClick={() => {
+                  setCustomerForInvoice(r)
+                  setInvoiceModalOpen(true)
+                }}
+              />
+            </Tooltip>
           )}
           {canRecord && (
-          <Tooltip title="Thu tiền nợ (Thanh toán)">
-            <Button
-              size="small"
-              type="text"
-              icon={<DollarOutlined className="text-green-600" />}
-              onClick={() => {
-                setCustomerForPayment(r)
-                paymentForm.setFieldsValue({
-                  amount: r.currentDebt > 0 ? r.currentDebt : undefined,
-                  referenceCode: `PT-${dayjs().format('YYYYMMDD-HHmmss')}`,
-                  note: `Thu tiền công nợ khách hàng ${r.name}`,
-                })
-                setPaymentModalOpen(true)
-              }}
-            />
-          </Tooltip>
+            <Tooltip title="Thu tiền nợ (Thanh toán)">
+              <Button
+                size="small"
+                type="text"
+                icon={<DollarOutlined className="text-green-600" />}
+                onClick={() => {
+                  setCustomerForPayment(r)
+                  paymentForm.setFieldsValue({
+                    amount: r.currentDebt > 0 ? r.currentDebt : undefined,
+                    referenceCode: `PT-${dayjs().format('YYYYMMDD-HHmmss')}`,
+                    note: `Thu tiền công nợ khách hàng ${r.name}`,
+                  })
+                  setPaymentModalOpen(true)
+                }}
+              />
+            </Tooltip>
           )}
           <Tooltip title="Xem lịch sử hóa đơn">
             <Button
@@ -301,39 +301,39 @@ export default function CustomerReceivablesTab() {
   // Cột bảng Hóa đơn gần đây & Biến động công nợ (FR18 - Recent Invoices)
   const txColumns: ColumnsType<CustomerTransaction> = [
     {
-      title: 'Mã chứng từ / Hóa đơn',
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">Mã chứng từ / Hóa đơn</span>,
       dataIndex: 'referenceCode',
       key: 'referenceCode',
       width: 170,
       render: (val: string, r) => (
-        <div>
-          <span className="font-semibold text-blue-600">{val || `TX-#${r.id}`}</span>
-          <div className="text-[11px] text-gray-500">{dayjs(r.transactionDate).format('DD/MM/YYYY HH:mm')}</div>
+        <div className="py-0.5">
+          <span className="font-mono text-sm font-semibold text-blue-600">{val || `TX-#${r.id}`}</span>
+          <div className="text-xs text-slate-500 font-mono mt-0.5">{dayjs(r.transactionDate).format('DD/MM/YYYY HH:mm')}</div>
         </div>
       ),
     },
     {
-      title: 'Loại phát sinh',
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">Loại phát sinh</span>,
       dataIndex: 'transactionType',
       key: 'transactionType',
       width: 160,
       render: (type: CustomerTransactionType) => {
         switch (type) {
           case 'SALES_INVOICE':
-            return <Tag color="blue" icon={<FileTextOutlined />}>Hóa đơn bán hàng</Tag>
+            return <Tag color="blue" icon={<FileTextOutlined />} className="text-xs px-2.5 py-0.5 rounded-full border m-0 font-medium">Hóa đơn bán hàng</Tag>
           case 'PAYMENT':
-            return <Tag color="success" icon={<CheckCircleOutlined />}>Thu tiền khách</Tag>
+            return <Tag color="success" icon={<CheckCircleOutlined />} className="text-xs px-2.5 py-0.5 rounded-full border m-0 font-medium">Thu tiền khách</Tag>
           case 'RETURN':
-            return <Tag color="warning">Trả lại hàng</Tag>
+            return <Tag color="warning" className="text-xs px-2.5 py-0.5 rounded-full border m-0 font-medium">Trả lại hàng</Tag>
           case 'ADJUSTMENT':
-            return <Tag color="default">Điều chỉnh nợ</Tag>
+            return <Tag color="default" className="text-xs px-2.5 py-0.5 rounded-full border m-0 font-medium">Điều chỉnh nợ</Tag>
           default:
-            return <Tag>{type}</Tag>
+            return <Tag className="text-xs px-2.5 py-0.5 rounded-full border m-0 font-medium">{type}</Tag>
         }
       },
     },
     {
-      title: 'Số tiền phát sinh',
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">Số tiền phát sinh</span>,
       dataIndex: 'amount',
       key: 'amount',
       width: 140,
@@ -341,7 +341,7 @@ export default function CustomerReceivablesTab() {
       render: (val: number, r) => {
         const isPositive = r.transactionType === 'SALES_INVOICE'
         return (
-          <span className={`font-bold ${isPositive ? 'text-blue-600' : 'text-green-600'}`}>
+          <span className={`font-mono font-bold text-sm tabular-nums ${isPositive ? 'text-blue-600' : 'text-slate-900'}`}>
             {isPositive ? '+' : '-'}
             {formatCurrency(val)}
           </span>
@@ -349,24 +349,24 @@ export default function CustomerReceivablesTab() {
       },
     },
     {
-      title: 'Dư nợ sau giao dịch',
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">Dư nợ sau giao dịch</span>,
       dataIndex: 'balanceAfter',
       key: 'balanceAfter',
       width: 160,
       align: 'right',
-      render: (val: number) => <span className="font-bold text-slate-800">{formatCurrency(val)}</span>,
+      render: (val: number) => <span className="font-mono font-bold text-sm text-slate-900 tabular-nums">{formatCurrency(val)}</span>,
     },
     {
-      title: 'Trạng thái',
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">Trạng thái</span>,
       key: 'paymentStatus',
       width: 150,
       align: 'center',
       render: (_val, r) => {
         if (r.transactionType === 'SALES_INVOICE') {
           return r.balanceAfter === 0 ? (
-            <Tag color="success">PAID (Đã thanh toán)</Tag>
+            <Tag color="success" className="text-xs px-2.5 py-0.5 rounded-full border m-0 font-medium">PAID (Đã thanh toán)</Tag>
           ) : (
-            <Tag color="error">UNPAID (Bán nợ)</Tag>
+            <Tag color="error" className="text-xs px-2.5 py-0.5 rounded-full border m-0 font-medium">UNPAID (Bán nợ)</Tag>
           )
         }
         if (r.transactionType === 'PAYMENT') {
@@ -387,44 +387,72 @@ export default function CustomerReceivablesTab() {
 
   return (
     <div className="space-y-4 pt-1">
-      {/* Metrics công nợ */}
+      {/* Metrics công nợ chuẩn Enterprise */}
       <Row gutter={[16, 16]}>
         <Col xs={24} sm={12} md={8}>
-          <Card size="small" className="shadow-2xs border-slate-200">
-            <Statistic
-              title="Tổng công nợ phải thu"
-              value={totalReceivables}
-              formatter={(v) => formatCurrency(Number(v))}
-              valueStyle={{ color: '#cf1322', fontWeight: 'bold' }}
-              prefix={<DollarOutlined className="mr-1 text-red-500" />}
-            />
+          <Card variant="borderless" className="shadow-xs border border-slate-200/80 bg-white">
+            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Tổng công nợ phải thu
+            </div>
+            <div className="mt-2 flex items-baseline gap-1.5">
+              <span className="text-3xl font-bold text-slate-900 tracking-tight tabular-nums">
+                {formatCurrency(totalReceivables)}
+              </span>
+            </div>
+            <div className="mt-3 pt-2 border-t border-slate-100 text-xs text-slate-600">
+              Tổng nợ của toàn bộ khách hàng
+            </div>
           </Card>
         </Col>
+
         <Col xs={12} sm={6} md={8}>
-          <Card size="small" className="shadow-2xs border-slate-200">
-            <Statistic
-              title="Khách hàng vượt hạn mức nợ"
-              value={overLimitCount}
-              valueStyle={{ color: overLimitCount > 0 ? '#fa8c16' : '#52c41a' }}
-              prefix={<WarningOutlined className="mr-1" />}
-            />
+          <Card variant="borderless" className="shadow-xs border border-slate-200/80 bg-white">
+            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 flex items-center justify-between">
+              <span>Khách vượt hạn mức nợ</span>
+              {overLimitCount > 0 && (
+                <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200/80">
+                  Cần xử lý
+                </span>
+              )}
+            </div>
+            <div className="mt-2 flex items-baseline gap-1.5">
+              <span className="text-3xl font-bold text-slate-900 tracking-tight tabular-nums">
+                {overLimitCount}
+              </span>
+              <span className="text-sm text-slate-500 font-normal">khách</span>
+            </div>
+            <div className="mt-3 pt-2 border-t border-slate-100 text-xs text-slate-600">
+              Vượt quá số tiền được phép nợ
+            </div>
           </Card>
         </Col>
+
         <Col xs={12} sm={6} md={8}>
-          <Card size="small" className="shadow-2xs border-slate-200">
-            <Statistic
-              title="Khách hàng đang bị khóa nợ"
-              value={debtLockedCount}
-              valueStyle={{ color: debtLockedCount > 0 ? '#ff4d4f' : '#52c41a' }}
-              prefix={<ClockCircleOutlined className="mr-1" />}
-            />
+          <Card variant="borderless" className="shadow-xs border border-slate-200/80 bg-white">
+            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 flex items-center justify-between">
+              <span>Khách đang bị khóa nợ</span>
+              {debtLockedCount > 0 && (
+                <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200/80">
+                  Đang khóa
+                </span>
+              )}
+            </div>
+            <div className="mt-2 flex items-baseline gap-1.5">
+              <span className="text-3xl font-bold text-slate-900 tracking-tight tabular-nums">
+                {debtLockedCount}
+              </span>
+              <span className="text-sm text-slate-500 font-normal">khách</span>
+            </div>
+            <div className="mt-3 pt-2 border-t border-slate-100 text-xs text-slate-600">
+              Tạm ngừng cho phép mua nợ
+            </div>
           </Card>
         </Col>
       </Row>
 
       <Row gutter={[16, 16]}>
         {/* Cột trái: Danh sách công nợ khách hàng */}
-        <Col xs={24} lg={11}>
+        <Col xs={24} lg={13}>
           <Card
             title={
               <div className="flex items-center justify-between">
@@ -458,7 +486,8 @@ export default function CustomerReceivablesTab() {
                 dataSource={customers}
                 loading={loadingCustomers}
                 pagination={{ pageSize: 8, showSizeChanger: false }}
-                size="small"
+                size="middle"
+                scroll={{ x: 710 }}
                 rowClassName={(r) =>
                   r.id === activeCustomerId ? 'bg-blue-50 font-medium' : ''
                 }
@@ -468,7 +497,7 @@ export default function CustomerReceivablesTab() {
         </Col>
 
         {/* Cột phải: Hóa đơn bán & Biến động công nợ gần đây */}
-        <Col xs={24} lg={13}>
+        <Col xs={24} lg={11}>
           <Card
             title={
               <div className="flex items-center justify-between">
@@ -484,37 +513,37 @@ export default function CustomerReceivablesTab() {
                   </span>
                 </div>
                 {canRecord && (
-                <Space>
-                  <Button
-                    size="small"
-                    type="primary"
-                    icon={<PlusOutlined />}
-                    onClick={() => {
-                      setCustomerForInvoice(activeCustomer || null)
-                      setInvoiceModalOpen(true)
-                    }}
-                    className="bg-blue-600 hover:bg-blue-700"
-                  >
-                    Lập Hóa đơn
-                  </Button>
-                  <Button
-                    size="small"
-                    icon={<DollarOutlined />}
-                    onClick={() => {
-                      if (!activeCustomer) return
-                      setCustomerForPayment(activeCustomer)
-                      paymentForm.setFieldsValue({
-                        amount: activeCustomer.currentDebt > 0 ? activeCustomer.currentDebt : undefined,
-                        referenceCode: `PT-${dayjs().format('YYYYMMDD-HHmmss')}`,
-                        note: `Thu tiền công nợ khách hàng ${activeCustomer.name}`,
-                      })
-                      setPaymentModalOpen(true)
-                    }}
-                    disabled={!activeCustomer}
-                  >
-                    Thu tiền
-                  </Button>
-                </Space>
+                  <Space>
+                    <Button
+                      size="small"
+                      type="primary"
+                      icon={<PlusOutlined />}
+                      onClick={() => {
+                        setCustomerForInvoice(activeCustomer || null)
+                        setInvoiceModalOpen(true)
+                      }}
+                      className="bg-blue-600 hover:bg-blue-700"
+                    >
+                      Lập Hóa đơn
+                    </Button>
+                    <Button
+                      size="small"
+                      icon={<DollarOutlined />}
+                      onClick={() => {
+                        if (!activeCustomer) return
+                        setCustomerForPayment(activeCustomer)
+                        paymentForm.setFieldsValue({
+                          amount: activeCustomer.currentDebt > 0 ? activeCustomer.currentDebt : undefined,
+                          referenceCode: `PT-${dayjs().format('YYYYMMDD-HHmmss')}`,
+                          note: `Thu tiền công nợ khách hàng ${activeCustomer.name}`,
+                        })
+                        setPaymentModalOpen(true)
+                      }}
+                      disabled={!activeCustomer}
+                    >
+                      Thu tiền
+                    </Button>
+                  </Space>
                 )}
               </div>
             }

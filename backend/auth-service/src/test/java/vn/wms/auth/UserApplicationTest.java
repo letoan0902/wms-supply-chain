@@ -258,7 +258,7 @@ class UserApplicationTest extends BaseIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(loginJson("staff", "Demopassword")))
                 .andExpect(status().isUnauthorized())
-                .andExpect(jsonPath("$.message").value("Tài khoản đã bị khóa hoặc ngừng kích hoạt"));
+                .andExpect(jsonPath("$.message").value("Tài khoản đã bị khóa hoặc chưa được kích hoạt"));
 
         // 3. Admin mở khóa lại tài khoản (enabled = true)
         mockMvc.perform(patch("/api/auth/users/" + staff.getId() + "/status")

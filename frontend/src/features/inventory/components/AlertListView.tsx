@@ -1,4 +1,4 @@
-import { Alert, Table, Tag, Tooltip, Typography } from 'antd'
+import { Alert, Table, Tag, Tooltip } from 'antd'
 import type { TableProps } from 'antd'
 import { useEffect, useRef, useState } from 'react'
 import { fetchAlerts } from '../inventoryApi'
@@ -27,7 +27,7 @@ interface AlertListViewProps {
 }
 
 function quantityCell(value: number | null | undefined) {
-  return <span className="tabular-nums">{formatQuantity(value)}</span>
+  return <span className="font-mono text-[15px] font-semibold tabular-nums text-slate-900">{formatQuantity(value)}</span>
 }
 
 /**
@@ -84,10 +84,16 @@ export default function AlertListView({
 
   const columns: TableProps<StockAlert>['columns'] = [
     {
-      title: 'Cảnh báo',
+      title: <span className="text-sm font-semibold text-slate-700">#</span>,
+      key: 'index',
+      width: 48,
+      align: 'center',
+      render: (_v, _r, i) => <span className="text-sm tabular-nums text-slate-500">{(page - 1) * pageSize + i + 1}</span>,
+    },
+    {
+      title: <span className="text-sm font-semibold text-slate-700">Cảnh báo</span>,
       key: 'tag',
-      width: 140,
-      fixed: 'left',
+      width: 120,
       render: (_, row) => (
         <Tooltip title={SEVERITY_LABELS[row.severity]}>
           <Tag color={SEVERITY_COLORS[row.severity]} style={{ fontWeight: 600 }}>
@@ -97,97 +103,105 @@ export default function AlertListView({
       ),
     },
     {
-      title: 'Mã SKU',
+      title: <span className="text-sm font-semibold text-slate-700">Mã SKU</span>,
       key: 'sku',
-      width: 130,
-      render: (_, row) => <Typography.Text strong>{row.skuCode ?? `#${row.productId}`}</Typography.Text>,
+      width: 120,
+      render: (_, row) => (
+        <span className="font-mono text-[15px] font-semibold text-blue-600">{row.skuCode ?? `#${row.productId}`}</span>
+      ),
     },
     {
-      title: 'Tên hàng hóa',
+      title: <span className="text-sm font-semibold text-slate-700">Tên hàng hóa</span>,
       key: 'name',
-      width: 200,
-      render: (_, row) => row.productName ?? <Typography.Text type="secondary">Không rõ tên</Typography.Text>,
+      width: 180,
+      render: (_, row) => (
+        <span className="text-[15px] font-semibold text-slate-900">
+          {row.productName ?? <span className="text-slate-400">Không rõ tên</span>}
+        </span>
+      ),
     },
     ...(showWarehouse
       ? [
           {
-            title: 'Kho',
+            title: <span className="text-sm font-semibold text-slate-700">Kho</span>,
             key: 'warehouse',
-            width: 160,
-            render: (_: unknown, row: StockAlert) => row.warehouseName ?? row.warehouseCode ?? '—',
+            width: 140,
+            render: (_: unknown, row: StockAlert) => (
+              <span className="text-sm text-slate-700">{row.warehouseName ?? row.warehouseCode ?? '—'}</span>
+            ),
           },
         ]
       : []),
     {
-      title: 'Lô / vị trí',
+      title: <span className="text-sm font-semibold text-slate-700">Lô / vị trí</span>,
       key: 'lot',
-      width: 170,
+      width: 150,
       render: (_, row) =>
         row.stockItemId === null ? (
-          <Typography.Text type="secondary">Cả mặt hàng tại kho</Typography.Text>
+          <span className="text-sm text-slate-400">Cả mặt hàng tại kho</span>
         ) : (
           <div>
-            <div>{row.lotNo ? `Lô ${row.lotNo}` : 'Không số lô'}</div>
-            {row.binCode ? <Typography.Text code>{row.binCode}</Typography.Text> : null}
+            <div className="text-sm text-slate-700">{row.lotNo ? `Lô ${row.lotNo}` : 'Không số lô'}</div>
+            {row.binCode ? <code className="rounded bg-slate-100 px-1 py-0.5 text-xs font-medium text-slate-700">{row.binCode}</code> : null}
           </div>
         ),
     },
     {
-      title: 'Hạn dùng',
+      title: <span className="text-sm font-semibold text-slate-700">Hạn dùng</span>,
       key: 'expDate',
-      width: 140,
+      width: 120,
       render: (_, row) =>
         row.expDate ? (
           <div>
-            <div>{formatLocalDate(row.expDate)}</div>
-            <Typography.Text type={row.daysLeft !== null && row.daysLeft <= 0 ? 'danger' : 'warning'} className="text-xs">
+            <div className="text-sm tabular-nums text-slate-600">{formatLocalDate(row.expDate)}</div>
+            <span className={`text-xs font-medium ${row.daysLeft !== null && row.daysLeft <= 0 ? 'text-red-600' : 'text-amber-600'}`}>
               {daysLeftText(row.daysLeft)}
-            </Typography.Text>
+            </span>
           </div>
         ) : (
-          '—'
+          <span className="text-sm text-slate-400">—</span>
         ),
     },
     {
-      title: 'Số lượng',
+      title: <span className="text-sm font-semibold text-slate-700">Số lượng</span>,
       key: 'quantity',
-      width: 110,
+      width: 96,
       align: 'right',
       render: (_, row) => quantityCell(row.quantity),
     },
     {
-      title: 'Khả dụng',
+      title: <span className="text-sm font-semibold text-slate-700">Khả dụng</span>,
       key: 'available',
-      width: 110,
+      width: 96,
       align: 'right',
       render: (_, row) => quantityCell(row.availableQuantity),
     },
     {
-      title: 'Ngưỡng',
+      title: <span className="text-sm font-semibold text-slate-700">Ngưỡng</span>,
       key: 'threshold',
-      width: 170,
+      width: 150,
       render: (_, row) =>
         row.kind === 'LOW_STOCK' ? (
-          <div className="text-xs">
-            <div>An toàn: {formatQuantity(row.safetyStock)}</div>
-            <div>Đặt hàng lại: {formatQuantity(row.reorderPoint)}</div>
+          <div className="text-sm text-slate-600">
+            <div>An toàn: <span className="font-semibold tabular-nums">{formatQuantity(row.safetyStock)}</span></div>
+            <div>Đặt lại: <span className="font-semibold tabular-nums">{formatQuantity(row.reorderPoint)}</span></div>
           </div>
         ) : row.kind === 'DEAD_STOCK' ? (
-          <div className="text-xs">
-            <div>{row.daysWithoutMovement ?? '—'} ngày không nhập xuất</div>
+          <div className="text-sm text-slate-600">
+            <div><span className="font-semibold tabular-nums">{row.daysWithoutMovement ?? '—'}</span> ngày không nhập xuất</div>
             <div>Lần cuối: {formatInstantDate(row.lastMovementAt)}</div>
           </div>
         ) : (
-          '—'
+          <span className="text-sm text-slate-400">—</span>
         ),
     },
     {
-      title: 'Nội dung',
+      title: <span className="text-sm font-semibold text-slate-700">Nội dung</span>,
       key: 'message',
-      width: 360,
+      width: 300,
       render: (_, row) => (
         <Tooltip title={alertReason(row)}>
-          <span>{row.message}</span>
+          <span className="text-sm text-slate-700">{row.message}</span>
         </Tooltip>
       ),
     },
@@ -211,7 +225,7 @@ export default function AlertListView({
       loading={loading}
       columns={columns}
       dataSource={rows}
-      scroll={{ x: showWarehouse ? 1800 : 1640 }}
+      scroll={{ x: showWarehouse ? 1560 : 1420 }}
       rowClassName={(row) => (row.kind === 'EXPIRED' ? 'inventory-row-expired' : '')}
       onChange={(pagination) => {
         setPage(pagination.current ?? 1)

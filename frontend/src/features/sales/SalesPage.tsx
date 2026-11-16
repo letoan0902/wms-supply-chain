@@ -1,6 +1,5 @@
 import {
   CheckCircleOutlined,
-  ClockCircleOutlined,
   DeleteOutlined,
   DollarOutlined,
   ExclamationCircleOutlined,
@@ -14,11 +13,9 @@ import {
   SearchOutlined,
   ShoppingOutlined,
   StopOutlined,
-  WarningOutlined,
 } from '@ant-design/icons'
 import {
   App,
-  Badge,
   Button,
   Card,
   Col,
@@ -28,7 +25,6 @@ import {
   Row,
   Select,
   Space,
-  Statistic,
   Table,
   Tabs,
   Tag,
@@ -333,23 +329,33 @@ export default function SalesPage() {
   // Cột hiển thị bảng
   const columns: ColumnsType<SalesOrder> = [
     {
-      title: 'Mã SO',
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">#</span>,
+      key: 'index',
+      width: 44,
+      align: 'center',
+      render: (_, __, idx) => (
+        <span className="text-xs font-mono text-slate-400">{page * pageSize + idx + 1}</span>
+      ),
+    },
+    {
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">Mã SO</span>,
       dataIndex: 'soNumber',
       key: 'soNumber',
-      width: 160,
+      width: 140,
       render: (val: string, record) => (
-        <div>
-          <span
-            className="font-semibold text-blue-600 cursor-pointer hover:underline"
+        <div className="py-0.5">
+          <button
+            type="button"
+            className="font-mono text-sm font-semibold text-blue-600 hover:text-blue-800 hover:underline cursor-pointer text-left transition-colors"
             onClick={() => {
               setSelectedOrder(record)
               setDetailModalOpen(true)
             }}
           >
             {val}
-          </span>
+          </button>
           {record.warehouseName && (
-            <div className="text-xs text-gray-500 truncate" title={record.warehouseName}>
+            <div className="text-xs text-slate-500 font-medium truncate mt-0.5" title={record.warehouseName}>
               Kho: {record.warehouseName}
             </div>
           )}
@@ -357,43 +363,50 @@ export default function SalesPage() {
       ),
     },
     {
-      title: 'Khách hàng',
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">Khách hàng</span>,
       dataIndex: 'customerName',
       key: 'customerName',
-      width: 220,
+      width: 200,
       render: (val: string, record) => (
-        <div>
-          <div className="font-medium text-slate-800">{val || 'Khách vãng lai'}</div>
+        <div className="py-0.5">
+          <div className="font-semibold text-slate-900 text-sm leading-snug line-clamp-1" title={val || 'Khách vãng lai'}>
+            {val || 'Khách vãng lai'}
+          </div>
           {record.customerCode && (
-            <Tag color="geekblue" className="text-xs m-0">
-              {record.customerCode}
-            </Tag>
+            <div className="text-xs text-slate-500 font-mono mt-0.5">
+              Mã: {record.customerCode}
+            </div>
           )}
         </div>
       ),
     },
     {
-      title: 'Ngày đặt',
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">Ngày đặt</span>,
       dataIndex: 'orderDate',
       key: 'orderDate',
-      width: 110,
-      render: (val: string) => (val ? dayjs(val).format('DD/MM/YYYY') : '—'),
+      width: 105,
+      render: (val: string) => (
+        <span className="text-xs text-slate-700 font-medium">
+          {val ? dayjs(val).format('DD/MM/YYYY') : '—'}
+        </span>
+      ),
     },
     {
-      title: 'Trạng thái',
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">Trạng thái</span>,
       dataIndex: 'status',
       key: 'status',
-      width: 170,
+      width: 135,
+      align: 'center',
       render: (st: OrderStatus, record) => {
         const cfg = SALES_STATUS_CONFIG[st] || { label: st, color: 'default', icon: null }
         return (
-          <div>
-            <Tag color={cfg.color} icon={cfg.icon}>
+          <div className="py-0.5">
+            <Tag color={cfg.color} icon={cfg.icon} className="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full border m-0 font-medium">
               {cfg.label}
             </Tag>
             {st === 'BACKORDER' && record.backorderReason && (
               <div
-                className="text-[11px] text-amber-700 mt-1 line-clamp-1"
+                className="text-xs text-amber-700 font-medium mt-1 line-clamp-1"
                 title={record.backorderReason}
               >
                 {record.backorderReason}
@@ -404,41 +417,44 @@ export default function SalesPage() {
       },
     },
     {
-      title: 'Tổng tiền hàng',
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">Tổng tiền (VNĐ)</span>,
       dataIndex: 'totalAmount',
       key: 'totalAmount',
-      width: 150,
+      width: 140,
       align: 'right',
       render: (val: number) => (
-        <span className="font-semibold text-slate-900 tabular-nums">{formatCurrency(val)}</span>
+        <span className="font-mono font-bold text-slate-900 text-sm tabular-nums">
+          {formatCurrency(val)}
+        </span>
       ),
     },
     {
-      title: 'Số mặt hàng',
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">Mặt hàng</span>,
       key: 'itemCount',
-      width: 100,
+      width: 90,
       align: 'center',
       render: (_val, record) => (
-        <Badge
-          count={record.items?.length || 0}
-          overflowCount={999}
-          style={{ backgroundColor: '#108ee9' }}
-        />
+        <span className="font-mono text-xs font-semibold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200/80">
+          {record.items?.length || 0} dòng
+        </span>
       ),
     },
     {
-      title: 'Thời gian tạo',
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">Thời gian tạo</span>,
       dataIndex: 'createdAt',
       key: 'createdAt',
-      width: 150,
-      render: (val?: string) => (val ? dayjs(val).format('DD/MM/YYYY HH:mm') : '—'),
+      width: 130,
+      render: (val?: string) => (
+        <span className="text-xs text-slate-500 font-medium">
+          {val ? dayjs(val).format('DD/MM/YYYY HH:mm') : '—'}
+        </span>
+      ),
     },
     {
-      title: 'Thao tác',
+      title: <span className="whitespace-nowrap font-semibold text-slate-700 text-sm">Thao tác</span>,
       key: 'actions',
-      width: 130,
+      width: 110,
       align: 'center',
-      fixed: 'right',
       render: (_val, r) => {
         const isPendingOrDraft = r.status === 'DRAFT' || r.status === 'BACKORDER'
         const isCancellable = ['DRAFT', 'CONFIRMED', 'BACKORDER'].includes(r.status)
@@ -446,13 +462,13 @@ export default function SalesPage() {
         const isDeletable = ['DRAFT', 'CANCELLED'].includes(r.status)
 
         return (
-          <Space size="small">
+          <Space size={2}>
             {/* Xem chi tiết */}
             <Tooltip title="Xem chi tiết đơn bán">
               <Button
                 size="small"
                 type="text"
-                icon={<EyeOutlined className="text-blue-600" />}
+                icon={<EyeOutlined className="text-slate-500 hover:text-blue-600" />}
                 onClick={() => {
                   setSelectedOrder(r)
                   setDetailModalOpen(true)
@@ -466,16 +482,16 @@ export default function SalesPage() {
                 <Popconfirm
                   title="Xác nhận đơn bán?"
                   description={`Xác nhận duyệt đơn "${r.soNumber}" và giữ hàng?`}
-                  icon={<ExclamationCircleOutlined className="text-green-500" />}
+                  icon={<ExclamationCircleOutlined className="text-blue-500" />}
                   onConfirm={() => handleQuickConfirm(r)}
                   okText="Xác nhận"
                   cancelText="Hủy"
-                  okButtonProps={{ className: 'bg-green-600 hover:bg-green-700' }}
+                  okButtonProps={{ type: 'primary' }}
                 >
                   <Button
                     size="small"
                     type="text"
-                    icon={<CheckCircleOutlined className="text-green-600" />}
+                    icon={<CheckCircleOutlined className="text-blue-600 hover:text-blue-700" />}
                     loading={confirmingId === r.id}
                     disabled={confirmingId !== null && confirmingId !== r.id}
                   />
@@ -490,7 +506,7 @@ export default function SalesPage() {
                   data-write-action
                   size="small"
                   type="text"
-                  icon={<RocketOutlined className="text-orange-500 hover:text-orange-600" />}
+                  icon={<RocketOutlined className="text-slate-600 hover:text-blue-600" />}
                   onClick={() => {
                     setOrderForPicking(r)
                     setIsPickingModalOpen(true)
@@ -506,7 +522,7 @@ export default function SalesPage() {
                   data-write-action
                   size="small"
                   type="text"
-                  icon={<FileTextOutlined className="text-purple-600" />}
+                  icon={<FileTextOutlined className="text-slate-600 hover:text-blue-600" />}
                   onClick={() => {
                     setOrderForInvoice(r)
                     setInvoiceModalOpen(true)
@@ -530,7 +546,7 @@ export default function SalesPage() {
                     size="small"
                     type="text"
                     danger
-                    icon={<StopOutlined className="text-slate-400 hover:text-red-600" />}
+                    icon={<StopOutlined className="text-slate-400 hover:text-rose-600" />}
                   />
                 </Popconfirm>
               </Tooltip>
@@ -551,7 +567,7 @@ export default function SalesPage() {
                     size="small"
                     type="text"
                     danger
-                    icon={<DeleteOutlined className="text-red-500 hover:text-red-700" />}
+                    icon={<DeleteOutlined className="text-slate-400 hover:text-rose-700" />}
                   />
                 </Popconfirm>
               </Tooltip>
@@ -562,37 +578,11 @@ export default function SalesPage() {
     },
   ]
 
-  // Danh sách các tab trạng thái (sub-filters)
+  // Danh sách các tab trạng thái (sub-filters dạng pills)
   const statusFilterTabs = [
     { key: 'ALL', label: `Tất cả (${summary?.totalOrders ?? totalOrders})` },
-    {
-      key: 'CONFIRMED',
-      label: (
-        <span className="flex items-center gap-1.5">
-          <span>Đã xác nhận</span>
-          {(summary?.confirmedOrders ?? 0) > 0 && (
-            <Badge
-              count={summary?.confirmedOrders}
-              style={{ backgroundColor: '#52c41a' }}
-            />
-          )}
-        </span>
-      ),
-    },
-    {
-      key: 'BACKORDER',
-      label: (
-        <span className="flex items-center gap-1.5">
-          <span>Thiếu hàng</span>
-          {(summary?.backorders ?? 0) > 0 && (
-            <Badge
-              count={summary?.backorders}
-              style={{ backgroundColor: '#faad14' }}
-            />
-          )}
-        </span>
-      ),
-    },
+    { key: 'CONFIRMED', label: `Đã xác nhận (${summary?.confirmedOrders ?? 0})` },
+    { key: 'BACKORDER', label: `Thiếu hàng (${summary?.backorders ?? 0})` },
     { key: 'DRAFT', label: `Bản nháp (${summary?.draftOrders ?? 0})` },
     { key: 'COMPLETED', label: `Hoàn thành (${summary?.completedOrders ?? 0})` },
     { key: 'CANCELLED', label: `Đã hủy (${summary?.cancelledOrders ?? 0})` },
@@ -609,11 +599,10 @@ export default function SalesPage() {
       {/* Header trang */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <Title level={3} className="!mb-1 flex items-center gap-2 text-slate-800">
-            <ShoppingOutlined className="text-blue-600" />
-            <span>Quản lý Đơn Bán Hàng & Công Nợ Phải Thu (SO)</span>
+          <Title level={3} className="!mb-1 text-slate-900 font-bold tracking-tight">
+            Quản lý Đơn Bán Hàng & Công Nợ Phải Thu (SO)
           </Title>
-          <Text type="secondary" className="text-sm">
+          <Text type="secondary" className="text-sm text-slate-500">
             Quy trình bán hàng, kiểm tra ATP, giữ hàng, tạo hóa đơn và theo dõi công nợ phải thu
           </Text>
         </div>
@@ -623,7 +612,7 @@ export default function SalesPage() {
             icon={<FileExcelOutlined />}
             onClick={handleExportExcel}
             loading={exporting}
-            className="hover:border-green-600 hover:text-green-600"
+            className="font-medium"
           >
             Xuất Excel
           </Button>
@@ -635,7 +624,7 @@ export default function SalesPage() {
                 setFormResetKey((k) => k + 1)
                 setActiveTab('create')
               }}
-              className="bg-blue-600 hover:bg-blue-700"
+              className="font-semibold shadow-xs"
             >
               Lập Đơn Bán Mới
             </Button>
@@ -643,56 +632,94 @@ export default function SalesPage() {
         </Space>
       </div>
 
-      {/* Metrics Summary Cards */}
+      {/* 5 Cards Thống kê Tình hình đơn bán */}
       <Row gutter={[16, 16]}>
-        <Col xs={24} sm={12} md={6} lg={4}>
-          <Card size="small" className="shadow-2xs border-slate-200">
-            <Statistic
-              title="Tổng số đơn bán"
-              value={summary?.totalOrders ?? totalOrders}
-              prefix={<ShoppingOutlined className="text-blue-500 mr-1" />}
-            />
+        <Col xs={12} sm={8} lg={4}>
+          <Card variant="borderless" className="shadow-xs border border-slate-200/80 bg-white">
+            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Tổng số đơn bán
+            </div>
+            <div className="mt-2 flex items-baseline gap-1.5">
+              <span className="text-3xl font-bold text-slate-900 tracking-tight tabular-nums">
+                {summary?.totalOrders ?? totalOrders}
+              </span>
+              <span className="text-sm text-slate-500 font-normal">đơn</span>
+            </div>
+            <div className="mt-3 pt-2 border-t border-slate-100 text-xs text-slate-600">
+              Toàn bộ đơn hàng trong hệ thống
+            </div>
           </Card>
         </Col>
-        <Col xs={24} sm={12} md={6} lg={5}>
-          <Card size="small" className="shadow-2xs border-slate-200">
-            <Statistic
-              title="Đơn bán chờ xử lý"
-              value={summary?.pendingSaleOrders ?? 0}
-              valueStyle={{ color: '#1677ff' }}
-              prefix={<ClockCircleOutlined className="mr-1" />}
-            />
+
+        <Col xs={12} sm={8} lg={5}>
+          <Card variant="borderless" className="shadow-xs border border-slate-200/80 bg-white">
+            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Đơn chờ xử lý
+            </div>
+            <div className="mt-2 flex items-baseline gap-1.5">
+              <span className="text-3xl font-bold text-slate-900 tracking-tight tabular-nums">
+                {summary?.pendingSaleOrders ?? 0}
+              </span>
+              <span className="text-sm text-slate-500 font-normal">đơn</span>
+            </div>
+            <div className="mt-3 pt-2 border-t border-slate-100 text-xs text-slate-600">
+              Chờ xác nhận & giữ hàng
+            </div>
           </Card>
         </Col>
-        <Col xs={24} sm={12} md={6} lg={5}>
-          <Card size="small" className="shadow-2xs border-slate-200">
-            <Statistic
-              title="Thiếu hàng"
-              value={summary?.backorders ?? 0}
-              valueStyle={{ color: '#faad14' }}
-              prefix={<WarningOutlined className="mr-1" />}
-            />
+
+        <Col xs={12} sm={8} lg={5}>
+          <Card variant="borderless" className="shadow-xs border border-slate-200/80 bg-white">
+            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 flex items-center justify-between">
+              <span>Thiếu hàng</span>
+              {(summary?.backorders ?? 0) > 0 && (
+                <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200/80">
+                  Cần bổ sung
+                </span>
+              )}
+            </div>
+            <div className="mt-2 flex items-baseline gap-1.5">
+              <span className="text-3xl font-bold text-slate-900 tracking-tight tabular-nums">
+                {summary?.backorders ?? 0}
+              </span>
+              <span className="text-sm text-slate-500 font-normal">đơn</span>
+            </div>
+            <div className="mt-3 pt-2 border-t border-slate-100 text-xs text-slate-600">
+              Đơn thiếu hàng cần nhập thêm
+            </div>
           </Card>
         </Col>
-        <Col xs={24} sm={12} md={6} lg={5}>
-          <Card size="small" className="shadow-2xs border-slate-200">
-            <Statistic
-              title="Đã xác nhận (Giữ hàng)"
-              value={summary?.confirmedOrders ?? 0}
-              valueStyle={{ color: '#52c41a' }}
-              prefix={<CheckCircleOutlined className="mr-1" />}
-            />
+
+        <Col xs={12} sm={8} lg={5}>
+          <Card variant="borderless" className="shadow-xs border border-slate-200/80 bg-white">
+            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Đã xác nhận
+            </div>
+            <div className="mt-2 flex items-baseline gap-1.5">
+              <span className="text-3xl font-bold text-slate-900 tracking-tight tabular-nums">
+                {summary?.confirmedOrders ?? 0}
+              </span>
+              <span className="text-sm text-slate-500 font-normal">đơn</span>
+            </div>
+            <div className="mt-3 pt-2 border-t border-slate-100 text-xs text-slate-600">
+              Đã giữ tồn, sẵn sàng xuất kho
+            </div>
           </Card>
         </Col>
-        <Col xs={24} sm={12} md={6} lg={5}>
-          <Card size="small" className="shadow-2xs border-slate-200">
-            <Statistic
-              title="Doanh thu xác nhận"
-              value={summary?.totalRevenue ?? 0}
-              formatter={(v) => formatCurrency(Number(v))}
-              valueStyle={{ color: '#0958d9', fontSize: '1.15rem' }}
-              prefix={<DollarOutlined className="mr-1" />}
-            />
+
+        <Col xs={12} sm={8} lg={5}>
+          <Card variant="borderless" className="shadow-xs border border-slate-200/80 bg-white">
+            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Doanh thu xác nhận
+            </div>
+            <div className="mt-2 flex items-baseline gap-1.5">
+              <span className="text-3xl font-bold text-slate-900 tracking-tight tabular-nums truncate">
+                {formatCurrency(summary?.totalRevenue ?? 0)}
+              </span>
+            </div>
+            <div className="mt-3 pt-2 border-t border-slate-100 text-xs text-slate-600">
+              Tổng giá trị các đơn đã duyệt
+            </div>
           </Card>
         </Col>
       </Row>
@@ -710,28 +737,40 @@ export default function SalesPage() {
                 <Space>
                   <ShoppingOutlined />
                   <span>Danh sách Đơn bán hàng</span>
-                  <Badge count={totalOrders} overflowCount={999} style={{ backgroundColor: '#1677ff' }} />
                 </Space>
               ),
               children: (
                 <div className="space-y-4 pt-1">
-                  {/* Thanh Tabs phân loại theo trạng thái */}
-                  <Tabs
-                    activeKey={selectedStatusTab}
-                    onChange={(key) => {
-                      setSelectedStatusTab(key)
-                      setPage(0)
-                    }}
-                    items={statusFilterTabs}
-                    className="mb-2"
-                  />
+                  {/* Thanh Pills lọc phân loại theo trạng thái */}
+                  <div className="flex flex-wrap items-center gap-1.5 p-1 bg-slate-100/90 rounded-lg border border-slate-200/60 mb-4">
+                    {statusFilterTabs.map((tab) => {
+                      const isActive = selectedStatusTab === tab.key
+                      return (
+                        <button
+                          key={tab.key}
+                          type="button"
+                          onClick={() => {
+                            setSelectedStatusTab(tab.key)
+                            setPage(0)
+                          }}
+                          className={`px-3 py-1.5 rounded-md text-sm font-medium transition-all cursor-pointer ${
+                            isActive
+                              ? 'bg-white text-blue-700 shadow-xs font-semibold'
+                              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/60'
+                          }`}
+                        >
+                          {tab.label}
+                        </button>
+                      )
+                    })}
+                  </div>
 
                   {/* Filters Row */}
                   <Row gutter={[12, 12]} align="middle">
                     <Col xs={24} sm={12} md={7}>
                       <Input
                         placeholder="Tìm theo mã SO, tên khách, ghi chú..."
-                        prefix={<SearchOutlined className="text-gray-400" />}
+                        prefix={<SearchOutlined className="text-slate-400" />}
                         value={keyword}
                         onChange={(e) => {
                           setKeyword(e.target.value)
@@ -818,7 +857,7 @@ export default function SalesPage() {
                         setPageSize(ps)
                       },
                     }}
-                    scroll={{ x: 1100 }}
+                    scroll={{ x: 1094 }}
                   />
                 </div>
               ),
@@ -851,7 +890,7 @@ export default function SalesPage() {
               key: 'outbound',
               label: (
                 <Space>
-                  <RocketOutlined className="text-orange-500" />
+                  <RocketOutlined />
                   <span>Xuất kho & Lộ trình lấy hàng</span>
                 </Space>
               ),
@@ -868,7 +907,7 @@ export default function SalesPage() {
               key: 'gdn',
               label: (
                 <Space>
-                  <RocketOutlined className="text-emerald-600" />
+                  <RocketOutlined />
                   <span>Phiếu xuất kho (GDN)</span>
                 </Space>
               ),

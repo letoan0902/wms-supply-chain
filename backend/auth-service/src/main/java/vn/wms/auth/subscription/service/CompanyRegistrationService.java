@@ -81,9 +81,8 @@ public class CompanyRegistrationService {
         company.setPhone(request.getPhone() != null && !request.getPhone().isBlank() ? request.getPhone().trim() : null);
         company.setEmail(email);
         boolean requireActivation = registrationProperties.requireActivation();
-        // Chờ kích hoạt qua email (WMS-23.6); tắt yêu cầu kích hoạt thì hoạt động ngay
         company.setStatus(requireActivation ? CompanyStatus.PENDING : CompanyStatus.ACTIVE);
-        company.setActivatedAt(requireActivation ? null : Instant.now());
+        company.setActivatedAt(requireActivation ? null : java.time.Instant.now());
         company.setCode("TMP" + System.currentTimeMillis() % 1000000000L); // Mã tạm thời duy nhất
         company = companyRepository.save(company);
 
@@ -105,18 +104,17 @@ public class CompanyRegistrationService {
         adminUser.setRoles(Set.of(adminRole));
         adminUser = userRepository.save(adminUser);
 
-        // 5. Khởi tạo thuê bao dùng thử 30 ngày (TRIAL), tính từ lúc đăng ký kể cả khi chưa kích hoạt
+        // 5. Khởi tạo thuê bao tạm (TRIAL)
         Subscription subscription = subscriptionService.startTrial(company);
-        // Tài khoản ADMIN đầu tiên không qua kiểm tra giới hạn, chỉ ghi lại mức sử dụng (WMS-23.2)
         userPlanLimitGuard.reportUsage(company.getId());
 
-        // 6. Liên kết kích hoạt: lưu bản băm của mã, sự kiện gửi email chỉ phát sau khi giao dịch commit
+        // 6. Liên kết kích hoạt: lưu bản băm của mã, phát sự kiện gửi email sau khi commit
         if (requireActivation) {
             activationService.issueForNewCompany(company, adminUser);
         }
 
-        log.info("Đăng ký thành công doanh nghiệp {} (Mã: {}), Admin: {}, trạng thái {}", company.getName(),
-                company.getCode(), adminUser.getUsername(), company.getStatus());
+        log.info("Đã tiếp nhận yêu cầu đăng ký doanh nghiệp {} (Mã: {}), Admin: {}, trạng thái {}",
+                company.getName(), company.getCode(), adminUser.getUsername(), company.getStatus());
 
         return CompanyRegistrationResponse.builder()
                 .activationRequired(requireActivation)

@@ -1,10 +1,7 @@
 import {
-  CheckCircleOutlined,
   DollarOutlined,
-  ExclamationCircleOutlined,
   EyeOutlined,
   FileExcelOutlined,
-  FileTextOutlined,
   ReloadOutlined,
 } from '@ant-design/icons'
 import {
@@ -192,30 +189,40 @@ export default function PurchaseBillsTable({ onBillUpdated }: PurchaseBillsTable
 
   const columns: ColumnsType<PurchaseBill> = [
     {
-      title: 'Mã Hóa Đơn',
+      title: <span className="whitespace-nowrap font-medium text-slate-700">#</span>,
+      key: 'idx',
+      width: 48,
+      align: 'center',
+      render: (_, __, idx) => (
+        <span className="text-xs font-mono text-slate-400">{page * pageSize + idx + 1}</span>
+      ),
+    },
+    {
+      title: <span className="whitespace-nowrap font-medium text-slate-700">Mã hóa đơn</span>,
       dataIndex: 'billNumber',
       key: 'billNumber',
-      width: 150,
+      width: 155,
       render: (val, r) => (
-        <a
+        <button
+          type="button"
           onClick={() => {
             setSelectedBill(r)
             setIsDetailOpen(true)
           }}
-          className="font-mono font-semibold text-blue-600 hover:underline"
+          className="font-mono text-xs font-semibold text-blue-600 hover:text-blue-700 hover:underline cursor-pointer text-left transition-colors bg-blue-50/80 hover:bg-blue-100/80 px-2 py-0.5 rounded border border-blue-200/60"
         >
           {val}
-        </a>
+        </button>
       ),
     },
     {
-      title: 'Phiếu Nhập (GRN)',
+      title: <span className="whitespace-nowrap font-medium text-slate-700">Phiếu nhập (GRN)</span>,
       dataIndex: 'grnNumber',
       key: 'grnNumber',
-      width: 150,
+      width: 155,
       render: (val) =>
         val ? (
-          <span className="font-mono text-xs text-emerald-700 font-medium">
+          <span className="font-mono text-xs text-slate-700 font-medium">
             {val}
           </span>
         ) : (
@@ -223,10 +230,10 @@ export default function PurchaseBillsTable({ onBillUpdated }: PurchaseBillsTable
         ),
     },
     {
-      title: 'Đơn Mua (PO)',
+      title: <span className="whitespace-nowrap font-medium text-slate-700">Đơn mua (PO)</span>,
       dataIndex: 'poNumber',
       key: 'poNumber',
-      width: 150,
+      width: 155,
       render: (val) =>
         val ? (
           <span className="font-mono text-xs text-slate-700">{val}</span>
@@ -235,75 +242,86 @@ export default function PurchaseBillsTable({ onBillUpdated }: PurchaseBillsTable
         ),
     },
     {
-      title: 'Nhà cung cấp',
+      title: <span className="whitespace-nowrap font-medium text-slate-700">Nhà cung cấp</span>,
       dataIndex: 'supplierName',
       key: 'supplierName',
-      render: (val) => <span className="font-medium text-slate-800">{val || 'N/A'}</span>,
+      width: 200,
+      render: (val) => <span className="font-medium text-slate-900 text-xs leading-snug">{val || 'N/A'}</span>,
     },
     {
-      title: 'Ngày HĐ',
+      title: <span className="whitespace-nowrap font-medium text-slate-700">Ngày HĐ</span>,
       dataIndex: 'billDate',
       key: 'billDate',
       width: 110,
-      render: (val) => (val ? dayjs(val).format('DD/MM/YYYY') : '-'),
+      render: (val) => (
+        <span className="text-xs text-slate-600">{val ? dayjs(val).format('DD/MM/YYYY') : '-'}</span>
+      ),
     },
     {
-      title: 'Hạn TT',
+      title: <span className="whitespace-nowrap font-medium text-slate-700">Hạn thanh toán</span>,
       dataIndex: 'dueDate',
       key: 'dueDate',
-      width: 110,
+      width: 120,
       render: (val, r) => {
-        if (!val) return <span className="text-slate-400">-</span>
+        if (!val) return <span className="text-slate-400 text-xs">-</span>
         const isOverdue =
           r.status !== 'PAID' && r.status !== 'CANCELLED' && dayjs(val).isBefore(dayjs(), 'day')
         return (
-          <span className={isOverdue ? 'text-red-600 font-bold' : 'text-slate-600'}>
+          <span className={`text-xs ${isOverdue ? 'text-rose-600 font-bold' : 'text-slate-600 font-medium'}`}>
             {dayjs(val).format('DD/MM/YYYY')}
           </span>
         )
       },
     },
     {
-      title: 'Tổng tiền (VNĐ)',
+      title: <span className="whitespace-nowrap font-medium text-slate-700">Tổng tiền (VNĐ)</span>,
       dataIndex: 'totalAmount',
       key: 'totalAmount',
       width: 140,
       align: 'right',
-      render: (val) => <span className="font-semibold">{formatCurrency(val)}</span>,
+      render: (val) => (
+        <span className="font-mono font-semibold text-slate-900 text-xs sm:text-sm tabular-nums">
+          {formatCurrency(val)}
+        </span>
+      ),
     },
     {
-      title: 'Đã trả',
+      title: <span className="whitespace-nowrap font-medium text-slate-700">Đã trả</span>,
       dataIndex: 'paidAmount',
       key: 'paidAmount',
       width: 130,
       align: 'right',
-      render: (val) => <span className="text-emerald-700">{formatCurrency(val)}</span>,
+      render: (val) => (
+        <span className="font-mono text-slate-900 font-bold text-sm tabular-nums">
+          {formatCurrency(val)}
+        </span>
+      ),
     },
     {
-      title: 'Còn nợ (VNĐ)',
+      title: <span className="whitespace-nowrap font-medium text-slate-700">Còn nợ (VNĐ)</span>,
       dataIndex: 'remainingAmount',
       key: 'remainingAmount',
       width: 140,
       align: 'right',
       render: (val, r) => (
         <span
-          className={
+          className={`font-mono text-xs tabular-nums ${
             val > 0
               ? r.status === 'UNPAID'
-                ? 'font-bold text-red-600'
+                ? 'font-bold text-rose-600'
                 : 'font-semibold text-amber-700'
               : 'text-slate-400'
-          }
+          }`}
         >
           {formatCurrency(val)}
         </span>
       ),
     },
     {
-      title: 'Trạng thái',
+      title: <span className="whitespace-nowrap font-medium text-slate-700">Trạng thái</span>,
       dataIndex: 'status',
       key: 'status',
-      width: 140,
+      width: 130,
       align: 'center',
       render: (status: PurchaseBillStatus) => {
         const cfg = BILL_STATUS_CONFIG[status] || {
@@ -311,17 +329,17 @@ export default function PurchaseBillsTable({ onBillUpdated }: PurchaseBillsTable
           color: 'default',
         }
         return (
-          <Tag color={cfg.color} className="font-semibold text-xs m-0">
+          <Tag color={cfg.color} className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-full border">
             {cfg.label}
           </Tag>
         )
       },
     },
     {
-      title: 'Thao tác',
+      title: <span className="whitespace-nowrap font-medium text-slate-700">Thao tác</span>,
       key: 'actions',
-      width: 160,
-      fixed: 'right',
+      width: 120,
+      align: 'center',
       render: (_, r) => {
         const canPay =
           canRecordPayment &&
@@ -333,11 +351,13 @@ export default function PurchaseBillsTable({ onBillUpdated }: PurchaseBillsTable
             <Tooltip title="Xem chi tiết hóa đơn">
               <Button
                 size="small"
+                type="text"
                 icon={<EyeOutlined />}
                 onClick={() => {
                   setSelectedBill(r)
                   setIsDetailOpen(true)
                 }}
+                className="text-slate-500 hover:text-blue-600"
               />
             </Tooltip>
 
@@ -350,7 +370,7 @@ export default function PurchaseBillsTable({ onBillUpdated }: PurchaseBillsTable
                   setBillToPay(r)
                   setIsPaymentOpen(true)
                 }}
-                className="bg-emerald-600 hover:bg-emerald-700 text-xs"
+                className="text-xs font-medium rounded shadow-xs"
               >
                 Trả tiền
               </Button>
@@ -366,72 +386,65 @@ export default function PurchaseBillsTable({ onBillUpdated }: PurchaseBillsTable
       {/* 1. Thẻ thống kê tổng quan hóa đơn mua & công nợ NCC (FR13) */}
       <Row gutter={[16, 16]}>
         <Col xs={24} sm={12} lg={6}>
-          <Card size="small" className="border-l-4 border-l-blue-500 shadow-2xs">
-            <div className="flex justify-between items-start">
-              <div>
-                <span className="text-xs text-slate-500 font-medium">Tổng hóa đơn mua</span>
-                <div className="text-2xl font-bold text-slate-800 mt-1">
-                  {summary ? formatNumber(summary.totalBills) : 0}
-                </div>
-              </div>
-              <FileTextOutlined className="text-2xl text-blue-500 opacity-80" />
+          <Card variant="borderless" className="shadow-xs border border-slate-200/80 bg-white">
+            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Tổng hóa đơn mua
             </div>
-            <div className="text-[11px] text-slate-500 mt-2">
-              Chưa trả:{' '}
-              <strong className="text-red-600 font-bold">
-                {summary ? summary.unpaidBills : 0}
-              </strong>{' '}
-              | Trả 1 phần: {summary ? summary.partiallyPaidBills : 0} | Đã xong: {summary ? summary.paidBills : 0}
+            <div className="mt-2 flex items-baseline gap-1.5">
+              <span className="text-2xl font-bold text-slate-900 tracking-tight tabular-nums">
+                {summary ? formatNumber(summary.totalBills) : 0}
+              </span>
+              <span className="text-xs text-slate-500 font-normal">hóa đơn</span>
+            </div>
+            <div className="mt-3 pt-2 border-t border-slate-100 text-xs text-slate-500">
+              Chưa trả: <strong className="text-rose-600">{summary ? summary.unpaidBills : 0}</strong> • Đã xong: {summary ? summary.paidBills : 0}
             </div>
           </Card>
         </Col>
 
         <Col xs={24} sm={12} lg={6}>
-          <Card size="small" className="border-l-4 border-l-amber-500 shadow-2xs">
-            <div className="flex justify-between items-start">
-              <div>
-                <span className="text-xs text-slate-500 font-medium">Tổng nợ phải trả NCC</span>
-                <div className="text-xl font-bold text-amber-700 mt-1">
-                  {summary ? formatCurrency(summary.totalPayablesAmount) : '0 đ'}
-                </div>
-              </div>
-              <DollarOutlined className="text-2xl text-amber-500 opacity-80" />
+          <Card variant="borderless" className="shadow-xs border border-slate-200/80 bg-white">
+            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Tổng nợ phải trả NCC
             </div>
-            <div className="text-[11px] text-slate-500 mt-2">
-              Công nợ mua phát sinh từ các đợt nhận hàng GRN
+            <div className="mt-2 flex items-baseline gap-1.5">
+              <span className="text-2xl font-bold text-slate-900 tracking-tight tabular-nums truncate">
+                {summary ? formatCurrency(summary.totalPayablesAmount) : '0 đ'}
+              </span>
             </div>
-          </Card>
-        </Col>
-
-        <Col xs={24} sm={12} lg={6}>
-          <Card size="small" className="border-l-4 border-l-emerald-500 shadow-2xs">
-            <div className="flex justify-between items-start">
-              <div>
-                <span className="text-xs text-slate-500 font-medium">Đã thanh toán cho NCC</span>
-                <div className="text-xl font-bold text-emerald-700 mt-1">
-                  {summary ? formatCurrency(summary.totalPaidAmount) : '0 đ'}
-                </div>
-              </div>
-              <CheckCircleOutlined className="text-2xl text-emerald-500 opacity-80" />
-            </div>
-            <div className="text-[11px] text-slate-500 mt-2">
-              Tổng tiền mua hàng đã giải ngân thực tế
+            <div className="mt-3 pt-2 border-t border-slate-100 text-xs text-slate-500">
+              Công nợ mua phát sinh từ phiếu GRN
             </div>
           </Card>
         </Col>
 
         <Col xs={24} sm={12} lg={6}>
-          <Card size="small" className="border-l-4 border-l-red-500 shadow-2xs">
-            <div className="flex justify-between items-start">
-              <div>
-                <span className="text-xs text-slate-500 font-medium">Công nợ còn nợ lại</span>
-                <div className="text-xl font-bold text-red-600 mt-1">
-                  {summary ? formatCurrency(summary.totalRemainingAmount) : '0 đ'}
-                </div>
-              </div>
-              <ExclamationCircleOutlined className="text-2xl text-red-500 opacity-80" />
+          <Card variant="borderless" className="shadow-xs border border-slate-200/80 bg-white">
+            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Đã thanh toán cho NCC
             </div>
-            <div className="text-[11px] text-slate-500 mt-2">
+            <div className="mt-2 flex items-baseline gap-1.5">
+              <span className="text-2xl font-bold text-slate-900 tracking-tight tabular-nums truncate">
+                {summary ? formatCurrency(summary.totalPaidAmount) : '0 đ'}
+              </span>
+            </div>
+            <div className="mt-3 pt-2 border-t border-slate-100 text-xs text-slate-500">
+              Tổng tiền mua hàng đã giải ngân
+            </div>
+          </Card>
+        </Col>
+
+        <Col xs={24} sm={12} lg={6}>
+          <Card variant="borderless" className="shadow-xs border border-slate-200/80 bg-white">
+            <div className="text-xs font-semibold uppercase tracking-wider text-slate-500">
+              Công nợ còn nợ lại
+            </div>
+            <div className="mt-2 flex items-baseline gap-1.5">
+              <span className="text-2xl font-bold text-slate-900 tracking-tight tabular-nums truncate">
+                {summary ? formatCurrency(summary.totalRemainingAmount) : '0 đ'}
+              </span>
+            </div>
+            <div className="mt-3 pt-2 border-t border-slate-100 text-xs text-slate-500">
               Khoản phải thanh toán sắp tới hạn
             </div>
           </Card>
@@ -512,7 +525,7 @@ export default function PurchaseBillsTable({ onBillUpdated }: PurchaseBillsTable
           <Button
             icon={<FileExcelOutlined />}
             onClick={handleExportExcel}
-            className="text-emerald-700 hover:text-emerald-800"
+            className="rounded-md text-xs font-medium"
           >
             Xuất Excel
           </Button>
@@ -521,6 +534,7 @@ export default function PurchaseBillsTable({ onBillUpdated }: PurchaseBillsTable
             icon={<ReloadOutlined />}
             onClick={reloadData}
             loading={loading || loadingSummary}
+            className="rounded-md text-xs font-medium"
           >
             Làm mới
           </Button>
@@ -533,7 +547,7 @@ export default function PurchaseBillsTable({ onBillUpdated }: PurchaseBillsTable
         columns={columns}
         dataSource={bills}
         loading={loading}
-        scroll={{ x: 1300 }}
+        scroll={{ x: 'max-content' }}
         pagination={{
           current: page + 1,
           pageSize,

@@ -1,4 +1,4 @@
-import { Alert, Table, Tooltip, Typography } from 'antd'
+import { Alert, Table, Tooltip } from 'antd'
 import type { TableProps } from 'antd'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
@@ -41,13 +41,13 @@ interface ProductStockRow extends BalanceRow {
 const EMPTY_INDEX: AlertIndex = indexAlerts([])
 
 function quantityCell(value: number | null | undefined) {
-  return <span className="tabular-nums">{formatQuantity(value)}</span>
+  return <span className="font-mono text-[15px] font-semibold tabular-nums text-slate-900">{formatQuantity(value)}</span>
 }
 
 /** Ngưỡng bằng 0 nghĩa là chưa cấu hình (cùng quy ước với backend), không hiển thị như một ngưỡng thật. */
 function thresholdCell(value: number | null | undefined) {
   if (value === null || value === undefined || Number(value) === 0) {
-    return <Typography.Text type="secondary">Chưa đặt</Typography.Text>
+    return <span className="text-sm text-slate-400">Chưa đặt</span>
   }
   return quantityCell(value)
 }
@@ -167,42 +167,57 @@ export default function ProductStockView({ warehouseId, keyword, categoryId, ref
 
   const columns: TableProps<ProductStockRow>['columns'] = [
     {
-      title: 'Mã SKU',
+      title: <span className="text-sm font-semibold text-slate-700">#</span>,
+      key: 'index',
+      width: 48,
+      align: 'center',
+      render: (_v, _r, i) => <span className="text-sm tabular-nums text-slate-500">{(page - 1) * pageSize + i + 1}</span>,
+    },
+    {
+      title: <span className="text-sm font-semibold text-slate-700">Mã SKU</span>,
       key: 'sku',
-      width: 140,
-      fixed: 'left',
+      width: 130,
       render: (_, row) => (
-        <Typography.Text strong>{row.skuCode ?? row.product?.sku ?? `#${row.productId}`}</Typography.Text>
+        <span className="font-mono text-[15px] font-semibold text-blue-600">{row.skuCode ?? row.product?.sku ?? `#${row.productId}`}</span>
       ),
     },
     {
-      title: 'Tên hàng hóa',
+      title: <span className="text-sm font-semibold text-slate-700">Tên hàng hóa</span>,
       key: 'name',
-      width: 220,
-      render: (_, row) => row.productName ?? row.product?.name ?? <Typography.Text type="secondary">Không rõ tên</Typography.Text>,
-    },
-    {
-      title: 'ĐVT',
-      key: 'uom',
-      width: 80,
-      render: (_, row) => row.uom ?? row.product?.uomName ?? row.product?.uomCode ?? '—',
-    },
-    {
-      title: 'Kho',
-      key: 'warehouseId',
-      width: 180,
-      sorter: true,
-      sortOrder: sortOrderOf('warehouseId'),
+      width: 200,
       render: (_, row) => (
-        <span>
-          {row.warehouseCode ? <Typography.Text code>{row.warehouseCode}</Typography.Text> : null} {row.warehouseName ?? ''}
+        <span className="text-[15px] font-semibold text-slate-900">
+          {row.productName ?? row.product?.name ?? <span className="text-slate-400">Không rõ tên</span>}
         </span>
       ),
     },
     {
-      title: <Tooltip title="Tổng tồn thực tế trong kho tính từ sổ kho đến hôm nay, gồm cả lô bị khóa và lô hết hạn">Tồn thực tế</Tooltip>,
+      title: <span className="text-sm font-semibold text-slate-700">ĐVT</span>,
+      key: 'uom',
+      width: 64,
+      render: (_, row) => <span className="text-sm text-slate-600">{row.uom ?? row.product?.uomName ?? row.product?.uomCode ?? '—'}</span>,
+    },
+    {
+      title: <span className="text-sm font-semibold text-slate-700">Kho</span>,
+      key: 'warehouseId',
+      width: 150,
+      sorter: true,
+      sortOrder: sortOrderOf('warehouseId'),
+      render: (_, row) => (
+        <span className="text-sm text-slate-700">
+          {row.warehouseCode ? <code className="rounded bg-slate-100 px-1 py-0.5 text-xs font-medium text-slate-700">{row.warehouseCode}</code> : null}{' '}
+          {row.warehouseName ?? ''}
+        </span>
+      ),
+    },
+    {
+      title: (
+        <Tooltip title="Tổng tồn thực tế trong kho tính từ sổ kho đến hôm nay, gồm cả lô bị khóa và lô hết hạn">
+          <span className="text-sm font-semibold text-slate-700">Tồn thực tế</span>
+        </Tooltip>
+      ),
       key: 'closingQuantity',
-      width: 130,
+      width: 110,
       align: 'right',
       sorter: true,
       sortOrder: sortOrderOf('closingQuantity'),
@@ -213,51 +228,61 @@ export default function ProductStockView({ warehouseId, keyword, categoryId, ref
           <div>
             {quantityCell(row.closingQuantity)}
             {blocked > 0 ? (
-              <div className="text-xs text-red-500">Khóa hoặc hết hạn: {formatQuantity(blocked)}</div>
+              <div className="text-xs font-medium text-red-500">Khóa/hết hạn: {formatQuantity(blocked)}</div>
             ) : null}
           </div>
         )
       },
     },
     {
-      title: <Tooltip title="Tồn của các lô không bị khóa và chưa hết hạn">Tồn dùng được</Tooltip>,
+      title: (
+        <Tooltip title="Tồn của các lô không bị khóa và chưa hết hạn">
+          <span className="text-sm font-semibold text-slate-700">Tồn dùng được</span>
+        </Tooltip>
+      ),
       key: 'onHand',
-      width: 120,
+      width: 110,
       align: 'right',
       render: (_, row) => quantityCell(row.atp?.onHandQuantity),
     },
     {
-      title: 'Đã giữ chỗ',
+      title: <span className="text-sm font-semibold text-slate-700">Đã giữ chỗ</span>,
       key: 'reserved',
-      width: 110,
+      width: 100,
       align: 'right',
       render: (_, row) => quantityCell(row.atp?.reservedQuantity),
     },
     {
-      title: <Tooltip title="Tồn dùng được trừ phần đã giữ chỗ cho đơn bán (ATP)">Khả dụng</Tooltip>,
+      title: (
+        <Tooltip title="Tồn dùng được trừ phần đã giữ chỗ cho đơn bán (ATP)">
+          <span className="text-sm font-semibold text-slate-700">Khả dụng</span>
+        </Tooltip>
+      ),
       key: 'available',
-      width: 110,
+      width: 100,
       align: 'right',
-      render: (_, row) => <Typography.Text strong>{formatQuantity(row.atp?.atpQuantity)}</Typography.Text>,
+      render: (_, row) => (
+        <span className="font-mono text-[15px] font-bold tabular-nums text-slate-900">{formatQuantity(row.atp?.atpQuantity)}</span>
+      ),
     },
     {
-      title: 'Mức an toàn',
+      title: <span className="text-sm font-semibold text-slate-700">Mức an toàn</span>,
       key: 'safetyStock',
-      width: 110,
+      width: 100,
       align: 'right',
       render: (_, row) => thresholdCell(row.product?.safetyStock),
     },
     {
-      title: 'Điểm đặt hàng lại',
+      title: <span className="text-sm font-semibold text-slate-700 whitespace-nowrap">Điểm đặt hàng lại</span>,
       key: 'reorderPoint',
-      width: 130,
+      width: 120,
       align: 'right',
       render: (_, row) => thresholdCell(row.product?.reorderPoint),
     },
     {
-      title: 'Cảnh báo',
+      title: <span className="text-sm font-semibold text-slate-700">Cảnh báo</span>,
       key: 'tags',
-      width: 220,
+      width: 180,
       render: (_, row) => <AlertTags tags={row.tags} />,
     },
   ]
@@ -303,7 +328,7 @@ export default function ProductStockView({ warehouseId, keyword, categoryId, ref
         loading={loading}
         columns={columns}
         dataSource={dataSource}
-        scroll={{ x: 1500 }}
+        scroll={{ x: 1312 }}
         rowClassName={(row) =>
           row.tags.some((tag) => tag.kind === 'EXPIRED')
             ? 'inventory-row-expired'

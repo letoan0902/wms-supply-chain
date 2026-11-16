@@ -4,13 +4,20 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestClientResponseException;
+import vn.wms.ai.config.ServiceClientProperties;
 
+import java.io.InterruptedIOException;
+import java.math.BigDecimal;
+import java.net.http.HttpTimeoutException;
+import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.concurrent.TimeoutException;
 
 /**
  * Đọc dữ liệu của service khác cho trợ lý AI và bản tóm tắt dashboard, qua client cân bằng tải của
@@ -19,7 +26,8 @@ import java.util.Map;
  * khi người đó tự mở màn hình.
  *
  * <p>Lớp này CHỈ có lời gọi GET: trợ lý không ghi dữ liệu. Lỗi không ném ra ngoài mà trả {@link Result} để trợ lý
- * trả lời thành câu (không tìm thấy, không có quyền, dịch vụ chưa sẵn sàng).
+ * trả lời thành câu (không tìm thấy, không có quyền, dịch vụ chưa sẵn sàng, dịch vụ phản hồi quá lâu sau thời gian chờ
+ * {@code app.ai.services.read-timeout}).
  */
 @Component
 public class ServiceDataClient {
@@ -48,10 +56,19 @@ public class ServiceDataClient {
 
     private final RestClient restClient;
     private final ObjectMapper objectMapper;
+    private final Duration readTimeout;
 
-    public ServiceDataClient(RestClient.Builder loadBalancedRestClientBuilder, ObjectMapper objectMapper) {
+    @Autowired
+    public ServiceDataClient(RestClient.Builder loadBalancedRestClientBuilder, ObjectMapper objectMapper,
+                             ServiceClientProperties properties) {
         this.restClient = loadBalancedRestClientBuilder.build();
         this.objectMapper = objectMapper;
+        this.readTimeout = properties.readTimeout();
+    }
+
+    /** Dùng trong test với thời gian chờ mặc định. */
+    public ServiceDataClient(RestClient.Builder loadBalancedRestClientBuilder, ObjectMapper objectMapper) {
+        this(loadBalancedRestClientBuilder, objectMapper, new ServiceClientProperties(null, null, null));
     }
 
     /**
@@ -87,9 +104,34 @@ public class ServiceDataClient {
             return translate(serviceId, path, ex);
         } catch (RestClientException | IllegalStateException ex) {
             // IllegalStateException: Spring Cloud LoadBalancer không tìm thấy instance nào của service.
+            if (isTimeout(ex)) {
+                log.warn("{} {} không phản hồi trong {}", serviceId, path, readTimeout);
+                return new Result(Status.UNAVAILABLE, null, "Chưa tra cứu được: dịch vụ " + serviceId
+                        + " phản hồi quá lâu (quá " + seconds(readTimeout) + " giây), vui lòng thử lại sau.");
+            }
             log.warn("Không gọi được {} {}: {}", serviceId, path, ex.getClass().getSimpleName());
             return unavailable(serviceId);
         }
+    }
+
+    /**
+     * Hết thời gian chờ mở kết nối hoặc đọc phản hồi. Tùy thư viện HTTP: {@code SocketTimeoutException},
+     * {@code ConnectTimeoutException} (đều là {@link InterruptedIOException}), {@link HttpTimeoutException}.
+     */
+    private static boolean isTimeout(Throwable ex) {
+        for (Throwable cause = ex; cause != null; cause = cause.getCause()) {
+            if (cause instanceof InterruptedIOException || cause instanceof HttpTimeoutException
+                    || cause instanceof TimeoutException) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Số giây dễ đọc: "10", "0,5". */
+    private static String seconds(Duration duration) {
+        BigDecimal value = BigDecimal.valueOf(duration.toMillis()).movePointLeft(3).stripTrailingZeros();
+        return value.toPlainString().replace('.', ',');
     }
 
     private Result translate(String serviceId, String path, RestClientResponseException ex) {

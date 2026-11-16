@@ -439,7 +439,7 @@ Ai dùng được: hàng hóa và nhà cung cấp cho Quản trị hệ thống,
 
 Các bước:
 1. Vào menu "Nhập dữ liệu bằng AI" (hoặc bấm "Nhập bằng AI" trên trang danh mục), chọn loại dữ liệu.
-2. Kéo thả hoặc bấm chọn một file: tối đa 10 MB, 200 dòng (file dài hơn chỉ lấy 200 dòng đầu). Bảng tính nên có một dòng tiêu đề cột, ví dụ "Mã hàng", "Tên hàng", "ĐVT", "Giá nhập".
+2. Kéo thả hoặc bấm chọn một file: tối đa 10 MB (ảnh png, jpg tối đa 7,5 MB), 200 dòng (file dài hơn chỉ lấy 200 dòng đầu). Bảng tính nên có một dòng tiêu đề cột, ví dụ "Mã hàng", "Tên hàng", "ĐVT", "Giá nhập".
 3. Bấm "Trích xuất dữ liệu" và chờ: bảng tính thường xong trong vài chục giây, PDF và ảnh có thể tới khoảng 3 phút. Bấm "Hủy" để thôi chờ. File không đọc được, không có cột phù hợp hoặc sai định dạng sẽ báo lỗi rõ ràng.
 4. Xem lại bảng: mỗi cột là một trường của danh mục (dấu * là bắt buộc); rê chuột lên tiêu đề cột để biết cột đó lấy từ cột nào trong file. Ô nền vàng là ô AI chưa chắc chắn, ô viền đỏ phải sửa trước khi nhập, biểu tượng cảnh báo ở đầu dòng cho biết lý do. Bấm vào ô để sửa (Enter để lưu, Esc để bỏ). Dòng còn lỗi không chọn được; bỏ chọn hoặc xóa những dòng không muốn nhập; bật "Chỉ hiện dòng cần xem lại" để lọc nhanh.
 5. Bấm "Nhập N dòng" và xác nhận. Màn hình hiện tổng số dòng đã tạo mới, bỏ qua (mã đã có trong danh mục, không ghi đè) và lỗi, cùng kết quả từng dòng kèm lý do.

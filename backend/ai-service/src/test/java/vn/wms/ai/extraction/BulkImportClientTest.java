@@ -13,6 +13,7 @@ import org.springframework.web.client.RestClient;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 import vn.wms.ai.config.ServiceClientConfig;
+import vn.wms.ai.config.ServiceClientProperties;
 import vn.wms.ai.dto.BulkImportResult;
 import vn.wms.common.api.ErrorCode;
 import vn.wms.common.exception.ApiException;
@@ -53,7 +54,8 @@ class BulkImportClientTest {
 
     @BeforeEach
     void setUp() {
-        RestClient.Builder builder = new ServiceClientConfig().loadBalancedRestClientBuilder();
+        RestClient.Builder builder = new ServiceClientConfig().loadBalancedRestClientBuilder(
+                new ServiceClientProperties(null, null, null));
         server = MockRestServiceServer.bindTo(builder).build();
         client = new BulkImportClient(builder, new ObjectMapper());
 

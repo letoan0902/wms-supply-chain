@@ -152,7 +152,9 @@ class AiControllerIntegrationTest {
                 .andExpect(jsonPath("$.success").value(false))
                 .andExpect(jsonPath("$.code").value("SERVICE_UNAVAILABLE"));
 
-        verify(valueOperations, never()).increment(anyString());
+        // Lượt đã giữ trước khi gọi Claude được trả lại: bộ đếm không đổi
+        verify(valueOperations).increment(startsWith(AI_KEY_PREFIX));
+        verify(valueOperations).decrement(startsWith(AI_KEY_PREFIX));
     }
 
     @Test
@@ -166,7 +168,8 @@ class AiControllerIntegrationTest {
                 .andExpect(jsonPath("$.data.answer").value(AiReply.REFUSAL_MESSAGE))
                 .andExpect(jsonPath("$.data.usage.used").value(3));
 
-        verify(valueOperations, never()).increment(anyString());
+        verify(valueOperations).increment(startsWith(AI_KEY_PREFIX));
+        verify(valueOperations).decrement(startsWith(AI_KEY_PREFIX));
     }
 
     @Test

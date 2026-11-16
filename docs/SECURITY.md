@@ -265,7 +265,8 @@ WebSocket của notification-service dùng cùng danh sách origin.
   doanh nghiệp trong mô hình SaaS và các kiểm tra viết tay sẵn có đều cho ADMIN ghi.
 - API trò chuyện và tóm tắt của ai-service (`/api/ai/chat`, `/api/ai/summary`) không dùng `@PreAuthorize`: mọi vai trò
   đã đăng nhập gọi được, quyền xem dữ liệu do service được tra cứu quyết định vì ai-service chuyển tiếp nguyên danh
-  tính của người hỏi.
+  tính của người hỏi. Riêng `/api/ai/summary` có bộ nhớ đệm 30 phút nên ai-service tự kiểm tra phạm vi kho (vai trò
+  theo kho phải được gán kho, kho đã chọn phải nằm trong số kho được gán, sai thì 403) trước khi đọc bộ nhớ đệm.
 - Lời gọi giữa các service từ tác vụ định kỳ hoặc listener không có người dùng: trên máy chủ chỉ gọi được đường dẫn
   `/internal/**`. Thêm lời gọi nền mới tới `/api/**` của service khác sẽ nhận 401.
 - Chưa kiểm thử xâm nhập; giao diện chưa ẩn nút theo đúng bảng trên ở mọi màn hình.

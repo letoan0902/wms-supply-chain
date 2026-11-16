@@ -273,7 +273,7 @@ Mở `https://wms.toanmarket.me` trong trình duyệt và đăng nhập bằng t
 Kiểm tra tự động bằng script `deploy/smoke-test.sh` (đăng nhập, gọi API có token, kiểm tra chặn request không token): xem hướng dẫn chi tiết tại [SMOKE_TEST.md](SMOKE_TEST.md).
 
 ```bash
-SMOKE_PASSWORD='<mật khẩu tài khoản admin>' bash deploy/smoke-test.sh https://wms.toanmarket.me
+SMOKE_PASSWORD='<mật khẩu tài khoản admin_a>' bash deploy/smoke-test.sh https://wms.toanmarket.me
 ```
 
 ## 7. Tài khoản đăng nhập mẫu
@@ -283,7 +283,8 @@ mật khẩu của tất cả là `Demopassword`:
 
 | Tên đăng nhập | Vai trò | Email |
 | --- | --- | --- |
-| `admin` | `ADMIN` | admin@wms.vn |
+| `admin` | `SUPER_ADMIN` (quản trị nền tảng, từ migration V9) | admin@wms.vn |
+| `admin_a` | `ADMIN` của Công ty mẫu A (tạo ở V9, cùng mật khẩu với `admin`) | admin_a@wms.local |
 | `manager` | `WAREHOUSE_MANAGER` | manager@wms.vn |
 | `staff` | `WAREHOUSE_STAFF` | staff@wms.vn |
 | `purchasing` | `PURCHASING` | purchasing@wms.vn |
@@ -302,7 +303,7 @@ docker compose exec caddy caddy hash-password
 
 # 2. Ghi hash vào CSDL (thay <hash> bằng chuỗi vừa chép)
 docker compose exec -T mysql sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" auth_db' <<'SQL'
-UPDATE users SET password_hash = '<hash>' WHERE username = 'admin';
+UPDATE users SET password_hash = '<hash>' WHERE username IN ('admin', 'admin_a');
 UPDATE users SET enabled = FALSE WHERE username = 'demo';
 SQL
 ```

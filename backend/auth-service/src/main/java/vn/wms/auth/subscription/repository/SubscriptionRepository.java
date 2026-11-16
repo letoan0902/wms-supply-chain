@@ -6,6 +6,7 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
+import vn.wms.auth.company.entity.Company;
 import vn.wms.auth.subscription.entity.Subscription;
 
 import java.util.List;
@@ -29,7 +30,10 @@ public interface SubscriptionRepository extends JpaRepository<Subscription, Long
     @Query("select s from Subscription s where s.id = :id")
     Optional<Subscription> findByIdForUpdate(@Param("id") Long id);
 
-    /** Id của mọi thuê bao, để tác vụ định kỳ xử lý từng thuê bao trong một giao dịch ngắn riêng. */
-    @Query("select s.id from Subscription s order by s.id")
+    /**
+     * Id của mọi thuê bao của doanh nghiệp khách hàng, để tác vụ định kỳ xử lý từng thuê bao trong một giao dịch ngắn
+     * riêng. Doanh nghiệp hệ thống PLATFORM không có thuê bao; điều kiện mã chỉ để chắc chắn nó không bao giờ bị quét.
+     */
+    @Query("select s.id from Subscription s where s.company.code <> '" + Company.PLATFORM_CODE + "' order by s.id")
     List<Long> findAllIds();
 }

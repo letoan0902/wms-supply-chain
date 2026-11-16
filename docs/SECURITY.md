@@ -159,6 +159,32 @@ Mọi API của product, inventory, order, notification đều có `@PreAuthoriz
 service thất bại nếu có API mới thiếu khai báo. Test `*AuthorizationTest` gọi API đại diện của mọi controller với từng
 vai trò ở chế độ máy chủ; dùng `vn.wms.common.test.GatewayHeaders` (test fixtures của `common`) để gắn danh tính.
 
+### auth-service và quản trị nền tảng
+
+`SUPER_ADMIN` là quản trị nền tảng ([SAAS_SPEC.md](SAAS_SPEC.md) mục 6): thuộc doanh nghiệp hệ thống `PLATFORM`, không
+có kho, không nằm trong `Roles.ALL` nên không gán được qua API quản lý người dùng. Cột "Vai trò khác" là năm vai trò
+nghiệp vụ còn lại.
+
+| API | ADMIN | Vai trò khác | SUPER_ADMIN |
+| --- | --- | --- | --- |
+| `GET /api/auth/me`, `/api/auth/users/profile`, `PUT /api/auth/users/profile`, `POST /api/auth/users/change-password` | W | W | W |
+| `/api/auth/users/**` (quản lý người dùng), `POST /api/auth/register` | W | - | - |
+| `GET /api/auth/company` | R | R | - |
+| `PUT /api/auth/company` | W | - | - |
+| `GET /api/auth/subscription` | R | R | 404 (không có thuê bao) |
+| `/api/auth/subscription/**` (gia hạn giả lập, về gói Khởi Đầu, công cụ demo) | W | - | - |
+| `/api/auth/payments/**` (trừ webhook PayOS công khai) | W | - | - |
+| `/api/auth/api-keys/**` | W | - | - |
+| `/api/auth/platform/**` (tổng quan, doanh nghiệp, tạm khóa và mở khóa, thanh toán) | - | - | W |
+
+`/api/auth/platform/**` chặn ở cả `SecurityConfig` (`hasRole("SUPER_ADMIN")`) và `@PreAuthorize` của từng phương thức
+(`PlatformController`), giống cách `ApiKeyController` chặn `ADMIN`. Đây là chỗ duy nhất đọc dữ liệu của mọi doanh
+nghiệp; truy vấn nằm ở `vn.wms.auth.platform.repository` và luôn loại `PLATFORM`. Test `PlatformAdminIntegrationTest`
+gọi cả năm API khi chưa đăng nhập (401), bằng ADMIN và nhân viên của doanh nghiệp (403) và bằng `SUPER_ADMIN` (200).
+
+Ở product, inventory, order, notification, `SUPER_ADMIN` không có trong danh sách `@PreAuthorize` nào nên mọi API
+nghiệp vụ trả 403; dù có lọt qua thì dữ liệu cũng lọc theo doanh nghiệp `PLATFORM` (rỗng).
+
 ### Quyết định khi đặt vai trò
 
 - WAREHOUSE_STAFF đọc được danh sách và chi tiết đơn bán, đơn mua (SRS 2.5.1: nhân viên kho "xem" đơn mua, đơn bán):
@@ -274,3 +300,8 @@ WebSocket của notification-service dùng cùng danh sách origin.
 - Lời gọi giữa các service từ tác vụ định kỳ hoặc listener không có người dùng: trên máy chủ chỉ gọi được đường dẫn
   `/internal/**`. Thêm lời gọi nền mới tới `/api/**` của service khác sẽ nhận 401.
 - Chưa kiểm thử xâm nhập; giao diện chưa ẩn nút theo đúng bảng trên ở mọi màn hình.
+- Tạm khóa doanh nghiệp (`PUT /api/auth/platform/companies/{id}/status`) chặn đăng nhập và làm mới token, nhưng access
+  token đã cấp vẫn dùng được tới khi hết hạn (tối đa 15 phút) vì gateway và service không kiểm tra trạng thái doanh
+  nghiệp ở mỗi request.
+- ai-service không có `@PreAuthorize` nên `SUPER_ADMIN` gọi được trợ lý và tóm tắt; dữ liệu tra cứu thuộc doanh nghiệp
+  `PLATFORM` (rỗng). Giao diện không hiện trợ lý trong khu vực nền tảng.

@@ -26,6 +26,7 @@ import vn.wms.auth.repository.UserRepository;
 import vn.wms.auth.security.JwtService;
 import vn.wms.auth.security.UserPrincipal;
 import vn.wms.auth.subscription.dto.SubscriptionSummary;
+import vn.wms.auth.subscription.entity.Subscription;
 import vn.wms.auth.subscription.service.SubscriptionService;
 import vn.wms.auth.subscription.service.UserPlanLimitGuard;
 import vn.wms.common.api.ErrorCode;
@@ -39,6 +40,7 @@ import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -51,6 +53,9 @@ import java.util.stream.Collectors;
 public class AuthService {
 
     private static final String TOKEN_TYPE = "Bearer";
+    /** Thông báo khi doanh nghiệp bị quản trị nền tảng tạm khóa (đăng nhập và làm mới token). */
+    public static final String SUSPENDED_MESSAGE =
+            "Doanh nghiệp đã bị tạm khóa. Vui lòng liên hệ quản trị nền tảng.";
     private final JwtService jwtService;
     private final DevLoginProperties devLogin;
     private final RedisTemplate<String, String> redisTemplate;
@@ -125,7 +130,7 @@ public class AuthService {
                 .toList();
 
         // 6. Kiểm tra gói thuê bao: chuyển EXPIRED nếu đã quá hạn và ghi lại bộ nhớ đệm Redis (mục 2.7)
-        SubscriptionSummary subscriptionSummary = subscriptionService.refreshForLogin(company.getId())
+        SubscriptionSummary subscriptionSummary = refreshSubscription(company)
                 .map(SubscriptionSummary::from)
                 .orElse(null);
         String plan = subscriptionSummary != null ? subscriptionSummary.plan() : null;
@@ -165,11 +170,27 @@ public class AuthService {
                             + "nếu không thấy email, hãy yêu cầu gửi lại email kích hoạt.",
                     Map.of("companyStatus", CompanyStatus.PENDING.name()));
         }
+        if (company != null && company.getStatus() == CompanyStatus.SUSPENDED) {
+            // Quản trị nền tảng tạm khóa doanh nghiệp (PUT /api/auth/platform/companies/{id}/status)
+            throw new ApiException(ErrorCode.COMPANY_INACTIVE, SUSPENDED_MESSAGE);
+        }
         if (company == null || !company.isActive()) {
             throw new ApiException(ErrorCode.COMPANY_INACTIVE,
                     "Doanh nghiệp của tài khoản chưa được kích hoạt hoặc đang bị tạm khóa. Vui lòng liên hệ quản trị viên của doanh nghiệp.");
         }
         return company;
+    }
+
+    /**
+     * Kiểm tra và ghi lại bộ nhớ đệm thuê bao khi đăng nhập, làm mới token. Doanh nghiệp hệ thống {@code PLATFORM} của
+     * quản trị nền tảng không có thuê bao nên bỏ qua hẳn bước này: đăng nhập của {@code SUPER_ADMIN} không phụ thuộc
+     * thuê bao, token có {@code plan} rỗng.
+     */
+    private Optional<Subscription> refreshSubscription(Company company) {
+        if (company.isPlatform()) {
+            return Optional.empty();
+        }
+        return subscriptionService.refreshForLogin(company.getId());
     }
 
     private void checkLocks(String clientIp, String username) {
@@ -315,7 +336,7 @@ public class AuthService {
                 .toList();
 
         // 4. Kiểm tra gói thuê bao: chuyển EXPIRED nếu đã quá hạn và ghi lại bộ nhớ đệm Redis
-        String plan = subscriptionService.refreshForLogin(company.getId())
+        String plan = refreshSubscription(company)
                 .map(sub -> sub.getPlan().getCode())
                 .orElse(null);
 

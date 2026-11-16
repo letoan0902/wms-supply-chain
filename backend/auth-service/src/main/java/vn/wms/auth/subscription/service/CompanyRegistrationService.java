@@ -159,10 +159,12 @@ public class CompanyRegistrationService {
     /**
      * Bản đăng ký bỏ dở: doanh nghiệp còn {@code PENDING}, chưa từng kích hoạt ({@code activated_at} rỗng), đăng ký từ
      * quá thời hạn liên kết kích hoạt (24 giờ) và không còn liên kết kích hoạt nào dùng được (liên kết vừa gửi lại vẫn
-     * giữ chỗ tới khi hết hạn). Doanh nghiệp đang hoặc từng hoạt động không bao giờ thỏa điều kiện này.
+     * giữ chỗ tới khi hết hạn). Doanh nghiệp đang hoặc từng hoạt động và doanh nghiệp hệ thống PLATFORM không bao giờ
+     * thỏa điều kiện này.
      */
     private boolean isAbandoned(Company company, Instant now) {
-        return company.getStatus() == CompanyStatus.PENDING
+        return !company.isPlatform()
+                && company.getStatus() == CompanyStatus.PENDING
                 && company.getActivatedAt() == null
                 && company.getCreatedAt() != null
                 && company.getCreatedAt().isBefore(now.minus(accountEmailProperties.activationTtl()))

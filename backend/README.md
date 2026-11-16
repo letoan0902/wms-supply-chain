@@ -285,7 +285,7 @@ Trạng thái hiện tại là khung, có chủ đích để nhóm phát triển
 
   | Tên đăng nhập | Vai trò |
   |---|---|
-  | `admin` | `ADMIN` |
+  | `admin` | `SUPER_ADMIN` (quản trị nền tảng từ migration auth V9; admin của Công ty mẫu A là `admin_a`) |
   | `manager` | `WAREHOUSE_MANAGER` |
   | `staff` | `WAREHOUSE_STAFF` |
   | `purchasing` | `PURCHASING` |

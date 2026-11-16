@@ -17,8 +17,8 @@ eureka:
 
 spring:
   datasource:
-    username: ${DB_USERNAME:wms}
-    password: ${DB_PASSWORD:123456789}
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:change_me}
   data:
     redis:
       host: ${REDIS_HOST:localhost}

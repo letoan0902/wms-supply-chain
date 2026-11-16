@@ -42,7 +42,7 @@ export const ROW_STATUS_META: Record<RowStatus, StatusMeta> = {
   review: {
     label: 'Cần kiểm tra',
     title: 'Cần kiểm tra',
-    hint: 'AI chưa chắc ở vài ô, vẫn nhập được',
+    hint: 'AI chưa chắc hoặc có ghi chú, vẫn nhập được',
     tagColor: 'gold',
     barColor: '#faad14',
   },
@@ -77,17 +77,20 @@ export const IDENTITY_FIELD: Record<ExtractionDataType, string> = {
 }
 
 /**
- * Ghi chú của AI khi đọc file thuộc về một ô: máy chủ viết ghi chú bắt đầu bằng hoặc chứa tên trường
- * (CellNormalizer, ExtractionAssembler), ví dụ `Giá nhập "khoảng 30 nghìn" không phải là số`.
+ * Ghi chú trùng mã mà máy chủ tự sinh lúc đọc file (ExtractionAssembler: `<Mã> "X" trùng với dòng N, khi nhập dòng
+ * này sẽ bị báo lỗi`, đồng thời hạ độ tin cậy ô mã xuống 0,5). Màn hình kiểm tra trùng mã theo các dòng đang được
+ * chọn nên ghi chú này được thay bằng kết quả kiểm tra đó (cập nhật khi bỏ chọn), không giữ câu đã cũ.
  */
-export function fieldWarnings(warnings: readonly string[], label: string): string[] {
-  return warnings.filter((warning) => warning.includes(label))
+export function isDuplicateNote(note: string): boolean {
+  return note.includes('trùng với dòng') && note.includes('khi nhập dòng này sẽ bị báo lỗi')
 }
 
-/** Ô mã chỉ bị hạ độ tin cậy vì trùng dòng khác (ExtractionAssembler ghi "... trùng với dòng N ..."). */
-function onlyDuplicateNotes(warnings: readonly string[], label: string): boolean {
-  const notes = fieldWarnings(warnings, label)
-  return notes.length > 0 && notes.every((note) => note.includes('trùng với dòng'))
+/**
+ * Ghi chú của AI cho một dòng (`ExtractionRow.warnings`), trừ ghi chú trùng mã tự sinh. Giống màn hình cũ, ghi chú
+ * gắn với dòng chứ không với ô và vẫn giữ sau khi người dùng sửa ô (máy chủ không cho biết ghi chú thuộc ô nào).
+ */
+export function rowNotes(warnings: readonly string[]): string[] {
+  return warnings.filter((note) => typeof note === 'string' && note.trim() !== '' && !isDuplicateNote(note))
 }
 
 /** Mã đã chuẩn hóa như máy chủ (cắt khoảng trắng, viết hoa); trống thì `null`. */
@@ -108,16 +111,21 @@ export interface RowAssessment {
   duplicateOf: number | null
   /** Các trường AI chưa chắc chắn mà người dùng chưa sửa */
   lowFields: string[]
+  /** Ghi chú của AI cho dòng (rowNotes) */
+  notes: string[]
   /** Lý do bằng lời, theo thứ tự quan trọng, để hiện khi rê chuột lên thẻ trạng thái */
   reasons: string[]
   /** Lý do ngắn hiện ngay dưới thẻ trạng thái (rỗng khi dòng sẵn sàng) */
   shortReason: string
+  /** Số ghi chú AI còn lại ngoài ghi chú đầu tiên đã nêu trong `shortReason` (hiện "+n") */
+  moreNotes: number
 }
 
 /**
- * Đánh giá mọi dòng theo đúng thứ tự gửi đi. Thứ tự ưu tiên: lỗi chặn nhập, trùng mã, cần kiểm tra, sẵn sàng; dòng
- * đã bỏ chọn có trạng thái `excluded` nhưng vẫn giữ `problem` để biết vì sao. Trùng mã chỉ xét giữa các dòng đang
- * được chọn: bỏ chọn một trong hai dòng trùng thì dòng còn lại trở về bình thường.
+ * Đánh giá mọi dòng theo đúng thứ tự gửi đi. Thứ tự ưu tiên: lỗi chặn nhập, trùng mã, cần kiểm tra (ô AI chưa chắc
+ * chắn, ghi chú của AI, lỗi của lần nhập trước), sẵn sàng; dòng đã bỏ chọn có trạng thái `excluded` nhưng vẫn giữ
+ * `problem` để biết vì sao. Trùng mã chỉ xét giữa các dòng đang được chọn: bỏ chọn một trong hai dòng trùng thì dòng
+ * còn lại trở về bình thường.
  */
 export function assessRows(
   rows: readonly PreviewRow[],
@@ -138,10 +146,12 @@ export function assessRows(
   return rows.map((row) => {
     const included = !excluded.has(row.row)
     const errors = errorsByRow.get(row.row) ?? {}
+    const notes = rowNotes(row.warnings)
+    const serverDuplicate = row.warnings.some(isDuplicateNote)
     const lowFields = columns
       .filter((column) => isLowConfidence(row, column.field))
-      // Ghi chú trùng mã lúc đọc file được thay bằng kiểm tra trùng mã theo các dòng đang chọn (cập nhật khi bỏ chọn)
-      .filter((column) => column.field !== identityField || !onlyDuplicateNotes(row.warnings, column.label))
+      // Ô mã bị hạ độ tin cậy chỉ vì ghi chú trùng mã tự sinh: đã thay bằng kiểm tra trùng mã ở dưới
+      .filter((column) => column.field !== identityField || !serverDuplicate)
       .map((column) => column.field)
 
     // Dòng đang chọn: trùng một dòng chọn phía trên. Dòng đã bỏ chọn: trùng một dòng đang chọn (nếu chọn lại sẽ trùng).
@@ -155,16 +165,16 @@ export function assessRows(
       reasons.push(`${identityLabel} "${code}" trùng với dòng ${duplicateOf}: sửa mã hoặc bỏ chọn một trong hai dòng`)
     }
     if (row.lastError) reasons.push(`Lần nhập trước bị lỗi: ${row.lastError}`)
+    const editedNote = row.edited.length > 0 ? ' (ghi lúc đọc file, trước khi bạn sửa)' : ''
+    // Ghi chú trùng nguyên văn một lỗi đã nêu (ví dụ "Thiếu Đơn vị tính (bắt buộc)") thì không nhắc lại
+    const errorTexts = new Set(Object.values(errors))
+    for (const note of notes) if (!errorTexts.has(note)) reasons.push(`AI ghi chú: ${note}${editedNote}`)
     for (const field of lowFields) {
-      const label = labelOf.get(field) ?? field
       // Lỗi chặn nhập của ô này đã nêu ở trên; trùng mã đã có câu riêng
       if (errors[field] || (field === identityField && duplicateOf !== null)) continue
-      const notes = fieldWarnings(row.warnings, label)
       const confidence = formatConfidence(row.confidence[field])
       reasons.push(
-        notes.length > 0
-          ? `AI chưa chắc chắn: ${notes.join('; ')}`
-          : `AI chưa chắc chắn ở ô ${label}${confidence ? ` (độ tin cậy ${confidence})` : ''}`,
+        `AI chưa chắc chắn ở ô ${labelOf.get(field) ?? field}${confidence ? ` (độ tin cậy ${confidence})` : ''}`,
       )
     }
 
@@ -173,7 +183,7 @@ export function assessRows(
         ? 'error'
         : duplicateOf !== null
           ? 'duplicate'
-          : lowFields.length > 0 || row.lastError
+          : lowFields.length > 0 || notes.length > 0 || row.lastError
             ? 'review'
             : 'ready'
     const shortReason =
@@ -182,9 +192,11 @@ export function assessRows(
         : problem === 'duplicate'
           ? `Trùng mã với dòng ${duplicateOf}`
           : problem === 'review'
-            ? lowFields.length > 0
-              ? `Xem lại: ${lowFields.map((field) => labelOf.get(field) ?? field).join(', ')}`
-              : 'Lần nhập trước bị lỗi'
+            ? notes.length > 0
+              ? `AI ghi chú: ${notes[0]}`
+              : lowFields.length > 0
+                ? `Xem lại: ${lowFields.map((field) => labelOf.get(field) ?? field).join(', ')}`
+                : 'Lần nhập trước bị lỗi'
             : ''
     return {
       row: row.row,
@@ -194,8 +206,10 @@ export function assessRows(
       errors,
       duplicateOf,
       lowFields,
+      notes,
       reasons,
       shortReason,
+      moreNotes: problem === 'review' && notes.length > 1 ? notes.length - 1 : 0,
     }
   })
 }

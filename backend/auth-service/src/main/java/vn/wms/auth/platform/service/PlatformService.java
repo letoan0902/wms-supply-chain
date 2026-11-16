@@ -7,21 +7,28 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import vn.wms.auth.account.entity.AccountTokenType;
+import vn.wms.auth.account.repository.AccountTokenRepository;
+import vn.wms.auth.account.service.AccountEmailPublisher;
 import vn.wms.auth.company.entity.Company;
 import vn.wms.auth.company.entity.CompanyStatus;
+import vn.wms.auth.entity.User;
 import vn.wms.auth.payment.entity.Payment;
 import vn.wms.auth.payment.entity.PaymentStatus;
 import vn.wms.auth.payment.repository.PaymentRepository;
+import vn.wms.auth.platform.dto.ApproveCompanyRequest;
 import vn.wms.auth.platform.dto.PlatformCompanyDetailResponse;
 import vn.wms.auth.platform.dto.PlatformCompanySummary;
 import vn.wms.auth.platform.dto.PlatformOverviewResponse;
 import vn.wms.auth.platform.dto.PlatformPayment;
+import vn.wms.auth.platform.dto.RejectCompanyRequest;
 import vn.wms.auth.platform.dto.UpdateCompanyStatusRequest;
 import vn.wms.auth.platform.repository.PlatformCompanyRepository;
 import vn.wms.auth.platform.repository.PlatformPaymentRepository;
 import vn.wms.auth.platform.repository.PlatformSubscriptionRepository;
 import vn.wms.auth.platform.repository.PlatformUserRepository;
 import vn.wms.auth.repository.UserRepository;
+import vn.wms.auth.subscription.entity.BillingCycle;
 import vn.wms.auth.subscription.entity.Subscription;
 import vn.wms.auth.subscription.entity.SubscriptionStatus;
 import vn.wms.auth.subscription.repository.PlanRepository;
@@ -29,6 +36,7 @@ import vn.wms.auth.subscription.repository.SubscriptionRepository;
 import vn.wms.auth.subscription.service.SubscriptionCacheWriter;
 import vn.wms.auth.subscription.service.SubscriptionService;
 import vn.wms.auth.subscription.service.SubscriptionUsageReader;
+import vn.wms.auth.subscription.service.UserPlanLimitGuard;
 import vn.wms.common.api.PageResponse;
 import vn.wms.common.exception.ApiException;
 import vn.wms.common.plan.SubscriptionCacheKeys;
@@ -44,13 +52,14 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
  * Nghiệp vụ quản trị nền tảng (docs/SAAS_SPEC.md mục 6): thống kê toàn nền tảng, danh sách và chi tiết doanh nghiệp
- * khách hàng, tạm khóa và mở khóa doanh nghiệp, danh sách thanh toán.
+ * khách hàng, duyệt và từ chối bản đăng ký đang chờ, tạm khóa và mở khóa doanh nghiệp, danh sách thanh toán.
  *
  * <p>Đây là chỗ duy nhất của auth-service cố ý đọc dữ liệu của mọi doanh nghiệp. Bảng của auth-service không dùng
  * {@code TenantEntity} (docs/MULTI_TENANT.md mục 7), nên không có bộ lọc nào phải tắt: mọi truy vấn xuyên doanh nghiệp
@@ -72,6 +81,10 @@ public class PlatformService {
     static final int DETAIL_PAYMENT_LIMIT = 10;
     static final int MAX_PAGE_SIZE = 100;
     static final Duration EXPIRING_SOON = Duration.ofDays(7);
+    /** Số ngày dùng thử khi duyệt bản đăng ký mà không chọn, và khoảng cho phép. */
+    static final int DEFAULT_TRIAL_DAYS = 30;
+    static final int MIN_TRIAL_DAYS = 1;
+    static final int MAX_TRIAL_DAYS = 90;
 
     /** Mốc thay cho "không giới hạn" của bộ lọc ngày, nằm trong khoảng DATETIME của MySQL. */
     private static final Instant MIN_INSTANT = Instant.parse("1970-01-01T00:00:00Z");
@@ -90,6 +103,10 @@ public class PlatformService {
     private final PaymentRepository paymentRepository;
     private final PlanRepository planRepository;
     private final SubscriptionUsageReader usageReader;
+    private final SubscriptionService subscriptionService;
+    private final UserPlanLimitGuard userPlanLimitGuard;
+    private final AccountTokenRepository accountTokenRepository;
+    private final AccountEmailPublisher accountEmailPublisher;
 
     private final Clock clock = Clock.system(ZONE);
 
@@ -231,7 +248,7 @@ public class PlatformService {
     /**
      * Tạm khóa (ACTIVE thành SUSPENDED) hoặc mở khóa (SUSPENDED thành ACTIVE) một doanh nghiệp khách hàng. Người dùng
      * của doanh nghiệp bị khóa không đăng nhập và không làm mới token được ({@code AuthService}). Doanh nghiệp PENDING
-     * chỉ kích hoạt qua liên kết trong email. Lý do chỉ ghi vào log.
+     * chỉ kích hoạt qua liên kết trong email hoặc qua {@link #approve}. Lý do chỉ ghi vào log.
      */
     @Transactional
     public PlatformCompanySummary updateStatus(Long id, UpdateCompanyStatusRequest request, String actor) {
@@ -248,7 +265,8 @@ public class PlatformService {
         } else if (to == CompanyStatus.ACTIVE) {
             if (from != CompanyStatus.SUSPENDED) {
                 throw ApiException.badRequest(from == CompanyStatus.PENDING
-                        ? "Doanh nghiệp chưa kích hoạt (PENDING) chỉ kích hoạt được qua liên kết trong email đăng ký"
+                        ? "Doanh nghiệp chưa kích hoạt (PENDING) chỉ kích hoạt được qua liên kết trong email đăng ký "
+                                + "hoặc bằng thao tác duyệt bản đăng ký"
                         : "Doanh nghiệp đang hoạt động, không cần mở khóa");
             }
         } else {
@@ -259,6 +277,57 @@ public class PlatformService {
         company.setStatus(to);
         log.info("Quản trị nền tảng {} chuyển doanh nghiệp {} (companyId={}) từ {} sang {}, lý do: {}",
                 sanitize(actor), company.getCode(), company.getId(), from, to, sanitize(request.reason()));
+        return toSummaries(List.of(company)).get(0);
+    }
+
+    // ==========================================
+    // Duyệt và từ chối bản đăng ký
+    // ==========================================
+
+    /**
+     * Duyệt một bản đăng ký đang chờ kích hoạt (PENDING): doanh nghiệp chuyển ACTIVE ngay và ghi {@code activated_at};
+     * thuê bao tạo lúc đăng ký được đặt lại đúng một lần thành TRIAL ({@code trialDays} ngày, mặc định 30) hoặc PRO
+     * (30 hoặc 365 ngày), tính từ lúc duyệt; bộ nhớ đệm Redis của thuê bao và số tài khoản được ghi lại như khi đăng ký.
+     * ADMIN đầu tiên nhận email báo đã duyệt kèm liên kết đăng nhập. Liên kết kích hoạt trong email đăng ký vẫn mở được
+     * nhưng chỉ báo doanh nghiệp đã hoạt động, không đổi trạng thái hay thuê bao ({@code CompanyActivationService}).
+     */
+    @Transactional
+    public PlatformCompanySummary approve(Long id, ApproveCompanyRequest request, String actor) {
+        ApprovalPlan approval = ApprovalPlan.of(request);
+        Company company = companyRepository.findCustomerByIdForUpdate(id).orElseThrow(PlatformService::companyNotFound);
+        requirePending(company, "duyệt");
+
+        company.setStatus(CompanyStatus.ACTIVE);
+        company.setActivatedAt(Instant.now());
+        Subscription subscription = approval.cycle() != null
+                ? subscriptionService.grantProOnApproval(company, approval.cycle())
+                : subscriptionService.startTrial(company, approval.trialDays());
+        userPlanLimitGuard.reportUsage(company.getId());
+        firstAdmin(company.getId()).ifPresent(admin -> accountEmailPublisher.publishCompanyApproved(company, admin));
+
+        log.info("Quản trị nền tảng {} duyệt doanh nghiệp {} (companyId={}), gói {} {}", sanitize(actor),
+                company.getCode(), company.getId(), subscription.getPlan().getCode(),
+                approval.cycle() != null ? approval.cycle().name() : approval.trialDays() + " ngày");
+        return toSummaries(List.of(company)).get(0);
+    }
+
+    /**
+     * Từ chối một bản đăng ký đang chờ kích hoạt (PENDING): doanh nghiệp chuyển SUSPENDED (không đăng nhập được, không
+     * duyệt lại được vì không còn PENDING), các liên kết kích hoạt chưa dùng bị vô hiệu, ADMIN đầu tiên nhận email báo
+     * kết quả (không kèm lý do). Lý do chỉ ghi vào log.
+     */
+    @Transactional
+    public PlatformCompanySummary reject(Long id, RejectCompanyRequest request, String actor) {
+        Company company = companyRepository.findCustomerByIdForUpdate(id).orElseThrow(PlatformService::companyNotFound);
+        requirePending(company, "từ chối");
+
+        company.setStatus(CompanyStatus.SUSPENDED);
+        accountTokenRepository.revokeOutstandingForCompany(company.getId(), AccountTokenType.COMPANY_ACTIVATION,
+                Instant.now());
+        firstAdmin(company.getId()).ifPresent(admin -> accountEmailPublisher.publishCompanyRejected(company, admin));
+
+        log.info("Quản trị nền tảng {} từ chối bản đăng ký của doanh nghiệp {} (companyId={}), lý do: {}",
+                sanitize(actor), company.getCode(), company.getId(), sanitize(request.reason()));
         return toSummaries(List.of(company)).get(0);
     }
 
@@ -372,5 +441,56 @@ public class PlatformService {
 
     private static ApiException companyNotFound() {
         return ApiException.notFound("Không tìm thấy doanh nghiệp");
+    }
+
+    /** Duyệt và từ chối chỉ áp dụng cho bản đăng ký đang chờ kích hoạt. */
+    private static void requirePending(Company company, String action) {
+        if (company.getStatus() != CompanyStatus.PENDING) {
+            throw ApiException.badRequest("Chỉ " + action + " được bản đăng ký đang chờ kích hoạt (PENDING); doanh "
+                    + "nghiệp đang ở trạng thái " + company.getStatus());
+        }
+    }
+
+    /** ADMIN đầu tiên (ID nhỏ nhất) của doanh nghiệp: người đã đăng ký. */
+    private Optional<User> firstAdmin(Long companyId) {
+        return platformUserRepository.findAdmins(companyId).stream().findFirst();
+    }
+
+    /** Gói được chọn khi duyệt: {@code cycle} khác {@code null} nghĩa là PRO, ngược lại TRIAL {@code trialDays} ngày. */
+    private record ApprovalPlan(BillingCycle cycle, int trialDays) {
+
+        static ApprovalPlan of(ApproveCompanyRequest request) {
+            String plan = request == null ? null : trimToUpper(request.plan());
+            String cycle = request == null ? null : trimToUpper(request.cycle());
+            Integer trialDays = request == null ? null : request.trialDays();
+            if (plan == null || SubscriptionService.PLAN_TRIAL.equals(plan)) {
+                if (cycle != null) {
+                    throw ApiException.badRequest("Chu kỳ thanh toán (cycle) chỉ dùng với gói PRO");
+                }
+                int days = trialDays != null ? trialDays : DEFAULT_TRIAL_DAYS;
+                if (days < MIN_TRIAL_DAYS || days > MAX_TRIAL_DAYS) {
+                    throw ApiException.badRequest("Số ngày dùng thử từ " + MIN_TRIAL_DAYS + " đến " + MAX_TRIAL_DAYS);
+                }
+                return new ApprovalPlan(null, days);
+            }
+            if (SubscriptionService.PLAN_PRO.equals(plan)) {
+                if (trialDays != null) {
+                    throw ApiException.badRequest("Số ngày dùng thử (trialDays) chỉ dùng với gói TRIAL");
+                }
+                if (cycle == null) {
+                    throw ApiException.badRequest("Gói PRO cần chu kỳ thanh toán (cycle): MONTHLY hoặc YEARLY");
+                }
+                try {
+                    return new ApprovalPlan(BillingCycle.valueOf(cycle), 0);
+                } catch (IllegalArgumentException ex) {
+                    throw ApiException.badRequest("Chu kỳ thanh toán chỉ là MONTHLY hoặc YEARLY");
+                }
+            }
+            throw ApiException.badRequest("Gói khi duyệt chỉ là TRIAL hoặc PRO");
+        }
+
+        private static String trimToUpper(String value) {
+            return value == null || value.isBlank() ? null : value.trim().toUpperCase(Locale.ROOT);
+        }
     }
 }

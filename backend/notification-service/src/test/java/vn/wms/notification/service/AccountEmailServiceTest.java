@@ -196,6 +196,36 @@ class AccountEmailServiceTest {
         verify(repository, never()).save(any());
     }
 
+    @Test
+    void companyApprovedAndRejectedEmailsHaveFixedContentAndNoExpiry() throws Exception {
+        AccountEmailRequestedEvent approved = new AccountEmailRequestedEvent(AccountEmailKind.COMPANY_APPROVED,
+                COMPANY_ID, "Công ty <Kho> Mẫu", "an@example.com", "Nguyễn Văn An", "https://wms.example.vn/login",
+                null, Instant.parse("2026-11-11T03:00:00Z"));
+        AccountEmailRequestedEvent rejected = new AccountEmailRequestedEvent(AccountEmailKind.COMPANY_REJECTED,
+                COMPANY_ID, "Công ty Mẫu", "an@example.com", null, "https://wms.example.vn",
+                null, Instant.parse("2026-11-11T03:00:00Z"));
+        AccountEmailService service = service("smtp.example.com", "wms@example.com");
+
+        NotificationLog approvedEntry = TenantContext.callAs(COMPANY_ID, () -> service.send(approved, "msg-approved"));
+        NotificationLog rejectedEntry = TenantContext.callAs(COMPANY_ID, () -> service.send(rejected, "msg-rejected"));
+
+        ArgumentCaptor<MimeMessage> captor = ArgumentCaptor.forClass(MimeMessage.class);
+        verify(mailSender, org.mockito.Mockito.times(2)).send(captor.capture());
+        MimeMessage approvedMail = captor.getAllValues().get(0);
+        MimeMessage rejectedMail = captor.getAllValues().get(1);
+
+        assertThat(approvedMail.getSubject()).isEqualTo("Doanh nghiệp Công ty <Kho> Mẫu đã được duyệt trên WMS Supply Chain");
+        assertThat(htmlOf(approvedMail)).contains("Xin chào Nguyễn Văn An", "Công ty &lt;Kho&gt; Mẫu",
+                "href=\"https://wms.example.vn/login\"", "Đăng nhập").doesNotContain("hết hiệu lực");
+        assertThat(approvedEntry.getEventType()).isEqualTo("COMPANY_APPROVED");
+        assertThat(approvedEntry.getStatus()).isEqualTo(NotificationStatus.SENT);
+
+        assertThat(rejectedMail.getSubject()).isEqualTo("Kết quả đăng ký doanh nghiệp Công ty Mẫu trên WMS Supply Chain");
+        assertThat(htmlOf(rejectedMail)).contains("Xin chào an@example.com", "chưa được chấp thuận",
+                "không đăng nhập được", "href=\"https://wms.example.vn\"").doesNotContain("hết hiệu lực");
+        assertThat(rejectedEntry.getEventType()).isEqualTo("COMPANY_REJECTED");
+    }
+
     private static String htmlOf(MimeMessage message) throws Exception {
         Object content = message.getContent();
         if (content instanceof MimeMultipart multipart) {

@@ -108,6 +108,20 @@ export interface UpdateCompanyStatusRequest {
   reason?: string
 }
 
+/**
+ * Thân (tùy chọn) của POST /api/auth/platform/companies/{id}/approve. Không gửi gì thì cấp gói dùng thử 30 ngày.
+ * `trialDays` (1 đến 90) chỉ dùng với TRIAL, `cycle` bắt buộc với PRO.
+ */
+export type ApproveCompanyRequest =
+  | { plan: 'TRIAL'; trialDays?: number }
+  | { plan: 'PRO'; cycle: BillingCycle }
+
+/** Thân của POST /api/auth/platform/companies/{id}/reject. */
+export interface RejectCompanyRequest {
+  /** Bắt buộc, tối đa 255 ký tự; máy chủ chỉ ghi vào nhật ký, không gửi trong email */
+  reason: string
+}
+
 const BASE = '/auth/platform'
 
 /** GET /api/auth/platform/overview: số liệu tổng quan của nền tảng (không tính doanh nghiệp PLATFORM). */
@@ -139,6 +153,30 @@ export async function updatePlatformCompanyStatus(
   payload: UpdateCompanyStatusRequest,
 ): Promise<PlatformCompanySummary> {
   const response = await api.put<ApiResponse<PlatformCompanySummary>>(`${BASE}/companies/${id}/status`, payload)
+  return response.data.data
+}
+
+/**
+ * POST /api/auth/platform/companies/{id}/approve: duyệt bản đăng ký đang chờ (PENDING). Doanh nghiệp hoạt động ngay với
+ * gói đã chọn; doanh nghiệp không còn PENDING trả 400.
+ */
+export async function approvePlatformCompany(
+  id: number,
+  payload: ApproveCompanyRequest,
+): Promise<PlatformCompanySummary> {
+  const response = await api.post<ApiResponse<PlatformCompanySummary>>(`${BASE}/companies/${id}/approve`, payload)
+  return response.data.data
+}
+
+/**
+ * POST /api/auth/platform/companies/{id}/reject: từ chối bản đăng ký đang chờ (PENDING). Doanh nghiệp chuyển SUSPENDED,
+ * người đăng ký không đăng nhập được; doanh nghiệp không còn PENDING trả 400.
+ */
+export async function rejectPlatformCompany(
+  id: number,
+  payload: RejectCompanyRequest,
+): Promise<PlatformCompanySummary> {
+  const response = await api.post<ApiResponse<PlatformCompanySummary>>(`${BASE}/companies/${id}/reject`, payload)
   return response.data.data
 }
 

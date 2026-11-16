@@ -79,10 +79,23 @@ public final class WmsEvents {
          */
         public static final String AUTH_PASSWORD_RESET_REQUESTED = "auth.password-reset-requested";
 
+        /**
+         * auth-service: quản trị nền tảng duyệt bản đăng ký doanh nghiệp; notification-service gửi email báo doanh
+         * nghiệp đã hoạt động kèm liên kết đăng nhập. Payload {@code AccountEmailRequestedEvent} với
+         * {@code kind = COMPANY_APPROVED}.
+         */
+        public static final String AUTH_COMPANY_APPROVED = "auth.company-approved";
+
+        /**
+         * auth-service: quản trị nền tảng từ chối bản đăng ký doanh nghiệp; notification-service gửi email báo kết quả.
+         * Payload {@code AccountEmailRequestedEvent} với {@code kind = COMPANY_REJECTED}.
+         */
+        public static final String AUTH_COMPANY_REJECTED = "auth.company-rejected";
+
         /** Danh sách mọi routing key sự kiện, dùng cho test và tài liệu. */
         public static final List<String> ALL = List.of(ORDER_CREATED, ORDER_DISPATCHED, ORDER_RECEIVED, INVENTORY_UPDATED,
                 ALERT_LOW_STOCK, ALERT_STOCK_SUMMARY, ALERT_STOCK_DIGEST, AUTH_ACTIVATION_REQUESTED,
-                AUTH_PASSWORD_RESET_REQUESTED);
+                AUTH_PASSWORD_RESET_REQUESTED, AUTH_COMPANY_APPROVED, AUTH_COMPANY_REJECTED);
 
         /** Mẫu binding: mọi sự kiện của domain đơn hàng. */
         public static final String ORDER_ALL = "order.#";
@@ -93,7 +106,7 @@ public final class WmsEvents {
         /** Mẫu binding: mọi cảnh báo. */
         public static final String ALERT_ALL = "alert.#";
 
-        /** Mẫu binding: mọi yêu cầu gửi email tài khoản của auth-service (kích hoạt, đặt lại mật khẩu). */
+        /** Mẫu binding: mọi yêu cầu gửi email tài khoản của auth-service (kích hoạt, đặt lại mật khẩu, kết quả duyệt). */
         public static final String AUTH_ALL = "auth.#";
 
         private RoutingKeys() {

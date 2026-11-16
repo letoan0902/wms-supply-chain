@@ -24,7 +24,8 @@ import java.util.Locale;
 import java.util.Set;
 
 /**
- * Gửi email tài khoản do auth-service yêu cầu (WMS-23.6): liên kết kích hoạt doanh nghiệp và liên kết đặt lại mật khẩu.
+ * Gửi email tài khoản do auth-service yêu cầu (WMS-23.6): liên kết kích hoạt doanh nghiệp, liên kết đặt lại mật khẩu và
+ * kết quả quản trị nền tảng duyệt hoặc từ chối bản đăng ký doanh nghiệp.
  *
  * <ul>
  *   <li>Người gọi (listener) phải đặt {@link TenantContext} theo doanh nghiệp của sự kiện: bản ghi
@@ -120,32 +121,61 @@ public class AccountEmailService {
     }
 
     static String eventTypeOf(AccountEmailKind kind) {
-        return kind == AccountEmailKind.ACTIVATION ? "ACCOUNT_ACTIVATION" : "PASSWORD_RESET";
+        return switch (kind) {
+            case ACTIVATION -> "ACCOUNT_ACTIVATION";
+            case PASSWORD_RESET -> "PASSWORD_RESET";
+            case COMPANY_APPROVED -> "COMPANY_APPROVED";
+            case COMPANY_REJECTED -> "COMPANY_REJECTED";
+        };
     }
 
     static String subjectOf(AccountEmailRequestedEvent event) {
-        if (event.kind() == AccountEmailKind.ACTIVATION) {
-            return "Kích hoạt doanh nghiệp "
-                    + (StringUtils.hasText(event.companyName()) ? event.companyName() + " " : "")
-                    + "trên WMS Supply Chain";
-        }
-        return "Đặt lại mật khẩu tài khoản WMS Supply Chain";
+        String company = StringUtils.hasText(event.companyName()) ? event.companyName() + " " : "";
+        return switch (event.kind()) {
+            case ACTIVATION -> "Kích hoạt doanh nghiệp " + company + "trên WMS Supply Chain";
+            case PASSWORD_RESET -> "Đặt lại mật khẩu tài khoản WMS Supply Chain";
+            case COMPANY_APPROVED -> "Doanh nghiệp " + company + "đã được duyệt trên WMS Supply Chain";
+            case COMPANY_REJECTED -> "Kết quả đăng ký doanh nghiệp " + company + "trên WMS Supply Chain";
+        };
     }
 
-    /** Nội dung HTML ngắn; mọi giá trị từ sự kiện đều được thoát ký tự HTML. */
+    /**
+     * Nội dung HTML ngắn; mọi giá trị từ sự kiện đều được thoát ký tự HTML. Nội dung cố định theo loại email, sự kiện
+     * chỉ mang tên, địa chỉ và liên kết nên bên phát không chèn được nội dung tùy ý.
+     */
     static String htmlOf(AccountEmailRequestedEvent event) {
-        boolean activation = event.kind() == AccountEmailKind.ACTIVATION;
         String name = StringUtils.hasText(event.recipientName()) ? event.recipientName() : event.recipientEmail();
-        String company = StringUtils.hasText(event.companyName()) ? event.companyName() : "doanh nghiệp của bạn";
-        String intro = activation
-                ? "Cảm ơn bạn đã đăng ký <strong>" + escape(company) + "</strong> trên WMS Supply Chain. "
-                + "Bấm nút bên dưới để kích hoạt doanh nghiệp và bắt đầu 30 ngày dùng thử."
-                : "Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản của bạn tại <strong>"
-                + escape(company) + "</strong>. Bấm nút bên dưới để đặt mật khẩu mới.";
-        String button = activation ? "Kích hoạt doanh nghiệp" : "Đặt lại mật khẩu";
-        String ignore = activation
-                ? "Nếu bạn không đăng ký, hãy bỏ qua email này."
-                : "Nếu bạn không yêu cầu, hãy bỏ qua email này, mật khẩu hiện tại vẫn giữ nguyên.";
+        String company = escape(StringUtils.hasText(event.companyName()) ? event.companyName() : "doanh nghiệp của bạn");
+        String intro;
+        String button;
+        String footnote;
+        switch (event.kind()) {
+            case ACTIVATION -> {
+                intro = "Cảm ơn bạn đã đăng ký <strong>" + company + "</strong> trên WMS Supply Chain. "
+                        + "Bấm nút bên dưới để kích hoạt doanh nghiệp và bắt đầu 30 ngày dùng thử.";
+                button = "Kích hoạt doanh nghiệp";
+                footnote = "Nếu bạn không đăng ký, hãy bỏ qua email này.";
+            }
+            case PASSWORD_RESET -> {
+                intro = "Chúng tôi nhận được yêu cầu đặt lại mật khẩu cho tài khoản của bạn tại <strong>"
+                        + company + "</strong>. Bấm nút bên dưới để đặt mật khẩu mới.";
+                button = "Đặt lại mật khẩu";
+                footnote = "Nếu bạn không yêu cầu, hãy bỏ qua email này, mật khẩu hiện tại vẫn giữ nguyên.";
+            }
+            case COMPANY_APPROVED -> {
+                intro = "Bản đăng ký <strong>" + company + "</strong> đã được quản trị nền tảng WMS Supply Chain duyệt. "
+                        + "Doanh nghiệp đã hoạt động, bạn đăng nhập được ngay bằng tài khoản quản trị đã đăng ký.";
+                button = "Đăng nhập";
+                footnote = "Liên kết kích hoạt trong email đăng ký trước đó không cần dùng nữa.";
+            }
+            case COMPANY_REJECTED -> {
+                intro = "Bản đăng ký <strong>" + company + "</strong> trên WMS Supply Chain chưa được chấp thuận. "
+                        + "Tài khoản đã đăng ký không đăng nhập được.";
+                button = "Về trang WMS Supply Chain";
+                footnote = "Nếu bạn cần trao đổi thêm, vui lòng liên hệ bộ phận hỗ trợ của WMS Supply Chain.";
+            }
+            default -> throw new IllegalArgumentException("Loại email tài khoản chưa hỗ trợ: " + event.kind());
+        }
         String expiry = event.expiresAt() == null ? ""
                 : "<p style=\"color:#64748b;font-size:13px\">Liên kết chỉ dùng được một lần và hết hiệu lực lúc "
                 + EXPIRY_FORMAT.format(event.expiresAt()) + " (giờ Việt Nam).</p>";
@@ -159,7 +189,7 @@ public class AccountEmailService {
                 + "<p style=\"font-size:13px\">Nếu nút không bấm được, mở địa chỉ sau trong trình duyệt:<br>"
                 + "<a href=\"" + link + "\">" + link + "</a></p>"
                 + expiry
-                + "<p style=\"color:#64748b;font-size:13px\">" + ignore + "</p>"
+                + "<p style=\"color:#64748b;font-size:13px\">" + footnote + "</p>"
                 + "<p>WMS Supply Chain</p></body></html>";
     }
 

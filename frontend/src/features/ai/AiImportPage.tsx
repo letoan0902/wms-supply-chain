@@ -417,7 +417,15 @@ export default function AiImportPage() {
     const identityColumnLabel = columns.find((column) => column.field === identityField)?.label ?? 'Mã'
     // "Mã SKU" thành "mã SKU" để ghép giữa câu
     const identityLabel = identityColumnLabel.charAt(0).toLowerCase() + identityColumnLabel.slice(1)
-    const reviewRowNumbers = assessmentList.filter((item) => item.status === 'review').map((item) => item.row)
+    const sending = assessmentList.filter((item) => item.status === 'review')
+    const unsureRows = sending.filter((item) => item.lowFields.length > 0).map((item) => item.row)
+    const notedRows = sending.filter((item) => item.notes.length > 0).map((item) => item.row)
+    const caveats = [
+      unsureRows.length > 0
+        ? `${unsureRows.length} dòng còn ô AI chưa chắc chắn mà bạn chưa sửa (${formatRowList(unsureRows)})`
+        : null,
+      notedRows.length > 0 ? `${notedRows.length} dòng có ghi chú của AI (${formatRowList(notedRows)})` : null,
+    ].filter((part): part is string => part !== null)
     const excluded = summary.counts.excluded
     const excludedParts = [
       summary.excludedByProblem.error > 0 ? `${summary.excludedByProblem.error} dòng lỗi` : null,
@@ -443,9 +451,7 @@ export default function AiImportPage() {
           <ul className="m-0 list-disc space-y-1.5 pl-5">
             <li>
               <strong>{toSend.length} dòng</strong> được gửi để tạo mới trong {info.catalogLabel}
-              {reviewRowNumbers.length > 0
-                ? `; trong đó ${reviewRowNumbers.length} dòng còn ô AI chưa chắc chắn mà bạn chưa sửa (${formatRowList(reviewRowNumbers)}).`
-                : '.'}
+              {caveats.length > 0 ? `; trong đó ${caveats.join(' và ')}.` : '.'}
             </li>
             <li>
               Dòng nào có {identityLabel} đã có trong {info.catalogLabel} sẽ được{' '}
@@ -698,18 +704,16 @@ export default function AiImportPage() {
               />
             )}
             {extraction.warnings.length > 0 && (
-              <Alert
-                type="warning"
-                showIcon
-                message="Lưu ý khi đọc file"
-                description={
-                  <ul className="m-0 list-disc pl-4">
-                    {extraction.warnings.map((warning) => (
-                      <li key={warning}>{warning}</li>
-                    ))}
-                  </ul>
-                }
-              />
+              <div className="rounded-lg border border-amber-200/80 bg-amber-50/50 px-4 py-2 text-[13px] text-slate-700">
+                <div className="font-medium text-slate-900">
+                  Ghi chú khi đọc cả file ({extraction.warnings.length})
+                </div>
+                <ul className="m-0 mt-0.5 list-disc space-y-0.5 pl-4">
+                  {extraction.warnings.map((warning) => (
+                    <li key={warning}>{warning}</li>
+                  ))}
+                </ul>
+              </div>
             )}
 
             <section aria-label="Tóm tắt kết quả đọc" className="space-y-2">
